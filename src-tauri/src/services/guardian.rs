@@ -462,7 +462,7 @@ impl GuardianService {
                                         ).unwrap_or(false)
                                     } else {
                                         conn.query_row(
-                                            "SELECT status, pid FROM servers WHERE id = ?",
+                                            "SELECT status, process_id FROM servers WHERE id = ?",
                                             [server_id],
                                             |row| {
                                                 let status: String = row.get(0)?;

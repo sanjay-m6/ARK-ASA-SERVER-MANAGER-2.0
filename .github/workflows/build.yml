@@ -91,7 +91,26 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Bug Fixes in v4.6.27
+            ### 🆕 New Features & Bug Fixes in v4.6.28
+            - **🛡️ Fix Afternoon & Scheduled Restarts Failing to Start Up**:
+              - Resolved critical issue where afternoon/morning scheduled restarts and manual reboots cleanly stopped servers and completed pre-restart backups, but failed to start servers back up.
+              - Removed `game_port + 1` from process termination target ports in `restart_server` and `launcher::stop_server`, preventing restart sequences from force-killing adjacent cluster servers running on consecutive ports (e.g. 7777 and 7778).
+              - Removed invalid `-PeerPort` command line argument and redundant `("Peer", game_port + 1)` port check from `ProcessManager::start_server` which caused consecutive ASA cluster nodes to falsely collide and abort startup.
+              - Implemented protocol-aware port checking (`is_udp_port_in_use` for Game/Query UDP sockets and `is_tcp_port_in_use` with active connection probing for RCON TCP sockets), preventing post-shutdown Windows `TIME_WAIT` socket states from falsely timing out and aborting server launches.
+              - Updated startup conflict validation so that offline/dormant server profiles in the database never block active server launches.
+            - **⚡ Fix Map Starts Becoming Unresponsive in Server Manager**:
+              - Fixed `checkPortsBeforeStart` in Server Manager to only intercept on active port conflicts (`has_active_conflicts`) rather than offline/inactive profile matches, allowing manual map launches to respond immediately.
+              - Updated `PortConflictModal` to always provide an active "Start Anyway" button so administrators are never locked out of starting their servers.
+              - Updated frontend `portAllocator` to restrict Raw Port (`gp + 1`) reservations to ASE servers only, allowing ASA servers to use consecutive ports without conflict warnings.
+            - **📢 Startup Observability & Failure Reporting**:
+              - Added real-time in-app console logging (`server_log` event) and Discord webhook failure embed alerts when a server startup fails, providing immediate diagnostic error details rather than silent failure.
+            - **🌐 Comprehensive Internationalization & UI Polish**:
+              - Synchronized and updated localization dictionaries across all supported languages (DE, EN, ES, FR, IT, JA, KO, PT-BR, RU, TA, TR, ZH-CN, ZH-TW).
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.27 — Fix Server Startup Failure on Restarts, Port Releases, and Discord Rate-Limits</summary>
+
             - **🛡️ Fix Server Startup Failure on Restarts & Port Release Engine (Exit Code 0)**:
               - Resolved critical issue where servers failed to start back up after scheduled morning/afternoon restarts or manual reboots, shutting down immediately upon startup with exit code 0.
               - Implemented process termination wait (`WaitForSingleObject`) with forceful `taskkill /F /T` fallback to guarantee old processes have completely terminated before launching new instances.
@@ -106,33 +125,12 @@ jobs:
               - Updated server name resolution (`get_server_name`) to support both ASA (`servers`) and ASE (`ase_servers`) tables so server titles in Discord embeds are always accurate.
             - **🦅 Automatic Flier Riding Setting (`bForceCanRideFliers`)**:
               - Automatically preserves and defaults `bForceCanRideFliers=True` whenever General Settings are saved or modified, decoupling it from cave flyer restrictions and ensuring flying mounts remain mountable across all supported maps.
-
-            ### 🛠️ Previous Releases
-            <details>
-            <summary>v4.6.26 — Server Startup Configuration Synchronization & Fatal Hang Protection</summary>
-
-            - **🛡️ Fix Server Startup Configuration Vanishing & Resetting**:
-              - Resolved critical bug where custom server configurations (SessionName, ServerPassword, ports, player limits, and custom multipliers) vanished and reverted back to original factory defaults on server start.
-              - Added pre-launch INI synchronization (`sync_server_from_ini_if_changed`) to ensure manual or visual editor settings are absorbed into SQLite prior to startup config generation.
-              - Introduced disambiguated type-safe config generation (`generate_config_for_type`) to eliminate SQLite ID collisions between ASA (`servers`) and ASE (`ase_servers`) tables.
-              - Guarded custom template folder copying (`ase_user_config_folder`) so that existing `GameUserSettings.ini` and `Game.ini` are never overwritten on server boot.
-              - Preserved manual `ActiveMods` and custom mod map keys (`ActiveMapMod`) during startup config generation.
-            - **⚡ Fix UE4 Fatal Error Startup Hang Crash (`FHangThreadWatcher::HangeDetected()`)**:
-              - Resolved fatal error crash dialog (`ShooterGameServer.exe!FHangThreadWatcher::HangeDetected() [gameengine.cpp:172]`) during server startup on Wine, Proton, Linux AppImage, and modded servers.
-              - Unconditionally passed `-NoHangDetection` on dedicated server startup, preventing Unreal Engine 4's watchdog thread from aborting during asset/mod loading and flushing uninitialized in-memory defaults to disk.
-              - Defaulted `no_hang_det` to `true` in configuration models, UI controls, and INI parsers.
-            - **🐧 Linux & Wine Config Subdirectory Resolution**:
-              - Updated `get_config_subdirectory` to dynamically verify whether Windows binaries (`ShooterGameServer.exe`) or `Saved/Config/WindowsServer` folders exist before falling back to `LinuxServer`.
-              - Ensures servers executed under Wine/Proton on Linux (including AppImage environments) read and write to `WindowsServer/` where the Windows executable expects them.
-            - **🔌 Fix RCON Loopback Binding & Connection (`WSAEADDRNOTAVAIL 10049`)**:
-              - Fixed RCON connection failure when pressing the "Connect" button in the RCON Console.
-              - Resolved inverted `0.0.0.0` address filtering, automatically mapping wildcards (`0.0.0.0`, `""`, `localhost`) to loopback target `127.0.0.1:<port>`.
-              - Added defense-in-depth normalization in `ArkRconClient::connect`, background heartbeat loops, and RCON Console UI to guarantee `TcpStream::connect` never receives an illegal wildcard bind address.
             </details>
 
             *For full release notes of previous versions, please visit the [Releases Archive](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases) or see [CHANGELOG.md](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/blob/main/CHANGELOG.md).*
           releaseDraft: false
           includeUpdaterJson: true
+          updaterJsonPreferNsis: true
 
       - name: Verify Release Signatures
         run: node scripts/verify-release-signatures.js

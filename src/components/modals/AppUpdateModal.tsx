@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { Sparkles, Download, CheckCircle, RefreshCw, X, AlertCircle, ExternalLink, Loader2, FileText, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -101,6 +102,7 @@ function renderFormattedMarkdown(text: string) {
 }
 
 export default function AppUpdateModal({ isOpen, onClose }: AppUpdateModalProps) {
+    const { t } = useTranslation();
     const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo | null>(null);
     const [isChecking, setIsChecking] = useState(false);
     const [isInstalling, setIsInstalling] = useState(false);
@@ -175,10 +177,10 @@ export default function AppUpdateModal({ isOpen, onClose }: AppUpdateModalProps)
                         </div>
                         <div>
                             <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                                Application Updates
+                                {t('appUpdate.title', 'Application Updates')}
                                 {isChecking && <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />}
                             </h3>
-                            <p className="text-xs text-slate-400">Check for and install the latest features & security improvements</p>
+                            <p className="text-xs text-slate-400">{t('appUpdate.subtitle', 'Keep ARK Server Manager running at peak performance')}</p>
                         </div>
                     </div>
 
@@ -186,26 +188,26 @@ export default function AppUpdateModal({ isOpen, onClose }: AppUpdateModalProps)
                     {isChecking ? (
                         <div className="py-12 text-center space-y-3">
                             <Loader2 className="w-10 h-10 text-indigo-400 animate-spin mx-auto" />
-                            <p className="text-sm font-medium text-slate-300">Checking GitHub for latest release...</p>
+                            <p className="text-sm font-medium text-slate-300">{t('appUpdate.checking', 'Checking GitHub for latest release...')}</p>
                         </div>
                     ) : updateInfo ? (
                         <div className="space-y-4">
                             {/* Version Comparison Card */}
                             <div className="p-4 rounded-xl border bg-slate-950/60 border-slate-800 flex items-center justify-between">
                                 <div>
-                                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Installed Version</span>
+                                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">{t('appUpdate.currentVersion', 'Installed Version')}</span>
                                     <span className="text-lg font-bold font-mono text-slate-200">v{updateInfo.current_version}</span>
                                 </div>
 
                                 <div className="text-center px-4">
                                     <div className="w-8 h-px bg-slate-700 mx-auto mb-1" />
                                     <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">
-                                        {updateInfo.update_available ? 'UPDATE READY' : 'LATEST'}
+                                        {updateInfo.update_available ? t('appUpdate.updateReady', 'UPDATE READY') : t('appUpdate.latest', 'LATEST')}
                                     </span>
                                 </div>
 
                                 <div className="text-right">
-                                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Latest Version</span>
+                                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">{t('appUpdate.latestVersion', 'Latest Version')}</span>
                                     <span className={`text-lg font-bold font-mono ${updateInfo.update_available ? 'text-emerald-400' : 'text-slate-200'}`}>
                                         v{updateInfo.latest_version}
                                     </span>
@@ -217,16 +219,16 @@ export default function AppUpdateModal({ isOpen, onClose }: AppUpdateModalProps)
                                 <div className="p-3.5 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center gap-3">
                                     <Sparkles className="w-5 h-5 text-emerald-400 shrink-0" />
                                     <div>
-                                        <p className="text-xs font-bold text-emerald-300">New Version Available!</p>
-                                        <p className="text-[11px] text-emerald-200/80">Version {updateInfo.latest_version} is available with performance upgrades and new tools.</p>
+                                        <p className="text-xs font-bold text-emerald-300">{t('appUpdate.newVersionAvailable', 'New Version Available!')}</p>
+                                        <p className="text-[11px] text-emerald-200/80">{t('appUpdate.newVersionDesc', { version: updateInfo.latest_version })}</p>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="p-3.5 bg-slate-800/60 border border-slate-700/60 rounded-xl flex items-center gap-3">
                                     <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
                                     <div>
-                                        <p className="text-xs font-bold text-white">Up to Date</p>
-                                        <p className="text-[11px] text-slate-400">You are currently running the latest version of ARK Server Manager 2.0.</p>
+                                        <p className="text-xs font-bold text-white">{t('appUpdate.upToDate', 'Up to Date')}</p>
+                                        <p className="text-[11px] text-slate-400">{t('appUpdate.upToDateDesc', 'You are currently running the latest version of ARK Server Manager 2.0.')}</p>
                                     </div>
                                 </div>
                             )}
@@ -237,18 +239,18 @@ export default function AppUpdateModal({ isOpen, onClose }: AppUpdateModalProps)
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-1.5">
                                             <FileText className="w-3.5 h-3.5 text-sky-400" />
-                                            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Release Notes</span>
+                                            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">{t('appUpdate.releaseNotes', 'Release Notes')}</span>
                                         </div>
                                         <button
                                             onClick={() => {
                                                 navigator.clipboard.writeText(String(updateInfo.release_notes));
-                                                toast.success("Release notes copied to clipboard!", { icon: "📋" });
+                                                toast.success(t('appUpdate.notesCopied', 'Release notes copied to clipboard!'), { icon: "📋" });
                                             }}
                                             className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 border border-slate-700 shadow-sm"
                                             title="Copy release notes to clipboard"
                                         >
                                             <Copy className="w-3 h-3 text-sky-400" />
-                                            <span>Copy Notes</span>
+                                            <span>{t('appUpdate.copyNotes', 'Copy Notes')}</span>
                                         </button>
                                     </div>
 
@@ -273,7 +275,7 @@ export default function AppUpdateModal({ isOpen, onClose }: AppUpdateModalProps)
                             className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium transition-colors"
                         >
                             <RefreshCw className={`w-3.5 h-3.5 ${isChecking ? 'animate-spin' : ''}`} />
-                            <span>Re-Check</span>
+                            <span>{t('appUpdate.reCheck', 'Re-Check')}</span>
                         </button>
 
                         <div className="flex items-center gap-2">
@@ -296,14 +298,14 @@ export default function AppUpdateModal({ isOpen, onClose }: AppUpdateModalProps)
                                     className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold rounded-xl text-xs shadow-lg shadow-emerald-500/20 transition-all"
                                 >
                                     {isInstalling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                                    <span>Install Update Now</span>
+                                    <span>{t('appUpdate.installUpdate', 'Install Update Now')}</span>
                                 </button>
                             ) : (
                                 <button
                                     onClick={onClose}
                                     className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs shadow-md transition-all"
                                 >
-                                    Close
+                                    {t('appUpdate.close', 'Close')}
                                 </button>
                             )}
                         </div>

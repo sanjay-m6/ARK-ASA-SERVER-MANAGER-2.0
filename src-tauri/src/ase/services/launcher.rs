@@ -563,22 +563,42 @@ impl AseLauncher {
         let _ = std::fs::remove_file(&log_file_path_init);
 
         // Verify ports are free before spawning to prevent instant exit (code 0)
-        let check_ports = [
-            ("Game", server.port),
-            ("Peer", server.port + 1),
-            ("Query", server.query_port),
-            ("RCON", server.rcon_port),
+        let check_ports: [(&str, u16, bool); 3] = [
+            ("Game", server.port, true),  // UDP
+            ("Query", server.query_port, true), // UDP
+            ("RCON", server.rcon_port, false), // TCP
         ];
-        for (p_name, p_val) in check_ports {
+        for (p_name, p_val, is_udp) in check_ports {
             if p_val > 0 {
                 let mut attempts = 0;
-                while crate::services::network::is_port_in_use(p_val) && attempts < 15 {
-                    println!("  ⏳ [ASE Startup Port Check] {} port {} is busy. Waiting 1s (attempt {}/15)...", p_name, p_val, attempts + 1);
-                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                let check_in_use = || {
+                    if is_udp {
+                        crate::services::network::is_udp_port_in_use(p_val)
+                    } else {
+                        crate::services::network::is_tcp_port_in_use(p_val)
+                    }
+                };
+                while check_in_use() && attempts < 8 {
+                    println!("  ⏳ [ASE Startup Port Check] {} port {} is busy. Waiting 1s (attempt {}/8)...", p_name, p_val, attempts + 1);
+                    crate::services::process_manager::ProcessManager::kill_processes_on_ports(&[p_val]);
+                    tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
                     attempts += 1;
                 }
-                if crate::services::network::is_port_in_use(p_val) {
-                    return Err(format!("{} Port {} is still in use by another process. Cannot start server.", p_name, p_val));
+                if check_in_use() {
+                    let is_conflict_running = {
+                        let db = state.db.lock().map_err(|e| e.to_string())?;
+                        let conn = db.get_connection().map_err(|e| e.to_string())?;
+                        conn.query_row(
+                            "SELECT 1 FROM ase_servers WHERE id != ?1 AND (port = ?2 OR query_port = ?2 OR rcon_port = ?2) AND status IN ('running', 'starting', 'online')",
+                            [server.id, p_val as i64],
+                            |_| Ok(true)
+                        ).unwrap_or(false)
+                    };
+                    if is_conflict_running {
+                        return Err(format!("{} Port {} is actively in use by another running ASE server. Cannot start server.", p_name, p_val));
+                    } else {
+                        println!("  ⚠️ [ASE Startup] Port {} still reported busy after retries, proceeding with launch.", p_val);
+                    }
                 }
             }
         }
@@ -935,13 +955,21 @@ impl AseLauncher {
         }
 
         // Kill lingering processes holding ASE ports
-        let target_ports: Vec<u16> = [port, port + 1, query_port, rcon_port].into_iter().filter(|&p| p > 0).collect();
+        let target_ports: Vec<u16> = [port, query_port, rcon_port].into_iter().filter(|&p| p > 0).collect();
         crate::services::process_manager::ProcessManager::kill_processes_on_ports(&target_ports);
 
-        // Wait up to 10 seconds for sockets to release
+        // Wait up to 3 seconds for sockets to release
         for &p in &target_ports {
             let mut port_wait = 0;
-            while crate::services::network::is_port_in_use(p) && port_wait < 10 {
+            let is_udp = p == port || p == query_port;
+            let check_in_use = || {
+                if is_udp {
+                    crate::services::network::is_udp_port_in_use(p)
+                } else {
+                    crate::services::network::is_tcp_port_in_use(p)
+                }
+            };
+            while check_in_use() && port_wait < 6 {
                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
                 port_wait += 1;
             }

@@ -10,6 +10,9 @@ export interface ServerPortConfig {
 
 export interface MinimalServerProfile {
     id?: number | string;
+    is_ase?: boolean;
+    gameType?: string;
+    serverType?: string;
     ports?: {
         gamePort?: number;
         queryPort?: number;
@@ -22,6 +25,7 @@ export interface MinimalServerProfile {
 
 /**
  * Collects all ports currently configured across all existing server profiles.
+ * Only reserves gp + 1 (Raw Port) for ASE servers.
  */
 export function getUsedPorts(
     servers: MinimalServerProfile[],
@@ -34,13 +38,17 @@ export function getUsedPorts(
             continue;
         }
 
+        const isServerAse = server.is_ase === true || server.gameType === 'ase' || server.serverType === 'ASE';
         const gp = Number(server.ports?.gamePort ?? server.port ?? 7777);
         const qp = Number(server.ports?.queryPort ?? server.queryPort ?? 27015);
         const rp = Number(server.ports?.rconPort ?? server.rconPort ?? 32330);
 
         if (gp > 0) {
             used.add(gp);
-            used.add(gp + 1); // Raw Port (Game Port + 1)
+            // Only ASE uses Peer/Raw Port (Game Port + 1)
+            if (isServerAse) {
+                used.add(gp + 1);
+            }
         }
         if (qp > 0) {
             used.add(qp);
@@ -61,13 +69,14 @@ export function hasPortConflicts(
     queryPort: number,
     rconPort: number,
     existingServers: MinimalServerProfile[],
-    excludeServerId?: number | string
+    excludeServerId?: number | string,
+    isAse?: boolean
 ): { hasConflict: boolean; conflictingPorts: string[] } {
     const used = getUsedPorts(existingServers, excludeServerId);
     const conflictingPorts: string[] = [];
 
     if (used.has(gamePort)) conflictingPorts.push(`Game Port (${gamePort})`);
-    if (used.has(gamePort + 1)) conflictingPorts.push(`Raw Port (${gamePort + 1})`);
+    if (isAse && used.has(gamePort + 1)) conflictingPorts.push(`Raw Port (${gamePort + 1})`);
     if (used.has(queryPort)) conflictingPorts.push(`Query Port (${queryPort})`);
     if (used.has(rconPort)) conflictingPorts.push(`RCON Port (${rconPort})`);
 
@@ -96,19 +105,21 @@ export function allocateNextAvailablePorts(
         isAse?: boolean;
     } = {}
 ): ServerPortConfig {
+    const isAse = options.isAse ?? false;
     const used = getUsedPorts(existingServers, options.excludeServerId);
 
     let gamePort = options.desiredGamePort && options.desiredGamePort > 0 ? options.desiredGamePort : 7777;
     let queryPort = options.desiredQueryPort && options.desiredQueryPort > 0 ? options.desiredQueryPort : 27015;
-    let rconPort = options.desiredRconPort && options.desiredRconPort > 0 ? options.desiredRconPort : (options.isAse ? 27020 : 32330);
+    let rconPort = options.desiredRconPort && options.desiredRconPort > 0 ? options.desiredRconPort : (isAse ? 27020 : 32330);
 
-    // Increment Game Port (step of 2 to keep Game + Raw clean) until free
-    while (used.has(gamePort) || used.has(gamePort + 1)) {
-        gamePort += 2;
+    // Increment Game Port until free (step of 2 for ASE to keep Game + Raw clean, step of 1 for ASA)
+    const step = isAse ? 2 : 1;
+    while (used.has(gamePort) || (isAse && used.has(gamePort + 1))) {
+        gamePort += step;
     }
 
     // Increment Query Port until free and non-colliding
-    while (used.has(queryPort) || queryPort === gamePort || queryPort === gamePort + 1) {
+    while (used.has(queryPort) || queryPort === gamePort || (isAse && queryPort === gamePort + 1)) {
         queryPort += 1;
     }
 
@@ -116,7 +127,7 @@ export function allocateNextAvailablePorts(
     while (
         used.has(rconPort) ||
         rconPort === gamePort ||
-        rconPort === gamePort + 1 ||
+        (isAse && rconPort === gamePort + 1) ||
         rconPort === queryPort
     ) {
         rconPort += 1;

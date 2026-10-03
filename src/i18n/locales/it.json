@@ -58,7 +58,10 @@
     "updating": "Aggiornamento...",
     "repairing": "Riparazione...",
     "version": "Versione",
-    "status": "Stato",
+    "status": {
+      "online": "In linea",
+      "offline": "Non in linea"
+    },
     "name": "Nome",
     "type": "Tipo",
     "size": "Dimensione",
@@ -106,7 +109,28 @@
     "ascending": "Ascendente",
     "descending": "Discendente",
     "failed": "Fallito: {{error}}",
-    "never": "Never"
+    "never": "Never",
+    "copied": "Copiato negli appunti",
+    "done": "Fatto",
+    "copyAddress": "Copia indirizzo LAN",
+    "seconds": "secondi",
+    "mins": "minuti",
+    "gotIt": "Fatto!",
+    "inactive": "Inattivo",
+    "confirmDelete": "Conferma eliminazione",
+    "dismiss": "Ignora",
+    "loadingSettings": "Caricamento preferenze…",
+    "statusLabel": "Stato",
+    "currentlyEditing": "CURRENTLY EDITING SERVER",
+    "map": "MAP",
+    "gamePort": "GAME PORT",
+    "playersUpper": "PLAYERS",
+    "noServerSelected": "No server selected for editing. Pick one below.",
+    "selectServerToEdit": "SELECT SERVER TO EDIT",
+    "editingNow": "EDITING NOW",
+    "items": "items",
+    "folder": "Folder",
+    "file": "File"
   },
   "discord": {
     "title": "Gateway Discord",
@@ -159,7 +183,8 @@
     "step5Desc": "Su Discord, vai su <1>Impostazioni utente → Avanzate</1> e abilita la <2>Modalità sviluppatore</2>.",
     "step5ServerId": "• <1>ID del server</1>: Fai clic destro sul nome del tuo server → <2>Copia ID server</2>.",
     "step5ChannelId": "• <1>ID del canale</1>: Fai clic destro sul canale di testo → <2>Copia ID canale</2>.",
-    "guideDone": "Dopo aver completato tutti i passaggi sopra, inserisci il token, l'ID del server e l'ID del canale, quindi clicca su <1>Testa connessione</1>."
+    "guideDone": "Dopo aver completato tutti i passaggi sopra, inserisci il token, l'ID del server e l'ID del canale, quindi clicca su <1>Testa connessione</1>.",
+    "adminChannelId": "ID canale comando amministratore"
   },
   "sidebar": {
     "dashboard": "Pannello di controllo",
@@ -184,13 +209,28 @@
     "tribeLogs": "Log di tribù",
     "upnp": "Mappatura porte UPnP",
     "serverOrganization": "Raggruppa e Ordina",
-    "wiki": "Guida utente"
+    "wiki": "Guida utente",
+    "boostManager": "Gestore potenziamento",
+    "expand": "Espandi la barra laterale",
+    "collapse": "Comprimi la barra laterale",
+    "switchGame": "Passa a {{game}}",
+    "search": "Menù di ricerca...",
+    "hardware": "Hardware",
+    "playerManager": "Player Manager",
+    "profileSync": "Profile Sync",
+    "chatTranslator": "Chat Translator"
   },
   "welcome": {
     "title": "ASA Server Manager",
     "subtitle": "Strumento professionale per la gestione dei server di ARK: Survival Ascended",
     "loading": "Inizializzazione del sistema...",
-    "enter": "Entra nel centro di controllo"
+    "enter": "Entra nel centro di controllo",
+    "headerTitle": "Scegli il tuo gioco",
+    "headerSubtitle": "Seleziona quale versione di ARK vuoi gestire",
+    "evolvedDesc": "Gestisci i tuoi server dedicati ARK: Survival Evolved classici con il controllo completo della configurazione.",
+    "launching": "Avvio...",
+    "select": "Selezionare",
+    "ascendedDesc": "Gestisci i server ARK: Survival Ascended di nuova generazione basati su Unreal Engine 5."
   },
   "admin": {
     "title": "Privilegi di Amministratore richiesti",
@@ -248,7 +288,13 @@
     "statusLoading": "Caricamento...",
     "statusPublic": "Pubblico",
     "statusLan": "Rete locale",
-    "publicIpAddress": "Indirizzo IP pubblico"
+    "publicIpAddress": "Indirizzo IP pubblico",
+    "normalRestart": "Riavvio normale",
+    "restartWipeDinos": "Riavvia e cancella i dinosauri",
+    "discordCommunity": "Bug e aggiornamenti",
+    "serverRestartedWipeDinos": "Riavvio del server avviato con la cancellazione del dinosauro selvaggio",
+    "viewOverview": "View Full Server Overview & Details",
+    "noServersCreated": "No servers created yet"
   },
   "serverManager": {
     "title": "Gestione server",
@@ -321,7 +367,10 @@
       "updating": "Aggiornamento",
       "repairing": "Riparazione",
       "startup_timeout": "Tempo scaduto",
-      "unknown": "Sconosciuto"
+      "unknown": "Sconosciuto",
+      "restarting": "RIAVVIO",
+      "timeout": "TIMEOUT",
+      "uninstalled": "NON INSTALLATO"
     },
     "buttons": {
       "selectedCount": "{{count}} elementi selezionati",
@@ -342,7 +391,13 @@
       "startNoMods": "Avvia senza mod",
       "normalRestart": "Riavvio normale",
       "deepRepair": "Ripara mod",
-      "delete": "Elimina"
+      "delete": "Elimina",
+      "restartWipeDinos": "Riavvia e cancella i dinosauri",
+      "updateSelected": "Aggiorna selezionato",
+      "updateOutdated": "Aggiornamento obsoleto",
+      "moveSelected": "Sposta selezionato",
+      "editRawIni": "Modifica file manualmente (IDE)",
+      "fileManager": "Gestione file (Sfoglia)"
     },
     "tooltips": {
       "forceStop": "Arresta immediatamente il processo del server (può causare la perdita di dati non salvati)",
@@ -358,7 +413,12 @@
       "settings": "Apre l'editor di configurazione per questo server",
       "clone": "Copia la configurazione del server o trasferisce i dati di salvataggio",
       "delete": "Elimina definitivamente tutti i file di questo server",
-      "dataSafety": "Fornisce una protezione avanzata, forzando il salvataggio della mappa prima di azioni pericolose"
+      "dataSafety": "Fornisce una protezione avanzata, forzando il salvataggio della mappa prima di azioni pericolose",
+      "doubleClickToRename": "Fare doppio clic per rinominare",
+      "serverVersion": "Versione del server locale",
+      "updateAvailable": "Nuova versione disponibile su Steam!",
+      "updateRequired": "Nuovo aggiornamento disponibile! Fare clic per installare.",
+      "move": "Sposta server"
     },
     "emptyState": {
       "title": "Nessun server installato",
@@ -378,10 +438,109 @@
       "dataSafetyLabel": "Sicurezza dei dati e Autoreparazione",
       "consoleOutput": "Output della console in tempo reale",
       "waitingOutput": "In attesa del primo log del server...",
-      "showConsole": "Apri finestra del prompt dei comandi indipendente"
+      "showConsole": "Apri finestra del prompt dei comandi indipendente",
+      "branch": "Versione server",
+      "delay": "Ritardo",
+      "priority": "Priorità",
+      "autoRestartOnCrash": "Riavvio automatico in caso di arresto anomalo"
     },
     "confirmForceStop": "Sei sicuro di voler FORZARE L'ARRESTO di questo server? Questa azione arresterà immediatamente il processo e si perderà ogni progresso non salvato.",
-    "confirmDeepRepair": "La riparazione profonda arresterà il server, eliminerà tutti i file temporanei delle mod (.temp) e li scaricherà nuovamente. Vuoi continuare?"
+    "confirmDeepRepair": "La riparazione profonda arresterà il server, eliminerà tutti i file temporanei delle mod (.temp) e li scaricherà nuovamente. Vuoi continuare?",
+    "serverUpToDate": "Server aggiornato!",
+    "confirmForceStopTitle": "Forza l'arresto del server",
+    "nameUpdated": "Nome del server aggiornato correttamente.",
+    "renameFailed": "Impossibile rinominare il server.",
+    "serverCloned": "Server clonato con successo: {{name}}",
+    "cloneFailed": "Clonazione non riuscita: {{error}}",
+    "joiningServer": "Avvio di ARK e connessione...",
+    "branchUpdated": "Versione del server aggiornata. Fare clic sull'icona di download per convalidare/applicare.",
+    "branchUpdateFailed": "Impossibile aggiornare la versione/ramo",
+    "stopServerFirst": "Arrestare il server prima di aggiornare i file.",
+    "updateConfirm": "Questo eseguirà SteamCMD per convalidare o modificare la versione del server. Continuare?",
+    "updateStarted": "Aggiornamento dei file del server in background...",
+    "updateSuccess": "Server aggiornato con successo!",
+    "updateFilesTooltip": "Aggiorna/verifica i file del server tramite SteamCMD",
+    "deleteTitle": "Elimina il server ASE",
+    "deleteConfirmMessage": "Eliminare il server ASE \"{{name}}\"? Questa operazione non può essere annullata.",
+    "serverRestartedWipeDinos": "Riavvio del server avviato con la cancellazione del dinosauro selvaggio",
+    "startingParallelUpdates": "Avvio dell'aggiornamento parallelo per i server {{count}}...",
+    "allServersUpToDate": "Tutti i server sono aggiornati!",
+    "startingParallelOutdatedUpdates": "Aggiornamento in parallelo dei server {{count}} obsoleti...",
+    "errors": {
+      "emptyName": "Il nome del server non può essere vuoto."
+    },
+    "move": {
+      "mustBeStopped": "Il server deve essere arrestato prima dello spostamento.",
+      "selectFolder": "Selezionare Nuova directory del server",
+      "failed": "Impossibile preparare il server di spostamento.",
+      "startedBulk": "Spostamento dei server {{count}}...",
+      "movingServer": "Spostamento {{name}}...",
+      "bulkFailedOne": "Impossibile spostare un server.",
+      "bulkSuccess": "Server {{count}} spostati con successo!",
+      "started": "Spostamento del server...",
+      "success": "Il server è stato spostato con successo!",
+      "bulkMustBeStopped": "Tutti i server selezionati devono essere arrestati prima dello spostamento.",
+      "bulkTitle": "Sposta i server selezionati in una nuova directory",
+      "dialogTitleBulk": "Sposta più server",
+      "dialogTitle": "Sposta server",
+      "dialogDescBulk": "Sei sicuro di voler spostare i server {{count}} nella nuova posizione?",
+      "dialogDesc": "Sei sicuro di voler spostare {{name}} nella nuova posizione?",
+      "warningTitle": "Operazione che richiede tempo",
+      "warningDesc": "A seconda della dimensione dei dati di salvataggio e dei file del server, questa operazione potrebbe richiedere diversi minuti. Si prega di non chiudere l'applicazione durante questo processo.",
+      "confirmMove": "Conferma spostamento"
+    },
+    "conflicts": {
+      "hardTitle": "Conflitto portuale critico",
+      "softTitle": "Avviso conflitto porta",
+      "hardMessage": "Una o più porte configurate sono attualmente attive in un altro server o processo. Riassegnare automaticamente le porte per risolvere.",
+      "softMessage": "Una o più porte sono configurate sui profili server offline. Puoi riassegnare le porte libere o iniziare comunque.",
+      "detectedConflicts": "Conflitti rilevati",
+      "usedBy": "Utilizzato da:",
+      "unknownProcess": "Utilizzato da un processo esterno sconosciuto",
+      "startAnyway": "Inizia comunque"
+    },
+    "statusBar": {
+      "loading": "Conduzione della diagnostica della visibilità...",
+      "diagnosticsFailed": "Sistema di diagnostica offline",
+      "systemLabel": "PANNELLO DIAGNOSTICA",
+      "visibility": "Stato visibilità:",
+      "wanUnavailable": "Query IP pubblico bloccate",
+      "updateMode": "Modalità di aggiornamento di SteamCMD",
+      "startingUpdate": "Avvio del processo wrapper di SteamCMD...",
+      "hideLogs": "Nascondi registri della console",
+      "showLogs": "Mostra i registri della console",
+      "waitingOutput": "In attesa dell'output del flusso SteamCMD...",
+      "hideGuide": "Nascondi guida di ricerca",
+      "showGuide": "Mostra la guida di ricerca",
+      "guideTitle": "Guida: come trovare il tuo server nel browser del gioco"
+    },
+    "diagnostics": {
+      "process": "Processo di gioco",
+      "processRunning": "PID attivo",
+      "processInactive": "Inattivo",
+      "port": "Associazione porta UDP",
+      "portBound": "Ascolto",
+      "portClosed": "Chiuso",
+      "lan": "Raggiungibilità LAN",
+      "lanVisible": "Reattivo (A2S)",
+      "lanBlocked": "Nessuna risposta",
+      "wan": "Visibilità globale",
+      "wanVisible": "Accessibile pubblicamente",
+      "wanBlocked": "Bloccato / Filtrato"
+    },
+    "toast": {
+      "nameUpdated": "Nome del profilo aggiornato a \"{{name}}\""
+    },
+    "modCache": {
+      "mustBeStopped": "Il server deve essere arrestato prima di svuotare la cache della mod.",
+      "clearing": "Svuotamento della cache della mod...",
+      "failed": "Impossibile svuotare la cache della mod.",
+      "tooltip": "Cancella i file mod memorizzati nella cache per risolvere i problemi di caricamento delle mod",
+      "button": "Cancella cache mod"
+    },
+    "status": {
+      "updateAvailable": "Aggiornamento disponibile"
+    }
   },
   "configEditor": {
     "title": "Editor di configurazione",
@@ -430,12 +589,15 @@
       "copySuccess": "Impostazioni copiate negli appunti",
       "presetApplied": "Modello '{{name}}' applicato con successo",
       "dinoLevelSet": "Nivel massimo dei dinos selvaggi impostato a {{level}}",
-      "playerLevelSet": "Livello massimo dei giocatori impostato a {{level}}"
+      "playerLevelSet": "Livello massimo dei giocatori impostato a {{level}}",
+      "presetSaved": "Preimpostazione salvata correttamente",
+      "presetUpdated": "Preimpostazione \"{{name}}\" aggiornata con le impostazioni attuali"
     },
     "validation": {
       "tamingConflict": "L'addomesticamento è disattivato, ma il moltiplicatore della velocità di addomesticamento è ancora superiore a 1.0 (questa impostazione non avrà alcun effetto).",
       "friendlyFireConflict": "La modalità PvE è attivata ma il fuoco amico è disattivato. Il moltiplicatore dei danni di tribù non avrà effetto.",
-      "xpWarning": "Rilevato un moltiplicatore di XP anormalmente alto (> 50x). Ciò può causare overflow di dati."
+      "xpWarning": "Rilevato un moltiplicatore di XP anormalmente alto (> 50x). Ciò può causare overflow di dati.",
+      "pveOfflinePvpConflict": "La modalità PvE è abilitata insieme a Previeni PvP offline. La protezione PvP offline è ridondante in modalità PvE: valuta la possibilità di disabilitarla per evitare confusione."
     },
     "levelsGenerator": {
       "title": "Generatore personalizzato di livelli di giocatori e dinos",
@@ -477,6 +639,696 @@
     "emptyState": {
       "title": "No settings found",
       "description": "Try searching for \"{{query}}\""
+    },
+    "fields": {
+      "ServerName": {
+        "label": "Nome del server",
+        "description": "Il nome del tuo server"
+      },
+      "Message": {
+        "label": "Messaggio del giorno",
+        "description": "Messaggio mostrato ai giocatori quando si uniscono. Utilizzare \\n per le nuove righe."
+      },
+      "ServerPassword": {
+        "label": "Password del server",
+        "description": "Password richiesta per partecipare"
+      },
+      "ServerAdminPassword": {
+        "label": "Password amministratore",
+        "description": "Password per l'accesso amministratore"
+      },
+      "MaxPlayers": {
+        "label": "Numero massimo di giocatori",
+        "description": "Numero massimo di giocatori"
+      },
+      "MapName": {
+        "label": "Mappa",
+        "description": "La mappa da caricare"
+      },
+      "IPAddress": {
+        "label": "Indirizzo IP del server",
+        "description": "Associa il server a un indirizzo IP specifico (lascia vuoto per tutte le interfacce)"
+      },
+      "RCONEnabled": {
+        "label": "RCON abilitato",
+        "description": "Abilita l'accesso alla console remota per la gestione del server"
+      },
+      "Port": {
+        "label": "Porta giochi",
+        "description": "Porta di gioco principale per le connessioni dei giocatori (predefinita: 7777)"
+      },
+      "QueryPort": {
+        "label": "Interroga porta",
+        "description": "Porta per le query del browser del server (impostazione predefinita: 27015)"
+      },
+      "RCONPort": {
+        "label": "Porta RCON",
+        "description": "Porta per connessioni RCON (default: 27020)"
+      },
+      "ServerCrossplay": {
+        "label": "Abilita gioco incrociato",
+        "description": "Consenti ai giocatori Xbox, PlayStation e PC di unirsi"
+      },
+      "Culture": {
+        "label": "Lingua del server (cultura)",
+        "description": "Imposta la lingua/cultura del gioco (aggiunge l'argomento di lancio -culture)"
+      },
+      "XPMultiplier": {
+        "label": "Moltiplicatore XP",
+        "description": "Tasso di guadagno XP globale da tutte le fonti"
+      },
+      "DifficultyOffset": {
+        "label": "Difficoltà",
+        "description": "Difficoltà del server (influenza il livello massimo del dinosauro selvaggio)"
+      },
+      "OverrideOfficialDifficulty": {
+        "label": "Sostituisci la difficoltà massima",
+        "description": "Sostituisci il livello massimo del dinosauro selvaggio (5.0 = livello 150)"
+      },
+      "HarvestAmountMultiplier": {
+        "label": "Quantità di raccolto",
+        "description": "Moltiplicatore dell'importo della raccolta delle risorse"
+      },
+      "HarvestHealthMultiplier": {
+        "label": "Raccogli la salute",
+        "description": "Moltiplicatore dell'integrità del nodo risorsa"
+      },
+      "ResourcesRespawnPeriodMultiplier": {
+        "label": "Rigenerazione delle risorse",
+        "description": "Tasso di rigenerazione delle risorse (più basso = più veloce)"
+      },
+      "TamingSpeedMultiplier": {
+        "label": "Velocità nell'addomesticamento",
+        "description": "Quanto velocemente vengono domate le creature"
+      },
+      "DinoCharacterFoodDrainMultiplier": {
+        "label": "Scarico cibo Dino",
+        "description": "Tasso di consumo alimentare dei dinosauri"
+      },
+      "DinoCountMultiplier": {
+        "label": "Conte Dino Selvaggio",
+        "description": "Densità delle uova di dinosauri selvatici"
+      },
+      "DinoDamageMultiplier": {
+        "label": "Danni Dino",
+        "description": "Uscita danno dinosauro"
+      },
+      "DinoResistanceMultiplier": {
+        "label": "Resistenza ai dinosauri",
+        "description": "Resistenza ai danni dei dinosauri"
+      },
+      "PlayerDamageMultiplier": {
+        "label": "Danni al giocatore",
+        "description": "Risultato del danno del giocatore"
+      },
+      "PlayerResistanceMultiplier": {
+        "label": "Resistenza del giocatore",
+        "description": "Resistenza ai danni del giocatore"
+      },
+      "PlayerCharacterWaterDrainMultiplier": {
+        "label": "Scarico dell'acqua",
+        "description": "Tasso di consumo di acqua"
+      },
+      "PlayerCharacterFoodDrainMultiplier": {
+        "label": "Drenaggio del cibo",
+        "description": "Tasso di consumo alimentare"
+      },
+      "PlayerCharacterStaminaDrainMultiplier": {
+        "label": "Prosciuga resistenza",
+        "description": "Tasso di consumo di resistenza"
+      },
+      "PlayerCharacterHealthRecoveryMultiplier": {
+        "label": "Recupero sanitario",
+        "description": "Tasso di rigenerazione della salute"
+      },
+      "StructureResistanceMultiplier": {
+        "label": "Resistenza della struttura",
+        "description": "Resistenza ai danni strutturali"
+      },
+      "StructureDamageMultiplier": {
+        "label": "Danni alla struttura",
+        "description": "Danni alle strutture"
+      },
+      "PvEStructureDecayPeriodMultiplier": {
+        "label": "Tasso di decadimento della struttura",
+        "description": "Periodo di decadimento della struttura"
+      },
+      "AlwaysAllowStructurePickup": {
+        "label": "Consenti ritiro struttura",
+        "description": "Consenti la raccolta delle strutture posizionate"
+      },
+      "DayTimeSpeedScale": {
+        "label": "Velocità del giorno",
+        "description": "Moltiplicatore della velocità diurna"
+      },
+      "NightTimeSpeedScale": {
+        "label": "Velocità notturna",
+        "description": "Moltiplicatore di velocità notturna"
+      },
+      "DayCycleSpeedScale": {
+        "label": "Velocità del ciclo giornaliero",
+        "description": "Velocità complessiva del ciclo giorno/notte"
+      },
+      "ServerPVE": {
+        "label": "Modalità PvE",
+        "description": "Abilita la modalità PvE (nessun danno al giocatore)"
+      },
+      "AllowCaveBuildingPvE": {
+        "label": "Consenti costruzione caverna",
+        "description": "Consenti la costruzione all'interno delle caverne"
+      },
+      "PreventTribeAlliances": {
+        "label": "Prevenire le alleanze",
+        "description": "Prevenire le alleanze tribali"
+      },
+      "AllowFlyerCarryPvE": {
+        "label": "Consenti trasporto volantini",
+        "description": "Consenti ai volantini di trasportare i giocatori"
+      },
+      "EnablePvPGamma": {
+        "label": "Abilita Gamma PvP",
+        "description": "Consenti la regolazione della gamma in PvP"
+      },
+      "DisableFriendlyFire": {
+        "label": "Disabilita fuoco amico",
+        "description": "Evitare che i membri della tribù si feriscano a vicenda"
+      },
+      "PreventOfflinePvP": {
+        "label": "Previeni il PvP offline",
+        "description": "Proteggi strutture e giocatori quando i proprietari sono offline"
+      },
+      "PreventOfflinePvPInterval": {
+        "label": "Ritardo protezione offline (secondi)",
+        "description": "Ritardo prima dell'attivazione della protezione offline (0 = immediato)"
+      },
+      "GlobalVoiceChat": {
+        "label": "Chat vocale globale",
+        "description": "La chat vocale viene ascoltata da tutti"
+      },
+      "ProximityChat": {
+        "label": "Chat testuale di prossimità",
+        "description": "Chat di testo visibile solo ai giocatori vicini"
+      },
+      "AlwaysNotifyPlayerLeft": {
+        "label": "Notifica al giocatore rimasto",
+        "description": "Mostra il messaggio quando il giocatore se ne va"
+      },
+      "AlwaysNotifyPlayerJoined": {
+        "label": "Notifica il giocatore iscritto",
+        "description": "Mostra un messaggio quando il giocatore si unisce"
+      },
+      "ServerCrosshair": {
+        "label": "Abilita mirino",
+        "description": "Mostra mirino"
+      },
+      "ShowMapPlayerLocation": {
+        "label": "Posizione del giocatore sulla mappa",
+        "description": "Mostra la posizione del giocatore sulla mappa"
+      },
+      "ShowFloatingDamageText": {
+        "label": "Testo del danno mobile",
+        "description": "Mostra i numeri dei danni"
+      },
+      "AllowThirdPersonPlayer": {
+        "label": "Consenti terza persona",
+        "description": "Consenti fotocamera in terza persona"
+      },
+      "PreventDiseases": {
+        "label": "Prevenire le malattie",
+        "description": "Disabilitare il sistema delle malattie"
+      },
+      "NonPermanentDiseases": {
+        "label": "Malattie non permanenti",
+        "description": "Le malattie guariscono con la morte"
+      },
+      "ForceAllStructureLocking": {
+        "label": "Strutture di blocco forzato",
+        "description": "Blocca automaticamente tutti i contenitori"
+      },
+      "AllowCrateSpawnsOnTopOfStructures": {
+        "label": "Casse sulle strutture",
+        "description": "Consenti casse di rifornimenti sugli edifici"
+      },
+      "NoTributeDownloads": {
+        "label": "Disabilita download",
+        "description": "Disabilita tutti i download"
+      },
+      "PreventDownloadSurvivors": {
+        "label": "Blocca download di Survivor",
+        "description": "Impedisci il download dei caratteri"
+      },
+      "PreventDownloadItems": {
+        "label": "Blocca download di elementi",
+        "description": "Impedisci il download di elementi"
+      },
+      "PreventDownloadDinos": {
+        "label": "Blocca i download di Dino",
+        "description": "Impedisci il download dei dinosauri"
+      },
+      "CrossARKAllowForeignDinoDownloads": {
+        "label": "Consenti dinosauri stranieri",
+        "description": "Consenti dinosauri da altre mappe"
+      },
+      "AllowAnyoneBabyImprintCuddle": {
+        "label": "Chiunque può imprimere",
+        "description": "Consenti a qualsiasi membro della tribù di imprimere i bambini"
+      },
+      "DisableImprintDinoBuff": {
+        "label": "Disabilita bonus impronta",
+        "description": "Rimuovi i bonus alle statistiche dall'imprinting"
+      },
+      "AllowRaidDinoFeeding": {
+        "label": "Consenti alimentazione dinosauro raid",
+        "description": "Abilita l'alimentazione per i dinosauri raid addomesticati"
+      },
+      "DisableDinoDecayPvE": {
+        "label": "Disattiva Dino Decay (PvE)",
+        "description": "Evita che i dinosauri non reclamati decadano in PvE"
+      },
+      "AutoDestroyDecayedDinos": {
+        "label": "Distruggi automaticamente i dinosauri decaduti",
+        "description": "Rimuovi automaticamente i dinosauri completamente decomposti"
+      },
+      "DisableStructureDecayPvE": {
+        "label": "Disabilita decadimento della struttura",
+        "description": "Prevenire il decadimento delle strutture"
+      },
+      "AutoDestroyOldStructuresMultiplier": {
+        "label": "Moltiplicatore di distruzione automatica",
+        "description": "Distruggi automaticamente le strutture abbandonate (0=disattivato)"
+      },
+      "FastDecayUnsnappedCoreStructures": {
+        "label": "Decadimento veloce non bloccato",
+        "description": "Le fondazioni non spezzate si decompongono più velocemente"
+      },
+      "OnlyDecayUnsnappedCoreStructures": {
+        "label": "Solo decadimento non ancorato",
+        "description": "Solo le strutture non ancorate decadono"
+      },
+      "OnlyAutoDestroyCoreStructures": {
+        "label": "Solo nucleo di distruzione automatica",
+        "description": "Distruggi solo fondazioni/pilastri"
+      },
+      "DestroyUnconnectedWaterPipes": {
+        "label": "Distruggi i tubi non collegati",
+        "description": "Rimuovere i tubi non collegati all'acqua"
+      },
+      "AllowHitMarkers": {
+        "label": "Consenti indicatori di colpo",
+        "description": "Mostra gli indicatori di danno"
+      },
+      "AllowHideDamageSourceFromLogs": {
+        "label": "Nascondi fonte di danno",
+        "description": "Nascondi la fonte del danno nei registri della tribù"
+      },
+      "AllowMultipleAttachedC4": {
+        "label": "Multiplo C4",
+        "description": "Consenti più C4 sulla stessa struttura"
+      },
+      "DisablePvEGamma": {
+        "label": "Disattiva Gamma PvE",
+        "description": "Blocca il comando gamma in PvE"
+      },
+      "DisableWeatherFog": {
+        "label": "Disattiva la nebbia meteorologica",
+        "description": "Rimuovi gli effetti meteorologici della nebbia"
+      },
+      "MaxTamedDinos": {
+        "label": "Max ha addomesticato i dinosauri",
+        "description": "Limite di addomesticamento a livello di server"
+      },
+      "MaxPersonalTamedDinos": {
+        "label": "Max Dinos personali",
+        "description": "Limite di addomesticamento per giocatore (0=illimitato)"
+      },
+      "MaxPlatformSaddleStructureLimit": {
+        "label": "Limite sella piattaforma",
+        "description": "Strutture Max su selle con piattaforma"
+      },
+      "PerPlatformMaxStructuresMultiplier": {
+        "label": "Moltiplicatore della struttura della piattaforma",
+        "description": "Moltiplicatore per i limiti della struttura della piattaforma"
+      },
+      "MaxTributeItems": {
+        "label": "Numero massimo di articoli tributo",
+        "description": "Numero massimo di articoli nell'inventario dei tributi"
+      },
+      "MaxTributeDinos": {
+        "label": "Max Tributo ai dinosauri",
+        "description": "Max dinosauri nell'inventario tributo"
+      },
+      "MaxTributeCharacters": {
+        "label": "Caratteri tributo massimi",
+        "description": "Numero massimo di caratteri nell'inventario dei tributi"
+      },
+      "KickIdlePlayersPeriod": {
+        "label": "Kick Idle dopo (secondi)",
+        "description": "Espellere i giocatori dopo il tempo di inattività (0=disabilitato)"
+      },
+      "OverrideStructurePlatformPrevention": {
+        "label": "Ignora la prevenzione della piattaforma",
+        "description": "Consenti strutture ovunque sulle piattaforme"
+      },
+      "AllowIntegratedSPlusStructures": {
+        "label": "Consenti strutture S+",
+        "description": "Abilita le funzionalità di Structures Plus"
+      },
+      "ClampResourceHarvestDamage": {
+        "label": "Danni alla raccolta con pinza",
+        "description": "Limitare i moltiplicatori dei danni del raccolto"
+      },
+      "ClampItemSpoilingTimes": {
+        "label": "Tempi di deterioramento del morsetto",
+        "description": "Limita i cambiamenti di spoiler"
+      },
+      "ClampItemStats": {
+        "label": "Statistiche articolo morsetto",
+        "description": "Miglioramenti alle statistiche degli oggetti limitati"
+      },
+      "AutoSavePeriodMinutes": {
+        "label": "Intervallo di salvataggio automatico (minuti)",
+        "description": "Con quale frequenza eseguire il salvataggio automatico"
+      },
+      "ItemStackSizeMultiplier": {
+        "label": "Moltiplicatore dimensione stack",
+        "description": "Moltiplicare le dimensioni dello stack di elementi"
+      },
+      "bAutoUnlockAllEngrams": {
+        "label": "Sblocca automaticamente tutti gli engrammi",
+        "description": "Sblocca automaticamente tutti gli engrammi per i giocatori man mano che salgono di livello"
+      },
+      "bAllowUnlimitedRespecs": {
+        "label": "Rispettazioni illimitate",
+        "description": "Rimuove il timer di recupero del tonico Mindwipe"
+      },
+      "bAllowCustomRecipes": {
+        "label": "Consenti ricette personalizzate",
+        "description": "Consenti ai giocatori di creare ricette consumabili personalizzate"
+      },
+      "CraftingSkillBonusMultiplier": {
+        "label": "Moltiplicatore bonus abilità di creazione",
+        "description": "Moltiplicatore per creare effetti di abilità sulle statistiche delle ricette personalizzate"
+      },
+      "OverrideNamedEngramEntries": {
+        "label": "L'engramma ha la precedenza",
+        "description": "Ignora i requisiti del livello di engramma, i costi in punti o nascondili del tutto"
+      },
+      "ConfigOverrideItemCraftingCosts": {
+        "label": "Sostituzioni dei costi di creazione",
+        "description": "Sostituisci i costi delle risorse per creare oggetti specifici"
+      },
+      "KillXPMultiplier": {
+        "label": "Uccidi il moltiplicatore XP",
+        "description": "XP guadagnati uccidendo creature"
+      },
+      "HarvestXPMultiplier": {
+        "label": "Moltiplicatore XP raccolto",
+        "description": "XP ottenuti raccogliendo risorse"
+      },
+      "CraftXPMultiplier": {
+        "label": "Moltiplicatore XP creazione",
+        "description": "XP guadagnati creando oggetti"
+      },
+      "GenericXPMultiplier": {
+        "label": "Moltiplicatore XP generico",
+        "description": "Moltiplicatore per tutte le altre fonti XP"
+      },
+      "SpecialXPMultiplier": {
+        "label": "Moltiplicatore XP speciale",
+        "description": "Moltiplicatore per eventi speciali"
+      },
+      "EggHatchSpeedMultiplier": {
+        "label": "Velocità di schiusa delle uova",
+        "description": "Quanto velocemente si schiudono le uova"
+      },
+      "BabyMatureSpeedMultiplier": {
+        "label": "Velocità matura del bambino",
+        "description": "Quanto velocemente maturano i bambini"
+      },
+      "BabyFoodConsumptionSpeedMultiplier": {
+        "label": "Consumo di alimenti per bambini",
+        "description": "Tasso di consumo di alimenti per bambini"
+      },
+      "BabyCuddleIntervalMultiplier": {
+        "label": "Moltiplicatore dell'intervallo delle coccole",
+        "description": "Tempo tra le richieste di coccole"
+      },
+      "BabyCuddleGracePeriodMultiplier": {
+        "label": "Periodo di grazia delle coccole",
+        "description": "Tempo extra per completare la coccola"
+      },
+      "BabyCuddleLoseImprintQualitySpeedMultiplier": {
+        "label": "Perdere velocità di stampa",
+        "description": "La velocità con cui la qualità dell'impronta si degrada se non viene rilevata"
+      },
+      "BabyImprintAmountMultiplier": {
+        "label": "Moltiplicatore dell'importo della stampa",
+        "description": "Quantità di impronte per coccola"
+      },
+      "BabyImprintingStatScaleMultiplier": {
+        "label": "Bonus statistiche stampa",
+        "description": "Bonus alle statistiche derivante dall'imprinting"
+      },
+      "LayEggIntervalMultiplier": {
+        "label": "Intervallo di deposizione delle uova",
+        "description": "Tempo tra la deposizione delle uova"
+      },
+      "GlobalSpoilingTimeMultiplier": {
+        "label": "Moltiplicatore temporale rovinante",
+        "description": "Quanto velocemente gli oggetti si rovinano"
+      },
+      "GlobalItemDecompositionTimeMultiplier": {
+        "label": "Tempo di scomposizione dell'oggetto",
+        "description": "La velocità con cui gli oggetti rilasciati scompaiono"
+      },
+      "GlobalCorpseDecompositionTimeMultiplier": {
+        "label": "Tempo di decomposizione del cadavere",
+        "description": "Quanto velocemente scompaiono i cadaveri"
+      },
+      "CropGrowthSpeedMultiplier": {
+        "label": "Velocità di crescita del raccolto",
+        "description": "Quanto velocemente crescono i raccolti"
+      },
+      "CropDecaySpeedMultiplier": {
+        "label": "Velocità di decadimento del raccolto",
+        "description": "Quanto velocemente marciscono i raccolti"
+      },
+      "bAllowSpeedLeveling": {
+        "label": "Consenti livellamento velocità",
+        "description": "Consenti il ​​livellamento della velocità di movimento dei giocatori e dei dinosauri terrestri"
+      },
+      "bAllowFlyerSpeedLeveling": {
+        "label": "Consenti livellamento velocità volantino",
+        "description": "Consenti il ​​livellamento della velocità di movimento sui volantini"
+      },
+      "bDisableDinoTaming": {
+        "label": "Disabilita addomesticamento",
+        "description": "Evita che tutti i dinosauri vengano addomesticati"
+      },
+      "bDisableDinoRiding": {
+        "label": "Disattiva guida",
+        "description": "Evita di cavalcare dinosauri addomesticati"
+      },
+      "bDisableDinoBreeding": {
+        "label": "Disabilita allevamento",
+        "description": "Previeni la riproduzione dei dinosauri"
+      },
+      "bUseSingleplayerSettings": {
+        "label": "Usa le impostazioni del giocatore singolo",
+        "description": "Applica le modifiche al bilanciamento per giocatore singolo"
+      },
+      "bPvEDisableFriendlyFire": {
+        "label": "PvE Disattiva fuoco amico",
+        "description": "Impedire ai membri della tribù di farsi del male a vicenda"
+      },
+      "bUseCorpseLocator": {
+        "label": "Utilizza il localizzatore di cadaveri",
+        "description": "Mostra indicatore di morte sulla mappa"
+      },
+      "MaxNumberOfPlayersInTribe": {
+        "label": "Membri della tribù Max",
+        "description": "Numero massimo di giocatori per tribù (0=illimitato)"
+      },
+      "MaxTribeLogs": {
+        "label": "Registri della tribù massima",
+        "description": "Numero massimo di voci nel registro della tribù"
+      },
+      "DinoTurretDamageMultiplier": {
+        "label": "Danno alla torretta del dinosauro",
+        "description": "I dinosauri subiscono danni dalle torrette"
+      },
+      "DinoHarvestingDamageMultiplier": {
+        "label": "Dinosauro raccoglie danni",
+        "description": "Moltiplicatore del danno di raccolta per i dinosauri"
+      },
+      "FishingLootQualityMultiplier": {
+        "label": "Qualità del bottino da pesca",
+        "description": "Qualità del bottino di pesca"
+      },
+      "MatingIntervalMultiplier": {
+        "label": "Intervallo di accoppiamento",
+        "description": "Tempo tra gli accoppiamenti (inferiore = più veloce)"
+      },
+      "MaxAlliancesPerTribe": {
+        "label": "Alleanze massime",
+        "description": "Alleanze massime per tribù"
+      },
+      "MaxTribesPerAlliance": {
+        "label": "Numero massimo di tribù per alleanza",
+        "description": "Numero massimo di tribù in un'alleanza"
+      },
+      "OverrideMaxExperiencePointsPlayer": {
+        "label": "XP massimi del giocatore",
+        "description": "XP totali richiesti per il livello massimo"
+      },
+      "LevelExperienceRampOverrides": {
+        "label": "Ignora rampa XP",
+        "description": "Curva XP personalizzata (array)"
+      },
+      "OverridePlayerLevelEngramPoints": {
+        "label": "Punti engramma per livello",
+        "description": "Punti engramma concessi per ogni aumento di livello. Inserisci un valore per riga."
+      },
+      "SupplyCrateLootQualityMultiplier": {
+        "label": "Qualità della cassa di rifornimento",
+        "description": "Qualità del bottino delle casse di rifornimenti"
+      },
+      "PerDinoClassResistanceMultipliers": {
+        "label": "Moltiplicatori della resistenza dei dinosauri",
+        "description": "Regola la resistenza per classi di dinosauri specifiche (inferiore = più resistente)"
+      },
+      "bDisableDinoDecayPvE": {
+        "label": "Disabilita Dino Decay",
+        "description": "Disabilita il decadimento dei dinosauri in PvE"
+      },
+      "bPassiveDefensesDamageRiderlessDinos": {
+        "label": "I muri chiodati danneggiano i dinosauri senza cavaliere",
+        "description": "I muri chiodati e le difese passive danneggiano i dinosauri senza cavaliere/selvaggi"
+      },
+      "bDisableStructurePlacementCollision": {
+        "label": "Disabilita collisione di posizionamento",
+        "description": "Consenti strutture sovrapposte"
+      }
+    },
+    "groups": {
+      "serverIdentity": {
+        "title": "Identità del server",
+        "description": "Configurazione server di base"
+      },
+      "xpProgression": {
+        "title": "XP e progressione",
+        "description": "Impostazioni di esperienza e livellamento"
+      },
+      "harvesting": {
+        "title": "Raccolta",
+        "description": "Tassi di raccolta delle risorse"
+      },
+      "taming": {
+        "title": "Addomesticare",
+        "description": "Impostazioni per addomesticare le creature"
+      },
+      "dinoStats": {
+        "title": "Statistiche sui dinosauri",
+        "description": "Moltiplicatori delle statistiche dei dinosauri"
+      },
+      "playerStats": {
+        "title": "Statistiche giocatore",
+        "description": "Moltiplicatori delle statistiche del giocatore"
+      },
+      "structureSettings": {
+        "title": "Impostazioni struttura",
+        "description": "Opzioni di costruzione e degrado"
+      },
+      "dayNightCycle": {
+        "title": "Ciclo giorno/notte",
+        "description": "Impostazioni dell'ora e dell'illuminazione"
+      },
+      "pvpPveMode": {
+        "title": "Modalità PvP/PvE",
+        "description": "Impostazioni Giocatore vs Giocatore"
+      },
+      "chatHud": {
+        "title": "Chat e HUD",
+        "description": "Impostazioni di comunicazione e visualizzazione"
+      },
+      "rulesPrevention": {
+        "title": "Regole e prevenzione",
+        "description": "Regole e restrizioni del server"
+      },
+      "transfers": {
+        "title": "Trasferimenti",
+        "description": "Impostazioni di download tra ARK"
+      },
+      "breedingImprinting": {
+        "title": "Allevamento e imprinting",
+        "description": "Meccanica della cura del bambino e dell'imprinting"
+      },
+      "structureDecay": {
+        "title": "Decadimento della struttura",
+        "description": "Degrado edilizio e autodistruzione"
+      },
+      "combatPvp": {
+        "title": "Combattimento e PvP",
+        "description": "Meccaniche di combattimento e impostazioni PvP"
+      },
+      "serverLimits": {
+        "title": "Limiti del server",
+        "description": "Addomesticare limiti e restrizioni"
+      },
+      "qualityOfLife": {
+        "title": "Qualità della vita",
+        "description": "Comodità e funzionalità di gioco"
+      },
+      "engramsCrafting": {
+        "title": "Engrammi e creazione",
+        "description": "Modifica i requisiti degli engrammi e i costi di creazione degli oggetti"
+      },
+      "breedingSpeed": {
+        "title": "Velocità di riproduzione",
+        "description": "Schiusa delle uova e maturazione dei piccoli"
+      },
+      "spoilingDecay": {
+        "title": "Deterioramento e decadimento",
+        "description": "Tempi di decadimento dell'oggetto e del cadavere"
+      },
+      "advancedGameplay": {
+        "title": "Gioco avanzato",
+        "description": "Meccanica avanzata del server"
+      },
+      "matingImprinting": {
+        "title": "Accoppiamento e imprinting",
+        "description": "Intervalli di accoppiamento e impostazioni dell'imprinting"
+      },
+      "tribeSettings": {
+        "title": "Impostazioni tribù",
+        "description": "Dimensioni e governance della tribù"
+      },
+      "levelXpOverrides": {
+        "title": "Sostituzioni di livello e XP",
+        "description": "Configurazione di livellamento avanzata"
+      },
+      "lootQuality": {
+        "title": "Qualità del bottino",
+        "description": "Impostazioni della cassa di rifornimenti e del bottino"
+      },
+      "advancedOptions": {
+        "title": "Opzioni avanzate",
+        "description": "Modifiche avanzate al gameplay"
+      }
+    },
+    "categories": {
+      "server": "Server",
+      "gameplay": "Gioco",
+      "rules": "Regole",
+      "chat": "Chat e HUD",
+      "transfers": "Trasferimenti",
+      "player": "Giocatore",
+      "dino": "Dinosauri",
+      "breeding": "Allevamento",
+      "structure": "Strutture",
+      "pvp": "PvP/PvE",
+      "advanced": "Avanzato",
+      "engrams": "Engrammi e creazione"
     }
   },
   "modManager": {
@@ -551,7 +1403,31 @@
     "downloads": "download",
     "author": "Sviluppatore",
     "version": "Versione attuale",
-    "modDetails": "File dei dettagli della mod"
+    "modDetails": "File dei dettagli della mod",
+    "checkUpdates": "Controlla gli aggiornamenti",
+    "checkingUpdates": "Controllo aggiornamenti...",
+    "pushUpdatesTitle": "Aggiornamenti push mod",
+    "pushUpdatesSubtitle": "Aggiorna e sincronizza i pacchetti mod sul tuo server dedicato",
+    "pushAllUpdates": "Invia tutti gli aggiornamenti",
+    "pushUpdate": "Invia aggiornamento",
+    "selectServerMods": "Seleziona Mod da aggiornare",
+    "selectAll": "Seleziona tutto",
+    "deselectAll": "Deseleziona tutto",
+    "rollbackProtection": "Protezione rollback automatica",
+    "cachePurgeNotice": "Pulisci la cache della mod",
+    "safeRestartOption": "Avviso di riavvio del server e trasmissione del lettore",
+    "warningCountdown": "Conto alla rovescia per l'avviso RCON nel gioco",
+    "pushUpdatesBtn": "Invia aggiornamenti mod {{count}}",
+    "pushingUpdates": "Aggiornamento in corso...",
+    "noModsSelected": "Seleziona almeno una mod da aggiornare.",
+    "pushSuccessToast": "Aggiornamenti inviati con successo per le mod {{count}}!",
+    "pushFailedToast": "Aggiornamento mod non riuscito",
+    "updatesFoundNotice": "Trovato/i aggiornamento/i mod {{count}} disponibile!",
+    "allModsUpToDate": "Tutte le mod installate sono aggiornate!",
+    "noUpdatesAvailable": "Nessun aggiornamento mod disponibile per il push",
+    "noInstalledModsToCheck": "Nessuna mod installata da controllare su questo server.",
+    "apiKeyRequiredForUpdates": "Chiave API CurseForge richiesta per controllare gli aggiornamenti.",
+    "checkUpdatesFailed": "Impossibile controllare gli aggiornamenti"
   },
   "clusterManager": {
     "title": "Gestore cluster",
@@ -621,7 +1497,37 @@
     "validationWarnings": "La configurazione del cluster è utilizzabile ma presenta alcuni rischi",
     "validationErrors": "Ci sono gravi conflitti di porte o configurazioni nel cluster",
     "validationFailed": "Si è verificato un errore durante l'esecuzione del controllo del cluster",
-    "clusterPath": "Cluster Directory"
+    "clusterPath": "Cluster Directory",
+    "fetchFailed": "Impossibile recuperare i cluster",
+    "addFailed": "Impossibile aggiungere il server",
+    "removeFailed": "Impossibile rimuovere il server",
+    "serverStarted": "Server avviato",
+    "serverStartFailed": "Impossibile avviare il server",
+    "serverStopped": "Server arrestato",
+    "serverStopFailed": "Impossibile arrestare il server",
+    "loadConfigFailed": "Impossibile caricare la configurazione",
+    "hostRequired": "L'host del database è obbligatorio",
+    "userRequired": "L'utente del database è obbligatorio",
+    "dbNameRequired": "Il nome del database è obbligatorio",
+    "portRequired": "È richiesta una porta database valida",
+    "saveConfigFailed": "Impossibile salvare la configurazione",
+    "clusterIdCopied": "ID cluster copiato negli appunti!",
+    "clusterIdString": "ID cluster condiviso (viaggio su più computer)",
+    "clusterIdHint": "Deve corrispondere ESATTAMENTE su tutti i computer di questo cluster.",
+    "noClustersFound": "Nessuna directory del cluster esistente trovata nel percorso predefinito.",
+    "clustersDiscovered": "Cartelle del cluster {{count}} rilevate.",
+    "startClusterWithDelay": "Avvio dei server cluster con ritardo {{delay}}s",
+    "crossComputerGuide": "Guida al cluster tra computer",
+    "guideTitle": "Guida all'installazione del cluster tra computer",
+    "guideSubtitle": "Come collegare i server ARK ospitati su 2 o più PC fisici",
+    "step1Title": "Configurazione della cartella di archiviazione condivisa (LAN SMB/unità di rete)",
+    "step1Desc": "I cluster ARK utilizzano una cartella condivisa per scrivere file di trasferimento di personaggi, dinosauri e oggetti tra i server.",
+    "step2Title": "Utilizzare la stringa ID cluster ESATTAMENTE STESSO",
+    "step2Desc": "Entrambe le istanze di Manager devono avviare i propri server con la stessa stringa ID cluster in modo che il client ARK le connetta.",
+    "step3Title": "Crea cluster su entrambi i computer",
+    "step4Title": "Avvia server e viaggia attraverso le mappe",
+    "step4Desc": "Avvia tutti i server su entrambe le macchine. Obelischi, consegne di rifornimenti e trasmettitori Tek nel gioco elencheranno automaticamente tutte le mappe su entrambi i computer per trasferimenti senza interruzioni!",
+    "guideTip": "Il port forwarding è ancora richiesto individualmente per macchina per il gioco pubblico."
   },
   "scheduler": {
     "title": "Pianificatore compiti",
@@ -706,7 +1612,20 @@
     "toggleFailed": "Impossibile cambiare lo stato di attivazione del compito",
     "status": "Barra di stato",
     "noTasksDesc": "Nessun altro compito pianificato al momento",
-    "taskNamePlaceholder": "Enter task name..."
+    "taskNamePlaceholder": "Enter task name...",
+    "saveWorld": "Salva il mondo",
+    "boostStart": "Inizio evento potenziamento",
+    "boostEnd": "Fine evento potenziamento",
+    "backupServer": "Server di backup",
+    "backupServerDesc": "Crea un backup automatico dei file del server.",
+    "noServers": "Nessun server trovato",
+    "noServersDesc": "Creare prima un server in Server Manager per configurare le attività pianificate.",
+    "presetApplied": "Preimpostazione del ciclo di manutenzione di 6 ore applicata",
+    "toggleTask": "Attiva/disattiva attività",
+    "editScheduledTask": "Modifica attività pianificata",
+    "editTaskDesc": "Modificare la configurazione dell'attività di seguito",
+    "addTaskDesc": "Configura una nuova attività automatizzata",
+    "onServerOnline": "Quando il server è online"
   },
   "discordBot": {
     "title": "Integrazione della community Discord",
@@ -724,7 +1643,8 @@
       "bot": "Bot di chat bidirezionale",
       "admin": "Canale di amministrazione",
       "alerts": "Impostazioni di allerta dettagliate",
-      "activity": "Cronologia delle allerte"
+      "activity": "Cronologia delle allerte",
+      "players": "Giocatori collegati"
     },
     "webhook": {
       "setupTitle": "Configurare il ricevitore di allerte Webhook",
@@ -738,7 +1658,12 @@
         "step1": "Apri Discord → Impostazioni del server → Integrazioni → Crea Webhook",
         "step2": "Seleziona il canale di destinazione e fai clic su 「Copia URL del Webhook」",
         "step3": "Incolla il collegamento nel campo di inserimento sopra e fai clic su 「Salva」 per provarlo"
-      }
+      },
+      "howToTitle": "Come creare un webhook Discord:",
+      "step1": "1. Apri Discord, fai clic con il pulsante destro del mouse sul tuo canale e seleziona Modifica canale → Integrazioni.",
+      "step2": "2. Fare clic su Crea webhook o Visualizza webhook, quindi fare clic su Nuovo webhook.",
+      "step3": "3. Assegna un nome al tuo webhook (ad esempio Avvisi server) e copia l'URL del webhook.",
+      "step4": "4. Incolla l'URL del webhook sopra e fai clic su Salva webhook."
     },
     "quickActions": {
       "title": "Messaggi istantanei manuali",
@@ -758,6 +1683,14 @@
       "maintenance": {
         "label": "Annuncio di manutenzione urgente",
         "desc": "Informa i giocatori che sono in corso lavori di manutenzione e che gli accessi ai server sono temporaneamente bloccati"
+      },
+      "restartWarn": {
+        "label": "Avviso di riavvio di 15 minuti",
+        "desc": "Trasmetti un avviso di conto alla rovescia di 15 minuti prima del riavvio del server."
+      },
+      "updateDone": {
+        "label": "Aggiornamento avviso completo",
+        "desc": "Avvisa i giocatori che l'aggiornamento del server è terminato e che il server è di nuovo online."
       }
     },
     "bot": {
@@ -906,7 +1839,8 @@
       "connFailedGeneric": "Connessione con Discord interrotta, tentativo di riconnessione in corso...",
       "serverMaintenance": "Il server andrà offline a breve per manutenzione programmata",
       "serverRestart": "Il server si riavvierà a breve. ¡Dirigiti in un luogo sicuro!",
-      "maintenanceBegins": "I lavori di manutenzione del sistema sono iniziati ufficialmente. ¡Il servizio tornerà presto disponibile!"
+      "maintenanceBegins": "I lavori di manutenzione del sistema sono iniziati ufficialmente. ¡Il servizio tornerà presto disponibile!",
+      "loadFailed": "Impossibile caricare la configurazione di Discord"
     },
     "embeds": {
       "connectionEstablished": "🟢 Interfaccia di integrazione connessa con successo",
@@ -1175,7 +2109,28 @@
       "listPlayers": "Elenca giocatori",
       "broadcast": "Invia un annuncio",
       "destroyDinos": "Pulisci creature selvagge"
-    }
+    },
+    "lineCopied": "Riga copiata negli appunti",
+    "allCopied": "Voci di registro {{count}} copiate negli appunti",
+    "commandSuccess": "RCON: {{cmd}} eseguito",
+    "commandFailed": "Errore RCON: {{msg}}",
+    "noLogsToExport": "Nessun registro disponibile per l'esportazione",
+    "liveStreaming": "DIRETTA STREAMING",
+    "streamPaused": "IN PAUSA",
+    "disableWordWrap": "Disattiva il ritorno a capo automatico",
+    "enableWordWrap": "Abilita A capo automatico",
+    "copyAllLogs": "Copia tutti i registri negli appunti",
+    "cleared": "Console cancellata",
+    "export": "Esporta",
+    "entries": "voci",
+    "noSearchResults": "Nessun registro corrispondente alla query corrente",
+    "waitingForLogs": "In attesa dell'output del server",
+    "clearQueryHint": "Prova a modificare le parole chiave di ricerca o i filtri a livello di registro attivi.",
+    "startServerHint": "I log verranno trasmessi qui automaticamente una volta che il server inizia l'avvio e scrive su ShooterGame.log.",
+    "copyThisLine": "Copia riga",
+    "rconSuite": "Terminale di amministrazione RCON",
+    "enterCommandPlaceholder": "Inserisci il comando RCON... (Premi ↑ / ↓ per la cronologia, Invio per inviare)",
+    "serverOfflinePlaceholder": "Il server deve essere in esecuzione per inviare comandi RCON"
   },
   "rcon": {
     "title": "Controllo RCON",
@@ -1218,9 +2173,91 @@
       "destroyWild": "Pulisci dinos",
       "dayTime": "Fai giorno",
       "nightTime": "Fai notte",
-      "clearHistory": "Pulisci cronologia"
+      "clearHistory": "Pulisci cronologia",
+      "copyPlayerId": "Copia ID giocatore",
+      "serverChat": "Invia chat",
+      "autoBroadcast": "Impostazioni trasmissione automatica"
     },
-    "noHistory": "Nessun comando è stato ancora inviato in questa sessione"
+    "noHistory": "Nessun comando è stato ancora inviato in questa sessione",
+    "idCopied": "ID giocatore copiato negli appunti",
+    "copyPlayerId": "Copia ID giocatore",
+    "connectionLost": "La connessione a RCON è stata interrotta",
+    "chatPrompt": "Inserisci il messaggio della chat globale:",
+    "chatSent": "Messaggio di chat inviato",
+    "chatFailed": "Impossibile inviare la chat: {{error}}",
+    "clusterExecComplete": "Esecuzione dei comandi del cluster completata",
+    "clusterExecFailed": "Esecuzione del cluster non riuscita: {{error}}",
+    "notConnected": "Deve essere connesso per inviare comandi",
+    "notConnectedSave": "Deve essere connesso per eseguire i salvataggi.",
+    "saveVerified": "Salvataggio del mondo verificato con successo!",
+    "saveIntegrityError": "La verifica del salvataggio del file non è riuscita.",
+    "saveFailed": "Salvataggio manuale non riuscito: {{error}}",
+    "connectedTo": "Connesso a {{address}}:{{port}}",
+    "since": "dal {{time}}",
+    "creatingBackup": "Backup...",
+    "createBackup": "Crea backup",
+    "clearLogs": "Cancella",
+    "toasts": {
+      "creatingBackup": "Creazione del backup del server...",
+      "backupSuccess": "Backup del server creato con successo!",
+      "backupFailed": "Impossibile creare il backup: {{error}}"
+    },
+    "maint": {
+      "seqAborted": "Sequenza di manutenzione interrotta.",
+      "seqSuccess": "Sequenza di manutenzione completata con successo!",
+      "seqFailed": "Sequenza di manutenzione non riuscita: {{error}}"
+    },
+    "tabs": {
+      "terminal": "Terminale interattivo",
+      "logStream": "Feed registro in tempo reale",
+      "cluster": "Mazzo a grappolo",
+      "saveManager": "Salvataggi verificati",
+      "maintenance": "Manutenzione",
+      "giveItems": "Assegna elementi"
+    },
+    "giveItem": {
+      "onlineResolutionFailed": "Impossibile risolvere il giocatore selezionato con il suo ID giocatore ARK. Assicurati che abbiano effettuato l'accesso.",
+      "manualResolutionFailed": "Impossibile risolvere l'ID Steam manuale nell'ID giocatore ARK. Assicurati che il giocatore si sia unito al server o inserisci direttamente l'ID giocatore di 9 cifre.",
+      "noTarget": "Seleziona un giocatore o inserisci un ID giocatore",
+      "noBlueprint": "Seleziona un elemento o inserisci un percorso del progetto personalizzato",
+      "success": "Comando articolo inviato con successo!",
+      "failed": "Non riuscito: {{errMsg}}",
+      "title": "Assegna elementi",
+      "subtitle": "Invia oggetti direttamente ai giocatori online o agli ID manuali.",
+      "targetTitle": "Selezionare Obiettivo",
+      "targetOnline": "Giocatori online",
+      "targetManual": "ID manuale/ID Steam",
+      "noPlayers": "Nessun giocatore attualmente online. Utilizza l'ID manuale o attendi che i giocatori si uniscano.",
+      "itemTitle": "Seleziona Articolo",
+      "sourcePreset": "Catalogo",
+      "sourceCustom": "Progetto personalizzato",
+      "searchPlaceholder": "Cerca elementi...",
+      "settingsTitle": "Impostazioni voce",
+      "targetSurvivor": "Sopravvissuto bersaglio",
+      "targetType": {
+        "online": "Sopravvissuti in linea",
+        "manual": "ID manuale/ID EOS"
+      },
+      "selectSurvivor": "Seleziona Sopravvissuto",
+      "enterPlayerId": "Inserisci l'ID giocatore univoco/SteamID/ID EOS",
+      "configuration": "Attributi e dettagli del carico",
+      "quantity": "Quantità",
+      "quality": "Indice di qualità",
+      "forceBlueprint": {
+        "title": "Solo progetto di generazione",
+        "desc": "Fornisce il progetto realizzabile invece dell'oggetto stesso"
+      },
+      "cmdPreview": "Anteprima del comando RCON generato",
+      "delivering": "Consegna del carico...",
+      "deliver": "Consegna oggetto al sopravvissuto",
+      "itemCatalog": "Catalogo merci",
+      "presets": "Catalogo preimpostato",
+      "customBp": "Progetto personalizzato",
+      "searchPreset": "Cerca elementi...",
+      "noMatches": "Nessun articolo corrispondente trovato.",
+      "pasteBpPath": "Incolla il percorso del progetto dell'elemento",
+      "bpTip": "Assicurati di includere il percorso completo del progetto che inizia con \"Blueprint'\" e termina con \"'\"."
+    }
   },
   "settings": {
     "curseforgeKey": {
@@ -1233,7 +2270,8 @@
       "verifying": "Verifica della connessione a CurseForge...",
       "verified": "Verifica completata con successo",
       "invalid": "Chiave API non valida, verifica l'inserimento",
-      "verifyKey": "Verifica connessione"
+      "verifyKey": "Verifica connessione",
+      "enterKeyFirst": "Inserisci prima una chiave API"
     },
     "diagnostics": {
       "title": "Diagnostica dell'ambiente del server",
@@ -1252,7 +2290,9 @@
       "installNow": "Scarica e configura automaticamente",
       "installSteamCmd": "Scaricamento e configurazione degli strumenti SteamCMD tramite CDN ufficiale...",
       "installSuccess": "¡Ambiente SteamCMD configurato con successo e pronto!",
-      "installFailed": "La configurazione di SteamCMD è fallita: {{error}}"
+      "installFailed": "La configurazione di SteamCMD è fallita: {{error}}",
+      "nonAsciiPath": "Errore percorso SteamCMD",
+      "nonAsciiPathDesc": "Il tuo attuale percorso SteamCMD contiene caratteri non ASCII/non inglesi: \"{{path}}\". SteamCMD non può operare da questa posizione. Imposta un percorso SteamCMD personalizzato solo ASCII nelle Impostazioni."
     },
     "portValidator": {
       "title": "Verifica accessibilità delle porte",
@@ -1325,7 +2365,8 @@
           "headers": {
             "port": "Porta standard di ARK",
             "protocol": "Tipo di protocollo",
-            "purpose": "Scopo della porta"
+            "purpose": "Scopo della porta",
+            "required": "Obbligatorio"
           },
           "purposes": {
             "game": "Porta principale del gioco",
@@ -1389,7 +2430,9 @@
       "network": "Network & Guides",
       "firewall": "Firewall",
       "updates": "Updates",
-      "language": "Language"
+      "language": "Language",
+      "appearance": "Aspetto e tema",
+      "startup": "Avvio e ripristino"
     },
     "saved": "Settings saved successfully!",
     "saveFailed": "Failed to save settings",
@@ -1442,7 +2485,16 @@
       "maxCrashes": "Max Crash Restarts",
       "maxCrashesDesc": "Max crash recovery attempts in window.",
       "observationWindow": "Observation Window",
-      "observationWindowDesc": "Time in minutes to track crash counts."
+      "observationWindowDesc": "Time in minutes to track crash counts.",
+      "adminRequired": "Sono necessari i privilegi di amministratore per abilitare Ignora UAC (Utilità di pianificazione). Riavviare l'applicazione come amministratore.",
+      "closeBehaviorTitle": "Azione di chiusura della finestra",
+      "closeBehaviorDesc": "Configura cosa succede quando fai clic sul pulsante di chiusura dell'applicazione [X].",
+      "closeActionAsk": "Chiedi sempre",
+      "closeActionAskDesc": "Richiesta di conferma modale ogni volta che la finestra viene chiusa",
+      "closeActionTray": "Riduci a icona nella barra delle applicazioni",
+      "closeActionTrayDesc": "Mantieni i server di gioco e la chat incrociata in esecuzione silenziosamente in background",
+      "closeActionExit": "Esci completamente",
+      "closeActionExitDesc": "Arresta i processi del server in background e esce dall'applicazione"
     },
     "firewallAutomation": {
       "title": "Gestione automatica del firewall",
@@ -1460,7 +2512,8 @@
         "gamePort": "Game Port",
         "queryPort": "Query Port",
         "rconPort": "RCON Port",
-        "actions": "Actions"
+        "actions": "Actions",
+        "peerPort": "Porta peer"
       },
       "manual": {
         "title": "Manual Port Assignment",
@@ -1502,6 +2555,104 @@
           "assign": "Assign"
         }
       }
+    },
+    "autoSave": "Salvataggio automatico",
+    "autoSaving": "Salvataggio automatico…",
+    "autoSaved": "Salvato",
+    "saveUnsaved": "⚡ SALVA IMPOSTAZIONI",
+    "saveUnsavedShort": "⚡ Salva impostazioni",
+    "autoSaveActive": "Salvataggio automatico attivo",
+    "unsavedChanges": "Modifiche alle impostazioni non salvate",
+    "allSaved": "Impostazioni aggiornate",
+    "autoSaveNotice": "Le modifiche vengono salvate automaticamente in background",
+    "unsavedChangesDesc": "Fare clic su Salva impostazioni per applicare le modifiche",
+    "savedNotice": "Tutte le modifiche sono state salvate",
+    "verify": "Verifica",
+    "curseforgeKeySaved": "Chiave API CurseForge salvata con successo!",
+    "curseforgeModalTitle": "Impostazioni chiave API CurseForge",
+    "curseforgeModalSubtitle": "Configura la chiave API per la ricerca mod in tempo reale e gli aggiornamenti del server",
+    "curseforgeKeyLabel": "Chiave API CurseForge",
+    "curseforgeKeyPlaceholder": "Inserisci la tua chiave API CurseForge",
+    "keyValidMessage": "Chiave verificata e attiva!",
+    "keyInvalidMessage": "La verifica della chiave non è riuscita. Per favore controlla la tua chiave.",
+    "needCurseforgeKey": "Non hai una chiave API?",
+    "curseforgeModalHelp": "CurseForge richiede una chiave API gratuita per cercare mod e abilitare gli aggiornamenti automatici delle mod all'avvio del server. Accedi alla console CurseForge per generare una chiave.",
+    "appearance": {
+      "themeApplied": "Tema {{name}} applicato",
+      "title": "Tema dell'applicazione e stile visivo",
+      "description": "Personalizza l'atmosfera visiva di ARK Server Manager. Le modifiche si applicano a livello globale in tempo reale su tutti i pannelli, dashboard, terminali e modalità.",
+      "select": "Selezionare",
+      "palette": "Campioni tavolozza"
+    },
+    "diagnosticsTab": {
+      "title": "Risoluzione dei problemi e diagnostica",
+      "noLogYet": "Nessun file di registro di avvio trovato o impossibile da leggere.",
+      "folderOpened": "Cartella dei registri aperta in Esplora file",
+      "folderOpenFailed": "Impossibile aprire la cartella dei registri",
+      "openFolder": "Apri la cartella dei registri",
+      "viewLog": "Visualizza registro di avvio",
+      "modalTitle": "Registri di avvio e diagnostica",
+      "modalSubtitle": "Esaminare i messaggi e gli errori relativi allo stato dell'applicazione attiva.",
+      "loadingLogs": "Lettura del file di registro...",
+      "noMatches": "Nessuna riga corrispondente alla query di ricerca",
+      "logLocation": "Percorso del registro:",
+      "desc": "Esaminare i registri dell'applicazione e aprire la directory dei registri per diagnosticare problemi di avvio o errori di aggiornamento."
+    },
+    "userConfigFolder": {
+      "title": "Cartella Configurazione utente",
+      "desc": "Punta a una cartella personalizzata contenente i file di configurazione del server (GameUserSettings.ini, Game.ini). Quando impostata, l'app legge e scrive le configurazioni da questa cartella anziché dalla directory di installazione del server.",
+      "placeholder": "Non impostato: utilizzo del percorso di installazione del server predefinito",
+      "browseFailed": "Impossibile aprire il selettore cartelle",
+      "clear": "Cancella e usa il valore predefinito",
+      "activeNote": "I file di configurazione verranno letti e salvati in questa cartella"
+    },
+    "customSteamcmdPath": {
+      "title": "Percorso SteamCMD personalizzato",
+      "desc": "Reindirizza i download di SteamCMD e del workshop sul server in una cartella personalizzata. Utile se il tuo nome utente Windows contiene caratteri non ASCII.",
+      "placeholder": "Non impostato: utilizzo del Roaming AppData predefinito",
+      "browseFailed": "Impossibile aprire il selettore cartelle",
+      "clear": "Cancella e usa il valore predefinito",
+      "invalidWarning": "Avvertenza: il percorso contiene caratteri non ASCII. SteamCMD non verrà eseguito qui."
+    },
+    "updatesTab": {
+      "currentVersion": "Versione corrente:",
+      "checking": "Controllo dei server...",
+      "checkNow": "Controlla ora",
+      "lastError": "Errore ultimo aggiornamento",
+      "downloadManually": "Scarica da GitHub Rilasci",
+      "dismissError": "Ignora",
+      "autoUpdate": "Aggiornamenti automatici in background",
+      "autoUpdateDesc": "Scarica e prepara gli aggiornamenti silenziosamente in background.",
+      "updateChannel": "Aggiorna canale",
+      "channelDesc": "Seleziona quale flusso di aggiornamento desideri ricevere. Gli streaming beta e notturni ottengono funzionalità prima ma potrebbero essere meno stabili.",
+      "releaseChannel": "Rilascio stabile",
+      "releaseDesc": "Consigliato per server di produzione. Stabile completamente testato e verificato.",
+      "betaChannel": "Versione beta",
+      "betaDesc": "Build pre-release per testare anticipatamente i prossimi aggiornamenti principali.",
+      "nightlyChannel": "Costruzione notturna",
+      "nightlyDesc": "Build automatizzate all'avanguardia aggiornate quotidianamente. Altamente sperimentale.",
+      "clearSkipped": "Cancella versioni saltate",
+      "resetCache": "Reimposta la cache degli aggiornamenti",
+      "noHistory": "Nessuna cronologia degli aggiornamenti ancora",
+      "previousVersions": "Versioni precedenti",
+      "previousDesc": "Hai bisogno di tornare indietro? Visualizza tutte le versioni precedenti e scarica le versioni precedenti dal nostro repository GitHub.",
+      "viewReleases": "Visualizza le versioni su GitHub",
+      "updateAvailable": "L'aggiornamento v{{version}} è disponibile!",
+      "latestVersion": "Stai utilizzando l'ultima versione",
+      "checkFailed": "Impossibile controllare gli aggiornamenti",
+      "checkForUpdates": "Controlla aggiornamenti",
+      "autoEnabled": "Aggiornamenti automatici abilitati",
+      "autoDisabled": "Aggiornamenti automatici disabilitati",
+      "channelChanged": "Canale di aggiornamento passato a {{channel}}",
+      "skippedCleared": "Versioni saltate cancellate",
+      "cacheReset": "Cache di aggiornamento cancellata. Il programma di aggiornamento effettuerà un nuovo controllo al ciclo successivo."
+    },
+    "unsaved": {
+      "title": "Modifiche non salvate",
+      "body": "Hai impostazioni non salvate. Lasciando questa pagina li scarterai.",
+      "stay": "Rimani",
+      "discard": "Esci senza salvare",
+      "saveLeave": "Salva e esci"
     }
   },
   "firewallConfig": {
@@ -1549,7 +2700,112 @@
     "pluginInstalled": "¡Plugin installato con successo e integrato nell'ambiente del server!",
     "pluginUninstalled": "¡Plugin disinstallato con successo!",
     "installFailed": "L'installazione del plugin è fallita: {{error}}",
-    "uninstallFailed": "La disinstallazione del plugin è fallita: {{error}}"
+    "uninstallFailed": "La disinstallazione del plugin è fallita: {{error}}",
+    "scanFailed": "Impossibile eseguire la scansione dei plug-in del server: {{error}}",
+    "enabled": "Plug-in abilitato",
+    "disabled": "Plugin disabilitato",
+    "enablingAll": "Abilitazione di tutti i plugin...",
+    "disablingAll": "Disabilitazione di tutti i plugin...",
+    "allEnabled": "Tutti i plugin abilitati",
+    "allDisabled": "Tutti i plugin disabilitati",
+    "toggleAllFailed": "Impossibile attivare/disattivare tutti i plugin: {{error}}",
+    "installingLoader": "Download e installazione dell'API ASA Server in corso...",
+    "installLoaderFailed": "Impossibile installare l'API ASA Server: {{error}}",
+    "selectServerFirst": "Seleziona prima un server",
+    "importing": "Importazione plugin...",
+    "importSuccess": "Plugin {{name}} importato con successo",
+    "importFailed": "Impossibile importare il plugin: {{error}}",
+    "creatingDefault": "Creazione del modello di plugin predefinito...",
+    "createDefaultSuccess": "Modello DefaultPlugin creato! Configurare i parametri in config.json.",
+    "createDefaultFailed": "Impossibile creare DefaultPlugin: {{error}}",
+    "confirmUninstall": "Sei sicuro di voler disinstallare \"{{name}}\"? Ciò eliminerà la sua cartella e la sua configurazione in modo permanente.",
+    "uninstalling": "Disinstallazione del plugin...",
+    "uninstallSuccess": "Plugin disinstallato correttamente",
+    "savingConfig": "Salvataggio della configurazione del plugin...",
+    "saveConfigSuccess": "Configurazione salvata con successo",
+    "saveConfigFailed": "Impossibile salvare la configurazione: {{error}}",
+    "loaderNotice": "ASA Server API (AsaApi) è necessaria per eseguire plugin C++ nativi sui server Ark: Survival Ascended. Si inserisce in ShooterGameServer.exe tramite DLL proxy.",
+    "loaderInstalled": "ASA Server API (Loader) è installato e attivo su questo server.",
+    "loaderMissing": "Manca il caricatore API ASA Server. I plugin nativi non possono essere caricati senza di esso.",
+    "installLoaderBtn": "Installa il caricatore API di ASA Server",
+    "installLoaderPrompt": "Fare clic per scaricare e configurare automaticamente AsaApi in Binaries/Win64.",
+    "tabInstalled": "Plugin installati",
+    "tabMarketplace": "Mercato dei plugin",
+    "tabConfigs": "Editor di configurazione",
+    "filterAll": "Tutti i plugin",
+    "filterEnabled": "Abilitato Solo",
+    "filterDisabled": "Solo disabilitato",
+    "searchPlugins": "Cerca plugin per nome, autore o parola chiave...",
+    "enableAllBtn": "Abilita tutto",
+    "disableAllBtn": "Disabilita tutto",
+    "importPluginBtn": "Importa plugin (.zip)",
+    "createTemplateBtn": "+ Crea plugin predefinito",
+    "refreshList": "Aggiorna plugin",
+    "noPluginsFound": "Nessun plugin installato su questo server.",
+    "noPluginsFoundDesc": "Importa un archivio di plugin compilato o installa il caricatore API ASA Server per iniziare.",
+    "author": "Autore",
+    "version": "Versione",
+    "apiCompatibility": "Versione API",
+    "dllStatus": "Stato DLL",
+    "hasConfig": "File di configurazione",
+    "yes": "Sì",
+    "no": "No",
+    "actions": "Azioni",
+    "editConfigBtn": "Modifica configurazione",
+    "uninstallBtn": "Disinstallare",
+    "configEditorTitle": "Editor di configurazione plugin",
+    "selectPluginToEdit": "Seleziona un plugin per visualizzare e modificare il suo config.json",
+    "saveChanges": "Salva configurazione",
+    "resetDefaults": "Ripristina le impostazioni predefinite del modello",
+    "invalidJson": "Formato JSON non valido! Correggi gli errori di sintassi prima di salvare.",
+    "configReadOnly": "Questo plugin non fornisce un file di configurazione modificabile.",
+    "openFolderFailed": "Impossibile aprire la cartella: {{error}}",
+    "apiLoaderEnabled": "Caricatore API abilitato",
+    "apiLoaderDisabled": "Caricatore API disabilitato",
+    "openFolderTooltip": "Apri la directory dei plugin in Esplora file",
+    "openFolder": "Cartella Plugin",
+    "createDefault": "Crea modello",
+    "import": "Importa plugin",
+    "serverRunningWarning": "Il server è attualmente in esecuzione/online. Le modifiche agli stati del plugin avranno effetto al prossimo avvio.",
+    "loaderLaunchMode": "Modalità di avvio: Caricatore plugin attivo",
+    "normalLaunchMode": "Modalità di avvio: Server normale attivo",
+    "loaderLaunchDesc": "Utilizzo di {{exe}} per avviare il server con plug-in hook.",
+    "normalLaunchDesc": "Utilizzo di {{exe}} (caricatore plugin disabilitato o mancante).",
+    "serverControls": "Controlli del server",
+    "serverApiToggle": "API del server (caricatore)",
+    "loaderMissingDesc": "Il caricatore di plugin è necessario per caricare i plugin abilitati. La commutazione dei plugin è bloccata finché non installi l'API.",
+    "installing": "Installazione...",
+    "autoInstallApi": "API di installazione automatica",
+    "manualDownload": "Scarica il manuale",
+    "searchPlaceholder": "Filtra per nome o cartella...",
+    "enableAll": "Abilita tutto",
+    "disableAll": "Disabilita tutto",
+    "refresh": "Aggiorna elenco",
+    "scanningFolder": "Scansione della cartella dei plugin...",
+    "noMatchingPlugins": "Non è stato trovato alcun plugin corrispondente ai filtri attuali.",
+    "noPluginsDesc": "Nessun plugin trovato nella directory. Scarica e importa archivi per attivare gli hook.",
+    "visitRepo": "Sfoglia il repository ufficiale",
+    "by": "di {{author}}",
+    "depCount": "Dipendenze {{count}}",
+    "clickToDisable": "Disabilita plugin",
+    "clickToEnable": "Abilita plugin",
+    "errorDetected": "Errore caricamento plugin",
+    "missingTitle": "Plugin mancante",
+    "description": "Descrizione",
+    "noDescription": "Nessuna descrizione fornita per questo plugin.",
+    "dependencies": "Dipendenze",
+    "depActive": "Attivo",
+    "depDisabled": "Disabilitato",
+    "depMissing": "Manca",
+    "installPath": "Percorso installato",
+    "id": "ID: {{id}}",
+    "delete": "Disinstallare il plugin",
+    "loadingDetails": "Controllo della directory del server e delle configurazioni dei plug-in.",
+    "unableToLoad": "Plugin non disponibili",
+    "unableToLoadDesc": "Impossibile caricare i dati del plug-in per questo server. Verificare che la directory del server esista e sia accessibile.",
+    "retry": "Riprovare la scansione",
+    "noServerSelected": "Nessun server selezionato",
+    "selectServerDesc": "Seleziona un server di gioco ASA dal menu a discesa per controllare e configurare i suoi plug-in di hook."
   },
   "fileManager": {
     "title": "Gestore file",
@@ -1572,7 +2828,35 @@
     "saveFailed": "Impossibile salvare il file: {{error}}",
     "deleteFailed": "Impossibile eliminare il file: {{error}}",
     "confirmDelete": "Conferma eliminazione",
-    "confirmDeleteMsg": "Sei sicuro di voler eliminare definitivamente questo file? Questa azione è irreversibile."
+    "confirmDeleteMsg": "Sei sicuro di voler eliminare definitivamente questo file? Questa azione è irreversibile.",
+    "thisPc": "This PC",
+    "quickAccess": "Quick Access",
+    "newFolder": "New Folder",
+    "openInExplorer": "Open in Explorer",
+    "gridView": "Grid View",
+    "listView": "List View",
+    "searchPlaceholder": "Search...",
+    "localDisk": "Local Disk",
+    "arkServers": "ARK Servers",
+    "users": "Users",
+    "rename": "Rename",
+    "delete": "Delete",
+    "folderEmpty": "Folder is empty",
+    "save": "Save",
+    "createNewFolder": "Create New Folder",
+    "folderName": "Folder Name",
+    "cancel": "Cancel",
+    "create": "Create",
+    "renameItem": "Rename Item",
+    "newName": "New Name",
+    "aseTitle": "ASE File Manager",
+    "aseSubtitle": "Browse server files and directories",
+    "emptyDirectory": "Empty directory",
+    "installPath": "Install Path",
+    "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This cannot be undone.",
+    "folderCreated": "Folder created",
+    "itemRenamed": "Item renamed",
+    "itemDeleted": "Item deleted"
   },
   "installDialog": {
     "title": "Assistente di installazione del server ARK",
@@ -1639,7 +2923,21 @@
     "updateNow": "Aggiorna ora",
     "later": "Più tardi",
     "skip": "Ignora",
-    "error": "Errore durante il download, riprova più tardi."
+    "error": "Errore durante il download, riprova più tardi.",
+    "refetchFailed": "Impossibile inizializzare l'aggiornamento automatico. Si prega di scaricare l'aggiornamento manualmente.",
+    "noUpdater": "Il controllo dell'aggiornamento non ha restituito dati. Riprova o scarica manualmente.",
+    "signatureError": "La firma dell'aggiornamento non corrisponde. Questo di solito significa che l'aggiornamento è stato firmato con una chiave diversa. Scaricare manualmente la versione più recente da GitHub Releases.",
+    "elevationError": "Il programma di aggiornamento necessita dei privilegi di amministratore per sostituire i file. Riavvia l'app come amministratore o scarica l'aggiornamento manualmente.",
+    "signatureToast": "Aggiornamento non riuscito: mancata corrispondenza della firma. Controlla Impostazioni → Aggiornamenti per i dettagli.",
+    "elevationToast": "Aggiornamento non riuscito: sono richiesti privilegi di amministratore. Fare clic con il pulsante destro del mouse sull'app → Esegui come amministratore.",
+    "skippedToast": "Versione saltata. Puoi verificare nuovamente la presenza di aggiornamenti in Impostazioni.",
+    "relaunchFailed": "Impossibile riavviare. Chiudi e riapri l'applicazione manualmente.",
+    "readyTitle": "Aggiornamento pronto",
+    "readyDesc": "L'aggiornamento è stato scaricato ed è pronto per l'installazione. Riavviare l'applicazione per applicare le modifiche.",
+    "downloadInstaller": "Scarica il programma di installazione",
+    "downloadPortable": "ZIP portatile",
+    "relaunch": "RICOMINCIA ORA",
+    "openGitHub": "SCARICA DA GITHUB"
   },
   "errorBoundary": {
     "title": "Si è verificato un errore inaspettato",
@@ -1738,7 +3036,15 @@
         "genesis2": "Genesis Part 2",
         "fjordur": "Fjordur",
         "astraeos": "Astraeos",
-        "forglar": "Forglar"
+        "forglar": "Forglar",
+        "clubArk": "Club ARCA",
+        "svartalfheim": "Svartalfheim",
+        "amissa": "Amissa",
+        "insaluna": "Insaluna",
+        "temptressLagoon": "Laguna Tentatrice",
+        "reverence": "Riverenza",
+        "crystalIsles": "Isole di Cristallo",
+        "lostIsland": "L'isola perduta"
       },
       "mapDescriptions": {
         "original": "L'esperienza di sopravvivenza classica e indimenticabile sull'isola",
@@ -1750,7 +3056,9 @@
         "community": "La mappa di esplorazione personalizzata più amata dai giocatori",
         "dlc": "La continuazione dei DLC ufficiali della storia in nuovi mondi",
         "comingSoon": "Il rilascio di questa mappa è previsto per il {{date}}",
-        "premium": "Una mappa di mod a pagamento di alta qualità"
+        "premium": "Una mappa di mod a pagamento di alta qualità",
+        "genesis1": "Simulazione con biomi e missioni unici",
+        "clubArk": "Hub sociale con minigiochi"
       },
       "officialMaps": "Mappe ufficiali di ARK",
       "premiumMaps": "Mappe di mod Premium (A pagamento)",
@@ -1792,7 +3100,49 @@
       "chooseMap": "Seleziona il mondo di ARK",
       "chooseMapDesc": "Determina la mappa da caricare sul server",
       "serverDetails": "Inserisci il nome del server e il percorso di installazione",
-      "serverDetailsDesc": "Scegli un nome significativo e una cartella di installazione su un'unità con spazio su disco sufficiente"
+      "serverDetailsDesc": "Scegli un nome significativo e una cartella di installazione su un'unità con spazio su disco sufficiente",
+      "cancelInstall": "Annulla installazione",
+      "cancelling": "Annullamento...",
+      "cancelSuccess": "Installazione annullata correttamente.",
+      "cancelOptionsTitle": "Opzioni di cancellazione",
+      "cancelKeepFiles": "Interrompi e mantieni il download parziale",
+      "cancelKeepFilesDesc": "Arresta SteamCMD. Conserva i file scaricati per riprenderli in seguito.",
+      "cancelDeleteFiles": "Arresta ed elimina la cartella del server",
+      "cancelDeleteFilesDesc": "Interrompe il processo e rimuove completamente la directory di destinazione.",
+      "cancelPurgeCache": "Arresta ed elimina la cache di SteamCMD",
+      "cancelPurgeCacheDesc": "Interrompe il processo, elimina la cache dei download e ripristina.",
+      "minimize": "Riduci a icona sullo sfondo",
+      "minimizeBtn": "Riduci a icona",
+      "dlcMaps": "Espansioni DLC",
+      "moddedMaps": "Mappe di espansione modificate",
+      "moddedMapSuccess": "✓ La configurazione di avvio verrà impostata automaticamente",
+      "upcomingMaps": "Prossimamente",
+      "maxPlayers": "Numero massimo di giocatori",
+      "maxPlayersDesc": "Numero massimo di giocatori consentiti sul server",
+      "adminPassword": "Password amministratore",
+      "adminPasswordDesc": "Password utilizzata per ottenere i diritti di amministratore sul server (impostazione predefinita: admin123)",
+      "serverPassword": "Password del server",
+      "serverPasswordDesc": "Password richiesta affinché i giocatori possano unirsi al server",
+      "preflight": "Revisione pre-volo",
+      "preflightDesc": "Verificare ogni dettaglio prima dell'inizio dell'installazione",
+      "preflightWarning": "Alcune impostazioni richiedono attenzione: rivedi gli avvisi di seguito",
+      "preflightOk": "Tutte le impostazioni sembrano buone: pronte per l'implementazione",
+      "reviewIdentity": "Identità",
+      "reviewGameMode": "Modalità di gioco",
+      "reviewNetwork": "Rete",
+      "portCollision": "Rilevata collisione di porte: le porte di gioco, query e RCON devono essere tutte diverse",
+      "privilegedPorts": "Le porte inferiori a 1024 sono privilegiate e potrebbero richiedere l'accesso come amministratore",
+      "reviewSecurity": "Sicurezza",
+      "publicAccess": "Pubblico",
+      "weakPassword": "La password è breve: considera l'utilizzo di più di 6 caratteri per una maggiore sicurezza",
+      "reviewStorage": "Stoccaggio",
+      "installPath": "Percorso di installazione",
+      "downloadWarning": "SteamCMD scaricherà ~60 GB di file del server (AppID 2430930)",
+      "tryAgain": "Riprova",
+      "repairSteamcmd": "Ripara SteamCMD",
+      "clearCache": "Svuota cache",
+      "diagnosticTips": "Suggerimenti per la risoluzione dei problemi",
+      "install": "Installa"
     },
     "importServer": {
       "title": "Importare e connettere un server ARK esistente",
@@ -1814,7 +3164,10 @@
         "rcon": "La configurazione RCON del server"
       },
       "success": "¡Server \"{{name}}\" importato con successo e assunto sotto la gestione!",
-      "error": "Impossibile importare il server"
+      "error": "Impossibile importare il server",
+      "previewError": "Impossibile controllare la struttura delle cartelle. Si prega di verificare il percorso.",
+      "portsResolved": "I conflitti tra le porte sono stati risolti con successo!",
+      "aseSubtitle": "Importa un server ARK: Survival Evolved esistente"
     },
     "importSave": {
       "title": "Trasferire una partita Solo su un server dedicato",
@@ -1831,7 +3184,9 @@
       "folderImportDesc": "Trasferimento completo (consigliato): ¡Trasferisce le tribù, le strutture, i dinos addomesticati e i livelli dei personaggi senza perdite!",
       "startImport": "Avvia trasferimento",
       "success": "¡Partita salvata locale trasferita con successo e senza perdite al server dedicato!",
-      "error": "Impossibile trasferire la partita salvata"
+      "error": "Impossibile trasferire la partita salvata",
+      "validationError": "Seleziona un server di destinazione e un file o una cartella di origine.",
+      "aseSubtitle": "Importa i dati di salvataggio in un server ASE"
     },
     "welcome": {
       "title": "Bentornato,",
@@ -1999,5 +3354,394 @@
         "assign": "Autorizza"
       }
     }
+  },
+  "boost": {
+    "loadFailed": "Impossibile caricare i profili boost",
+    "nameRequired": "Il nome del profilo è obbligatorio",
+    "saveSuccess": "Profilo Boost salvato con successo!",
+    "confirmDelete": "Sei sicuro di voler eliminare questo profilo?",
+    "deleteSuccess": "Profilo Boost eliminato",
+    "activatingText": "Riavvio del server e applicazione delle tariffe degli eventi in corso...",
+    "activateSuccess": "Evento Boost attivato con successo!",
+    "deactivatingText": "Riavvio del server e ripristino delle tariffe originali...",
+    "deactivateSuccess": "Boost disattivato e tariffe originali ripristinate!",
+    "title": "Gestore potenziamento",
+    "titleAse": "Boost Manager (ASE)",
+    "subtitle": "Configura in sicurezza eventi stagionali temporanei e moltiplica le tariffe dei server.",
+    "newProfile": "+ Nuovo profilo",
+    "bannerTitle": "Come funziona il Boost Manager?",
+    "bannerDesc": "Quando si attiva un profilo boost, l'allenatore esegue trasmissioni periodiche tramite RCON per avvisare i giocatori. Quindi spegne in modo sicuro il server, crea backup delle configurazioni originali (.boostbackup) e inserisce i nuovi moltiplicatori. Quando disattivato, le configurazioni di backup vengono ripristinate perfettamente.",
+    "setupTip": "Per l'automazione, configurare le attività BoostStart/BoostEnd nello Scheduler",
+    "activeEvent": "Evento attivo",
+    "deactivate": "Disattiva evento",
+    "noActiveEvent": "Nessun profilo boost attivo su questo server",
+    "loading": "Caricamento profili...",
+    "noProfiles": "Nessun profilo boost registrato",
+    "noProfilesDesc": "Crea un nuovo profilo per iniziare a configurare le tariffe stagionali.",
+    "createFirst": "Crea primo profilo",
+    "active": "Attivo",
+    "activateBtn": "Attiva sul server",
+    "editTitle": "Modifica profilo potenziamento",
+    "newTitle": "Nuovo profilo potenziamento",
+    "profileName": "Nome del profilo",
+    "profileNamePlaceholder": "per esempio. 2x fine settimana, evento di Pasqua"
+  },
+  "crashDoctor": {
+    "title": "Crash Doctor e ripristino della mappa",
+    "refresh": "Eseguire nuovamente la scansione e diagnosticare",
+    "repairSuccess": "L'ambiente del server è stato riparato e l'avvio è stato avviato!",
+    "diagnosing": "Analisi del dump del crash e dei log del server...",
+    "primaryCause": "Causa primaria rilevata",
+    "quarantineProxyDlls": "DLL proxy quarantena (.disabled)",
+    "purgeModCache": "Elimina la cache mod CFCore",
+    "wipeWildDinos": "Avvia con Wild Dino Wipe (-ForceRespawnDinos)",
+    "validateFiles": "Esegui la verifica completa del file SteamCMD",
+    "safeRecoveryMode": "Modalità di ripristino sicuro (avvia senza modifiche)",
+    "diagnosingDesc": "Ispezione degli hook DLL proxy, della cache mod e dell'integrità del salvataggio mondiale",
+    "quarantineDesc": "Disabilita in modo sicuro version.dll, dxgi.dll, winhttp.dll per prevenire l'arresto anomalo immediato del processo",
+    "purgeModCacheDesc": "Pulisce ShooterGame/Binaries/Win64/ShooterGame/Mods per ricompilare nuove risorse mod",
+    "wipeWildDinosDesc": "Elimina gli attori di spawn corrotti che bloccano il caricamento del mondo sulle mappe aggiornate",
+    "validateFilesDesc": "Ripara i binari del motore di gioco mancanti o incompleti (richiede 2-5 minuti)",
+    "safeRecoveryDesc": "Avvia la mappa Pure Vanilla per verificare il gioco base e salvare l'integrità dei file",
+    "identifiedFactors": "Fattori di crash identificati ({{count}})",
+    "recentLogsTitle": "Registri di arresti anomali recenti e Callstack di errori irreversibili (righe {{count}})",
+    "customizePipeline": "Personalizza le opzioni della pipeline di guarigione",
+    "healing": "Riparazione dell'ambiente del server...",
+    "healedCleanly": "Guarito e avviato in modo pulito",
+    "autoFixLaunch": "Correzione automatica e avvio mappa con 1 clic",
+    "metrics": {
+      "proxyDlls": "DLL proxy",
+      "activeCrashing": "{{count}} Attivo (arresto anomalo)",
+      "cleanQuarantined": "Pulito (in quarantena)",
+      "noHooks": "Nessun hook attivo",
+      "modCache": "Cache mod",
+      "cachedCount": "{{count}} Memorizzato nella cache",
+      "mbCompiled": "{{size}} MB compilato",
+      "worldSave": "Salva il mondo",
+      "saveOk": "Mappa Salva OK",
+      "freshMap": "Mappa nuova/fresca",
+      "saveFiles": "{{size}} MB (file {{count}})",
+      "crashErrors": "Errori di arresto anomalo",
+      "detectedCount": "{{count}} rilevato",
+      "inShooterLog": "Nel file ShooterGame.log",
+      "noAssertErrors": "Nessun errore di asserzione"
+    }
+  },
+  "translator": {
+    "installSuccess": "Plug-in Chat Translator installato correttamente!",
+    "installError": "Impossibile installare il plug-in",
+    "confirmUninstall": "Sei sicuro di voler disinstallare Chat Translator? Ciò eliminerà le configurazioni locali.",
+    "uninstallSuccess": "Plug-in Chat Translator disinstallato.",
+    "uninstallError": "Impossibile disinstallare il plugin",
+    "configSaved": "Impostazioni di traduzione aggiornate con successo!",
+    "configSaveError": "Impossibile salvare la configurazione",
+    "fieldsRequired": "Sono richiesti l'ID Steam e il nome giocatore.",
+    "prefSaved": "Preferenza di traduzione del giocatore aggiornata.",
+    "prefSaveError": "Impossibile salvare le preferenze del giocatore",
+    "confirmDeletePref": "Sei sicuro di voler rimuovere questa preferenza del giocatore?",
+    "prefDeleted": "Preferenza rimossa.",
+    "prefDeleteError": "Impossibile rimuovere la preferenza",
+    "confirmResetStats": "Sei sicuro di voler reimpostare tutti i contatori di utilizzo della traduzione?",
+    "statsReset": "Le statistiche sono state reimpostate correttamente.",
+    "statsResetError": "Impossibile reimpostare le statistiche",
+    "title": "Traduttore di chat",
+    "subtitle": "Traduci automaticamente la chat del server di gioco in modo dinamico tra giocatori in diverse lingue",
+    "noServers": "Seleziona un server da gestire.",
+    "pluginNotInstalled": "Plug-in del traduttore non installato",
+    "pluginDescription": "Chat Translator consente una comunicazione multilingue senza interruzioni per il tuo server ARK. Si collega alla chat del server di gioco per tradurre i messaggi in modo dinamico utilizzando DeepL o LibreTranslate.",
+    "installPlugin": "Installa il traduttore chat",
+    "totalTrans": "Totale caratteri tradotti",
+    "apiProvider": "API di traduzione",
+    "prefCount": "Preferenze del giocatore",
+    "cacheHits": "Efficienza del salvataggio della cache",
+    "tabOverview": "Panoramica",
+    "tabSettings": "API e impostazioni",
+    "tabPlayers": "Preferenze lingua del lettore",
+    "inGameTitle": "Utilizzo del gioco e comandi del giocatore",
+    "usageInstructions": "Una volta installato e abilitato, il plug-in Chat Translator traduce automaticamente i messaggi di chat tra i sopravvissuti in tempo reale. I giocatori possono configurare le proprie impostazioni utilizzando i comandi di chat personalizzati:",
+    "cmdLang": "Imposta la lingua preferita",
+    "cmdLangDesc": "Cambia la lingua di destinazione per tutte le traduzioni in arrivo. Per esempio. /lang tr imposta la lingua di destinazione del giocatore sul turco.",
+    "cmdTrans": "Attiva/disattiva traduzioni",
+    "cmdTransDesc": "Abilita o disabilita la traduzione automatica per il lettore. Ad esempio, /translate off interromperà la traduzione dei post.",
+    "uninstallPluginBtn": "Disinstallare il traduttore chat",
+    "cacheDetails": "Statistiche cache",
+    "totalRequests": "Richieste API totali",
+    "totalSaved": "Richieste memorizzate nella cache/salvate",
+    "activeCache": "Velocità cache attiva",
+    "cacheNotice": "La memorizzazione nella cache delle traduzioni consente di risparmiare caratteri di ricerca API, riducendo significativamente i costi di fatturazione se utilizzi endpoint di traduzione commerciale (come DeepL Pro).",
+    "resetStatsBtn": "Reimposta contatori di utilizzo",
+    "settingsSetup": "Configurazioni API e preferenze di traduzione",
+    "generalSettings": "Configurazione generale",
+    "enablePlugin": "Abilita il servizio di traduzione",
+    "enablePluginDesc": "Attiva gli hook di traduzione automatica nella chat",
+    "defaultLang": "Destinazione di traduzione predefinita",
+    "transSys": "Traduci avvisi/sistema",
+    "transSysDesc": "Elabora gli avvisi di ingresso/uscita dal gioco e le trasmissioni del server",
+    "enableCache": "Abilita cache delle query",
+    "enableCacheDesc": "Evita di recuperare l'API di traduzione per ripetere le linee di chat",
+    "apiSettings": "Fornitore API di traduzione",
+    "apiProviderLabel": "Motore API del provider",
+    "deeplKey": "Chiave di autenticazione API DeepL",
+    "libreUrl": "URL/chiave di LibreTranslate",
+    "playerLanguages": "La lingua del lettore ha la precedenza",
+    "addPref": "Aggiungi Sostituisci",
+    "searchPlayers": "Cerca ID o nome Steam...",
+    "noMatchingPrefs": "Nessuna preferenza del giocatore memorizzata.",
+    "player": "Giocatore",
+    "steamId": "ID Steam",
+    "targetLang": "Lingua di destinazione",
+    "lastUpdated": "Ultimo aggiornamento",
+    "actions": "Azioni",
+    "prefDetails": "Mappatura della sostituzione della lingua",
+    "playerSteamId": "ID giocatore Steam",
+    "playerNameLabel": "Nome del giocatore",
+    "targetLanguage": "Lingua preferita"
+  },
+  "tribeLog": {
+    "title": "Visualizzatore registro tribù ASE",
+    "subtitle": "Analizza ed esplora la storia della tua tribù",
+    "totalEntries": "Voci totali",
+    "deaths": "Morti",
+    "tames": "Addomestica",
+    "destroyed": "Distrutto",
+    "searchPlaceholder": "Cerca nei registri della tribù...",
+    "noEntries": "Nessuna voce del registro tribù trovata per questo server.",
+    "noEntriesDesc": "I registri delle tribù appariranno qui dopo che si verificano eventi nel gioco"
+  },
+  "upnp": {
+    "title": "ASE UPnP Port Forwarding",
+    "subtitle": "Configura automaticamente il tuo router per l'accesso al server",
+    "gateway": "Stato del gateway IGD UPnP",
+    "gatewayAddr": "Indirizzo locale del gateway",
+    "externalIp": "IP pubblico esterno",
+    "status": "Stato IGD UPnP",
+    "available": "Mappature IGD disponibili",
+    "clickDiscover": "Fare clic su \"Scopri Gateway\" per trasmettere e ascoltare gli annunci del router UPnP.",
+    "results": "Inoltro risultati",
+    "forwarded": "Inoltrato",
+    "portForward": "Inoltro porta",
+    "remove": "Rimuovi"
+  },
+  "exportProfile": {
+    "noSelection": "Seleziona almeno un profilo server da esportare.",
+    "saveSuccess": "Profili {{count}} esportati con successo!",
+    "copySuccess": "Profili del server {{count}} copiati negli appunti!",
+    "modalTitle": "Esporta profili server",
+    "modalSubtitle": "Esporta configurazioni del server, porte di rete, tariffe ed elenchi di mod in un bundle di profili JSON",
+    "searchPlaceholder": "Filtra server...",
+    "selectServersTitle": "1. Selezionare Profili da includere",
+    "optionsTitle": "2. Scegliere Moduli e componenti da includere",
+    "tabs": {
+      "setup": "Impostazione e selezione",
+      "preview": "Anteprima JSON"
+    },
+    "actions": {
+      "selectAll": "Esporta tutti i profili",
+      "clear": "Cancella selezione"
+    },
+    "buttons": {
+      "copy": "Copia JSON",
+      "save": "Salva su file (.json)"
+    }
+  },
+  "installCenter": {
+    "title": "Centro di installazione",
+    "activeJobs": "{{count}} si installa eseguendo",
+    "setupDraftActive": "1 bozza di installazione ridotta a icona",
+    "allDone": "Tutte le installazioni sono state completate",
+    "clearAll": "Cancella lavori finiti",
+    "setupDraft": "Bozza di installazione",
+    "resume": "Riprendi la configurazione del server",
+    "discard": "Scarta bozza",
+    "viewLogs": "Visualizza i registri di installazione",
+    "dismiss": "Ignora"
+  },
+  "donationAlert": {
+    "title": "Sostenere lo sviluppo",
+    "description": "Questo Server Manager è gratuito e open source. Se ti aiuta a gestire i tuoi server, considera un piccolo contributo per supportare aggiornamenti e funzionalità continui.",
+    "later": "Ricordamelo più tardi"
+  },
+  "aiAssistant": {
+    "title": "Infinito AI",
+    "subtitle": "Assistente autonomo per la gestione del server",
+    "placeholder": "Chiedi a Infinity AI..."
+  },
+  "enabled": "Abilitato",
+  "disabled": "Disabilitato",
+  "closeApp": {
+    "title": "Close Application?",
+    "subtitle": "Choose how you want to handle closing the application",
+    "warningServersRunning": "Warning: {{count}} Active Server Running",
+    "warningServersRunning_plural": "Warning: {{count}} Active Servers Running",
+    "warningServersDesc": "Completely exiting will stop background cross-chat relays and RCON monitoring.",
+    "minimizeToTray": "Minimize to System Tray",
+    "minimizeToTrayDesc": "Keeps game servers & cross-chat running silently in background",
+    "exitApp": "Exit Application Completely",
+    "exitAppDesc": "Shut down all application processes and exit",
+    "rememberChoice": "Remember this choice (Don't ask me again)",
+    "confirm": "Confirm Action"
+  },
+  "appUpdate": {
+    "updateAvailable": "Update Available",
+    "upToDate": "You're Up to Date",
+    "updateAvailableSubtitle": "A new release of ARK Server Manager is ready",
+    "upToDateSubtitle": "You are running the latest version available",
+    "currentVersion": "Current",
+    "latestVersion": "Latest",
+    "releaseNotes": "Release Notes",
+    "copied": "Copied!",
+    "copyNotes": "Copy Notes",
+    "noNotes": "No release notes provided for this release.",
+    "installUpdate": "Install Update Now",
+    "close": "Close"
+  },
+  "titleBar": {
+    "checkUpdates": "Check Updates",
+    "checkUpdatesTooltip": "Click to check for application updates",
+    "serversOnline": "SERVERS: ONLINE",
+    "serversStandby": "SERVERS: STANDBY",
+    "serversOffline": "SERVERS: OFFLINE",
+    "statusOnlineTooltip": "Game Server Status: {{count}} active server instance(s) running",
+    "statusStandbyTooltip": "Game Server Status: All {{count}} configured servers are currently stopped (Standby)",
+    "statusOfflineTooltip": "Game Server Status: No game servers created or running currently (Offline)",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restoreDown": "Restore Down",
+    "close": "Close"
+  },
+  "hardware": {
+    "title": "Hardware & CPU Allocation",
+    "highPerfEngine": "High Performance Engine",
+    "subtitle": "Optimize process priorities and isolate specific physical/logical CPU cores per ARK server instance to eliminate micro-stuttering and core contention.",
+    "logicalCores": "Logical Cores",
+    "threads": "Threads",
+    "physicalCores": "Physical Cores",
+    "cores": "Cores",
+    "refreshTelemetry": "Refresh Telemetry",
+    "targetServer": "Target Server",
+    "useAllCores": "Use All CPU Cores (Automatic Load Balancing)",
+    "useAllCoresDesc": "Windows OS will dynamically distribute server thread load across all available threads",
+    "coreIsolation": "Core Isolation Mode",
+    "coreIsolationDesc": "Dedicated affinity mask configured for this instance",
+    "cpuAffinity": "CPU Affinity & Core Isolation",
+    "cpuAffinityDesc": "Assign specific CPU cores to this server instance",
+    "saveAllocation": "Save Hardware Allocation",
+    "saving": "Saving...",
+    "presets": "Presets",
+    "presetAll": "All Cores",
+    "presetPhysical": "Physical Only",
+    "presetEven": "Even Cores",
+    "presetOdd": "Odd Cores",
+    "presetFirstHalf": "First Half",
+    "presetSecondHalf": "Second Half",
+    "presetSkipOs": "Skip Core 0 (OS)",
+    "presetClear": "Clear All",
+    "processPriority": "Process Scheduling Priority",
+    "processPriorityDesc": "Windows CPU scheduling class for the server executable",
+    "priorityIdle": "Idle",
+    "priorityBelowNormal": "Below Normal",
+    "priorityNormal": "Normal",
+    "priorityAboveNormal": "Above Normal",
+    "priorityHigh": "High (Recommended)",
+    "priorityRealTime": "RealTime ⚠️",
+    "priorityIdleDesc": "Lowest priority. Only receives CPU time when system is idle.",
+    "priorityBelowNormalDesc": "Slightly reduced priority for background support services.",
+    "priorityNormalDesc": "Standard Windows process priority balance.",
+    "priorityAboveNormalDesc": "Ensures process priority over standard desktop applications.",
+    "priorityHighDesc": "Top priority for dedicated game servers. Prevents frame stutter.",
+    "priorityRealTimeDesc": "Highest possible execution priority. May lock host OS if overloaded.",
+    "realTimeWarningTitle": "Danger: RealTime Priority Warning",
+    "realTimeWarningDesc": "RealTime priority can starve critical Windows operating system threads, input drivers, and network stacks. If the game server hangs, your machine may become unresponsive.",
+    "understandRisk": "I understand the risks, set RealTime",
+    "cancel": "Cancel",
+    "coreOverlapWarning": "Warning: Core overlap detected with other server instances ({{servers}})",
+    "affinityMaskHex": "Affinity Mask (Hex)",
+    "copyMask": "Copy Mask",
+    "aseTitle": "ASE Hardware",
+    "aseSubtitle": "CPU affinity and process priority for ShooterGameServer.exe",
+    "aseAffinityDesc": "Select which CPU cores ShooterGameServer.exe should use. Leave all unchecked to use all cores.",
+    "selected": "Selected",
+    "core": "Core"
+  },
+  "wiki": {
+    "title": "Knowledge Base",
+    "guides": "Guides",
+    "subtitle": "Comprehensive technical guides and operational reference for ARK Server Manager.",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "hideIndex": "Hide Index",
+    "showIndex": "Show Index",
+    "searchPlaceholder": "Search all guides...",
+    "all": "All",
+    "coreServices": "Core Services",
+    "automationAi": "Automation & AI",
+    "modsFiles": "Mods & Files",
+    "monitoringLogs": "Monitoring & Logs",
+    "integrationsTools": "Integrations & Tools",
+    "noGuides": "No matching guides found",
+    "noGuidesDesc": "Try resetting your search query or filters.",
+    "selectGuide": "Select a Guide to Begin",
+    "selectGuideDesc": "Choose a topic from the sidebar index to view detailed operational guides, setup procedures, and troubleshooting steps."
+  },
+  "advanced": {
+    "title": "Boot Launch Parameters",
+    "subtitle": "Manage command-line switches, performance flags, and execution priority",
+    "unsavedChanges": "Unsaved Changes",
+    "noServersAvailable": "No servers available",
+    "discard": "Discard",
+    "discardTitle": "Discard unsaved changes",
+    "saveParameters": "Save Parameters",
+    "saving": "Saving...",
+    "executeServer": "Execute Server",
+    "executing": "Executing...",
+    "executeTitle": "Execute server directly with configured boot parameters",
+    "safetyBannerTitle": "Boot Command Line Safety & Override Matrix",
+    "safetyBannerDesc": "Parameters added here are directly passed to ArkAscendedServer.exe on boot. Use visual flag toggles below to prevent syntax typos.",
+    "safetyBannerDescASE": "Parameters added here are directly passed to ShooterGameServer.exe on boot. Use visual flag toggles below to prevent syntax typos.",
+    "activeSwitches": "Active Switches",
+    "flags": "Flags",
+    "rawInspectorTitle": "Raw Custom Arguments & Command Inspector",
+    "clearAll": "Clear All Flags",
+    "customArgsLabel": "Custom Launch Arguments",
+    "customArgsPlaceholder": "e.g. -NoBattlEye -ForceAllowCaveFlyers (toggle flags below to add)",
+    "bootCommandLine": "Boot Executable Command Line",
+    "copyCommand": "Copy Command",
+    "copyBatScript": "Copy .bat Script",
+    "presetsTitle": "One-Click Parameter Presets",
+    "presetsSubtitle": "Click to append optimized flag profiles",
+    "presetMaxPerf": "Max Performance Profile",
+    "presetMaxPerfDesc": "RAM & mesh stasis tuning (-structurememopts -nomansky -lowmemory)",
+    "presetHardenedSecurity": "Hardened Security & Anti-Dupe",
+    "presetHardenedSecurityDesc": "Strict spawn validation & dupe prevention flags",
+    "presetCaveFlyer": "Cave Flyer Unlocked",
+    "presetCaveFlyerDesc": "Force allow mounting & flying in cave volumes",
+    "moddedMapsPresets": "Modded Map Launch Presets",
+    "appliedPreset": "Applied {{name}} profile",
+    "active": "Active",
+    "apply": "+ Apply",
+    "matrixTitle": "Visual Parameter Matrix",
+    "matrixSubtitle": "Toggle standard server switches directly into your boot configuration",
+    "filterPlaceholder": "Filter parameters...",
+    "catAll": "All",
+    "catSecurity": "Security",
+    "catGameplay": "Gameplay",
+    "catPerformance": "Performance",
+    "catNetwork": "Network",
+    "catEvents": "Events",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "optimizerTitle": "Server Manager Performance & Hardware Optimizer",
+    "optimizerSubtitle": "Real-time memory vacuuming, process scheduling priority, and eco-mode controls",
+    "memoryVacuum": "Memory Vacuum",
+    "memoryVacuumDesc": "Force garbage collection to trim unused background RAM allocation.",
+    "optimizeRam": "Optimize System RAM",
+    "processPriority": "Process Priority",
+    "processPriorityDesc": "Raise manager CPU scheduling thread priority under heavy cluster load.",
+    "priorityNormal": "Normal",
+    "priorityHigh": "High Priority",
+    "ultraEcoMode": "Ultra Eco Mode",
+    "ultraEcoModeDesc": "Aggressively trims memory footprint when running idle in background.",
+    "ecoModeActive": "Eco Mode Active",
+    "enableEcoMode": "Enable Eco Mode"
   }
 }

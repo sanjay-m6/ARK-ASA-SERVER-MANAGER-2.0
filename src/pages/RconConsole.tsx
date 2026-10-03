@@ -927,9 +927,42 @@ export default function RconConsole() {
         saveWorldBroadcastDelay
     ]);
 
-    // Connection Heartbeat: Verify connection is still alive every 15 seconds
+    // Synchronize initial connection state with backend (e.g. background heartbeat active sessions)
     useEffect(() => {
-        if (!isConnected || !selectedServerId) return;
+        if (!selectedServerId) return;
+
+        let isMounted = true;
+        invoke<boolean>('rcon_is_connected', { serverId: selectedServerId })
+            .then((connected) => {
+                if (!isMounted) return;
+                if (connected) {
+                    setConnected(selectedServerId, true);
+                    const target = servers.find(s => s.id === selectedServerId);
+                    if (target) {
+                        const rawAddress = target.ipAddress?.trim();
+                        const address = (!rawAddress || rawAddress === '0.0.0.0' || rawAddress.toLowerCase() === 'localhost') ? '127.0.0.1' : rawAddress;
+                        const port = target.ports?.rconPort || 27020;
+                        setConnectionInfo(selectedServerId, {
+                            address,
+                            port,
+                            connectedSince: new Date(),
+                        });
+                    }
+                    refreshPlayers();
+                }
+            })
+            .catch(err => {
+                console.error('[RCON] Initial connection check failed:', err);
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [selectedServerId, servers, setConnected, setConnectionInfo, refreshPlayers]);
+
+    // Connection Heartbeat: Periodically sync connection state with backend every 15 seconds
+    useEffect(() => {
+        if (!selectedServerId) return;
 
         const interval = setInterval(async () => {
             try {
@@ -937,7 +970,23 @@ export default function RconConsole() {
                     serverId: selectedServerId,
                 });
 
-                if (!connected) {
+                if (connected) {
+                    if (!isConnected) {
+                        setConnected(selectedServerId, true);
+                        const target = servers.find(s => s.id === selectedServerId);
+                        if (target) {
+                            const rawAddress = target.ipAddress?.trim();
+                            const address = (!rawAddress || rawAddress === '0.0.0.0' || rawAddress.toLowerCase() === 'localhost') ? '127.0.0.1' : rawAddress;
+                            const port = target.ports?.rconPort || 27020;
+                            setConnectionInfo(selectedServerId, {
+                                address,
+                                port,
+                                connectedSince: new Date(),
+                            });
+                        }
+                        refreshPlayers();
+                    }
+                } else if (isConnected) {
                     console.log('[RCON] Heartbeat detected lost connection');
                     setConnected(selectedServerId, false);
                     setPlayers(selectedServerId, []);
@@ -951,7 +1000,7 @@ export default function RconConsole() {
         }, 15000);
 
         return () => clearInterval(interval);
-    }, [isConnected, selectedServerId, setConnected, setPlayers, setConnectionInfo, addToHistory, t]);
+    }, [isConnected, selectedServerId, servers, setConnected, setPlayers, setConnectionInfo, addToHistory, refreshPlayers, t]);
 
     const kickPlayer = useCallback(async (steamId: string, reason?: string) => {
         if (!selectedServerId) return;

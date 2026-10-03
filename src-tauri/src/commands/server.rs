@@ -798,6 +798,24 @@ pub async fn clone_server(
                 std::fs::copy(&src, &dst).map_err(|e| format!("Failed to copy {}: {}", file, e))?;
             }
         }
+
+        // Ensure the cloned GameUserSettings.ini has the newly assigned offset ports and session name
+        // to prevent port collisions with the source server or reversion by INI sync
+        let gus_dst = dest_config_dir.join("GameUserSettings.ini");
+        if gus_dst.exists() {
+            if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&gus_dst) {
+                let mut updated = content;
+                updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "RCONPort", &new_rcon_port.to_string());
+                updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "Port", &new_game_port.to_string());
+                updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "QueryPort", &new_query_port.to_string());
+                updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "SessionName", &format!("\"{}\"", new_name));
+                let _ = crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_dst, &updated);
+                println!(
+                    "  🔒 [Clone Guard] Automatically updated cloned GameUserSettings.ini with unique ports (RCON: {}, Game: {}, Query: {}) and SessionName ({})",
+                    new_rcon_port, new_game_port, new_query_port, new_name
+                );
+            }
+        }
     }
 
     // Insert new server into database
@@ -888,8 +906,8 @@ pub async fn transfer_settings(
         source_server_id, target_server_id
     );
 
-    // Get both server paths
-    let (source_path, target_path, server_type) = {
+    // Get both server paths and target server's existing ports
+    let (source_path, target_path, server_type, target_game_port, target_query_port, target_rcon_port, target_session_name) = {
         let db = state
             .db
             .lock()
@@ -906,11 +924,11 @@ pub async fn transfer_settings(
             )
             .map_err(|e| format!("Source server not found: {}", e))?;
 
-        let target: String = conn
+        let (target, target_game_port, target_query_port, target_rcon_port, target_session_name): (String, u16, u16, u16, String) = conn
             .query_row(
-                "SELECT install_path FROM servers WHERE id = ?1",
+                "SELECT install_path, game_port, query_port, rcon_port, session_name FROM servers WHERE id = ?1",
                 [target_server_id],
-                |row| row.get(0),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
             )
             .map_err(|e| format!("Target server not found: {}", e))?;
 
@@ -922,7 +940,7 @@ pub async fn transfer_settings(
             )
             .unwrap_or_else(|_| "ASA".to_string());
 
-        (PathBuf::from(source), PathBuf::from(target), server_type)
+        (PathBuf::from(source), PathBuf::from(target), server_type, target_game_port, target_query_port, target_rcon_port, target_session_name)
     };
 
     // Copy config files
@@ -943,6 +961,23 @@ pub async fn transfer_settings(
         if src.exists() {
             std::fs::copy(&src, &dst).map_err(|e| format!("Failed to copy {}: {}", file, e))?;
             println!("  ✅ Copied {}", file);
+        }
+    }
+
+    // Preserve the target server's unique ports and session name in GameUserSettings.ini so it does not collide
+    let gus_dst = target_config.join("GameUserSettings.ini");
+    if gus_dst.exists() {
+        if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&gus_dst) {
+            let mut updated = content;
+            updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "RCONPort", &target_rcon_port.to_string());
+            updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "Port", &target_game_port.to_string());
+            updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "QueryPort", &target_query_port.to_string());
+            updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "SessionName", &format!("\"{}\"", target_session_name));
+            let _ = crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_dst, &updated);
+            println!(
+                "  🔒 [Transfer Guard] Preserved target server identity in GameUserSettings.ini (RCON: {}, Game: {}, Query: {}, SessionName: {})",
+                target_rcon_port, target_game_port, target_query_port, target_session_name
+            );
         }
     }
 
@@ -1108,7 +1143,27 @@ async fn perform_server_startup(
             });
         });
         let _ = app_handle.emit("server-status-change", serde_json::json!({ "server_id": server_id, "status": "stopped" }));
+        let _ = app_handle.emit("server_log", serde_json::json!({
+            "server_id": server_id,
+            "line": format!("❌ Startup failed: {}", e),
+            "is_stderr": true,
+        }));
         
+        let wh_handle = app_handle.clone();
+        let err_clone = e.clone();
+        tauri::async_runtime::spawn(async move {
+            let name = crate::services::discord::get_server_name(&wh_handle, server_id);
+            crate::services::discord::send_discord_webhook(
+                &wh_handle,
+                "serverStart",
+                crate::services::discord::DiscordEmbed::scheduled_task(
+                    &name,
+                    "Server Startup Failed",
+                    &format!("❌ Server startup failed: **{}**", err_clone),
+                ),
+            ).await;
+        });
+
         // Also emit an install-progress error so any open installer progress UI gets closed or shows the error
         let install_path_opt = state.db.lock().ok().and_then(|db| {
             db.get_connection().ok().and_then(|conn| {
@@ -1182,59 +1237,73 @@ async fn perform_server_startup_inner(
     } // Lock released
     println!("  ✅ [Debug] Config block finished. DB lock released.");
 
-    // === BUG FIX 3: Live Port conflict detection ===
+    // === Live Port conflict detection with protocol-specific check ===
     {
-        let (game_port, query_port, rcon_port): (u16, u16, u16) = {
+        let (game_port, query_port, rcon_port, rcon_enabled): (u16, u16, u16, bool) = {
             let db = state.db.lock().map_err(|e| e.to_string())?;
             let conn = db.get_connection().map_err(|e| e.to_string())?;
             conn.query_row(
-                "SELECT game_port, query_port, rcon_port FROM servers WHERE id = ?1",
+                "SELECT game_port, query_port, rcon_port, COALESCE(rcon_enabled, 1) FROM servers WHERE id = ?1",
                 [server_id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get::<_, i32>(3).unwrap_or(1) != 0)),
             )
             .map_err(|e| format!("Failed to get ports: {}", e))?
         };
 
-        let my_ports = [game_port, query_port, rcon_port];
+        let mut ports_to_check: Vec<(&str, u16, bool)> = Vec::new();
+        if game_port > 0 {
+            ports_to_check.push(("Game", game_port, true)); // UDP
+        }
+        if query_port > 0 {
+            ports_to_check.push(("Query", query_port, true)); // UDP
+        }
+        if rcon_enabled && rcon_port > 0 {
+            ports_to_check.push(("RCON", rcon_port, false)); // TCP
+        }
 
-        // Allow up to 10 seconds for closing sockets / TIME_WAIT from recent restarts to clear
+        // Allow up to 5 seconds for closing sockets / TIME_WAIT from recent restarts to clear
         let mut port_wait_attempts = 0;
         loop {
-            let mut port_in_use: Option<u16> = None;
-            for my_port in &my_ports {
-                if crate::services::network::is_port_in_use(*my_port) {
-                    port_in_use = Some(*my_port);
+            let mut port_in_use: Option<(&str, u16, bool)> = None;
+            for &(name, port, is_udp) in &ports_to_check {
+                let in_use = if is_udp {
+                    crate::services::network::is_udp_port_in_use(port)
+                } else {
+                    crate::services::network::is_tcp_port_in_use(port)
+                };
+                if in_use {
+                    port_in_use = Some((name, port, is_udp));
                     break;
                 }
             }
 
-            if let Some(my_port) = port_in_use {
-                if port_wait_attempts < 10 {
+            if let Some((p_name, my_port, _)) = port_in_use {
+                if port_wait_attempts < 5 {
                     port_wait_attempts += 1;
-                    println!("  ⏳ [Startup] Port {} in use/closing. Waiting 1s (attempt {}/10)...", my_port, port_wait_attempts);
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    println!("  ⏳ [Startup] {} Port {} busy/closing. Waiting 1s (attempt {}/5)...", p_name, my_port, port_wait_attempts);
+                    crate::services::process_manager::ProcessManager::kill_processes_on_ports(&[my_port]);
+                    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
                     continue;
                 }
 
-                // Determine if we know who owns this port
+                // Determine if another RUNNING server in the manager actively owns this port
                 let (owner_name, owner_id) = {
                     let db = state.db.lock().map_err(|e| e.to_string())?;
                     let conn = db.get_connection().map_err(|e| e.to_string())?;
                     let mut name = String::from("an unknown process");
                     let mut id = 0i64;
                     
-                    if let Ok(mut stmt) = conn.prepare("SELECT id, name, game_port, query_port, rcon_port FROM servers WHERE id != ?1") {
+                    if let Ok(mut stmt) = conn.prepare("SELECT id, name, game_port, query_port, rcon_port, COALESCE(rcon_enabled, 1) FROM servers WHERE id != ?1 AND status IN ('running', 'online', 'starting', 'restarting')") {
                         if let Ok(mut rows) = stmt.query([server_id]) {
                             while let Ok(Some(row)) = rows.next() {
                                 let other_id: i64 = row.get(0).unwrap_or(0);
                                 let other_name_str: String = row.get(1).unwrap_or_default();
-                                let other_ports: [u16; 3] = [
-                                    row.get(2).unwrap_or(0),
-                                    row.get(3).unwrap_or(0),
-                                    row.get(4).unwrap_or(0),
-                                ];
+                                let other_gp: u16 = row.get(2).unwrap_or(0);
+                                let other_qp: u16 = row.get(3).unwrap_or(0);
+                                let other_rp: u16 = row.get(4).unwrap_or(0);
+                                let other_rcon_en: bool = row.get::<_, i32>(5).unwrap_or(1) != 0;
                                 
-                                if other_ports.contains(&my_port) {
+                                if other_gp == my_port || other_qp == my_port || (other_rcon_en && other_rp == my_port) {
                                     name = other_name_str;
                                     id = other_id;
                                     break;
@@ -1247,14 +1316,12 @@ async fn perform_server_startup_inner(
 
                 if owner_id > 0 {
                     return Err(format!(
-                        "Port {} is actively in use by server '{}' (ID: {}). Stop the other server before starting.",
-                        my_port, owner_name, owner_id
+                        "{} Port {} is actively in use by running server '{}' (ID: {}). Stop the other server before starting.",
+                        p_name, my_port, owner_name, owner_id
                     ));
                 } else {
-                    return Err(format!(
-                        "Port {} is actively in use by an unknown process. Change the port before starting.",
-                        my_port
-                    ));
+                    println!("  ⚠️ [Startup] Port {} still reported busy after retries, proceeding with launch (Unreal Engine net driver will bind or log).", my_port);
+                    break;
                 }
             } else {
                 break;
@@ -1760,8 +1827,43 @@ pub async fn start_server_no_mods(
 /// Graceful stop helper: SaveWorld → DoExit → wait → force-kill fallback.
 /// Used by both stop_server and restart_server to ensure world data is saved.
 async fn graceful_stop(state: &State<'_, AppState>, server_id: i64) -> Result<(), String> {
+    let mut gus_path_opt: Option<PathBuf> = None;
+    let mut game_path_opt: Option<PathBuf> = None;
+    let mut pre_exit_gus: Option<String> = None;
+    let mut pre_exit_game: Option<String> = None;
+
     // Only attempt RCON graceful shutdown if the server process is actually running
     if state.process_manager.is_running(server_id) {
+        // Snapshot on-disk configuration files before DoExit.
+        // Unreal Engine / ARK dedicated server flushes its initial in-memory defaults on exit,
+        // which can overwrite recently saved settings.
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                if let Ok((install_path, server_type)) = conn.query_row(
+                    "SELECT install_path, server_type FROM servers WHERE id = ?1",
+                    [server_id],
+                    |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?.unwrap_or_else(|| "ASA".to_string()))),
+                ) {
+                    let sub_dir = crate::services::config_generator::ConfigGenerator::get_config_subdirectory(
+                        &PathBuf::from(&install_path),
+                        Some(&server_type),
+                    );
+                    let config_dir = PathBuf::from(&install_path)
+                        .join("ShooterGame")
+                        .join("Saved")
+                        .join("Config")
+                        .join(sub_dir);
+                    let g_path = config_dir.join("GameUserSettings.ini");
+                    let gm_path = config_dir.join("Game.ini");
+
+                    pre_exit_gus = std::fs::read_to_string(&g_path).ok();
+                    pre_exit_game = std::fs::read_to_string(&gm_path).ok();
+                    gus_path_opt = Some(g_path);
+                    game_path_opt = Some(gm_path);
+                }
+            }
+        }
+
         // Get RCON connection details from DB
         let (rcon_port, admin_password): (u16, String) = {
             let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -1847,6 +1949,24 @@ async fn graceful_stop(state: &State<'_, AppState>, server_id: i64) -> Result<()
         .stop_server(server_id)
         .map_err(|e: AnyhowError| e.to_string())?;
 
+    // Step 6: Shutdown Guard — Restore pre-shutdown on-disk config if Unreal Engine overwrote it
+    if let (Some(ref path), Some(ref saved)) = (gus_path_opt, pre_exit_gus) {
+        if let Ok(current_on_disk) = std::fs::read_to_string(path) {
+            if current_on_disk != *saved {
+                println!("  🛡️ [Shutdown Guard] Detected Unreal Engine in-memory exit overwrite in GameUserSettings.ini. Restoring saved settings...");
+                let _ = std::fs::write(path, saved);
+            }
+        }
+    }
+    if let (Some(ref path), Some(ref saved)) = (game_path_opt, pre_exit_game) {
+        if let Ok(current_on_disk) = std::fs::read_to_string(path) {
+            if current_on_disk != *saved {
+                println!("  🛡️ [Shutdown Guard] Detected Unreal Engine in-memory exit overwrite in Game.ini. Restoring saved settings...");
+                let _ = std::fs::write(path, saved);
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -1903,7 +2023,7 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_din
         if let Ok(db) = state.db.lock() {
             if let Ok(conn) = db.get_connection() {
                 conn.query_row(
-                    "SELECT pid, game_port, query_port, rcon_port FROM servers WHERE id = ?1",
+                    "SELECT process_id, game_port, query_port, rcon_port FROM servers WHERE id = ?1",
                     [server_id],
                     |row| {
                         let pid: Option<u32> = row.get(0)?;
@@ -1911,7 +2031,7 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_din
                         let qp: u16 = row.get::<_, u16>(2).unwrap_or(0);
                         let rp: u16 = row.get::<_, u16>(3).unwrap_or(0);
                         let mut p_vec = Vec::new();
-                        if gp > 0 { p_vec.push(gp); p_vec.push(gp + 1); }
+                        if gp > 0 { p_vec.push(gp); }
                         if qp > 0 { p_vec.push(qp); }
                         if rp > 0 { p_vec.push(rp); }
                         Ok((pid, p_vec))
@@ -1986,7 +2106,15 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_din
     crate::services::process_manager::ProcessManager::kill_processes_on_ports(&target_ports);
     for &p in &target_ports {
         let mut wait_count = 0;
-        while crate::services::network::is_port_in_use(p) && wait_count < 10 {
+        let is_udp = target_ports.first() == Some(&p) || (target_ports.len() > 1 && target_ports.get(1) == Some(&p));
+        let check_in_use = || {
+            if is_udp {
+                crate::services::network::is_udp_port_in_use(p)
+            } else {
+                crate::services::network::is_tcp_port_in_use(p)
+            }
+        };
+        while check_in_use() && wait_count < 6 {
             tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
             wait_count += 1;
         }
@@ -4119,55 +4247,74 @@ pub async fn check_port_conflicts(
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-    let (game_port, query_port, rcon_port): (u16, u16, u16) = conn
+    let (game_port, query_port, rcon_port, rcon_enabled): (u16, u16, u16, bool) = conn
         .query_row(
-            "SELECT game_port, query_port, rcon_port FROM servers WHERE id = ?1",
+            "SELECT game_port, query_port, rcon_port, COALESCE(rcon_enabled, 1) FROM servers WHERE id = ?1",
             [server_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get::<_, i32>(3).unwrap_or(1) != 0)),
         )
         .map_err(|e| format!("Failed to get ports: {}", e))?;
 
-    let my_ports = [
-        ("Game", game_port),
-        ("Query", query_port),
-        ("RCON", rcon_port)
-    ];
+    let mut my_ports: Vec<(&str, u16, bool)> = Vec::new();
+    if game_port > 0 {
+        my_ports.push(("Game", game_port, true)); // UDP
+    }
+    if query_port > 0 {
+        my_ports.push(("Query", query_port, true)); // UDP
+    }
+    if rcon_enabled && rcon_port > 0 {
+        my_ports.push(("RCON", rcon_port, false)); // TCP
+    }
 
-    for (port_type, port) in &my_ports {
-        let is_in_use = crate::services::network::is_port_in_use(*port);
+    for (port_type, port, is_udp) in &my_ports {
+        let is_in_use = if *is_udp {
+            crate::services::network::is_udp_port_in_use(*port)
+        } else {
+            crate::services::network::is_tcp_port_in_use(*port)
+        };
 
         let mut owner_name = None;
+        let mut owner_is_running = false;
 
         let mut stmt = conn
-            .prepare("SELECT id, name, game_port, query_port, rcon_port FROM servers WHERE id != ?1")
+            .prepare("SELECT id, name, game_port, query_port, rcon_port, status, COALESCE(rcon_enabled, 1) FROM servers WHERE id != ?1")
             .map_err(|e| e.to_string())?;
         let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
 
         while let Some(row) = rows.next().map_err(|e| e.to_string())? {
             let other_name_str: String = row.get(1).map_err(|e| e.to_string())?;
-            let other_ports: [u16; 3] = [
-                row.get(2).map_err(|e| e.to_string())?,
-                row.get(3).map_err(|e| e.to_string())?,
-                row.get(4).map_err(|e| e.to_string())?,
-            ];
+            let other_gp: u16 = row.get(2).map_err(|e| e.to_string())?;
+            let other_qp: u16 = row.get(3).map_err(|e| e.to_string())?;
+            let other_rp: u16 = row.get(4).map_err(|e| e.to_string())?;
+            let other_status_opt: Option<String> = row.get(5).ok();
+            let other_status = other_status_opt.unwrap_or_default().to_lowercase();
+            let other_rcon_en: bool = row.get::<_, i32>(6).unwrap_or(1) != 0;
 
-            if other_ports.contains(port) {
+            let matches = (*is_udp && (other_gp == *port || other_qp == *port))
+                || (!*is_udp && other_rcon_en && other_rp == *port);
+
+            if matches {
                 owner_name = Some(other_name_str);
+                owner_is_running = matches!(other_status.as_str(), "running" | "online" | "starting" | "restarting");
                 break;
             }
         }
 
-        if is_in_use || owner_name.is_some() {
-            if is_in_use {
-                has_active_conflicts = true;
-            } else {
-                has_inactive_conflicts = true;
-            }
+        if is_in_use && (owner_is_running || owner_name.is_none()) {
+            has_active_conflicts = true;
             conflicts.push(PortConflict {
                 port_type: port_type.to_string(),
                 port_number: *port,
                 conflicting_server_name: owner_name,
-                is_running: is_in_use,
+                is_running: true,
+            });
+        } else if owner_name.is_some() {
+            has_inactive_conflicts = true;
+            conflicts.push(PortConflict {
+                port_type: port_type.to_string(),
+                port_number: *port,
+                conflicting_server_name: owner_name,
+                is_running: owner_is_running,
             });
         }
     }
@@ -4965,6 +5112,68 @@ pub async fn diagnose_server_crash(
         recommended_action = "Run 1-Click Recovery to purge rogue mod 960144 and launch Astraeos cleanly.".to_string();
     }
 
+    // Check Issue: Multiple Conflicting Map Mods Active
+    let active_mods_for_diag: Vec<(String, String)> = {
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                if let Ok(mut stmt) = conn.prepare("SELECT mod_id, name FROM mods WHERE server_id = ?1 AND enabled = 1") {
+                    stmt.query_map([server_id], |r| Ok((r.get(0)?, r.get(1)?)))
+                        .map(|mapped| mapped.filter_map(Result::ok).collect())
+                        .unwrap_or_default()
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        }
+    };
+
+    let known_map_mods_ref = [
+        ("893657", "Svartalfheim (Free)"),
+        ("927084", "Svartalfheim (Alt)"),
+        ("962796", "Svartalfheim (Premium)"),
+        ("945244", "Forglar (Free)"),
+        ("952876", "Forglar (Premium)"),
+        ("965379", "Amissa"),
+        ("940428", "Amissa"),
+        ("935639", "Insaluna"),
+        ("935048", "Temptress Lagoon"),
+        ("932906", "Reverence"),
+        ("1376189", "Bjarnheim"),
+        ("1465909", "Scorched Earth Reborn"),
+        ("1460513", "The Island Reforged"),
+        ("949666", "ClubARK"),
+        ("1016843", "Althemia"),
+        ("944358", "Vanna"),
+        ("965905", "TaeniaStella"),
+    ];
+
+    let mut enabled_map_mods = Vec::new();
+    for (mid, _mname) in &active_mods_for_diag {
+        if let Some((_, label)) = known_map_mods_ref.iter().find(|(id, _)| *id == mid.as_str()) {
+            enabled_map_mods.push(format!("{} (ID: {})", label, mid));
+        }
+    }
+
+    if enabled_map_mods.len() > 1 {
+        issues.push(serde_json::json!({
+            "id": "conflicting_map_mods",
+            "severity": "critical",
+            "title": "Multiple Custom Map Mods Active Simultaneously",
+            "description": format!(
+                "Found {} custom map mods simultaneously enabled: {}. In ARK: Survival Ascended, loading multiple map mods concurrently causes an instant fatal crash during level streaming.",
+                enabled_map_mods.len(),
+                enabled_map_mods.join(", ")
+            ),
+            "fix": "Disable conflicting map mods in the Mods tab so only one matching your selected map is enabled."
+        }));
+        primary_cause = "Conflicting Custom Map Mods".to_string();
+        recommended_action = "Disable extraneous map mods in the Mods tab, keeping only the one corresponding to your server map.".to_string();
+    }
+
     // Check Issue: Active Proxy DLLs after update (Highest probability of immediate window disappearing crash!)
     if server_type == "ASA" && !active_proxy_dlls.is_empty() {
         issues.push(serde_json::json!({
@@ -5224,6 +5433,38 @@ pub async fn repair_and_recover_server(
             if p1.exists() { let _ = std::fs::remove_dir_all(&p1); }
             let p2 = install_path_buf.join("ShooterGame").join("Content").join("Mods").join(rogue_id);
             if p2.exists() { let _ = std::fs::remove_dir_all(&p2); }
+        }
+    }
+
+    // Step 3c: Sanitize conflicting map mods in DB
+    {
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                let is_the_island = map_name.eq_ignore_ascii_case("TheIsland_WP") || map_name.eq_ignore_ascii_case("TheIsland");
+                let is_scorched = map_name.eq_ignore_ascii_case("ScorchedEarth_WP") || map_name.eq_ignore_ascii_case("ScorchedEarth");
+                let is_official = crate::services::config_generator::is_official_map(&map_name);
+
+                let standalone_map_mods = [
+                    "893657", "927084", "962796", "945244", "952876", "965379", "940428",
+                    "935639", "935048", "932906", "1376189", "949666", "1016843", "944358", "965905"
+                ];
+
+                if is_official {
+                    for mod_id in &standalone_map_mods {
+                        let _ = conn.execute(
+                            "UPDATE mods SET enabled = 0 WHERE server_id = ?1 AND mod_id = ?2",
+                            rusqlite::params![server_id, mod_id],
+                        );
+                    }
+                    if !is_the_island {
+                        let _ = conn.execute("UPDATE mods SET enabled = 0 WHERE server_id = ?1 AND mod_id = '1460513'", [server_id]);
+                    }
+                    if !is_scorched {
+                        let _ = conn.execute("UPDATE mods SET enabled = 0 WHERE server_id = ?1 AND mod_id = '1465909'", [server_id]);
+                    }
+                    emit_log("Sanitized conflicting standalone map mods for official map in database.");
+                }
+            }
         }
     }
 

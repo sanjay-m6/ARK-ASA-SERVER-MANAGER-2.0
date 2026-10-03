@@ -66,15 +66,38 @@ pub fn check_port_open(ip: &str, port: u16) -> bool {
     false
 }
 
-/// Check if a local port is already in use by trying to bind to it
+/// Check if a local UDP port is already in use by trying to bind to it
+pub fn is_udp_port_in_use(port: u16) -> bool {
+    if port == 0 {
+        return false;
+    }
+    UdpSocket::bind(("0.0.0.0", port)).is_err()
+}
+
+/// Check if a local TCP port is actively in use or listening
+pub fn is_tcp_port_in_use(port: u16) -> bool {
+    if port == 0 {
+        return false;
+    }
+    // Check if an active TCP listener responds to connection
+    let addr = format!("127.0.0.1:{}", port);
+    if let Ok(socket_addrs) = addr.to_socket_addrs() {
+        for sa in socket_addrs {
+            if TcpStream::connect_timeout(&sa, Duration::from_millis(150)).is_ok() {
+                return true;
+            }
+        }
+    }
+    // If no active listener accepted connection, test bindability
+    TcpListener::bind(("0.0.0.0", port)).is_err()
+}
+
+/// Check if a local port is already in use across either protocol
 pub fn is_port_in_use(port: u16) -> bool {
-    if TcpListener::bind(("0.0.0.0", port)).is_err() {
-        return true;
+    if port == 0 {
+        return false;
     }
-    if UdpSocket::bind(("0.0.0.0", port)).is_err() {
-        return true;
-    }
-    false
+    is_udp_port_in_use(port) || is_tcp_port_in_use(port)
 }
 
 /// Query the server using A2S_INFO protocol to check if it's reachable and ready

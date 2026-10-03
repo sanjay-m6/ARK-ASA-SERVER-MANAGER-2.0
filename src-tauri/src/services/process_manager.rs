@@ -573,8 +573,10 @@ impl ProcessManager {
 
         let monitor_stop_reasons = pending_stop_reasons.clone();
         std::thread::spawn(move || {
+            let mut tick_counter: u32 = 0;
             loop {
                 std::thread::sleep(std::time::Duration::from_secs(3)); // Check every 3s
+                tick_counter = tick_counter.wrapping_add(1);
 
                 // Collect servers that need querying (running processes)
                 let mut servers_to_query: Vec<(i64, String, u16)> = Vec::new();
@@ -1040,12 +1042,14 @@ impl ProcessManager {
                         if let Ok(db) = state.db.lock() {
                             if let Ok(conn) = db.get_connection() {
                                 let mut db_status = status.to_string();
+                                let table = if id < 0 { "ase_servers" } else { "servers" };
+                                let actual_id = id.abs();
                                 
                                 // CRITICAL FIX: If the server was killed due to startup timeout, do NOT overwrite the status with "stopped" or "crashed".
                                 // We check the current status in DB first.
                                 let current_db_status: Result<String, _> = conn.query_row(
-                                    "SELECT status FROM servers WHERE id = ?1",
-                                    [id],
+                                    &format!("SELECT status FROM {} WHERE id = ?1", table),
+                                    [actual_id],
                                     |row| row.get(0),
                                 );
 
@@ -1057,12 +1061,12 @@ impl ProcessManager {
                                 }
 
                                 match conn.execute(
-                                    "UPDATE servers SET status = ?1 WHERE id = ?2",
-                                    rusqlite::params![db_status, id],
+                                    &format!("UPDATE {} SET status = ?1, process_id = NULL WHERE id = ?2", table),
+                                    rusqlite::params![db_status, actual_id],
                                 ) {
                                     Ok(_) => {
                                         println!(
-                                            "  ✅ Database status updated for server {} to '{}'",
+                                            "  ✅ Database status updated for server {} to '{}' (cleared process_id)",
                                             id, db_status
                                         );
                                     }
@@ -1090,8 +1094,209 @@ impl ProcessManager {
 
                 }
 
-                // Check for stuck servers (Running but not online for > 15 mins)
-                // TODO: Implement this using a timestamp check if needed
+                // Periodic external process adoption check (e.g. servers started via start_server.bat or external folder)
+                if tick_counter % 2 == 0 {
+                    if let Some(state) = monitor_handle.try_state::<AppState>() {
+                        if let Ok(db) = state.db.lock() {
+                            if let Ok(conn) = db.get_connection() {
+                                // A. Scan ASA servers not currently tracked in memory
+                                let untracked_asa: Vec<(i64, String, String, u16, u16, Option<String>, String)> = {
+                                    let p_lock = monitor_processes.lock().unwrap_or_else(|e| e.into_inner());
+                                    let stmt = conn.prepare(
+                                        "SELECT id, name, install_path, query_port, game_port, ip_address, status FROM servers WHERE status NOT IN ('starting', 'restarting', 'updating', 'stopping')"
+                                    );
+                                    if let Ok(mut s) = stmt {
+                                        s.query_map([], |row| {
+                                            let id: i64 = row.get(0)?;
+                                            let name: String = row.get(1)?;
+                                            let path: String = row.get(2)?;
+                                            let qp: u16 = row.get::<_, u32>(3).unwrap_or(0) as u16;
+                                            let gp: u16 = row.get::<_, u32>(4).unwrap_or(0) as u16;
+                                            let ip: Option<String> = row.get(5)?;
+                                            let st: String = row.get(6)?;
+                                            Ok((id, name, path, qp, gp, ip, st))
+                                        })
+                                        .map(|iter| iter.filter_map(Result::ok).filter(|(id, _, _, _, _, _, _)| !p_lock.contains_key(id)).collect())
+                                        .unwrap_or_default()
+                                    } else {
+                                        Vec::new()
+                                    }
+                                };
+
+                                for (id, name, path, qp, gp, ip, status) in untracked_asa {
+                                    // Verify no pending stop reason for this server
+                                    {
+                                        let reasons = monitor_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
+                                        if reasons.contains_key(&id) {
+                                            continue;
+                                        }
+                                    }
+
+                                    let q_opt = if qp > 0 { Some(qp) } else { None };
+                                    let g_opt = if gp > 0 { Some(gp) } else { None };
+                                    let found_pid = find_game_server_pid_by_install_path(&path, "ASA", None, q_opt, g_opt);
+
+                                    if let Some(pid) = found_pid {
+                                        println!("  🎯 [Process Adoption] Found active ASA server '{}' (ID: {}, PID: {}). Adopting into Server Manager...", name, id, pid);
+                                        let stop_flag = Arc::new(AtomicBool::new(false));
+                                        let startup_confirmed = Arc::new(AtomicBool::new(true));
+
+                                        {
+                                            let mut p_lock = monitor_processes.lock().unwrap_or_else(|e| e.into_inner());
+                                            p_lock.insert(id, ServerProcess {
+                                                child: None,
+                                                pid,
+                                                install_path: std::path::PathBuf::from(&path),
+                                                server_type: "ASA".to_string(),
+                                                stop_flag,
+                                                query_port: qp,
+                                                started_at: std::time::Instant::now(),
+                                                is_online: true,
+                                                ip_address: ip.clone(),
+                                                startup_confirmed,
+                                                has_been_online: true,
+                                                game_port: gp,
+                                                is_loader: false,
+                                            });
+                                        }
+
+                                        let _ = conn.execute(
+                                            "UPDATE servers SET status = 'online', process_id = ?1 WHERE id = ?2",
+                                            rusqlite::params![pid, id],
+                                        );
+
+                                        if let Some(guardian) = monitor_handle.try_state::<crate::services::guardian::GuardianState>() {
+                                            let guardian_inner = guardian.0.clone();
+                                            let app_clone = monitor_handle.clone();
+                                            tauri::async_runtime::spawn(async move {
+                                                let guard = guardian_inner.lock().await;
+                                                guard.register_server(app_clone, id, pid).await;
+                                            });
+                                        }
+
+                                        let _ = monitor_handle.emit(
+                                            "server-status-change",
+                                            ServerStatusEvent {
+                                                server_id: id,
+                                                status: "online".to_string(),
+                                            },
+                                        );
+                                    } else if status == "online" || status == "running" {
+                                        // Stale active status in DB while no process is actually running
+                                        let _ = conn.execute(
+                                            "UPDATE servers SET status = 'stopped', process_id = NULL WHERE id = ?1",
+                                            [id],
+                                        );
+                                        let _ = monitor_handle.emit(
+                                            "server-status-change",
+                                            ServerStatusEvent {
+                                                server_id: id,
+                                                status: "stopped".to_string(),
+                                            },
+                                        );
+                                    }
+                                }
+
+                                // B. Scan ASE servers not currently tracked in memory
+                                let untracked_ase: Vec<(i64, String, String, u16, u16, Option<String>, String)> = {
+                                    let p_lock = monitor_processes.lock().unwrap_or_else(|e| e.into_inner());
+                                    let stmt = conn.prepare(
+                                        "SELECT id, name, install_path, query_port, port, ip_address, status FROM ase_servers WHERE status NOT IN ('starting', 'restarting', 'updating', 'stopping')"
+                                    );
+                                    if let Ok(mut s) = stmt {
+                                        s.query_map([], |row| {
+                                            let id: i64 = row.get(0)?;
+                                            let name: String = row.get(1)?;
+                                            let path: String = row.get(2)?;
+                                            let qp: u16 = row.get::<_, u32>(3).unwrap_or(0) as u16;
+                                            let gp: u16 = row.get::<_, u32>(4).unwrap_or(0) as u16;
+                                            let ip: Option<String> = row.get(5)?;
+                                            let st: String = row.get(6)?;
+                                            Ok((id, name, path, qp, gp, ip, st))
+                                        })
+                                        .map(|iter| iter.filter_map(Result::ok).filter(|(id, _, _, _, _, _, _)| !p_lock.contains_key(&(-id))).collect())
+                                        .unwrap_or_default()
+                                    } else {
+                                        Vec::new()
+                                    }
+                                };
+
+                                for (id, name, path, qp, gp, ip, status) in untracked_ase {
+                                    let watchdog_id = -id;
+                                    {
+                                        let reasons = monitor_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
+                                        if reasons.contains_key(&watchdog_id) {
+                                            continue;
+                                        }
+                                    }
+
+                                    let q_opt = if qp > 0 { Some(qp) } else { None };
+                                    let g_opt = if gp > 0 { Some(gp) } else { None };
+                                    let found_pid = find_game_server_pid_by_install_path(&path, "ASE", None, q_opt, g_opt);
+
+                                    if let Some(pid) = found_pid {
+                                        println!("  🎯 [Process Adoption] Found active ASE server '{}' (ID: {}, PID: {}). Adopting into Server Manager...", name, id, pid);
+                                        let stop_flag = Arc::new(AtomicBool::new(false));
+                                        let startup_confirmed = Arc::new(AtomicBool::new(true));
+
+                                        {
+                                            let mut p_lock = monitor_processes.lock().unwrap_or_else(|e| e.into_inner());
+                                            p_lock.insert(watchdog_id, ServerProcess {
+                                                child: None,
+                                                pid,
+                                                install_path: std::path::PathBuf::from(&path),
+                                                server_type: "ASE".to_string(),
+                                                stop_flag,
+                                                query_port: qp,
+                                                started_at: std::time::Instant::now(),
+                                                is_online: true,
+                                                ip_address: ip.clone(),
+                                                startup_confirmed,
+                                                has_been_online: true,
+                                                game_port: gp,
+                                                is_loader: false,
+                                            });
+                                        }
+
+                                        let _ = conn.execute(
+                                            "UPDATE ase_servers SET status = 'online', process_id = ?1 WHERE id = ?2",
+                                            rusqlite::params![pid, id],
+                                        );
+
+                                        if let Some(guardian) = monitor_handle.try_state::<crate::services::guardian::GuardianState>() {
+                                            let guardian_inner = guardian.0.clone();
+                                            let app_clone = monitor_handle.clone();
+                                            tauri::async_runtime::spawn(async move {
+                                                let guard = guardian_inner.lock().await;
+                                                guard.register_ase_server(app_clone, id, pid).await;
+                                            });
+                                        }
+
+                                        let _ = monitor_handle.emit(
+                                            "server-status-change",
+                                            ServerStatusEvent {
+                                                server_id: id,
+                                                status: "online".to_string(),
+                                            },
+                                        );
+                                    } else if status == "online" || status == "running" {
+                                        let _ = conn.execute(
+                                            "UPDATE ase_servers SET status = 'stopped', process_id = NULL WHERE id = ?1",
+                                            [id],
+                                        );
+                                        let _ = monitor_handle.emit(
+                                            "server-status-change",
+                                            ServerStatusEvent {
+                                                server_id: id,
+                                                status: "stopped".to_string(),
+                                            },
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         });
 
@@ -1223,13 +1428,33 @@ impl ProcessManager {
         }
 
         // Check ports before starting with graceful wait for sockets in TIME_WAIT from recent stops
-        for &(port_name, port_val) in &[("Game", game_port), ("Peer", game_port + 1), ("Query", query_port), ("RCON", rcon_port)] {
+        let mut ports_to_verify: Vec<(&str, u16, bool)> = vec![
+            ("Game", game_port, true),  // UDP
+            ("Query", query_port, true), // UDP
+        ];
+        if rcon_enabled && rcon_port > 0 {
+            ports_to_verify.push(("RCON", rcon_port, false)); // TCP
+        }
+
+        for (port_name, port_val, is_udp) in ports_to_verify {
+            if port_val == 0 {
+                continue;
+            }
             let mut wait_attempts = 0;
-            while network::is_port_in_use(port_val) {
-                if wait_attempts < 10 {
+            let check_in_use = || {
+                if is_udp {
+                    network::is_udp_port_in_use(port_val)
+                } else {
+                    network::is_tcp_port_in_use(port_val)
+                }
+            };
+
+            while check_in_use() {
+                if wait_attempts < 6 {
                     wait_attempts += 1;
-                    println!("  ⏳ [Startup Port Check] {} Port {} still busy/closing. Waiting 1s (attempt {}/10)...", port_name, port_val, wait_attempts);
-                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    println!("  ⏳ [Startup Port Check] {} Port {} still busy/closing. Waiting 500ms (attempt {}/6)...", port_name, port_val, wait_attempts);
+                    Self::kill_processes_on_ports(&[port_val]);
+                    std::thread::sleep(std::time::Duration::from_millis(500));
                 } else {
                     return Err(anyhow::anyhow!(
                         "{} Port {} is already in use by another application.",
@@ -1279,7 +1504,6 @@ impl ProcessManager {
         // Add explicit port flags required by Unreal Engine 5 / ShooterGame network binding
         args.push(format!("-Port={}", game_port));
         args.push(format!("-QueryPort={}", query_port));
-        args.push(format!("-PeerPort={}", game_port + 1));
         if rcon_enabled && rcon_port > 0 {
             args.push(format!("-RCONPort={}", rcon_port));
         }
@@ -1409,6 +1633,62 @@ impl ProcessManager {
         } else if effective_map == "Astraeos_WP" || effective_map == "Astraeos" {
             // Astraeos is an official expansion DLC map — do not send -mods=988598 or rogue 960144
             valid_mods.retain(|m| m != "988598" && m != "960144");
+        }
+
+        // MAP MOD CONFLICT SAFETY FILTER:
+        // Loading multiple custom map/terrain mods simultaneously causes fatal UE5 crashes.
+        // Also loading standalone custom map mods (e.g. Bjarnheim 1376189, Amissa 940428) when running an official map (e.g. TheIsland_WP) causes fatal crash.
+        let known_map_mods = [
+            ("893657", "Svartalfheim (Free)"),
+            ("927084", "Svartalfheim (Alt)"),
+            ("962796", "Svartalfheim (Premium)"),
+            ("945244", "Forglar (Free)"),
+            ("952876", "Forglar (Premium)"),
+            ("965379", "Amissa"),
+            ("940428", "Amissa"),
+            ("935639", "Insaluna"),
+            ("935048", "Temptress Lagoon"),
+            ("932906", "Reverence"),
+            ("1376189", "Bjarnheim"),
+            ("1465909", "Scorched Earth Reborn"),
+            ("1460513", "The Island Reforged"),
+            ("949666", "ClubARK"),
+            ("1016843", "Althemia"),
+            ("944358", "Vanna"),
+            ("965905", "TaeniaStella"),
+        ];
+
+        let is_the_island = effective_map.eq_ignore_ascii_case("TheIsland_WP") || effective_map.eq_ignore_ascii_case("TheIsland");
+        let is_scorched = effective_map.eq_ignore_ascii_case("ScorchedEarth_WP") || effective_map.eq_ignore_ascii_case("ScorchedEarth");
+
+        if is_official {
+            // Official maps: strip standalone custom map mods that cannot run on official maps
+            for (m_id, m_name) in &known_map_mods {
+                if *m_id == "1460513" && is_the_island {
+                    continue;
+                }
+                if *m_id == "1465909" && is_scorched {
+                    continue;
+                }
+                if valid_mods.contains(&m_id.to_string()) {
+                    valid_mods.retain(|m| m != *m_id);
+                    println!(
+                        "  🛡️ [Map Mod Filter] Excluded incompatible standalone map mod {} ({}) for official map {}",
+                        m_name, m_id, effective_map
+                    );
+                }
+            }
+        } else if let Some(ref map_mod_id) = detected_map_mod {
+            // Custom maps: only retain the detected map mod, remove all other conflicting map mods
+            for (m_id, m_name) in &known_map_mods {
+                if m_id != map_mod_id && valid_mods.contains(&m_id.to_string()) {
+                    valid_mods.retain(|m| m != *m_id);
+                    println!(
+                        "  🛡️ [Map Mod Filter] Excluded conflicting map mod {} ({}) for custom map {}",
+                        m_name, m_id, effective_map
+                    );
+                }
+            }
         }
 
         if !valid_mods.is_empty() {

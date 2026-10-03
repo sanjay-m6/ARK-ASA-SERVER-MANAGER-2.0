@@ -124,7 +124,7 @@ export default function TopBar() {
                     <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
                         <Server className="w-3.5 h-3.5 text-sky-400" />
                         <span className="font-bold text-[var(--text-primary)]">{runningServers}</span>
-                        <span className="text-[var(--text-secondary)] text-[11px] font-semibold">Active</span>
+                        <span className="text-[var(--text-secondary)] text-[11px] font-semibold">{t('common.active', 'Active')}</span>
                     </div>
                     <div className="w-px h-3.5 bg-[var(--border)]"></div>
                     <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
@@ -132,7 +132,7 @@ export default function TopBar() {
                         <span className="font-bold text-[var(--text-primary)]">
                             {servers.reduce((acc: number, s: any) => acc + getPlayerCount(s), 0)}
                         </span>
-                        <span className="text-[var(--text-secondary)] text-[11px] font-semibold">Players</span>
+                        <span className="text-[var(--text-secondary)] text-[11px] font-semibold">{t('common.players', 'Players')}</span>
                     </div>
                 </div>
 
@@ -160,10 +160,10 @@ export default function TopBar() {
                                 )}></div>
                                 <div className="flex flex-col items-start leading-tight">
                                     <span className="text-[9px] font-black uppercase tracking-wider text-sky-400 flex items-center gap-1">
-                                        EDITING TARGET
+                                        {t('common.editingTarget', 'EDITING TARGET')}
                                     </span>
                                     <span className="text-xs font-extrabold text-[var(--text-primary)] max-w-[150px] truncate">
-                                        {activeServer ? activeServer.name : 'No Active Server'}
+                                        {activeServer ? activeServer.name : t('common.noActiveServer', 'No Active Server')}
                                     </span>
                                 </div>
                                 {activeServer && (
@@ -195,7 +195,7 @@ export default function TopBar() {
                                             </div>
                                             <div>
                                                 <h3 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                                                    Server Switcher
+                                                    {t('common.serverSwitcher', 'Server Switcher')}
                                                     <span className={cn(
                                                         "text-[9px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider",
                                                         isASE ? "bg-amber-500/15 border-amber-500/30 text-amber-300" : "bg-sky-500/15 border-sky-500/30 text-sky-300"
@@ -203,11 +203,11 @@ export default function TopBar() {
                                                         {isASE ? 'ASE' : 'ASA'}
                                                     </span>
                                                 </h3>
-                                                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Select a server instance to edit settings</p>
+                                                <p className="text-[10px] text-slate-400 font-medium mt-0.5">{t('common.selectServerInstance', 'Select a server instance to edit settings')}</p>
                                             </div>
                                         </div>
                                         <span className="text-[10px] font-mono bg-slate-900 border border-slate-800 text-sky-400 px-2.5 py-0.5 rounded-full font-black shadow-inner">
-                                            {servers.length} {servers.length === 1 ? 'Server' : 'Servers'}
+                                            {servers.length} {servers.length === 1 ? t('common.server', 'Server') : t('common.servers', 'Servers')}
                                         </span>
                                     </div>
 
@@ -231,7 +231,7 @@ export default function TopBar() {
                                                             activeServer.status === 'running' || activeServer.status === 'online' ? "bg-emerald-400" : "bg-slate-400"
                                                         )}></span>
                                                     </span>
-                                                    <span className="text-[9px] font-black uppercase tracking-widest text-sky-400">CURRENTLY EDITING SERVER</span>
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-sky-400">{t('common.currentlyEditing', 'CURRENTLY EDITING SERVER')}</span>
                                                 </div>
                                                 <span className={cn(
                                                     "text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide",
@@ -253,15 +253,15 @@ export default function TopBar() {
                                             {/* Specs Grid */}
                                             <div className="grid grid-cols-3 gap-2 pt-2.5 border-t border-slate-800 text-[10px]">
                                                 <div className="bg-slate-950/80 p-2 rounded-xl border border-white/5 shadow-inner">
-                                                    <span className="text-slate-500 font-bold block text-[9px] uppercase tracking-wider">MAP</span>
+                                                    <span className="text-slate-500 font-bold block text-[9px] uppercase tracking-wider">{t('common.map', 'MAP')}</span>
                                                     <span className="text-slate-200 font-mono font-bold truncate block mt-0.5">{getMapName(activeServer)}</span>
                                                 </div>
                                                 <div className="bg-slate-950/80 p-2 rounded-xl border border-white/5 shadow-inner">
-                                                    <span className="text-slate-500 font-bold block text-[9px] uppercase tracking-wider">GAME PORT</span>
+                                                    <span className="text-slate-500 font-bold block text-[9px] uppercase tracking-wider">{t('common.gamePort', 'GAME PORT')}</span>
                                                     <span className="text-sky-400 font-mono font-bold block mt-0.5">{getGamePort(activeServer)}</span>
                                                 </div>
                                                 <div className="bg-slate-950/80 p-2 rounded-xl border border-white/5 shadow-inner">
-                                                    <span className="text-slate-500 font-bold block text-[9px] uppercase tracking-wider">PLAYERS</span>
+                                                    <span className="text-slate-500 font-bold block text-[9px] uppercase tracking-wider">{t('common.playersUpper', 'PLAYERS')}</span>
                                                     <span className="text-emerald-400 font-mono font-bold block mt-0.5">
                                                         {getPlayerCount(activeServer)} / {getMaxPlayers(activeServer)}
                                                     </span>
@@ -274,12 +274,12 @@ export default function TopBar() {
                                                 className="w-full mt-3 py-2 bg-gradient-to-r from-sky-500/20 via-sky-500/15 to-indigo-500/20 hover:from-sky-500/30 hover:to-indigo-500/30 text-sky-300 border border-sky-500/40 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-2 shadow-md group tracking-wide"
                                             >
                                                 <Info className="w-4 h-4 group-hover:scale-110 transition-transform text-sky-400" />
-                                                <span>View Full Server Overview & Details</span>
+                                                <span>{t('dashboard.viewOverview', 'View Full Server Overview & Details')}</span>
                                             </button>
                                         </div>
                                     ) : (
                                         <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl text-center text-xs text-slate-400">
-                                            No server selected for editing. Pick one below.
+                                            {t('common.noServerSelected', 'No server selected for editing. Pick one below.')}
                                         </div>
                                     )}
 
@@ -287,13 +287,13 @@ export default function TopBar() {
                                     <div className="space-y-1.5">
                                         <div className="flex justify-between items-center px-1">
                                             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                                SELECT SERVER TO EDIT
+                                                {t('common.selectServerToEdit', 'SELECT SERVER TO EDIT')}
                                             </span>
                                         </div>
                                         <div className="max-h-60 overflow-y-auto space-y-2 pr-0.5 custom-scrollbar">
                                             {servers.length === 0 ? (
                                                 <div className="p-4 text-center text-xs text-slate-500 bg-slate-900/50 rounded-xl border border-slate-800">
-                                                    No servers created yet
+                                                    {t('dashboard.noServersCreated', 'No servers created yet')}
                                                 </div>
                                             ) : (
                                                 servers.map((srv: any) => {
@@ -336,7 +336,7 @@ export default function TopBar() {
                                                                                 <span className="text-xs font-black truncate text-white">{srv.name}</span>
                                                                                 {isSelected && (
                                                                                     <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-sky-500/20 text-sky-300 rounded-full border border-sky-500/40 tracking-wider">
-                                                                                        EDITING NOW
+                                                                                        {t('common.editingNow', 'EDITING NOW')}
                                                                                     </span>
                                                                                 )}
                                                                             </div>
@@ -381,7 +381,7 @@ export default function TopBar() {
                                                     )}
                                                 >
                                                     <Plus className="w-4 h-4 stroke-[3]" />
-                                                    <span>Create New Server</span>
+                                                    <span>{t('dashboard.installServer', 'Create New Server')}</span>
                                                 </button>
                                             )}
                                         </Menu.Item>

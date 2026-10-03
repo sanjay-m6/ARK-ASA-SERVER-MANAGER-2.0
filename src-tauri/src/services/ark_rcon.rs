@@ -11,11 +11,11 @@ const PACKET_TYPE_EXEC_COMMAND: i32 = 2;
 const PACKET_TYPE_RESPONSE_VALUE: i32 = 0;
 
 /// Default timeout for waiting for auth response
-const AUTH_TIMEOUT: Duration = Duration::from_secs(10);
+const AUTH_TIMEOUT: Duration = Duration::from_secs(5);
 /// Wait this long after receiving the first packet to see if more packets are coming (Multi-packet response)
-const FRAGMENT_TIMEOUT: Duration = Duration::from_millis(50);
+const FRAGMENT_TIMEOUT: Duration = Duration::from_millis(60);
 /// Absolute max wait time for a single command to complete all its fragments
-const COMMAND_TIMEOUT: Duration = Duration::from_secs(15);
+const COMMAND_TIMEOUT: Duration = Duration::from_secs(8);
 
 #[derive(Debug)]
 pub struct ArkRconClient {
@@ -47,7 +47,7 @@ impl ArkRconClient {
             clean.to_string()
         };
 
-        let stream = match timeout(Duration::from_secs(10), TcpStream::connect(&target_address)).await {
+        let stream = match timeout(Duration::from_secs(4), TcpStream::connect(&target_address)).await {
             Ok(Ok(s)) => s,
             Ok(Err(e)) => return Err(format!("Connection Refused: {}", e)),
             Err(_) => return Err("Connection Timed Out: Server not reachable or firewall blocked".to_string()),
@@ -92,10 +92,11 @@ impl ArkRconClient {
             if packet.p_type == PACKET_TYPE_AUTH_RESPONSE {
                 if packet.id == -1 {
                     return Err("Authentication Failed: Invalid RCON Password".to_string());
-                } else if packet.id == expected_id {
-                    return Ok(());
                 } else {
-                    return Err(format!("Authentication Failed: ID mismatch (expected {}, got {})", expected_id, packet.id));
+                    if packet.id != expected_id {
+                        log::warn!("[RCON] Auth response ID mismatch (expected {}, got {}), but server accepted password", expected_id, packet.id);
+                    }
+                    return Ok(());
                 }
             }
 
@@ -105,15 +106,19 @@ impl ArkRconClient {
 
     /// Sends a command to the server and returns the aggregated response
     pub async fn send_command(&mut self, command: &str) -> Result<String, String> {
+        // Discard any residual bytes from previous timeouts to preserve strict packet framing
+        if !self.buffer.is_empty() {
+            log::debug!("[RCON] Purging {} leftover bytes from buffer before command send", self.buffer.len());
+            self.buffer.clear();
+        }
+
         let id = self.get_next_id();
         self.send_packet(id, PACKET_TYPE_EXEC_COMMAND, command).await
             .map_err(|e| format!("Socket Closed during command send: {}", e))?;
 
         // Aggregate multi-packet responses.
         // ASA often splits large outputs (like ListPlayers) but does NOT send an empty sentinel packet.
-        // We wait up to COMMAND_TIMEOUT for the first response, then wait FRAGMENT_TIMEOUT for subsequent fragments.
         let mut response_body = String::new();
-        
         let mut first_packet = true;
         let command_start = std::time::Instant::now();
 
@@ -123,11 +128,19 @@ impl ArkRconClient {
                 break;
             }
 
-            let timeout_duration = if first_packet { COMMAND_TIMEOUT } else { FRAGMENT_TIMEOUT };
+            // If we already have buffered packet data, process immediately without waiting on socket
+            let timeout_duration = if first_packet {
+                COMMAND_TIMEOUT
+            } else if self.buffer.len() >= 4 {
+                Duration::from_millis(10)
+            } else {
+                FRAGMENT_TIMEOUT
+            };
 
             match timeout(timeout_duration, self.read_packet()).await {
                 Ok(Ok(packet)) => {
-                    if packet.id == id && packet.p_type == PACKET_TYPE_RESPONSE_VALUE {
+                    // Accept packets matching request id, id 0, or the first packet response
+                    if packet.id == id || packet.id == 0 || first_packet {
                         response_body.push_str(&packet.body);
                         first_packet = false;
                     } else {
@@ -142,7 +155,7 @@ impl ArkRconClient {
                     if first_packet {
                         return Err("Timeout Waiting For Response".to_string());
                     } else {
-                        // Timeout on fragment means we probably reached the end of the ASA multi-packet response
+                        // Timeout on fragment means we reached the end of the ASA multi-packet response
                         break;
                     }
                 }
@@ -150,6 +163,11 @@ impl ArkRconClient {
         }
 
         Ok(response_body)
+    }
+
+    /// Gracefully closes the underlying TCP connection
+    pub async fn close(&mut self) {
+        let _ = self.stream.shutdown().await;
     }
 
     /// Reads exactly n bytes into the buffer
@@ -171,7 +189,7 @@ impl ArkRconClient {
         self.read_exact_bytes(4).await?;
         let size = self.buffer.get_i32_le() as usize;
 
-        if size < 10 || size > 8192 {
+        if size < 10 || size > 65536 {
             return Err(io::Error::new(io::ErrorKind::InvalidData, format!("Invalid Packet Size: {}", size)));
         }
 

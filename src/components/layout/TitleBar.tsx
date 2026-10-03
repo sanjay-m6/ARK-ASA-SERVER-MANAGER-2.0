@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
 import { exit } from '@tauri-apps/plugin-process';
@@ -55,6 +56,7 @@ function LiveClock() {
 }
 
 export default function TitleBar() {
+  const { t } = useTranslation();
   const { activeGame } = useGameStore();
   const { servers } = useServerStore();
   const isASE = activeGame === 'ASE';
@@ -224,10 +226,10 @@ export default function TitleBar() {
             <button
               onClick={() => setIsUpdateModalOpen(true)}
               className="text-[9px] font-mono font-medium text-amber-400 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1 cursor-pointer transition-all"
-              title="Click to check for application updates"
+              title={t('titleBar.checkUpdatesTooltip', 'Click to check for application updates')}
             >
               <Sparkles className="w-2.5 h-2.5 text-amber-400" />
-              v{appVersion} (Check Updates)
+              v{appVersion} ({t('titleBar.checkUpdates', 'Check Updates')})
             </button>
           )}
           <span className="text-[9px] font-bold text-[var(--text-secondary)] bg-[var(--surface-hover)] border border-[var(--border)] px-1.5 py-0.5 rounded-full shadow-sm">
@@ -242,10 +244,10 @@ export default function TitleBar() {
         <div 
           title={
             runningServers > 0
-              ? `Game Server Status: ${runningServers} active server instance(s) running`
+              ? t('titleBar.statusOnlineTooltip', `Game Server Status: ${runningServers} active server instance(s) running`, { count: runningServers })
               : totalServers > 0
-              ? `Game Server Status: All ${totalServers} configured servers are currently stopped (Standby)`
-              : 'Game Server Status: No game servers created or running currently (Offline)'
+              ? t('titleBar.statusStandbyTooltip', `Game Server Status: All ${totalServers} configured servers are currently stopped (Standby)`, { count: totalServers })
+              : t('titleBar.statusOfflineTooltip', 'Game Server Status: No game servers created or running currently (Offline)')
           }
           className={`flex items-center gap-2 px-2.5 py-1 rounded-full border shadow-sm transition-all cursor-help ${
             runningServers > 0
@@ -264,7 +266,7 @@ export default function TitleBar() {
           <span className={`text-[10px] font-bold tracking-wider ${
             runningServers > 0 ? 'text-emerald-400' : totalServers > 0 ? 'text-amber-400' : 'text-slate-400'
           }`}>
-            {runningServers > 0 ? 'SERVERS: ONLINE' : totalServers > 0 ? 'SERVERS: STANDBY' : 'SERVERS: OFFLINE'}
+            {runningServers > 0 ? t('titleBar.serversOnline', 'SERVERS: ONLINE') : totalServers > 0 ? t('titleBar.serversStandby', 'SERVERS: STANDBY') : t('titleBar.serversOffline', 'SERVERS: OFFLINE')}
           </span>
         </div>
 
@@ -285,7 +287,7 @@ export default function TitleBar() {
             data-tauri-drag-region="false"
             style={{ WebkitAppRegion: 'no-drag', AppRegion: 'no-drag' } as React.CSSProperties}
             className="relative flex items-center justify-center w-6 h-6 rounded-full border border-yellow-500/40 bg-yellow-500/10 text-yellow-500 shadow-[0_0_12px_rgba(234,179,8,0.3)] transition-all hover:bg-yellow-500/20 hover:shadow-[0_0_15px_rgba(234,179,8,0.5)] focus:outline-none cursor-pointer"
-            title="Minimize"
+            title={t('titleBar.minimize', 'Minimize')}
             whileTap={{ scale: 0.85 }}
             transition={appleSpring}
           >
@@ -298,7 +300,7 @@ export default function TitleBar() {
             data-tauri-drag-region="false"
             style={{ WebkitAppRegion: 'no-drag', AppRegion: 'no-drag' } as React.CSSProperties}
             className="relative flex items-center justify-center w-6 h-6 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)] transition-all hover:bg-emerald-500/20 hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] focus:outline-none cursor-pointer"
-            title={isMaximized ? 'Restore' : 'Maximize'}
+            title={isMaximized ? t('titleBar.restoreDown', 'Restore Down') : t('titleBar.maximize', 'Maximize')}
             whileTap={{ scale: 0.85 }}
             transition={appleSpring}
           >
@@ -315,7 +317,7 @@ export default function TitleBar() {
             data-tauri-drag-region="false"
             style={{ WebkitAppRegion: 'no-drag', AppRegion: 'no-drag' } as React.CSSProperties}
             className="relative flex items-center justify-center w-6 h-6 rounded-full border border-red-500/40 bg-red-500/10 text-red-500 shadow-[0_0_12px_rgba(239,68,68,0.3)] transition-all hover:bg-red-500/20 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)] focus:outline-none cursor-pointer"
-            title="Close"
+            title={t('titleBar.close', 'Close')}
             whileTap={{ scale: 0.85 }}
             transition={appleSpring}
           >

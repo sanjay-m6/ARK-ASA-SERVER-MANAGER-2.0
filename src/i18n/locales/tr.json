@@ -58,7 +58,10 @@
     "updating": "Güncelleniyor...",
     "repairing": "Onarılıyor...",
     "version": "Sürüm",
-    "status": "Durum",
+    "status": {
+      "online": "Çevrimiçi",
+      "offline": "Çevrimdışı"
+    },
     "name": "Ad",
     "type": "Tür",
     "size": "Boyut",
@@ -106,7 +109,28 @@
     "ascending": "Artan",
     "descending": "Azalan",
     "failed": "Başarısız: {{error}}",
-    "never": "Asla"
+    "never": "Asla",
+    "copied": "Panoya kopyalandı",
+    "done": "Bitti",
+    "copyAddress": "LAN Adresini Kopyala",
+    "seconds": "saniye",
+    "mins": "dakika",
+    "gotIt": "Anladım!",
+    "inactive": "Aktif Değil",
+    "confirmDelete": "Silmeyi Onayla",
+    "dismiss": "Reddet",
+    "loadingSettings": "Tercihler yükleniyor…",
+    "statusLabel": "Durum",
+    "currentlyEditing": "CURRENTLY EDITING SERVER",
+    "map": "MAP",
+    "gamePort": "GAME PORT",
+    "playersUpper": "PLAYERS",
+    "noServerSelected": "No server selected for editing. Pick one below.",
+    "selectServerToEdit": "SELECT SERVER TO EDIT",
+    "editingNow": "EDITING NOW",
+    "items": "items",
+    "folder": "Folder",
+    "file": "File"
   },
   "discord": {
     "title": "Discord Ağ Geçidi",
@@ -159,7 +183,8 @@
     "step5Desc": "Discord'da, <1>Kullanıcı Ayarları → Gelişmiş → Geliştirici Modu</1>'nu etkinleştirin.",
     "step5ServerId": "• <1>Sunucu ID</1>: Sunucu adına sağ tıklayın → <2>Sunucu Kimliğini Kopyala</2> seçeneğine tıklayın.",
     "step5ChannelId": "• <1>Kanal ID</1>: Metin kanalına sağ tıklayın → <2>Kanal Kimliğini Kopyala</2> seçeneğine tıklayın.",
-    "guideDone": "Yukarıdaki tüm adımları tamamladıktan sonra Token, Sunucu ID ve Kanal ID bilgilerini doldurun ve <1>Bağlantıyı Test Et</1> butonuna tıklayın."
+    "guideDone": "Yukarıdaki tüm adımları tamamladıktan sonra Token, Sunucu ID ve Kanal ID bilgilerini doldurun ve <1>Bağlantıyı Test Et</1> butonuna tıklayın.",
+    "adminChannelId": "Yönetici Komutu Kanal Kimliği"
   },
   "sidebar": {
     "dashboard": "Kontrol Paneli",
@@ -184,13 +209,28 @@
     "tribeLogs": "Kabile Logları",
     "upnp": "UPnP Port Eşleştirme",
     "serverOrganization": "Gruplama ve Sıralama",
-    "wiki": "Kullanım Kılavuzu"
+    "wiki": "Kullanım Kılavuzu",
+    "boostManager": "Destek Yöneticisi",
+    "expand": "Kenar çubuğunu genişlet",
+    "collapse": "Kenar çubuğunu daralt",
+    "switchGame": "{{game}}'e geçiş",
+    "search": "Arama menüsü...",
+    "hardware": "Hardware",
+    "playerManager": "Player Manager",
+    "profileSync": "Profile Sync",
+    "chatTranslator": "Chat Translator"
   },
   "welcome": {
     "title": "ASA Sunucu Yöneticisi",
     "subtitle": "ARK: Survival Ascended için Profesyonel Sunucu Yönetim Aracı",
     "loading": "Sistem başlatılıyor...",
-    "enter": "Kontrol Merkezine Gir"
+    "enter": "Kontrol Merkezine Gir",
+    "headerTitle": "Oyununuzu Seçin",
+    "headerSubtitle": "Hangi ARK sürümünü yönetmek istediğinizi seçin",
+    "evolvedDesc": "Klasik ARK: Survival Evolved özel sunucularınızı tam yapılandırma kontrolüyle yönetin.",
+    "launching": "Başlatılıyor...",
+    "select": "",
+    "ascendedDesc": "'yi seçin Unreal Engine 5 destekli yeni nesil ARK: Survival Ascished sunucularını yönetin."
   },
   "admin": {
     "title": "Yönetici Yetkisi Gerekli",
@@ -248,7 +288,13 @@
     "statusLoading": "Yükleniyor...",
     "statusPublic": "Açık",
     "statusLan": "Yerel Ağ",
-    "publicIpAddress": "Genel IP Adresi"
+    "publicIpAddress": "Genel IP Adresi",
+    "normalRestart": "Normal Yeniden Başlatma",
+    "restartWipeDinos": "Dinos'u Yeniden Başlatın ve Silin",
+    "discordCommunity": "Hatalar ve Güncellemeler",
+    "serverRestartedWipeDinos": "Vahşi dino silme işlemiyle sunucu yeniden başlatma başlatıldı",
+    "viewOverview": "View Full Server Overview & Details",
+    "noServersCreated": "No servers created yet"
   },
   "serverManager": {
     "title": "Sunucu Yöneticisi",
@@ -321,7 +367,10 @@
       "updating": "Güncelleniyor",
       "repairing": "Onarılıyor",
       "startup_timeout": "Zaman Aşımı",
-      "unknown": "Bilinmiyor"
+      "unknown": "Bilinmiyor",
+      "restarting": "YENİDEN BAŞLATILIYOR",
+      "timeout": "ZAMAN AŞIMI",
+      "uninstalled": "KURULMAMIŞ"
     },
     "buttons": {
       "selectedCount": "{{count}} öğe seçildi",
@@ -342,7 +391,13 @@
       "startNoMods": "Güvenli Modda Başlat",
       "normalRestart": "Normal Yeniden Başlat",
       "deepRepair": "Modları Onar",
-      "delete": "Sil"
+      "delete": "Sil",
+      "restartWipeDinos": "Dinos'u Yeniden Başlatın ve Silin",
+      "updateSelected": "Seçilenleri Güncelle",
+      "updateOutdated": "Güncel Olmayan Güncelleme",
+      "moveSelected": "Seçileni Taşı",
+      "editRawIni": "Dosyaları Manuel Olarak Düzenleme (IDE)",
+      "fileManager": "Dosya Yöneticisi (Gözat)"
     },
     "tooltips": {
       "forceStop": "Sunucu işlemini anında sonlandırır (kaydedilmemiş verilerin kaybına neden olabilir)",
@@ -358,7 +413,12 @@
       "settings": "Bu sunucunun Yapılandırma Düzenleyicisini açar",
       "clone": "Sunucu yapılandırmasını kopyalar veya kayıt verilerini taşır",
       "delete": "Bu sunucunun tüm dosyalarını kalıcı olarak siler",
-      "dataSafety": "Gelişmiş koruma sağlar, tehlikeli işlemlerden önce haritayı kaydetmeye zorlar"
+      "dataSafety": "Gelişmiş koruma sağlar, tehlikeli işlemlerden önce haritayı kaydetmeye zorlar",
+      "doubleClickToRename": "",
+      "serverVersion": "yeniden adlandırmak için çift tıklayın Yerel Sunucu Sürümü",
+      "updateAvailable": "Yeni sürüm Steam'de mevcut!",
+      "updateRequired": "Yeni güncelleme mevcut! Yüklemek için tıklayın.",
+      "move": "Sunucuyu Taşı"
     },
     "emptyState": {
       "title": "Hiçbir Sunucu Kurulu Değil",
@@ -378,10 +438,109 @@
       "dataSafetyLabel": "Veri Güvenliği ve Kendi Kendini Onarma",
       "consoleOutput": "Gerçek Zamanlı Konsol Çıktısı",
       "waitingOutput": "Sunucunun ilk log çıktısı bekleniyor...",
-      "showConsole": "Bağımsız Komut İstemini Aç"
+      "showConsole": "Bağımsız Komut İstemini Aç",
+      "branch": "Sunucu Sürümü",
+      "delay": "Gecikme",
+      "priority": "Öncelik",
+      "autoRestartOnCrash": "Kilitlenme durumunda otomatik yeniden başlatma"
     },
     "confirmForceStop": "Bu sunucuyu ZORLA DURDURMAK istediğinizden emin misiniz? Bu işlem oyun sürecini anında sonlandıracak ve diske yazılmamış tüm oyuncu ilerlemeleri kaybolacaktır.",
-    "confirmDeepRepair": "Derin onarım sunucuyu zorla kapatacak, tüm geçici mod önbellek dosyalarını (.temp) temizleyecek ve modları yeniden indirecektir. Devam etmek istiyor musunuz?"
+    "confirmDeepRepair": "Derin onarım sunucuyu zorla kapatacak, tüm geçici mod önbellek dosyalarını (.temp) temizleyecek ve modları yeniden indirecektir. Devam etmek istiyor musunuz?",
+    "serverUpToDate": "Sunucu güncel!",
+    "confirmForceStopTitle": "Sunucuyu Durdurmaya Zorla",
+    "nameUpdated": "Sunucu adı başarıyla güncellendi.",
+    "renameFailed": "Sunucu yeniden adlandırılamadı.",
+    "serverCloned": "Sunucu başarıyla klonlandı: {{name}}",
+    "cloneFailed": "Klonlama başarısız oldu: {{error}}",
+    "joiningServer": "ARK başlatılıyor ve bağlanılıyor...",
+    "branchUpdated": "Sunucu sürümü güncellendi. Doğrulamak/uygulamak için indirme simgesine tıklayın.",
+    "branchUpdateFailed": "Sürüm/dal güncellenemedi",
+    "stopServerFirst": "Dosyaları güncellemeden önce lütfen sunucuyu durdurun.",
+    "updateConfirm": "Bu, sunucu sürümünü doğrulamak veya değiştirmek için SteamCMD'yi çalıştıracaktır. Devam etmek?",
+    "updateStarted": "Sunucu dosyaları arka planda güncelleniyor...",
+    "updateSuccess": "Sunucu başarıyla güncellendi!",
+    "updateFilesTooltip": "Sunucu Dosyalarını SteamCMD Aracılığıyla Güncelleme / Doğrulama",
+    "deleteTitle": "ASE Sunucusunu Sil",
+    "deleteConfirmMessage": "ASE sunucusu \"{{name}}\" silinsin mi? Bu geri alınamaz.",
+    "serverRestartedWipeDinos": "Vahşi dino silme işlemiyle sunucu yeniden başlatma başlatıldı",
+    "startingParallelUpdates": "{{count}} sunucuları için paralel güncelleme başlatılıyor...",
+    "allServersUpToDate": "Tüm sunucular güncel!",
+    "startingParallelOutdatedUpdates": "{{count}} eski sunucu(lar) paralel olarak güncelleniyor...",
+    "errors": {
+      "emptyName": "Sunucu adı boş olamaz."
+    },
+    "move": {
+      "mustBeStopped": "Sunucu taşınmadan önce durdurulmalıdır.",
+      "selectFolder": "Yeni Sunucu Dizinini Seçin",
+      "failed": "Taşıma sunucusu hazırlanamadı.",
+      "startedBulk": "{{count}} sunucuları taşınıyor...",
+      "movingServer": "{{name}} taşınıyor...",
+      "bulkFailedOne": "Bir sunucu taşınamadı.",
+      "bulkSuccess": "{{count}} sunucuları başarıyla taşındı!",
+      "started": "Sunucu taşınıyor...",
+      "success": "Sunucu başarıyla taşındı!",
+      "bulkMustBeStopped": "Seçilen tüm sunucuların taşınmadan önce durdurulması gerekir.",
+      "bulkTitle": "Seçilen sunucuları yeni bir dizine taşı",
+      "dialogTitleBulk": "Birden Çok Sunucuyu Taşıma",
+      "dialogTitle": "Sunucuyu Taşı",
+      "dialogDescBulk": "{{count}} sunucularını yeni konuma taşımak istediğinizden emin misiniz?",
+      "dialogDesc": "{{name}}'i yeni konuma taşımak istediğinizden emin misiniz?",
+      "warningTitle": "Zaman alan operasyon",
+      "warningDesc": "Kaydedilen verilerin ve sunucu dosyalarının boyutuna bağlı olarak bu işlem birkaç dakika sürebilir. Lütfen bu işlem sırasında uygulamayı kapatmayın.",
+      "confirmMove": "Taşımayı Onayla"
+    },
+    "conflicts": {
+      "hardTitle": "Kritik Liman Çatışması",
+      "softTitle": "Bağlantı Noktası Çatışması Uyarısı",
+      "hardMessage": "Bir veya daha fazla yapılandırılmış bağlantı noktası şu anda başka bir sunucuda veya işlemde etkin. Çözüm için bağlantı noktalarını otomatik olarak yeniden atayın.",
+      "softMessage": "Çevrimdışı sunucu profillerinde bir veya daha fazla bağlantı noktası yapılandırılmıştır. Boş bağlantı noktalarını yeniden atayabilir veya yine de başlayabilirsiniz.",
+      "detectedConflicts": "Algılanan Çatışmalar",
+      "usedBy": "Kullanan:",
+      "unknownProcess": "Bilinmeyen harici işlem tarafından kullanılıyor",
+      "startAnyway": "Yine de Başla"
+    },
+    "statusBar": {
+      "loading": "Görünürlük teşhisi yürütülüyor...",
+      "diagnosticsFailed": "Teşhis Sistemi Çevrimdışı",
+      "systemLabel": "TEŞHİS PANELİ",
+      "visibility": "Görünürlük Durumu:",
+      "wanUnavailable": "Genel IP sorguları engellendi",
+      "updateMode": "SteamCMD Güncelleme Modu",
+      "startingUpdate": "SteamCMD sarmalayıcı işlemi başlatılıyor...",
+      "hideLogs": "Konsol Günlüklerini Gizle",
+      "showLogs": "Konsol Günlüklerini Göster",
+      "waitingOutput": "SteamCMD akış çıkışı bekleniyor...",
+      "hideGuide": "Arama Kılavuzunu Gizle",
+      "showGuide": "Arama Kılavuzunu Göster",
+      "guideTitle": "Kılavuz: Oyun İçi Tarayıcıda Sunucunuzu Nasıl Bulabilirsiniz"
+    },
+    "diagnostics": {
+      "process": "Oyun Süreci",
+      "processRunning": "Aktif PID",
+      "processInactive": "Aktif Değil",
+      "port": "UDP Bağlantı Noktası Bağlama",
+      "portBound": "Dinliyorum",
+      "portClosed": "Kapalı",
+      "lan": "LAN Erişilebilirliği",
+      "lanVisible": "Duyarlı (A2S)",
+      "lanBlocked": "Yanıt Yok",
+      "wan": "Küresel Görünürlük",
+      "wanVisible": "Herkese Açık",
+      "wanBlocked": "Engellendi / Filtrelendi"
+    },
+    "toast": {
+      "nameUpdated": "Profil adı \"{{name}}\" olarak güncellendi"
+    },
+    "modCache": {
+      "mustBeStopped": "Mod önbelleğini temizlemeden önce sunucunun durdurulması gerekir.",
+      "clearing": "Mod önbelleği temizleniyor...",
+      "failed": "Mod önbelleği temizlenemedi.",
+      "tooltip": "Mod yükleme sorunlarını düzeltmek için önbelleğe alınmış mod dosyalarını temizleyin",
+      "button": "Mod Önbelleğini Temizle"
+    },
+    "status": {
+      "updateAvailable": "Güncelleme Mevcut"
+    }
   },
   "configEditor": {
     "title": "Yapılandırma Düzenleyici",
@@ -430,12 +589,15 @@
       "copySuccess": "Parametreler başarıyla panoya kopyalandı",
       "presetApplied": "'{{name}}' şablonu başarıyla uygulandı",
       "dinoLevelSet": "Maksimum vahşi dinozor seviyesi başarıyla {{level}} olarak ayarlandı",
-      "playerLevelSet": "Maksimum oyuncu seviyesi başarıyla {{level}} olarak ayarlandı"
+      "playerLevelSet": "Maksimum oyuncu seviyesi başarıyla {{level}} olarak ayarlandı",
+      "presetSaved": "Ön ayar başarıyla kaydedildi",
+      "presetUpdated": "Ön ayar \"{{name}}\" mevcut ayarlarla güncellendi"
     },
     "validation": {
       "tamingConflict": "Evcilleştirme devre dışı bırakıldı ancak evcilleştirme hızı çarpanı hala 1.0'dan büyük (bu ayar etkisiz olacaktır).",
       "friendlyFireConflict": "PvE modu etkinleştirildi ancak dost ateşi devre dışı bırakıldı, kabile içi hasar çarpanı etkisiz olacaktır.",
-      "xpWarning": "Çok yüksek ve mantıksız bir deneyim çarpanı tespit edildi (> 50x). Bu, veri taşmasına neden olabilir."
+      "xpWarning": "Çok yüksek ve mantıksız bir deneyim çarpanı tespit edildi (> 50x). Bu, veri taşmasına neden olabilir.",
+      "pveOfflinePvpConflict": "PvE Modu, Çevrimdışı PvP'yi Önle ile birlikte etkinleştirilir. Çevrimdışı PvP koruması, PvE modunda gereksizdir; karışıklığı önlemek için onu devre dışı bırakmayı düşünün."
     },
     "levelsGenerator": {
       "title": "Özel Oyuncu ve Dinozor Seviye Oluşturucu",
@@ -477,6 +639,696 @@
     "emptyState": {
       "title": "Hiçbir ayar bulunamadı",
       "description": "\"{{query}}\" ifadesini aramayı deneyin"
+    },
+    "fields": {
+      "ServerName": {
+        "label": "Sunucu Adı",
+        "description": "Sunucunuzun adı"
+      },
+      "Message": {
+        "label": "Günün Mesajı",
+        "description": "Oyunculara katıldıklarında gösterilen mesaj. Yeni satırlar için \\n kullanın."
+      },
+      "ServerPassword": {
+        "label": "Sunucu Şifresi",
+        "description": "Katılmak için şifre gerekli"
+      },
+      "ServerAdminPassword": {
+        "label": "Yönetici Şifresi",
+        "description": "Yönetici erişimi için şifre"
+      },
+      "MaxPlayers": {
+        "label": "Maksimum Oyuncu",
+        "description": "Maksimum oyuncu sayısı"
+      },
+      "MapName": {
+        "label": "Harita",
+        "description": "Yüklenecek harita"
+      },
+      "IPAddress": {
+        "label": "Sunucu IP Adresi",
+        "description": "Sunucuyu belirli bir IP adresine bağlayın (tüm arayüzler için boş bırakın)"
+      },
+      "RCONEnabled": {
+        "label": "RCON Etkin",
+        "description": "Sunucu yönetimi için uzaktan konsol erişimini etkinleştirin"
+      },
+      "Port": {
+        "label": "Oyun Bağlantı Noktası",
+        "description": "Oyuncu bağlantıları için ana oyun bağlantı noktası (varsayılan: 7777)"
+      },
+      "QueryPort": {
+        "label": "Sorgu Bağlantı Noktası",
+        "description": "Sunucu tarayıcı sorguları için bağlantı noktası (varsayılan: 27015)"
+      },
+      "RCONPort": {
+        "label": "RCON Bağlantı Noktası",
+        "description": "RCON bağlantıları için bağlantı noktası (varsayılan: 27020)"
+      },
+      "ServerCrossplay": {
+        "label": "Çapraz Oyunu Etkinleştir",
+        "description": "Xbox, PlayStation ve PC oyuncularının bir araya gelmesine izin verin"
+      },
+      "Culture": {
+        "label": "Sunucu Dili (Kültür)",
+        "description": "Oyun içi dili/kültürü ayarlar (-kültür başlatma argümanını ekler)"
+      },
+      "XPMultiplier": {
+        "label": "XP Çarpanı",
+        "description": "Tüm kaynaklardan küresel XP kazanma oranı"
+      },
+      "DifficultyOffset": {
+        "label": "Zorluk",
+        "description": "Sunucu zorluğu (maksimum wild dino seviyesini etkiler)"
+      },
+      "OverrideOfficialDifficulty": {
+        "label": "Maksimum Zorluğu Geçersiz Kıl",
+        "description": "Maksimum vahşi dino seviyesini geçersiz kıl (5.0 = seviye 150)"
+      },
+      "HarvestAmountMultiplier": {
+        "label": "Hasat Miktarı",
+        "description": "Kaynak hasat miktarı çarpanı"
+      },
+      "HarvestHealthMultiplier": {
+        "label": "Hasat Sağlığı",
+        "description": "Kaynak düğümü sağlık çarpanı"
+      },
+      "ResourcesRespawnPeriodMultiplier": {
+        "label": "Kaynağın Yeniden Doğuşu",
+        "description": "Kaynağın yeniden doğma oranı (daha düşük = daha hızlı)"
+      },
+      "TamingSpeedMultiplier": {
+        "label": "Evcilleştirme Hızı",
+        "description": "Ne kadar hızlı yaratıklar evcilleştiriliyor"
+      },
+      "DinoCharacterFoodDrainMultiplier": {
+        "label": "Dino Yiyecek Kanalı",
+        "description": "Dinozor gıda tüketim oranı"
+      },
+      "DinoCountMultiplier": {
+        "label": "Vahşi Dino Sayısı",
+        "description": "Vahşi dino ortaya çıkma yoğunluğu"
+      },
+      "DinoDamageMultiplier": {
+        "label": "Dino Hasarı",
+        "description": "Dinozor hasarı çıktısı"
+      },
+      "DinoResistanceMultiplier": {
+        "label": "Dinozor Direnci",
+        "description": "Dino hasar direnci"
+      },
+      "PlayerDamageMultiplier": {
+        "label": "Oyuncu Hasarı",
+        "description": "Oyuncu hasar çıktısı"
+      },
+      "PlayerResistanceMultiplier": {
+        "label": "Oyuncu Direnci",
+        "description": "Oyuncu hasarı direnci"
+      },
+      "PlayerCharacterWaterDrainMultiplier": {
+        "label": "Su Tahliyesi",
+        "description": "Su tüketim oranı"
+      },
+      "PlayerCharacterFoodDrainMultiplier": {
+        "label": "Yiyecek Tahliyesi",
+        "description": "Gıda tüketim oranı"
+      },
+      "PlayerCharacterStaminaDrainMultiplier": {
+        "label": "Dayanıklılık Boşalması",
+        "description": "Dayanıklılık tüketim oranı"
+      },
+      "PlayerCharacterHealthRecoveryMultiplier": {
+        "label": "Sağlığın İyileştirilmesi",
+        "description": "Sağlığın yenilenme oranı"
+      },
+      "StructureResistanceMultiplier": {
+        "label": "Yapı Direnci",
+        "description": "Yapı hasarı direnci"
+      },
+      "StructureDamageMultiplier": {
+        "label": "Yapı Hasarı",
+        "description": "Yapılarda hasar"
+      },
+      "PvEStructureDecayPeriodMultiplier": {
+        "label": "Yapı Çürüme Oranı",
+        "description": "Yapı bozulma dönemi"
+      },
+      "AlwaysAllowStructurePickup": {
+        "label": "Yapı Alımına İzin Ver",
+        "description": "Yerleştirilen yapıların alınmasına izin ver"
+      },
+      "DayTimeSpeedScale": {
+        "label": "Gündüz Hızı",
+        "description": "Gündüz hız çarpanı"
+      },
+      "NightTimeSpeedScale": {
+        "label": "Gece Hızı",
+        "description": "Gece hız çarpanı"
+      },
+      "DayCycleSpeedScale": {
+        "label": "Gün Döngüsü Hızı",
+        "description": "Genel gündüz/gece döngüsü hızı"
+      },
+      "ServerPVE": {
+        "label": "PvE Modu",
+        "description": "PvE modunu etkinleştirin (oyuncu hasarı yok)"
+      },
+      "AllowCaveBuildingPvE": {
+        "label": "Mağara İnşasına İzin Ver",
+        "description": "Mağaraların içinde inşaat yapılmasına izin veriliyor"
+      },
+      "PreventTribeAlliances": {
+        "label": "İttifakları Önleyin",
+        "description": "Kabile ittifaklarını önleyin"
+      },
+      "AllowFlyerCarryPvE": {
+        "label": "El İlanı Taşımaya İzin Ver",
+        "description": "El ilanlarının oyuncuları taşımasına izin ver"
+      },
+      "EnablePvPGamma": {
+        "label": "PvP Gamasını Etkinleştir",
+        "description": "PvP'de gama ayarına izin ver"
+      },
+      "DisableFriendlyFire": {
+        "label": "Dost Ateşini Devre Dışı Bırak",
+        "description": "Kabile üyelerinin birbirlerine zarar vermesini önleyin"
+      },
+      "PreventOfflinePvP": {
+        "label": "Çevrimdışı PvP'yi Önleyin",
+        "description": "Sahipler çevrimdışıyken yapıları ve oyuncuları koruyun"
+      },
+      "PreventOfflinePvPInterval": {
+        "label": "Çevrimdışı Koruma Gecikmesi (saniye)",
+        "description": "Çevrimdışı korumanın etkinleştirilmesinden önceki gecikme (0 = hemen)"
+      },
+      "GlobalVoiceChat": {
+        "label": "Küresel Sesli Sohbet",
+        "description": "Sesli sohbet herkes tarafından duyulur"
+      },
+      "ProximityChat": {
+        "label": "Yakınlık Metin Sohbeti",
+        "description": "Metin sohbeti yalnızca yakındaki oyuncular tarafından görülebilir"
+      },
+      "AlwaysNotifyPlayerLeft": {
+        "label": "Oyuncuya Bildir Sol",
+        "description": "Oyuncu ayrıldığında mesajı göster"
+      },
+      "AlwaysNotifyPlayerJoined": {
+        "label": "Oyuncuya Katıldığını Bildirin",
+        "description": "Oyuncu katıldığında mesajı göster"
+      },
+      "ServerCrosshair": {
+        "label": "Artı İşaretini Etkinleştir",
+        "description": "Artı işaretini göster"
+      },
+      "ShowMapPlayerLocation": {
+        "label": "Harita Oynatıcı Konumu",
+        "description": "Oyuncunun konumunu haritada göster"
+      },
+      "ShowFloatingDamageText": {
+        "label": "Yüzen Hasar Metni",
+        "description": "Hasar rakamlarını göster"
+      },
+      "AllowThirdPersonPlayer": {
+        "label": "Üçüncü Kişiye İzin Ver",
+        "description": "3. kişi kamerasına izin ver"
+      },
+      "PreventDiseases": {
+        "label": "Hastalıkları Önleyin",
+        "description": "Hastalık sistemini devre dışı bırakın"
+      },
+      "NonPermanentDiseases": {
+        "label": "Kalıcı Olmayan Hastalıklar",
+        "description": "Hastalıklar ölümle iyileşir"
+      },
+      "ForceAllStructureLocking": {
+        "label": "Zorla Kilit Yapıları",
+        "description": "Tüm kapsayıcıları otomatik kilitle"
+      },
+      "AllowCrateSpawnsOnTopOfStructures": {
+        "label": "Yapılardaki Kasalar",
+        "description": "Binalarda malzeme kasalarına izin verin"
+      },
+      "NoTributeDownloads": {
+        "label": "İndirmeleri Devre Dışı Bırak",
+        "description": "Tüm indirmeleri devre dışı bırak"
+      },
+      "PreventDownloadSurvivors": {
+        "label": "Survivor İndirmelerini Engelle",
+        "description": "Karakterlerin indirilmesini engelle"
+      },
+      "PreventDownloadItems": {
+        "label": "Öğe İndirmelerini Engelle",
+        "description": "Öğelerin indirilmesini engelle"
+      },
+      "PreventDownloadDinos": {
+        "label": "Dino İndirmelerini Engelle",
+        "description": "Dinos'un indirilmesini engelle"
+      },
+      "CrossARKAllowForeignDinoDownloads": {
+        "label": "Yabancı Dino'lara İzin Ver",
+        "description": "Diğer haritalardan dino'lara izin ver"
+      },
+      "AllowAnyoneBabyImprintCuddle": {
+        "label": "Herkes Baskı Yapabilir",
+        "description": "Herhangi bir kabile üyesinin bebek damgası basmasına izin ver"
+      },
+      "DisableImprintDinoBuff": {
+        "label": "Künye Bonusunu Devre Dışı Bırak",
+        "description": "İstatistik bonuslarını damgalamadan kaldır"
+      },
+      "AllowRaidDinoFeeding": {
+        "label": "Raid Dino Beslemesine İzin Ver",
+        "description": "Evcilleştirilmiş baskın dinoları için beslemeyi etkinleştirin"
+      },
+      "DisableDinoDecayPvE": {
+        "label": "Dino Decay'i (PvE) devre dışı bırak",
+        "description": "Sahipsiz dinoların PvE'de çürümesini önleyin"
+      },
+      "AutoDestroyDecayedDinos": {
+        "label": "Çürümüş Dinozorları Otomatik Olarak Yok Et",
+        "description": "Tamamen çürümüş dinoları otomatik olarak kaldır"
+      },
+      "DisableStructureDecayPvE": {
+        "label": "Yapı Bozulmasını Devre Dışı Bırak",
+        "description": "Yapıların çürümesini önleyin"
+      },
+      "AutoDestroyOldStructuresMultiplier": {
+        "label": "Otomatik Yok Etme Çarpanı",
+        "description": "Terk edilmiş yapıları otomatik olarak yok et (0=kapalı)"
+      },
+      "FastDecayUnsnappedCoreStructures": {
+        "label": "Hızlı Çürüme Çözülmedi",
+        "description": "Açılmamış temeller daha hızlı çürür"
+      },
+      "OnlyDecayUnsnappedCoreStructures": {
+        "label": "Yalnızca Bozulmamış Çürüme",
+        "description": "Yalnızca ayrılmamış yapılar çürür"
+      },
+      "OnlyAutoDestroyCoreStructures": {
+        "label": "Yalnızca Çekirdeği Otomatik Olarak Yok Et",
+        "description": "Yalnızca temelleri/sütunları yok edin"
+      },
+      "DestroyUnconnectedWaterPipes": {
+        "label": "Bağlantısız Boruları Yok Edin",
+        "description": "Suya bağlı olmayan boruları çıkarın"
+      },
+      "AllowHitMarkers": {
+        "label": "İsabet İşaretlerine İzin Ver",
+        "description": "Hasar isabet işaretlerini göster"
+      },
+      "AllowHideDamageSourceFromLogs": {
+        "label": "Hasar Kaynağını Gizle",
+        "description": "Klan kayıtlarında hasar kaynağını gizle"
+      },
+      "AllowMultipleAttachedC4": {
+        "label": "Çoklu C4",
+        "description": "Aynı yapıda birden fazla C4'e izin ver"
+      },
+      "DisablePvEGamma": {
+        "label": "PvE Gamasını Devre Dışı Bırak",
+        "description": "PvE'de gama komutunu engelle"
+      },
+      "DisableWeatherFog": {
+        "label": "Hava Sisini Devre Dışı Bırak",
+        "description": "Sisli hava efektlerini kaldırın"
+      },
+      "MaxTamedDinos": {
+        "label": "Maksimum Evcilleştirilmiş Dinozorlar",
+        "description": "Sunucu genelinde uysallık sınırı"
+      },
+      "MaxPersonalTamedDinos": {
+        "label": "Maksimum Kişisel Dinozorlar",
+        "description": "Oyuncu başına evcilleştirme sınırı (0=sınırsız)"
+      },
+      "MaxPlatformSaddleStructureLimit": {
+        "label": "Platform Sele Sınırı",
+        "description": "Platform eyerlerindeki maksimum yapılar"
+      },
+      "PerPlatformMaxStructuresMultiplier": {
+        "label": "Platform Yapısı Çarpanı",
+        "description": "Platform yapısı sınırları için çarpan"
+      },
+      "MaxTributeItems": {
+        "label": "Maksimum Haraç Öğesi",
+        "description": "Haraç envanterindeki maksimum öğe"
+      },
+      "MaxTributeDinos": {
+        "label": "Maksimum Haraç Dinolar",
+        "description": "Haraç envanterindeki maksimum dino"
+      },
+      "MaxTributeCharacters": {
+        "label": "Maksimum Haraç Karakteri",
+        "description": "Haraç envanterinde maksimum karakter"
+      },
+      "KickIdlePlayersPeriod": {
+        "label": "Şu Süreden Sonra Boşta Kalmayı Başlat (saniye)",
+        "description": "Boşta kalma süresinden sonra oyuncuları at (0=devre dışı)"
+      },
+      "OverrideStructurePlatformPrevention": {
+        "label": "Platform Önlemeyi Geçersiz Kıl",
+        "description": "Platformların herhangi bir yerindeki yapılara izin verin"
+      },
+      "AllowIntegratedSPlusStructures": {
+        "label": "S+ Yapılarına İzin Ver",
+        "description": "Structures Plus özelliklerini etkinleştirin"
+      },
+      "ClampResourceHarvestDamage": {
+        "label": "Kelepçe Hasat Hasarı",
+        "description": "Hasat hasarı çarpanlarını sınırlayın"
+      },
+      "ClampItemSpoilingTimes": {
+        "label": "Kelepçe Bozulma Zamanları",
+        "description": "Bozucu zaman değişikliklerini sınırlayın"
+      },
+      "ClampItemStats": {
+        "label": "Kelepçe Eşya İstatistikleri",
+        "description": "Eşya istatistiği iyileştirmelerini sınırlayın"
+      },
+      "AutoSavePeriodMinutes": {
+        "label": "Otomatik Kaydetme Aralığı (dakika)",
+        "description": "Otomatik kaydetme sıklığı"
+      },
+      "ItemStackSizeMultiplier": {
+        "label": "Yığın Boyutu Çarpanı",
+        "description": "Öğe yığını boyutlarını çarpın"
+      },
+      "bAutoUnlockAllEngrams": {
+        "label": "Tüm Engramların Kilidini Otomatik Aç",
+        "description": "Oyuncular seviye atladıkça tüm engramların kilidini otomatik olarak açın"
+      },
+      "bAllowUnlimitedRespecs": {
+        "label": "Sınırsız Saygı",
+        "description": "Mindwipe Tonik için bekleme süresini kaldırır"
+      },
+      "bAllowCustomRecipes": {
+        "label": "Özel Tariflere İzin Ver",
+        "description": "Oyuncuların özel sarf malzemesi tarifleri oluşturmasına izin verin"
+      },
+      "CraftingSkillBonusMultiplier": {
+        "label": "Üretim Beceri Bonus Çarpanı",
+        "description": "Özel tarif istatistiklerinde beceri efektleri oluşturmak için çarpan"
+      },
+      "OverrideNamedEngramEntries": {
+        "label": "Engram'ı Geçersiz Kılmalar",
+        "description": "Engram düzeyi gerekliliklerini geçersiz kılın, maliyetleri puanlayın veya bunları tamamen gizleyin"
+      },
+      "ConfigOverrideItemCraftingCosts": {
+        "label": "Maliyet Geçersiz Kılmaları Oluşturma",
+        "description": "Belirli öğeleri üretmek için kaynak maliyetlerini geçersiz kılın"
+      },
+      "KillXPMultiplier": {
+        "label": "XP Çarpanını Öldür",
+        "description": "Yaratıkları öldürerek kazanılan XP"
+      },
+      "HarvestXPMultiplier": {
+        "label": "Hasat XP Çarpanı",
+        "description": "Kaynakların toplanmasıyla kazanılan XP"
+      },
+      "CraftXPMultiplier": {
+        "label": "Craft XP Çarpanı",
+        "description": "Eşyaların işlenmesiyle kazanılan XP"
+      },
+      "GenericXPMultiplier": {
+        "label": "Genel XP Çarpanı",
+        "description": "Diğer tüm XP kaynakları için çarpan"
+      },
+      "SpecialXPMultiplier": {
+        "label": "Özel XP Çarpanı",
+        "description": "Özel etkinlikler için çarpan"
+      },
+      "EggHatchSpeedMultiplier": {
+        "label": "Yumurtadan Çıkma Hızı",
+        "description": "Yumurtalar ne kadar hızlı yumurtadan çıkar"
+      },
+      "BabyMatureSpeedMultiplier": {
+        "label": "Bebek Olgun Hızı",
+        "description": "Bebekler ne kadar hızlı olgunlaşır"
+      },
+      "BabyFoodConsumptionSpeedMultiplier": {
+        "label": "Bebek Maması Tüketimi",
+        "description": "Bebek maması tüketim oranı"
+      },
+      "BabyCuddleIntervalMultiplier": {
+        "label": "Sarılma Aralığı Çarpanı",
+        "description": "Sarılma istekleri arasındaki süre"
+      },
+      "BabyCuddleGracePeriodMultiplier": {
+        "label": "Sarılma Yetkisiz Kullanım Süresi",
+        "description": "Sarılmayı tamamlamak için ekstra zaman"
+      },
+      "BabyCuddleLoseImprintQualitySpeedMultiplier": {
+        "label": "Baskı Hızını Kaybedin",
+        "description": "Kaçırılırsa baskı kalitesi ne kadar hızlı düşer"
+      },
+      "BabyImprintAmountMultiplier": {
+        "label": "Baskı Tutarı Çarpanı",
+        "description": "Sarılma başına iz miktarı"
+      },
+      "BabyImprintingStatScaleMultiplier": {
+        "label": "Künye İstatistik Bonusu",
+        "description": "Baskıdan elde edilen istatistik bonusu"
+      },
+      "LayEggIntervalMultiplier": {
+        "label": "Yumurtlama Aralığı",
+        "description": "Yumurtlamalar arasındaki süre"
+      },
+      "GlobalSpoilingTimeMultiplier": {
+        "label": "Bozulma Zamanı Çarpanı",
+        "description": "Eşyalar ne kadar çabuk bozulur"
+      },
+      "GlobalItemDecompositionTimeMultiplier": {
+        "label": "Eşya Ayrıştırma Süresi",
+        "description": "Düşen eşyalar ne kadar hızlı yok oluyor"
+      },
+      "GlobalCorpseDecompositionTimeMultiplier": {
+        "label": "Ceset Ayrıştırma Süresi",
+        "description": "Cesetler ne kadar hızlı kayboluyor"
+      },
+      "CropGrowthSpeedMultiplier": {
+        "label": "Mahsul Büyüme Hızı",
+        "description": "Mahsuller ne kadar hızlı büyüyor"
+      },
+      "CropDecaySpeedMultiplier": {
+        "label": "Mahsul Çürüme Hızı",
+        "description": "Mahsuller ne kadar hızlı çürüyor"
+      },
+      "bAllowSpeedLeveling": {
+        "label": "Hız Dengelemeye İzin Ver",
+        "description": "Oyuncular ve karadaki dino'lar için hareket hızının dengelenmesine izin verin"
+      },
+      "bAllowFlyerSpeedLeveling": {
+        "label": "Flyer Hız Dengelemesine İzin Ver",
+        "description": "El ilanlarında hareket hızının dengelenmesine izin ver"
+      },
+      "bDisableDinoTaming": {
+        "label": "Evcilleştirmeyi Devre Dışı Bırak",
+        "description": "Tüm dino evcilleştirmelerini önleyin"
+      },
+      "bDisableDinoRiding": {
+        "label": "Sürüşü Devre Dışı Bırak",
+        "description": "Evcilleştirilmiş dinolara binmeyi önleyin"
+      },
+      "bDisableDinoBreeding": {
+        "label": "Yetiştirmeyi Devre Dışı Bırak",
+        "description": "Dino üremesini önleyin"
+      },
+      "bUseSingleplayerSettings": {
+        "label": "Tek Oyunculu Ayarlarını Kullan",
+        "description": "Tek oyunculu dengeleme ayarlamalarını uygulayın"
+      },
+      "bPvEDisableFriendlyFire": {
+        "label": "PvE Dost Ateşini Devre Dışı Bırak",
+        "description": "Kabile üyelerinin birbirlerine zarar vermesini önleyin"
+      },
+      "bUseCorpseLocator": {
+        "label": "Ceset Bulucuyu Kullan",
+        "description": "Ölüm işaretçisini haritada göster"
+      },
+      "MaxNumberOfPlayersInTribe": {
+        "label": "Maksimum Kabile Üyeleri",
+        "description": "Klan başına maksimum oyuncu (0=sınırsız)"
+      },
+      "MaxTribeLogs": {
+        "label": "Maksimum Kabile Günlükleri",
+        "description": "Maksimum kabile günlüğü girişi"
+      },
+      "DinoTurretDamageMultiplier": {
+        "label": "Dino Taret Hasarı",
+        "description": "Dinozorların taretlerden aldığı hasar"
+      },
+      "DinoHarvestingDamageMultiplier": {
+        "label": "Dino Hasat Hasarı",
+        "description": "Dinozorlar için hasat hasar çarpanı"
+      },
+      "FishingLootQualityMultiplier": {
+        "label": "Balıkçılık Ganimet Kalitesi",
+        "description": "Balıkçılık ganimetinin kalitesi"
+      },
+      "MatingIntervalMultiplier": {
+        "label": "Çiftleşme Aralığı",
+        "description": "Çiftleşmeler arasındaki süre (daha düşük = daha hızlı)"
+      },
+      "MaxAlliancesPerTribe": {
+        "label": "Maksimum İttifaklar",
+        "description": "Klan başına maksimum ittifak"
+      },
+      "MaxTribesPerAlliance": {
+        "label": "İttifak Başına Maksimum Kabile Sayısı",
+        "description": "Bir ittifaktaki maksimum kabile"
+      },
+      "OverrideMaxExperiencePointsPlayer": {
+        "label": "Maksimum Oyuncu XP'si",
+        "description": "Maksimum seviye için gereken toplam XP"
+      },
+      "LevelExperienceRampOverrides": {
+        "label": "XP Rampasını Geçersiz Kılma",
+        "description": "Özel XP eğrisi (dizi)"
+      },
+      "OverridePlayerLevelEngramPoints": {
+        "label": "Seviye Başına Engram Puanı",
+        "description": "Her seviye atlama için verilen Engram puanları. Her satıra bir değer girin."
+      },
+      "SupplyCrateLootQualityMultiplier": {
+        "label": "Tedarik Kasası Kalitesi",
+        "description": "Tedarik sandığı yağma kalitesi"
+      },
+      "PerDinoClassResistanceMultipliers": {
+        "label": "Dino Direnç Çarpanları",
+        "description": "Belirli dino sınıfları için direnci ayarlayın (daha düşük = daha dayanıklı)"
+      },
+      "bDisableDinoDecayPvE": {
+        "label": "Dino Decay'i Devre Dışı Bırak",
+        "description": "PvE'de dino çürümesini devre dışı bırak"
+      },
+      "bPassiveDefensesDamageRiderlessDinos": {
+        "label": "Dikenli Duvarlar Binicisiz Dinozorlara Hasar Veriyor",
+        "description": "Çivili duvarlar ve pasif savunmalar binicisiz/vahşi dinolara zarar verir"
+      },
+      "bDisableStructurePlacementCollision": {
+        "label": "Yerleştirme Çarpışmasını Devre Dışı Bırak",
+        "description": "Çakışan yapılara izin ver"
+      }
+    },
+    "groups": {
+      "serverIdentity": {
+        "title": "Sunucu Kimliği",
+        "description": "Temel sunucu yapılandırması"
+      },
+      "xpProgression": {
+        "title": "XP ve İlerleme",
+        "description": "Deneyim ve seviye atlama ayarları"
+      },
+      "harvesting": {
+        "title": "Hasat",
+        "description": "Kaynak toplama oranları"
+      },
+      "taming": {
+        "title": "Evcilleştirme",
+        "description": "Yaratık evcilleştirme ayarları"
+      },
+      "dinoStats": {
+        "title": "Dino İstatistikleri",
+        "description": "Dinozor istatistik çarpanları"
+      },
+      "playerStats": {
+        "title": "Oyuncu İstatistikleri",
+        "description": "Oyuncu istatistik çarpanları"
+      },
+      "structureSettings": {
+        "title": "Yapı Ayarları",
+        "description": "Oluşturma ve çürüme seçenekleri"
+      },
+      "dayNightCycle": {
+        "title": "Gündüz/Gece Döngüsü",
+        "description": "Zaman ve aydınlatma ayarları"
+      },
+      "pvpPveMode": {
+        "title": "PvP / PvE Modu",
+        "description": "Oyuncu ve Oyuncu ayarları"
+      },
+      "chatHud": {
+        "title": "Sohbet ve HUD",
+        "description": "İletişim ve ekran ayarları"
+      },
+      "rulesPrevention": {
+        "title": "Kurallar ve Önleme",
+        "description": "Sunucu kuralları ve kısıtlamaları"
+      },
+      "transfers": {
+        "title": "Transferler",
+        "description": "Çapraz ARK indirme ayarları"
+      },
+      "breedingImprinting": {
+        "title": "Islah ve Baskı",
+        "description": "Bebek bakımı ve baskı mekaniği"
+      },
+      "structureDecay": {
+        "title": "Yapı Bozulması",
+        "description": "Bina çürümesi ve otomatik yıkım"
+      },
+      "combatPvp": {
+        "title": "Savaş ve PvP",
+        "description": "Savaş mekaniği ve PvP ayarları"
+      },
+      "serverLimits": {
+        "title": "Sunucu Sınırları",
+        "description": "Sınırları ve kısıtlamaları kontrol altına alın"
+      },
+      "qualityOfLife": {
+        "title": "Yaşam Kalitesi",
+        "description": "Kolaylık ve oyun özellikleri"
+      },
+      "engramsCrafting": {
+        "title": "Engramlar ve Üretim",
+        "description": "Engram gereksinimlerini ve öğe üretim maliyetlerini değiştirin"
+      },
+      "breedingSpeed": {
+        "title": "Üreme Hızı",
+        "description": "Yumurtadan çıkış ve yavru olgunlaşması"
+      },
+      "spoilingDecay": {
+        "title": "Bozulma ve Çürüme",
+        "description": "Eşya ve cesedin çürüme süreleri"
+      },
+      "advancedGameplay": {
+        "title": "Gelişmiş Oynanış",
+        "description": "Gelişmiş sunucu mekaniği"
+      },
+      "matingImprinting": {
+        "title": "Çiftleştirme ve Baskı",
+        "description": "Eşleştirme aralıkları ve baskı ayarları"
+      },
+      "tribeSettings": {
+        "title": "Kabile Ayarları",
+        "description": "Kabile büyüklüğü ve yönetimi"
+      },
+      "levelXpOverrides": {
+        "title": "Seviye ve XP Geçersiz Kılmaları",
+        "description": "Gelişmiş seviyelendirme konfigürasyonu"
+      },
+      "lootQuality": {
+        "title": "Ganimet Kalitesi",
+        "description": "Tedarik sandığı ve yağma ayarları"
+      },
+      "advancedOptions": {
+        "title": "Gelişmiş Seçenekler",
+        "description": "Gelişmiş oyun düzenlemeleri"
+      }
+    },
+    "categories": {
+      "server": "Sunucu",
+      "gameplay": "Oynanış",
+      "rules": "Kurallar",
+      "chat": "Sohbet ve HUD",
+      "transfers": "Transferler",
+      "player": "Oyuncu",
+      "dino": "Dinozorlar",
+      "breeding": "Islah",
+      "structure": "Yapılar",
+      "pvp": "PvP/PvE",
+      "advanced": "Gelişmiş",
+      "engrams": "Engramlar ve Üretim"
     }
   },
   "modManager": {
@@ -551,7 +1403,31 @@
     "downloads": "indirme",
     "author": "Geliştirici",
     "version": "Mevcut Sürüm",
-    "modDetails": "Mod Detay Dosyası"
+    "modDetails": "Mod Detay Dosyası",
+    "checkUpdates": "Güncellemeleri Kontrol Et",
+    "checkingUpdates": "Güncellemeler Kontrol Ediliyor...",
+    "pushUpdatesTitle": "Mod Güncellemelerini İtin",
+    "pushUpdatesSubtitle": "Özel sunucunuz genelinde mod paketlerini güncelleyin ve senkronize edin",
+    "pushAllUpdates": "Tüm Güncellemeleri Aktarın",
+    "pushUpdate": "Güncellemeyi Bastır",
+    "selectServerMods": "Güncellenecek Modları Seçin",
+    "selectAll": "Tümünü Seç",
+    "deselectAll": "Tümünün Seçimini Kaldır",
+    "rollbackProtection": "Otomatik Geri Alma Koruması",
+    "cachePurgeNotice": "Mod Önbelleğini Temizleme",
+    "safeRestartOption": "Sunucu Yeniden Başlatma ve Oyuncu Yayını Uyarısı",
+    "warningCountdown": "Oyun İçi RCON Uyarı Geri Sayımı",
+    "pushUpdatesBtn": "{{count}} Mod Güncellemesini/Güncellemelerini İtin",
+    "pushingUpdates": "Güncellemeler Aktarılıyor...",
+    "noModsSelected": "Lütfen güncellemek için en az bir mod seçin.",
+    "pushSuccessToast": "{{count}} mod(lar)ı için güncellemeler başarıyla gönderildi!",
+    "pushFailedToast": "Mod güncellemesi başarısız oldu",
+    "updatesFoundNotice": "{{count}} mod güncelleme(ler)i mevcut bulundu!",
+    "allModsUpToDate": "Yüklü tüm modlar güncel!",
+    "noUpdatesAvailable": "Gönderilecek mod güncellemesi yok",
+    "noInstalledModsToCheck": "Bu sunucuda kontrol edilecek yüklü mod yok.",
+    "apiKeyRequiredForUpdates": "Güncellemeleri kontrol etmek için CurseForge API anahtarı gereklidir.",
+    "checkUpdatesFailed": "Güncellemeler kontrol edilemedi"
   },
   "clusterManager": {
     "title": "Küme Yöneticisi",
@@ -621,7 +1497,37 @@
     "validationWarnings": "Küme yapılandırması kullanılabilir durumda ancak bazı riskler barındırıyor",
     "validationErrors": "Kümede ciddi port veya yapılandırma çakışmaları var",
     "validationFailed": "Küme kontrolü gerçekleştirilirken hata oluştu",
-    "clusterPath": "Küme Dizini"
+    "clusterPath": "Küme Dizini",
+    "fetchFailed": "Kümeler getirilemedi",
+    "addFailed": "Sunucu eklenemedi",
+    "removeFailed": "Sunucu kaldırılamadı",
+    "serverStarted": "Sunucu başladı",
+    "serverStartFailed": "Sunucu başlatılamadı",
+    "serverStopped": "Sunucu durduruldu",
+    "serverStopFailed": "Sunucu durdurulamadı",
+    "loadConfigFailed": "Yapılandırma yüklenemedi",
+    "hostRequired": "Veritabanı Sunucusu gerekli",
+    "userRequired": "Veritabanı Kullanıcısı gereklidir",
+    "dbNameRequired": "Veritabanı Adı gerekli",
+    "portRequired": "Geçerli Veritabanı Bağlantı Noktası gerekli",
+    "saveConfigFailed": "Yapılandırma kaydedilemedi",
+    "clusterIdCopied": "Küme kimliği panoya kopyalandı!",
+    "clusterIdString": "Paylaşılan Küme Kimliği (Bilgisayarlar Arası Seyahat)",
+    "clusterIdHint": "Bu kümedeki tüm bilgisayarlarda TAM OLARAK eşleşmelidir.",
+    "noClustersFound": "Varsayılan yolda mevcut küme dizini bulunamadı.",
+    "clustersDiscovered": "{{count}} küme klasörleri keşfedildi.",
+    "startClusterWithDelay": "Küme sunucularının {{delay}} gecikmeyle başlatılması",
+    "crossComputerGuide": "Bilgisayarlar Arası Küme Kılavuzu",
+    "guideTitle": "Bilgisayarlar Arası Küme Kurulum Kılavuzu",
+    "guideSubtitle": "2 veya daha fazla fiziksel bilgisayarda barındırılan ARK sunucuları nasıl bağlanır",
+    "step1Title": "Paylaşılan Depolama Klasörünü Ayarlama (LAN SMB / Ağ Sürücüsü)",
+    "step1Desc": "ARK kümeleri, sunucular arasında karakter, dino ve öğe aktarım dosyalarını yazmak için paylaşılan bir klasör kullanır.",
+    "step2Title": "TAMAMEN AYNI Küme Kimliği Dizesi'ni kullanın",
+    "step2Desc": "ARK istemcisinin onları bağlayabilmesi için her iki Manager örneğinin de sunucularını aynı küme kimliği dizesiyle başlatması gerekir.",
+    "step3Title": "Her İki Bilgisayarda da Küme Oluştur",
+    "step4Title": "Sunucuları Başlatın ve Haritalarda Seyahat Edin",
+    "step4Desc": "Her iki makinedeki tüm sunucuları başlatın. Oyun içi Dikilitaşlar, Tedarik Destekleri ve Tek Vericiler, sorunsuz aktarımlar için her iki bilgisayardaki tüm haritaları otomatik olarak listeleyecek!",
+    "guideTip": "Herkese açık oyun için bağlantı noktası yönlendirme hâlâ makine başına ayrı ayrı gereklidir."
   },
   "scheduler": {
     "title": "Görev Zamanlayıcı",
@@ -706,7 +1612,20 @@
     "toggleFailed": "Görev etkinleştirme durumu değiştirilemedi",
     "status": "Durum Çubuğu",
     "noTasksDesc": "Şu anda başka zamanlanmış görev yok",
-    "taskNamePlaceholder": "Görev adını girin..."
+    "taskNamePlaceholder": "Görev adını girin...",
+    "saveWorld": "Dünyayı Kurtar",
+    "boostStart": "Etkinliği Başlat",
+    "boostEnd": "Etkinlik Sonunu Artır",
+    "backupServer": "Yedekleme Sunucusu",
+    "backupServerDesc": "Sunucu dosyalarının otomatik bir yedeğini oluşturun.",
+    "noServers": "Sunucu Bulunamadı",
+    "noServersDesc": "Zamanlanmış görevleri yapılandırmak için lütfen önce Sunucu Yöneticisi'nde bir sunucu oluşturun.",
+    "presetApplied": "Uygulanan 6 Saatlik Bakım Döngüsü Ön Ayarı",
+    "toggleTask": "Görevi Değiştir",
+    "editScheduledTask": "Zamanlanmış Görevi Düzenle",
+    "editTaskDesc": "Aşağıdaki görev yapılandırmasını değiştirin",
+    "addTaskDesc": "Yeni bir otomatik görev yapılandırın",
+    "onServerOnline": "Sunucu Çevrimiçi Olduğunda"
   },
   "discordBot": {
     "title": "Discord Topluluk Entegrasyonu",
@@ -724,7 +1643,8 @@
       "bot": "Çift Yönlü Sohbet Botu",
       "admin": "Yönetici Özel Kanalı",
       "alerts": "Detaylı Uyarı Ayarları",
-      "activity": "Uyarı Gönderim Geçmişi"
+      "activity": "Uyarı Gönderim Geçmişi",
+      "players": "Bağlantılı Oyuncular"
     },
     "webhook": {
       "setupTitle": "Webhook Uyarı Alıcısını Yapılandır",
@@ -738,7 +1658,12 @@
         "step1": "Discord'u açın → Sunucu Ayarları → Entegrasyonlar → Webhook Oluştur",
         "step2": "Alıcı kanalı seçin, ardından 「Webhook URL'sini Kopyala」 seçeneğine tıklayın",
         "step3": "Bağlantıyı yukarıdaki giriş kutusuna yapıştırın, test etmek için 「Kaydet」 butonuna tıklayın"
-      }
+      },
+      "howToTitle": "Discord Web Kancası nasıl oluşturulur:",
+      "step1": "1. Discord'u açın, kanalınıza sağ tıklayın ve Kanalı Düzenle → Entegrasyonlar'ı seçin.",
+      "step2": "2. Web Kancası Oluştur'a veya Web Kancalarını Görüntüle'ye ve ardından Yeni Web Kancası'na tıklayın.",
+      "step3": "3. Web kancanıza bir ad verin (örn. Sunucu Uyarıları) ve Web Kancası URL'sini kopyalayın.",
+      "step4": "4. Webhook URL'sini yukarıya yapıştırın ve Webhook'u Kaydet'i tıklayın."
     },
     "quickActions": {
       "title": "Manuel Anlık İleti Gönderimi",
@@ -758,6 +1683,14 @@
       "maintenance": {
         "label": "Acil Bakım Duyurusu Yayınla",
         "desc": "Oyunculara şu anda sistem bakımı yapıldığını ve sunucuya girişlerin geçici olarak kapatıldığını bildirir"
+      },
+      "restartWarn": {
+        "label": "15 Dakikalık Yeniden Başlatma Uyarısı",
+        "desc": "Sunucu yeniden başlatılmadan önce 15 dakikalık bir geri sayım uyarısı yayınlayın."
+      },
+      "updateDone": {
+        "label": "Tam Bildirimi Güncelle",
+        "desc": "Oyunculara sunucu güncellemesinin tamamlandığını ve sunucunun tekrar çevrimiçi olduğunu bildirin."
       }
     },
     "bot": {
@@ -906,7 +1839,8 @@
       "connFailedGeneric": "Discord bağlantısı kesildi, yeniden bağlanmaya çalışılıyor...",
       "serverMaintenance": "Sunucu yakında planlı bakıma girecektir",
       "serverRestart": "Sunucu yakında yeniden başlatılacaktır, lütfen tüm hayatta kalanlar güvenli yerlere geçsin!",
-      "maintenanceBegins": "Sistem donanım bakımı resmi olarak başladı, servis kısa süre sonra geri gelecektir"
+      "maintenanceBegins": "Sistem donanım bakımı resmi olarak başladı, servis kısa süre sonra geri gelecektir",
+      "loadFailed": "Discord yapılandırması yüklenemedi"
     },
     "embeds": {
       "connectionEstablished": "🟢 Entegrasyon Ağ Geçidi Bağlantısı Başarılı",
@@ -1175,7 +2109,28 @@
       "listPlayers": "Oyuncuları Listele",
       "broadcast": "Tüm Sunucuya Duyuru Yap",
       "destroyDinos": "Vahşi Dinoları Temizle"
-    }
+    },
+    "lineCopied": "Satır panoya kopyalandı",
+    "allCopied": "{{count}} günlük girişleri panoya kopyalandı",
+    "commandSuccess": "RCON: {{cmd}} yürütüldü",
+    "commandFailed": "RCON Hatası: {{msg}}",
+    "noLogsToExport": "Dışa aktarılacak günlük yok",
+    "liveStreaming": "CANLI YAYIN",
+    "streamPaused": "DURAKLATILDI",
+    "disableWordWrap": "Kelime Kaydırma'yı Devre Dışı Bırak",
+    "enableWordWrap": "Kelime Kaydırmayı Etkinleştir",
+    "copyAllLogs": "Tüm günlükleri panoya kopyala",
+    "cleared": "Konsol temizlendi",
+    "export": "İhracat",
+    "entries": "girişler",
+    "noSearchResults": "Mevcut sorguyla eşleşen günlük yok",
+    "waitingForLogs": "Sunucu Çıkışı Bekleniyor",
+    "clearQueryHint": "Arama anahtar kelimelerinizi veya etkin günlük düzeyi filtrelerinizi ayarlamayı deneyin.",
+    "startServerHint": "Sunucu başlatılmaya başladığında ve ShooterGame.log'a yazdığında günlükler otomatik olarak buraya aktarılacaktır.",
+    "copyThisLine": "Satırı kopyala",
+    "rconSuite": "RCON Yönetici Terminali",
+    "enterCommandPlaceholder": "RCON komutunu girin... (Geçmiş için ↑ / ↓ tuşuna basın, göndermek için Enter tuşuna basın)",
+    "serverOfflinePlaceholder": "RCON komutlarını gönderebilmek için sunucunun çalışıyor olması gerekir"
   },
   "rcon": {
     "title": "RCON Uzaktan Yönetim",
@@ -1218,9 +2173,91 @@
       "destroyWild": "Dinoları Temizle",
       "dayTime": "Gündüz Yap",
       "nightTime": "Gece Yap",
-      "clearHistory": "Geçmişi Temizle"
+      "clearHistory": "Geçmişi Temizle",
+      "copyPlayerId": "Oyuncu Kimliğini Kopyala",
+      "serverChat": "Sohbet Gönder",
+      "autoBroadcast": "Otomatik Yayın Ayarları"
     },
-    "noHistory": "Bu oturumda henüz herhangi bir komut gönderilmedi"
+    "noHistory": "Bu oturumda henüz herhangi bir komut gönderilmedi",
+    "idCopied": "Oyuncu kimliği panoya kopyalandı",
+    "copyPlayerId": "Oyuncu Kimliğini Kopyala",
+    "connectionLost": "RCON ile bağlantı kesildi",
+    "chatPrompt": "Küresel sohbet mesajını girin:",
+    "chatSent": "Sohbet mesajı gönderildi",
+    "chatFailed": "Sohbet gönderilemedi: {{error}}",
+    "clusterExecComplete": "Küme komutlarının yürütülmesi tamamlandı",
+    "clusterExecFailed": "Küme yürütme başarısız oldu: {{error}}",
+    "notConnected": "Komutların gönderilmesi için bağlı olunması gerekir",
+    "notConnectedSave": "Kayıtları çalıştırmak için bağlı olmanız gerekir.",
+    "saveVerified": "Dünya kaydetme başarıyla doğrulandı!",
+    "saveIntegrityError": "Dosya kaydetme doğrulaması başarısız oldu.",
+    "saveFailed": "Manuel kaydetme başarısız oldu: {{error}}",
+    "connectedTo": "{{address}}:{{port}}'e bağlanıldı",
+    "since": "{{time}}'ten beri",
+    "creatingBackup": "Yedekleniyor...",
+    "createBackup": "Yedekleme Oluştur",
+    "clearLogs": "Temizle",
+    "toasts": {
+      "creatingBackup": "Sunucu yedeği oluşturuluyor...",
+      "backupSuccess": "Sunucu yedeklemesi başarıyla oluşturuldu!",
+      "backupFailed": "Yedekleme oluşturulamadı: {{error}}"
+    },
+    "maint": {
+      "seqAborted": "Bakım sırası iptal edildi.",
+      "seqSuccess": "Bakım dizisi başarıyla tamamlandı!",
+      "seqFailed": "Bakım dizisi başarısız oldu: {{error}}"
+    },
+    "tabs": {
+      "terminal": "İnteraktif Terminal",
+      "logStream": "Canlı Günlük Akışı",
+      "cluster": "Küme Desteği",
+      "saveManager": "Doğrulanmış Kayıtlar",
+      "maintenance": "Bakım",
+      "giveItems": "Eşyaları Ver"
+    },
+    "giveItem": {
+      "onlineResolutionFailed": "Seçilen oynatıcı ARK Oyuncu Kimliğine çözümlenemedi. Tamamen oturum açtıklarından emin olun.",
+      "manualResolutionFailed": "Manuel Steam Kimliği ARK Oyuncu Kimliğine çözümlenemedi. Oyuncunun sunucuya katıldığından emin olun veya 9 haneli Oyuncu Kimliğini doğrudan girin.",
+      "noTarget": "Lütfen bir oyuncu seçin veya Oyuncu Kimliğini girin",
+      "noBlueprint": "Lütfen bir öğe seçin veya özel bir plan yolu girin",
+      "success": "Öğe komutu başarıyla gönderildi!",
+      "failed": "Başarısız: {{errMsg}}",
+      "title": "Eşyaları Ver",
+      "subtitle": "Öğeleri doğrudan çevrimiçi oyunculara veya manuel kimliklere gönderin.",
+      "targetTitle": "Hedef Seçin",
+      "targetOnline": "Çevrimiçi Oyuncular",
+      "targetManual": "Manuel Kimlik / Steam Kimliği",
+      "noPlayers": "Şu anda çevrimiçi oyuncu yok. Manuel kimlik kullanın veya oyuncuların katılmasını bekleyin.",
+      "itemTitle": "Ürün Seç",
+      "sourcePreset": "Katalog",
+      "sourceCustom": "Özel Taslak",
+      "searchPlaceholder": "Öğeleri ara...",
+      "settingsTitle": "Öğe Ayarları",
+      "targetSurvivor": "Hayatta Kalanı Hedefle",
+      "targetType": {
+        "online": "Çevrimiçi Hayatta Kalanlar",
+        "manual": "Manuel Kimlik / EOS Kimliği"
+      },
+      "selectSurvivor": "Hayatta Kalanı Seçin",
+      "enterPlayerId": "Benzersiz Oyuncu Kimliğini / SteamID / EOS Kimliğini Girin",
+      "configuration": "Özellikler ve Kargo Detayları",
+      "quantity": "Adet",
+      "quality": "Kalite İndeksi",
+      "forceBlueprint": {
+        "title": "Yalnızca Doğma Planı",
+        "desc": "Öğenin kendisi yerine işlenebilir planı verir"
+      },
+      "cmdPreview": "Oluşturulan RCON Komut Önizlemesi",
+      "delivering": "Kargo Teslim Ediliyor...",
+      "deliver": "Eşyayı Hayatta Kalana Teslim Et",
+      "itemCatalog": "Kargo Kataloğu",
+      "presets": "Önceden Ayarlanmış Katalog",
+      "customBp": "Özel Taslak",
+      "searchPreset": "Öğeleri ara...",
+      "noMatches": "Eşleşen öğe bulunamadı.",
+      "pasteBpPath": "Öğe Planı Yolunu Yapıştır",
+      "bpTip": "\"Blueprint'\" ile başlayan ve \"'\" ile biten tam Blueprint yolunu eklediğinizden emin olun."
+    }
   },
   "settings": {
     "curseforgeKey": {
@@ -1233,7 +2270,8 @@
       "verifying": "CurseForge ile el sıkışma doğrulaması yapılıyor...",
       "verified": "Doğrulama Başarılı",
       "invalid": "Geçersiz anahtar, lütfen tekrar kontrol edin",
-      "verifyKey": "Bağlantı Doğrulaması"
+      "verifyKey": "Bağlantı Doğrulaması",
+      "enterKeyFirst": "Lütfen önce bir API Anahtarı girin"
     },
     "diagnostics": {
       "title": "Sunucu Ortamı Tek Tıkla Teşhis",
@@ -1252,7 +2290,9 @@
       "installNow": "Tek Tıkla Otomatik İndir ve Yapılandır",
       "installSteamCmd": "Resmi CDN üzerinden SteamCMD çekirdek araç seti indiriliyor ve yapılandırılıyor...",
       "installSuccess": "SteamCMD ortamı sizin için başarıyla dağıtıldı ve hazır hale getirildi!",
-      "installFailed": "Otomatik SteamCMD kurulumu başarısız oldu: {{error}}"
+      "installFailed": "Otomatik SteamCMD kurulumu başarısız oldu: {{error}}",
+      "nonAsciiPath": "SteamCMD Yol Hatası",
+      "nonAsciiPathDesc": "Mevcut SteamCMD yolunuz ASCII olmayan/İngilizce olmayan karakterler içeriyor: \"{{path}}\". SteamCMD bu konumdan çalışamaz. Lütfen Ayarlar'da yalnızca ASCII'ye özel bir SteamCMD yolu ayarlayın."
     },
     "portValidator": {
       "title": "Genel Ağ Port Açıklığı Kontrolü",
@@ -1325,7 +2365,8 @@
           "headers": {
             "port": "ARK Varsayılan Portu",
             "protocol": "Protokol Türü",
-            "purpose": "Fonksiyon Açıklaması"
+            "purpose": "Fonksiyon Açıklaması",
+            "required": "Gerekli"
           },
           "purposes": {
             "game": "Oyun Bağlantısı Ana Portu",
@@ -1389,7 +2430,9 @@
       "network": "Ağ ve Rehberler",
       "firewall": "Güvenlik duvarı",
       "updates": "Güncellemeler",
-      "language": "Dil"
+      "language": "Dil",
+      "appearance": "Görünüm ve Tema",
+      "startup": "Başlatma ve Kurtarma"
     },
     "saved": "Ayarlar başarıyla kaydedildi!",
     "saveFailed": "Ayarlar kaydedilemedi",
@@ -1442,7 +2485,16 @@
       "maxCrashes": "Maksimum Kilitlenme Yeniden Başlatma Sayısı",
       "maxCrashesDesc": "Penceredeki maksimum kilitlenme kurtarma denemesi sayısı.",
       "observationWindow": "Gözlem Penceresi",
-      "observationWindowDesc": "Kilitlenme sayımlarını takip etmek için dakika cinsinden süre."
+      "observationWindowDesc": "Kilitlenme sayımlarını takip etmek için dakika cinsinden süre.",
+      "adminRequired": "UAC'yi Atlamayı (Görev Zamanlayıcı) etkinleştirmek için yönetici ayrıcalıkları gereklidir. Lütfen uygulamayı Yönetici olarak yeniden başlatın.",
+      "closeBehaviorTitle": "Pencere Kapatma Eylemi",
+      "closeBehaviorDesc": "Uygulama kapatma [X] düğmesini tıkladığınızda ne olacağını yapılandırın.",
+      "closeActionAsk": "Her Zaman Sor",
+      "closeActionAskDesc": "Pencere her kapatıldığında onay modunu içeren istem",
+      "closeActionTray": "Sistem Tepsisine Küçült",
+      "closeActionTrayDesc": "Oyun sunucularının ve çapraz sohbetin arka planda sessizce çalışmasını sağlayın",
+      "closeActionExit": "Tamamen Çık",
+      "closeActionExitDesc": "Arka plandaki sunucu işlemlerini kapatın ve uygulamadan çıkın"
     },
     "firewallAutomation": {
       "title": "Güvenlik Duvarı Kuralları Tam Otomatik Yönetimi",
@@ -1460,7 +2512,8 @@
         "gamePort": "Oyun Bağlantı Noktası",
         "queryPort": "Sorgu Bağlantı Noktası",
         "rconPort": "RCON Bağlantı Noktası",
-        "actions": "Eylemler"
+        "actions": "Eylemler",
+        "peerPort": "Eş Bağlantı Noktası"
       },
       "manual": {
         "title": "Manuel Bağlantı Noktası Ataması",
@@ -1502,6 +2555,104 @@
           "assign": "Atamak"
         }
       }
+    },
+    "autoSave": "Otomatik Kaydet",
+    "autoSaving": "Otomatik kaydediliyor…",
+    "autoSaved": "Kaydedildi",
+    "saveUnsaved": "⚡ AYARLARI KAYDET",
+    "saveUnsavedShort": "⚡ Ayarları Kaydet",
+    "autoSaveActive": "Otomatik Kaydetme Etkin",
+    "unsavedChanges": "Kaydedilmemiş Ayarlar Düzenlemeleri",
+    "allSaved": "Ayarlar Güncel",
+    "autoSaveNotice": "Düzenlemeler arka planda otomatik olarak kaydedilir",
+    "unsavedChangesDesc": "Değişiklikleri uygulamak için Ayarları Kaydet'i tıklayın",
+    "savedNotice": "Tüm değişiklikler kaydedildi",
+    "verify": "Doğrula",
+    "curseforgeKeySaved": "CurseForge API Anahtarı başarıyla kaydedildi!",
+    "curseforgeModalTitle": "CurseForge API Anahtarı Ayarları",
+    "curseforgeModalSubtitle": "Canlı mod arama ve sunucu güncellemeleri için API anahtarını yapılandırın",
+    "curseforgeKeyLabel": "CurseForge API Anahtarı",
+    "curseforgeKeyPlaceholder": "CurseForge API anahtarınızı girin",
+    "keyValidMessage": "Anahtar doğrulandı ve aktif!",
+    "keyInvalidMessage": "Anahtar doğrulaması başarısız oldu. Lütfen anahtarınızı kontrol edin.",
+    "needCurseforgeKey": "API Anahtarınız yok mu?",
+    "curseforgeModalHelp": "CurseForge, modları aramak ve sunucu başlangıcında otomatik mod güncellemelerini etkinleştirmek için ücretsiz bir API anahtarı gerektirir. Bir anahtar oluşturmak için CurseForge Konsolunda oturum açın.",
+    "appearance": {
+      "themeApplied": "{{name}} teması uygulandı",
+      "title": "Uygulama Teması ve Görsel Stil",
+      "description": "ARK Sunucu Yöneticisinin görsel atmosferini özelleştirin. Değişiklikler küresel olarak tüm panellerde, kontrol panellerinde, terminallerde ve modellerde gerçek zamanlı olarak uygulanır.",
+      "select": "",
+      "palette": "'yi seçin Palet Renk Örnekleri"
+    },
+    "diagnosticsTab": {
+      "title": "Sorun Giderme ve Teşhis",
+      "noLogYet": "Başlangıç ​​günlük dosyası bulunamadı veya okunamadı.",
+      "folderOpened": "Dosya gezgininde açılan günlükler klasörü",
+      "folderOpenFailed": "Günlükler klasörü açılamadı",
+      "openFolder": "Günlükler Klasörünü Aç",
+      "viewLog": "Başlangıç ​​Günlüğünü Görüntüle",
+      "modalTitle": "Başlatma ve Tanılama Günlükleri",
+      "modalSubtitle": "Etkin uygulama durumu mesajlarını ve hatalarını inceleyin.",
+      "loadingLogs": "Günlük dosyası okunuyor...",
+      "noMatches": "Arama sorgusuyla eşleşen satır yok",
+      "logLocation": "Günlük yolu:",
+      "desc": "Uygulama günlüklerini inceleyin ve başlangıç ​​sorunlarını tanılamak veya hataları güncellemek için günlük dizinini açın."
+    },
+    "userConfigFolder": {
+      "title": "Kullanıcı Yapılandırma Klasörü",
+      "desc": "Sunucu yapılandırma dosyalarınızı içeren özel bir klasörün üzerine gelin (GameUserSettings.ini, Game.ini). Ayarlandığında uygulama, yapılandırmaları sunucu kurulum dizini yerine bu klasörden okur ve yazar.",
+      "placeholder": "Ayarlanmadı — varsayılan sunucu yükleme yolu kullanılıyor",
+      "browseFailed": "Klasör seçici açılamadı",
+      "clear": "Varsayılanı temizle ve kullan",
+      "activeNote": "Yapılandırma dosyaları bu klasörden okunacak ve bu klasöre kaydedilecek"
+    },
+    "customSteamcmdPath": {
+      "title": "Özel SteamCMD Yolu",
+      "desc": "SteamCMD ve sunucu atölyesi indirmelerini özel bir klasöre yönlendirin. Windows kullanıcı adınız ASCII olmayan karakterler içeriyorsa kullanışlıdır.",
+      "placeholder": "Ayarlanmadı — varsayılan Dolaşım Uygulama Verileri kullanılıyor",
+      "browseFailed": "Klasör seçici açılamadı",
+      "clear": "Varsayılanı temizle ve kullan",
+      "invalidWarning": "Uyarı: Yol ASCII olmayan karakterler içeriyor. SteamCMD burada çalıştırılamayacak."
+    },
+    "updatesTab": {
+      "currentVersion": "Güncel Sürüm:",
+      "checking": "Sunucular kontrol ediliyor...",
+      "checkNow": "Şimdi Kontrol Et",
+      "lastError": "Son Güncelleme Hatası",
+      "downloadManually": "GitHub Sürümlerinden İndirin",
+      "dismissError": "Reddet",
+      "autoUpdate": "Otomatik Arka Plan Güncellemeleri",
+      "autoUpdateDesc": "Güncellemeleri arka planda sessizce indirin ve hazırlayın.",
+      "updateChannel": "Kanalı Güncelle",
+      "channelDesc": "Hangi güncelleme akışını almak istediğinizi seçin. Beta ve Nightly yayınları özellikleri daha erken alır ancak daha az kararlı olabilirler.",
+      "releaseChannel": "Kararlı Sürüm",
+      "releaseDesc": "Üretim sunucuları için önerilir. Tamamen test edilmiş ve stabil olduğu doğrulanmıştır.",
+      "betaChannel": "Beta Yapısı",
+      "betaDesc": "Yaklaşan büyük güncellemelerin erken testi için yayın öncesi derlemeler.",
+      "nightlyChannel": "Gecelik İnşa",
+      "nightlyDesc": "Günlük olarak güncellenen son teknoloji otomatik yapılar. Son derece deneysel.",
+      "clearSkipped": "Atlanan Sürümleri Temizle",
+      "resetCache": "Güncelleme Önbelleğini Sıfırla",
+      "noHistory": "Henüz güncelleme geçmişi yok",
+      "previousVersions": "Önceki Sürümler",
+      "previousDesc": "Geri dönmeniz mi gerekiyor? Önceki tüm sürümleri görüntüleyin ve eski sürümleri GitHub depomuzdan indirin.",
+      "viewReleases": "GitHub'daki Sürümleri Görüntüleyin",
+      "updateAvailable": "v{{version}} güncellemesi mevcut!",
+      "latestVersion": "En son sürümdesiniz",
+      "checkFailed": "Güncellemeler kontrol edilemedi",
+      "checkForUpdates": "Güncellemeleri Kontrol Et",
+      "autoEnabled": "Otomatik güncellemeler etkinleştirildi",
+      "autoDisabled": "Otomatik güncellemeler devre dışı",
+      "channelChanged": "Güncelleme kanalı {{channel}} olarak değiştirildi",
+      "skippedCleared": "Atlanan sürümler temizlendi",
+      "cacheReset": "Güncelleme önbelleği temizlendi. Güncelleyici bir sonraki döngüde yeniden kontrol edecektir."
+    },
+    "unsaved": {
+      "title": "Kaydedilmemiş değişiklikler",
+      "body": "Kaydedilmemiş ayarlarınız var. Bu sayfadan ayrılmak onları silecektir.",
+      "stay": "Kal",
+      "discard": "Kaydetmeden ayrılın",
+      "saveLeave": "Kaydet ve ayrıl"
     }
   },
   "firewallConfig": {
@@ -1549,7 +2700,112 @@
     "pluginInstalled": "Genişletme eklentisi kuruldu ve sunucu ortamına başarıyla enjekte edildi!",
     "pluginUninstalled": "Eklenti sunucudan güvenle kaldırıldı!",
     "installFailed": "Eklenti kurulumu başarısız: {{error}}",
-    "uninstallFailed": "Eklenti kaldırılamadı: {{error}}"
+    "uninstallFailed": "Eklenti kaldırılamadı: {{error}}",
+    "scanFailed": "Sunucu eklentileri taranamadı: {{error}}",
+    "enabled": "Eklenti etkin",
+    "disabled": "Eklenti devre dışı",
+    "enablingAll": "Tüm eklentiler etkinleştiriliyor...",
+    "disablingAll": "Tüm eklentiler devre dışı bırakılıyor...",
+    "allEnabled": "Tüm eklentiler etkin",
+    "allDisabled": "Tüm eklentiler devre dışı",
+    "toggleAllFailed": "Tüm eklentiler arasında geçiş yapılamadı: {{error}}",
+    "installingLoader": "ASA Server API indiriliyor ve yükleniyor...",
+    "installLoaderFailed": "ASA Sunucu API'si yüklenemedi: {{error}}",
+    "selectServerFirst": "Lütfen önce bir sunucu seçin",
+    "importing": "Eklenti içe aktarılıyor...",
+    "importSuccess": "{{name}} eklentisi başarıyla içe aktarıldı",
+    "importFailed": "Eklenti içe aktarılamadı: {{error}}",
+    "creatingDefault": "Varsayılan eklenti şablonu oluşturuluyor...",
+    "createDefaultSuccess": "DefaultPlugin şablonu oluşturuldu! Config.json'da parametreleri yapılandırın.",
+    "createDefaultFailed": "DefaultPlugin oluşturulamadı: {{error}}",
+    "confirmUninstall": "\"{{name}}\"i kaldırmak istediğinizden emin misiniz? Bu, klasörünü ve yapılandırmasını kalıcı olarak silecektir.",
+    "uninstalling": "Eklenti kaldırılıyor...",
+    "uninstallSuccess": "Eklenti başarıyla kaldırıldı",
+    "savingConfig": "Eklenti yapılandırması kaydediliyor...",
+    "saveConfigSuccess": "Yapılandırma başarıyla kaydedildi",
+    "saveConfigFailed": "Yapılandırma kaydedilemedi: {{error}}",
+    "loaderNotice": "Ark: Survival Ascending sunucularında yerel C++ eklentilerini çalıştırmak için ASA Sunucu API'si (AsaApi) gereklidir. ShooterGameServer.exe'ye proxy DLL aracılığıyla enjekte edilir.",
+    "loaderInstalled": "Bu sunucuda ASA Server API (Loader) kurulu ve aktiftir.",
+    "loaderMissing": "ASA Server API yükleyicisi eksik. Yerel eklentiler bu olmadan yüklenemez.",
+    "installLoaderBtn": "ASA Server API Yükleyicisini yükleyin",
+    "installLoaderPrompt": "AsaApi'yi otomatik olarak Binaries/Win64'e indirmek ve yapılandırmak için tıklayın.",
+    "tabInstalled": "Yüklü Eklentiler",
+    "tabMarketplace": "Eklenti Pazarı",
+    "tabConfigs": "Yapılandırma Düzenleyici",
+    "filterAll": "Tüm Eklentiler",
+    "filterEnabled": "Yalnızca Etkin",
+    "filterDisabled": "Yalnızca Devre Dışı Bırakılanlar",
+    "searchPlugins": "Eklentileri ada, yazara veya anahtar kelimeye göre arayın...",
+    "enableAllBtn": "Tümünü Etkinleştir",
+    "disableAllBtn": "Tümünü Devre Dışı Bırak",
+    "importPluginBtn": "İçe Aktarma Eklentisi (.zip)",
+    "createTemplateBtn": "+ Varsayılan Eklenti Oluştur",
+    "refreshList": "Eklentileri Yenile",
+    "noPluginsFound": "Bu sunucuda yüklü eklenti yok.",
+    "noPluginsFoundDesc": "Başlamak için derlenmiş bir eklenti arşivini içe aktarın veya ASA Server API yükleyicisini yükleyin.",
+    "author": "Yazar",
+    "version": "Sürüm",
+    "apiCompatibility": "API Sürümü",
+    "dllStatus": "DLL Durumu",
+    "hasConfig": "Yapılandırma Dosyası",
+    "yes": "Evet",
+    "no": "Hayır",
+    "actions": "Eylemler",
+    "editConfigBtn": "Yapılandırmayı Düzenle",
+    "uninstallBtn": "Kaldır",
+    "configEditorTitle": "Eklenti Yapılandırma Düzenleyicisi",
+    "selectPluginToEdit": "Config.json dosyasını görüntülemek ve değiştirmek için bir eklenti seçin",
+    "saveChanges": "Yapılandırmayı Kaydet",
+    "resetDefaults": "Şablon Varsayılanlarına Sıfırla",
+    "invalidJson": "Geçersiz JSON biçimi! Lütfen kaydetmeden önce sözdizimi hatalarını düzeltin.",
+    "configReadOnly": "Bu eklenti düzenlenebilir bir yapılandırma dosyası sağlamaz.",
+    "openFolderFailed": "Klasör açılamadı: {{error}}",
+    "apiLoaderEnabled": "API Yükleyici etkinleştirildi",
+    "apiLoaderDisabled": "API Yükleyici devre dışı",
+    "openFolderTooltip": "Eklentiler dizinini Dosya Gezgini'nde açın",
+    "openFolder": "Eklentiler Klasörü",
+    "createDefault": "Şablon Oluştur",
+    "import": "Eklentiyi İçe Aktar",
+    "serverRunningWarning": "Sunucu şu anda çalışıyor/çevrimiçi. Eklenti durumlarında yapılan değişiklikler bir sonraki başlangıçta geçerli olacaktır.",
+    "loaderLaunchMode": "Başlatma Modu: Eklenti Yükleyici Etkin",
+    "normalLaunchMode": "Başlatma Modu: Normal Sunucu Etkin",
+    "loaderLaunchDesc": "Sunucuyu kanca eklentileriyle başlatmak için {{exe}} kullanma.",
+    "normalLaunchDesc": "{{exe}} kullanma (eklenti yükleyicisi devre dışı veya eksik).",
+    "serverControls": "Sunucu Kontrolleri",
+    "serverApiToggle": "Sunucu API'si (Yükleyici)",
+    "loaderMissingDesc": "Etkin eklentileri yüklemek için eklenti yükleyicisi gereklidir. API'yi yükleyene kadar eklentilerin değiştirilmesi kilitlidir.",
+    "installing": "Yükleniyor...",
+    "autoInstallApi": "Otomatik Kurulum API'sı",
+    "manualDownload": "Manuel İndirme",
+    "searchPlaceholder": "Ada veya klasöre göre filtrele...",
+    "enableAll": "Tümünü Etkinleştir",
+    "disableAll": "Tümünü Devre Dışı Bırak",
+    "refresh": "Listeyi yenile",
+    "scanningFolder": "Eklentiler klasörü taranıyor...",
+    "noMatchingPlugins": "Mevcut filtrelerle eşleşen eklenti bulunamadı.",
+    "noPluginsDesc": "Dizinde eklenti bulunamadı. Kancaları etkinleştirmek için arşivleri indirin ve içe aktarın.",
+    "visitRepo": "Resmi Arşive Göz Atın",
+    "by": "Yazan: {{author}}",
+    "depCount": "{{count}} bağımlılıkları",
+    "clickToDisable": "Eklentiyi devre dışı bırak",
+    "clickToEnable": "Eklentiyi etkinleştir",
+    "errorDetected": "Eklenti Yükleme Hatası",
+    "missingTitle": "Eklenti Eksik",
+    "description": "Açıklama",
+    "noDescription": "Bu eklenti için açıklama sağlanmadı.",
+    "dependencies": "Bağımlılıklar",
+    "depActive": "Aktif",
+    "depDisabled": "Devre Dışı",
+    "depMissing": "Eksik",
+    "installPath": "Kurulu Yol",
+    "id": "Kimlik: {{id}}",
+    "delete": "Eklentiyi Kaldır",
+    "loadingDetails": "Sunucu dizini ve eklenti yapılandırmaları kontrol ediliyor.",
+    "unableToLoad": "Eklentiler Mevcut Değil",
+    "unableToLoadDesc": "Bu sunucu için eklenti verileri yüklenemedi. Sunucu dizininin mevcut ve erişilebilir olduğundan emin olun.",
+    "retry": "Taramayı Yeniden Dene",
+    "noServerSelected": "Sunucu Seçilmedi",
+    "selectServerDesc": "Kanca eklentilerini denetlemek ve yapılandırmak için açılır menüden bir ASA oyun sunucusu seçin."
   },
   "fileManager": {
     "title": "Uzaktan Dosya Yöneticisi",
@@ -1572,7 +2828,35 @@
     "saveFailed": "Metin dosyası kaydedilemedi: {{error}}",
     "deleteFailed": "Fiziksel silme işlemi başarısız: {{error}}",
     "confirmDelete": "Kalıcı Olarak Silmeyi Onayla",
-    "confirmDeleteMsg": "Seçilen dosyayı fiziksel diskten kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
+    "confirmDeleteMsg": "Seçilen dosyayı fiziksel diskten kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+    "thisPc": "This PC",
+    "quickAccess": "Quick Access",
+    "newFolder": "New Folder",
+    "openInExplorer": "Open in Explorer",
+    "gridView": "Grid View",
+    "listView": "List View",
+    "searchPlaceholder": "Search...",
+    "localDisk": "Local Disk",
+    "arkServers": "ARK Servers",
+    "users": "Users",
+    "rename": "Rename",
+    "delete": "Delete",
+    "folderEmpty": "Folder is empty",
+    "save": "Save",
+    "createNewFolder": "Create New Folder",
+    "folderName": "Folder Name",
+    "cancel": "Cancel",
+    "create": "Create",
+    "renameItem": "Rename Item",
+    "newName": "New Name",
+    "aseTitle": "ASE File Manager",
+    "aseSubtitle": "Browse server files and directories",
+    "emptyDirectory": "Empty directory",
+    "installPath": "Install Path",
+    "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This cannot be undone.",
+    "folderCreated": "Folder created",
+    "itemRenamed": "Item renamed",
+    "itemDeleted": "Item deleted"
   },
   "installDialog": {
     "title": "Yeni ARK Sunucusu Kurulum Sihirbazı",
@@ -1639,7 +2923,21 @@
     "updateNow": "Şimdi Güncelle",
     "later": "Daha Sonra",
     "skip": "Bu Sürümü Yoksay",
-    "error": "İndirme başarısız oldu, lütfen daha sonra tekrar deneyin."
+    "error": "İndirme başarısız oldu, lütfen daha sonra tekrar deneyin.",
+    "refetchFailed": "Otomatik güncelleyici başlatılamadı. Lütfen güncellemeyi manuel olarak indirin.",
+    "noUpdater": "Güncelleme kontrolü veri döndürmedi. Lütfen tekrar deneyin veya manuel olarak indirin.",
+    "signatureError": "Güncelleme imzası eşleşmiyor. Bu genellikle güncellemenin farklı bir anahtarla imzalandığı anlamına gelir. Lütfen en son sürümü GitHub Sürümlerinden manuel olarak indirin.",
+    "elevationError": "Güncelleyicinin dosyaları değiştirmek için Yönetici ayrıcalıklarına ihtiyacı vardır. Lütfen uygulamayı Yönetici olarak yeniden başlatın veya güncellemeyi manuel olarak indirin.",
+    "signatureToast": "Güncelleme başarısız oldu: imza uyuşmazlığı. Ayrıntılar için Ayarlar → Güncellemeler'i kontrol edin.",
+    "elevationToast": "Güncelleme başarısız oldu: yönetici ayrıcalıkları gerekli. Uygulamaya sağ tıklayın → Yönetici Olarak Çalıştır'a tıklayın.",
+    "skippedToast": "Sürüm atlandı. Güncellemeleri Ayarlar'dan tekrar kontrol edebilirsiniz.",
+    "relaunchFailed": "Yeniden başlatılamadı. Lütfen uygulamayı manuel olarak kapatıp yeniden açın.",
+    "readyTitle": "Güncelleme Hazır",
+    "readyDesc": "Güncelleme indirildi ve kuruluma hazır. Değişiklikleri uygulamak için uygulamayı yeniden başlatın.",
+    "downloadInstaller": "Yükleyiciyi İndirin",
+    "downloadPortable": "Taşınabilir Posta",
+    "relaunch": "ŞİMDİ YENİDEN BAŞLAT",
+    "openGitHub": "GITHUB'DAN İNDİR"
   },
   "errorBoundary": {
     "title": "Beklenmedik Bir Sayfa Hatasıyla Karşılaşıldı",
@@ -1738,7 +3036,15 @@
         "genesis2": "Genesis Bölüm 2",
         "fjordur": "Fjordur",
         "astraeos": "Astraeos",
-        "forglar": "Forglar"
+        "forglar": "Forglar",
+        "clubArk": "Kulüp ARK",
+        "svartalfheim": "Svartalfheim",
+        "amissa": "Amissa",
+        "insaluna": "Insaluna",
+        "temptressLagoon": "Baştan Çıkarıcı Lagün",
+        "reverence": "Saygı",
+        "crystalIsles": "Kristal Adalar",
+        "lostIsland": "Kayıp Ada"
       },
       "mapDescriptions": {
         "original": "En klasik ve ölümsüz ada hayatta kalma deneyimi",
@@ -1750,7 +3056,9 @@
         "community": "Topluluk oyuncuları tarafından en çok beğenilen keşif haritası",
         "dlc": "Tamamen yeni ve devasa resmi hikaye DLC devamı",
         "comingSoon": "Bu haritanın {{date}} tarihinde kullanıma sunulması planlanmaktadır",
-        "premium": "Yüksek hassasiyet ve kalitede ücretli mod haritası"
+        "premium": "Yüksek hassasiyet ve kalitede ücretli mod haritası",
+        "genesis1": "Benzersiz biyomlar ve görevlerle simülasyon",
+        "clubArk": "Mini oyunlar içeren sosyal merkez"
       },
       "officialMaps": "Resmi ARK Haritaları",
       "premiumMaps": "Yüksek Kaliteli Mod Haritaları (Premium)",
@@ -1792,7 +3100,49 @@
       "chooseMap": "Lütfen çalıştırılacak ARK dünyasını belirleyin",
       "chooseMapDesc": "İlgili başlatma kurallarını bağlamak için haritayı belirtin",
       "serverDetails": "Sunucu Konumunu ve Adını Belirleyin",
-      "serverDetailsDesc": "Sunucunun oyun içinde görünecek adını girin ve kurulum için disk alanı geniş bir dizin seçin"
+      "serverDetailsDesc": "Sunucunun oyun içinde görünecek adını girin ve kurulum için disk alanı geniş bir dizin seçin",
+      "cancelInstall": "Kurulumu İptal Et",
+      "cancelling": "İptal ediliyor...",
+      "cancelSuccess": "Kurulum başarıyla iptal edildi.",
+      "cancelOptionsTitle": "İptal Seçenekleri",
+      "cancelKeepFiles": "Kısmi İndirmeyi Durdur ve Tut",
+      "cancelKeepFilesDesc": "SteamCMD'yi durdurur. İndirilen dosyaları daha sonra devam etmek üzere saklar.",
+      "cancelDeleteFiles": "Sunucu Klasörünü Durdurun ve Silin",
+      "cancelDeleteFilesDesc": "İşlemi durdurur ve hedef dizini tamamen kaldırır.",
+      "cancelPurgeCache": "SteamCMD Önbelleğini Durdurun ve Temizleyin",
+      "cancelPurgeCacheDesc": "İşlemi durdurur, indirme önbelleğini temizler ve sıfırlar.",
+      "minimize": "Arka Plana Küçült",
+      "minimizeBtn": "Küçült",
+      "dlcMaps": "DLC Genişletmeleri",
+      "moddedMaps": "Modlanmış Genişletme Haritaları",
+      "moddedMapSuccess": "✓ Başlatma yapılandırması otomatik olarak ayarlanacaktır",
+      "upcomingMaps": "Yakında",
+      "maxPlayers": "Maksimum Oyuncu",
+      "maxPlayersDesc": "Sunucuda izin verilen maksimum oyuncu sayısı",
+      "adminPassword": "Yönetici Şifresi",
+      "adminPasswordDesc": "Sunucuda yönetici haklarını kazanmak için kullanılan şifre (varsayılan: admin123)",
+      "serverPassword": "Sunucu Şifresi",
+      "serverPasswordDesc": "Oyuncuların sunucuya katılması için şifre gereklidir",
+      "preflight": "Uçuş Öncesi İnceleme",
+      "preflightDesc": "Kurulum başlamadan önce her ayrıntıyı doğrulayın",
+      "preflightWarning": "Bazı ayarlara dikkat edilmesi gerekiyor; aşağıdaki uyarıları inceleyin",
+      "preflightOk": "Tüm ayarlar iyi görünüyor; dağıtıma hazır",
+      "reviewIdentity": "Kimlik",
+      "reviewGameMode": "Oyun Modu",
+      "reviewNetwork": "Ağ",
+      "portCollision": "Bağlantı noktası çarpışması algılandı — oyun, sorgu ve RCON bağlantı noktalarının tümü farklı olmalıdır",
+      "privilegedPorts": "1024'ün altındaki bağlantı noktaları ayrıcalıklıdır ve yönetici erişimi gerektirebilir",
+      "reviewSecurity": "Güvenlik",
+      "publicAccess": "Herkese açık",
+      "weakPassword": "Şifre kısadır; daha iyi güvenlik için 6'dan fazla karakter kullanmayı düşünün",
+      "reviewStorage": "Depolama",
+      "installPath": "Yükleme Yolu",
+      "downloadWarning": "SteamCMD ~60 GB sunucu dosyasını indirecek (AppID 2430930)",
+      "tryAgain": "Tekrar Deneyin",
+      "repairSteamcmd": "SteamCMD'yi onarın",
+      "clearCache": "Önbelleği Temizle",
+      "diagnosticTips": "Sorun Giderme İpuçları",
+      "install": ""
     },
     "importServer": {
       "title": "Yerel Kurulu Sunucuyu Tek Tıkla İçe Aktar ve Bağla",
@@ -1814,7 +3164,10 @@
         "rcon": "RCON portu ve şifreli iletim ayarları"
       },
       "success": "\"{{name}}\" sunucusu başarıyla bu yönetici tarafından devralındı ve korunuyor!",
-      "error": "Sunucu içe aktarılamadı"
+      "error": "Sunucu içe aktarılamadı",
+      "previewError": "yükleyin Klasör yapısı incelenemedi. Lütfen yolu doğrulayın.",
+      "portsResolved": "Bağlantı noktası çakışmaları başarıyla çözüldü!",
+      "aseSubtitle": "Mevcut bir ARK: Survival Evolved sunucusunu içe aktarın"
     },
     "importSave": {
       "title": "Tek Oyunculu/Dedicated Olmayan Kaydı Sunucuya Aktar",
@@ -1831,7 +3184,9 @@
       "folderImportDesc": "Tam Veri Taşıma: Kabile ilişkilerini, yapıları, evcilleştirdiğiniz tüm dinozorları ve karakter seviyelerini mükemmel şekilde kopyalar, bu yöntemi şiddetle öneririz!",
       "startImport": "Kayıt Taşıma İşlemini Başlat",
       "success": "Yerel tek oyunculu oyun kaydı bu bağımsız sunucuya başarıyla ve kayıpsız olarak taşındı!",
-      "error": "Yerel kayıt taşınamadı"
+      "error": "Yerel kayıt taşınamadı",
+      "validationError": "Lütfen bir hedef sunucu ve kaynak dosya veya klasör seçin.",
+      "aseSubtitle": "Kayıtlı verileri bir ASE sunucusuna aktarın"
     },
     "welcome": {
       "title": "Tekrar Hoş Geldiniz,",
@@ -1999,5 +3354,394 @@
         "assign": "İzin Ver"
       }
     }
+  },
+  "boost": {
+    "loadFailed": "Destek profilleri yüklenemedi",
+    "nameRequired": "Profil adı gerekli",
+    "saveSuccess": "Boost profili başarıyla kaydedildi!",
+    "confirmDelete": "Bu profili silmek istediğinizden emin misiniz?",
+    "deleteSuccess": "Boost profili silindi",
+    "activatingText": "Sunucu yeniden başlatılıyor ve etkinlik oranları uygulanıyor...",
+    "activateSuccess": "Boost etkinliği başarıyla etkinleştirildi!",
+    "deactivatingText": "Sunucu yeniden başlatılıyor ve orijinal oranlar geri yükleniyor...",
+    "deactivateSuccess": "Boost devre dışı bırakıldı ve orijinal oranlar geri yüklendi!",
+    "title": "Destek Yöneticisi",
+    "titleAse": "Destek Yöneticisi (ASE)",
+    "subtitle": "Geçici sezonluk etkinlikleri güvenli bir şekilde yapılandırın ve sunucu oranlarını artırın.",
+    "newProfile": "+ Yeni Profil",
+    "bannerTitle": "Destek Yöneticisi nasıl çalışır?",
+    "bannerDesc": "Bir güçlendirme profilini etkinleştirirken yönetici, oyuncuları bilgilendirmek için RCON aracılığıyla periyodik yayınlar gerçekleştirir. Daha sonra sunucuyu güvenli bir şekilde kapatır, orijinal yapılandırmaların (.boostbackup) yedeklerini oluşturur ve yeni çarpanları ekler. Devre dışı bırakıldığında yedekleme yapılandırmaları mükemmel şekilde geri yüklenir.",
+    "setupTip": "Otomasyon için, Zamanlayıcı'da BoostStart / BoostEnd görevlerini yapılandırın",
+    "activeEvent": "Aktif Etkinlik",
+    "deactivate": "Etkinliği Devre Dışı Bırak",
+    "noActiveEvent": "Bu sunucuda aktif yükseltme profili yok",
+    "loading": "Profiller yükleniyor...",
+    "noProfiles": "Kayıtlı destek profili yok",
+    "noProfilesDesc": "Sezonluk fiyatları yapılandırmaya başlamak için yeni bir profil oluşturun.",
+    "createFirst": "İlk Profili Oluştur",
+    "active": "Aktif",
+    "activateBtn": "Sunucuda Etkinleştir",
+    "editTitle": "Boost Profilini Düzenle",
+    "newTitle": "Yeni Boost Profili",
+    "profileName": "Profil Adı",
+    "profileNamePlaceholder": "örneğin 2 Hafta Sonu, Paskalya Etkinliği"
+  },
+  "crashDoctor": {
+    "title": "Çökme Doktoru ve Harita Kurtarma",
+    "refresh": "Yeniden tarayın ve tanılayın",
+    "repairSuccess": "Sunucu ortamı iyileştirildi ve başlatma başlatıldı!",
+    "diagnosing": "Kilitlenme dökümü ve sunucu günlükleri analiz ediliyor...",
+    "primaryCause": "Tespit Edilen Birincil Neden",
+    "quarantineProxyDlls": "Proxy DLL'lerini Karantinaya Al (.disabled)",
+    "purgeModCache": "CFCore Mod Önbelleğini Temizle",
+    "wipeWildDinos": "Wild Dino Wipe (-ForceRespawnDinos) ile Başlat",
+    "validateFiles": "SteamCMD Tam Dosya Doğrulamasını Çalıştırın",
+    "safeRecoveryMode": "Güvenli Kurtarma Modu (Modlar Olmadan Başlayın)",
+    "diagnosingDesc": "Proxy DLL kancalarını, mod önbelleğini ve dünya kaydetme bütünlüğünü inceleme",
+    "quarantineDesc": "Anında işlem çökmesini önlemek için version.dll, dxgi.dll, winhttp.dll'yi güvenli bir şekilde devre dışı bırakır",
+    "purgeModCacheDesc": "Yeni mod varlıklarını yeniden derlemek için ShooterGame/Binaries/Win64/ShooterGame/Mod'ları temizler",
+    "wipeWildDinosDesc": "Güncellenmiş haritalarda dünya yüklemesini çökerten yozlaşmış ortaya çıkan aktörleri temizler",
+    "validateFilesDesc": "Eksik veya tamamlanmamış oyun motoru ikili dosyalarını onarır (2-5 dakika sürer)",
+    "safeRecoveryDesc": "Temel oyunu doğrulamak ve dosya sağlığından tasarruf etmek için saf vanilya haritasını önyükler",
+    "identifiedFactors": "Tanımlanan Kilitlenme Faktörleri ({{count}})",
+    "recentLogsTitle": "Son Kilitlenme Günlükleri ve Önemli Hata Çağrıları ({{count}} satırları)",
+    "customizePipeline": "İyileştirme Ardışık Düzeni Seçeneklerini Özelleştirin",
+    "healing": "Sunucu Ortamı İyileştiriliyor...",
+    "healedCleanly": "İyileşti ve Temiz Bir Şekilde Başlatıldı",
+    "autoFixLaunch": "1-Tıkla Otomatik Düzelt ve Haritayı Başlat",
+    "metrics": {
+      "proxyDlls": "Proxy DLL'leri",
+      "activeCrashing": "{{count}} Aktif (Çöküyor)",
+      "cleanQuarantined": "Temiz (Karantinaya alındı)",
+      "noHooks": "Aktif kanca yok",
+      "modCache": "Mod Önbelleği",
+      "cachedCount": "{{count}} Önbelleğe Alındı ​​",
+      "mbCompiled": "{{size}} MB derlenmiş",
+      "worldSave": "Dünyayı Kurtar",
+      "saveOk": "Harita Kaydet Tamam",
+      "freshMap": "Yeni / Yeni Harita",
+      "saveFiles": "{{size}} MB ({{count}} dosyaları)",
+      "crashErrors": "Kilitlenme Hataları",
+      "detectedCount": "{{count}} Algılandı",
+      "inShooterLog": "ShooterGame.log'da",
+      "noAssertErrors": "İddia hatası yok"
+    }
+  },
+  "translator": {
+    "installSuccess": "Sohbet Çevirmeni eklentisi başarıyla kuruldu!",
+    "installError": "Eklenti yüklenemedi",
+    "confirmUninstall": "Chat Translator'ı kaldırmak istediğinizden emin misiniz? Bu, yerel yapılandırmaları silecektir.",
+    "uninstallSuccess": "Sohbet Çevirmeni eklentisi kaldırıldı.",
+    "uninstallError": "Eklenti kaldırılamadı",
+    "configSaved": "Çeviri ayarları başarıyla güncellendi!",
+    "configSaveError": "Yapılandırma kaydedilemedi",
+    "fieldsRequired": "Steam Kimliği ve Oyuncu Adı gereklidir.",
+    "prefSaved": "Oyuncu çeviri tercihi güncellendi.",
+    "prefSaveError": "Oyuncu tercihi kaydedilemedi",
+    "confirmDeletePref": "Bu oyuncu tercihini kaldırmak istediğinizden emin misiniz?",
+    "prefDeleted": "Tercih kaldırıldı.",
+    "prefDeleteError": "Tercih kaldırılamadı",
+    "confirmResetStats": "Tüm çeviri kullanım sayaçlarını sıfırlamak istediğinizden emin misiniz?",
+    "statsReset": "İstatistikler başarıyla sıfırlandı.",
+    "statsResetError": "İstatistikler sıfırlanamadı",
+    "title": "Sohbet Çevirmeni",
+    "subtitle": "Oyun içi sunucu sohbetini farklı dillerdeki oyuncular arasında dinamik olarak otomatik çevirin",
+    "noServers": "Lütfen yönetilecek bir sunucu seçin.",
+    "pluginNotInstalled": "Çevirmen Eklentisi Kurulu Değil",
+    "pluginDescription": "Chat Translator, ARK sunucunuz için kesintisiz diller arası iletişim sağlar. DeepL veya LibreTranslate kullanarak mesajları dinamik olarak çevirmek için oyun içi sunucu sohbetine bağlanır.",
+    "installPlugin": "Sohbet Tercümanını Yükle",
+    "totalTrans": "Çevrilen Toplam Karakter",
+    "apiProvider": "Çeviri API'si",
+    "prefCount": "Oyuncu Tercihleri ​​",
+    "cacheHits": "Önbellek Tasarruf Verimliliği",
+    "tabOverview": "Genel Bakış",
+    "tabSettings": "API ve Ayarlar",
+    "tabPlayers": "Oyuncu Dili Tercihleri ​​",
+    "inGameTitle": "Oyun İçi Kullanım ve Oyuncu Komutları",
+    "usageInstructions": "Sohbet Çevirmeni eklentisi yüklendikten ve etkinleştirildikten sonra hayatta kalanlar arasındaki sohbet mesajlarını gerçek zamanlı olarak otomatik olarak çevirir. Oyuncular özel sohbet komutlarını kullanarak kendi ayarlarını yapılandırabilirler:",
+    "cmdLang": "Tercih Edilen Dili Ayarla",
+    "cmdLangDesc": "Gelen tüm çevirilerin hedef dilini değiştirir. Örn. /lang tr oyuncunun hedef dilini Türkçe olarak ayarlar.",
+    "cmdTrans": "Çevirileri Aç / Kapat",
+    "cmdTransDesc": "Oynatıcı için otomatik çeviriyi etkinleştirir veya devre dışı bırakır. Örneğin /translate off yazıların çevrilmesini durduracaktır.",
+    "uninstallPluginBtn": "Sohbet Çevirmeni'ni Kaldırma",
+    "cacheDetails": "Önbellek İstatistikleri",
+    "totalRequests": "Toplam API İstekleri",
+    "totalSaved": "Önbelleğe Alınmış / Kaydedilmiş İstekler",
+    "activeCache": "Etkin Önbellek Hızı",
+    "cacheNotice": "Çevirileri önbelleğe almak, API arama karakterlerini kaydeder ve ticari çeviri uç noktaları (DeepL Pro gibi) kullanıyorsanız faturalandırma maliyetlerini önemli ölçüde azaltır.",
+    "resetStatsBtn": "Kullanım Sayaçlarını Sıfırla",
+    "settingsSetup": "API Yapılandırmaları ve Çeviri Tercihleri ​​",
+    "generalSettings": "Genel Yapılandırma",
+    "enablePlugin": "Çeviri Hizmetini Etkinleştir",
+    "enablePluginDesc": "Sohbette otomatik çeviri kancalarını etkinleştirin",
+    "defaultLang": "Varsayılan Çeviri Hedefi",
+    "transSys": "Çeviri Uyarıları / Sistemi",
+    "transSysDesc": "Oyun içi katılma/ayrılma uyarılarını ve sunucu yayınlarını işleyin",
+    "enableCache": "Sorgu Önbelleğini Etkinleştir",
+    "enableCacheDesc": "Tekrarlanan sohbet hatları için çeviri API'sini yeniden getirmekten kaçının",
+    "apiSettings": "Çeviri API Sağlayıcısı",
+    "apiProviderLabel": "Sağlayıcı API Motoru",
+    "deeplKey": "DeepL API Kimlik Doğrulama Anahtarı",
+    "libreUrl": "LibreTranslate URL'si / Anahtarı",
+    "playerLanguages": "Oyuncu Dilini Geçersiz Kılmalar",
+    "addPref": "Geçersiz Kılma Ekle",
+    "searchPlayers": "Steam kimliğini veya adını arayın...",
+    "noMatchingPrefs": "Hiçbir oyuncu tercihi saklanmadı.",
+    "player": "Oyuncu",
+    "steamId": "Steam Kimliği",
+    "targetLang": "Hedef Dil",
+    "lastUpdated": "Son Güncelleme",
+    "actions": "Eylemler",
+    "prefDetails": "Dil Geçersiz Kılma Eşlemesi",
+    "playerSteamId": "Oyuncu Steam Kimliği",
+    "playerNameLabel": "Oyuncu Adı",
+    "targetLanguage": "Tercih Edilen Dil"
+  },
+  "tribeLog": {
+    "title": "ASE Kabilesi Günlük Görüntüleyici",
+    "subtitle": "Kabilenin geçmişini ayrıştırın ve keşfedin",
+    "totalEntries": "Toplam Giriş",
+    "deaths": "Ölümler",
+    "tames": "Tames",
+    "destroyed": "Yok edildi",
+    "searchPlaceholder": "Kabile kayıtlarını ara...",
+    "noEntries": "Bu sunucu için kabile günlüğü girişi bulunamadı.",
+    "noEntriesDesc": "Kabile günlükleri, oyun içi olaylar meydana geldikten sonra burada görünecek"
+  },
+  "upnp": {
+    "title": "ASE UPnP Bağlantı Noktası Yönlendirme",
+    "subtitle": "Yönlendiricinizi sunucu erişimi için otomatik olarak yapılandırın",
+    "gateway": "UPnP IGD Ağ Geçidi Durumu",
+    "gatewayAddr": "Ağ Geçidi Yerel Adresi",
+    "externalIp": "Harici Genel IP",
+    "status": "UPnP IGD Durumu",
+    "available": "IGD Eşlemeleri Mevcut",
+    "clickDiscover": "UPnP Router duyurularını yayınlamak ve dinlemek için \"Ağ Geçidini Keşfet\"e tıklayın.",
+    "results": "Sonuçların İletilmesi",
+    "forwarded": "İletilen",
+    "portForward": "Bağlantı Noktası Yönlendirme",
+    "remove": ""
+  },
+  "exportProfile": {
+    "noSelection": "Kaldır Lütfen dışa aktarılacak en az bir sunucu profili seçin.",
+    "saveSuccess": "{{count}} profilleri başarıyla dışa aktarıldı!",
+    "copySuccess": "{{count}} sunucu profilleri panoya kopyalandı!",
+    "modalTitle": "Sunucu Profillerini Dışa Aktarma",
+    "modalSubtitle": "Sunucu yapılandırmalarını, ağ bağlantı noktalarını, oranları ve mod listelerini bir JSON profil paketine aktarın",
+    "searchPlaceholder": "Sunucuları filtrele...",
+    "selectServersTitle": "1. Dahil Edilecek Profilleri Seçin",
+    "optionsTitle": "2. Dahil Edilecek Modülleri ve Bileşenleri Seçin",
+    "tabs": {
+      "setup": "Kurulum ve Seçim",
+      "preview": "JSON Önizlemesi"
+    },
+    "actions": {
+      "selectAll": "Tüm Profilleri Dışa Aktar",
+      "clear": "Seçimi Temizle"
+    },
+    "buttons": {
+      "copy": "JSON'u kopyala",
+      "save": "Dosyaya Kaydet (.json)"
+    }
+  },
+  "installCenter": {
+    "title": "Kurulum Merkezi",
+    "activeJobs": "",
+    "setupDraftActive": "çalıştıran XVAR0X kurulumları 1 kurulum taslağı küçültüldü",
+    "allDone": "Tüm kurulumlar tamamlandı",
+    "clearAll": "Biten işleri temizle",
+    "setupDraft": "Kurulum Taslağı",
+    "resume": "Sunucu Kurulumuna Devam Et",
+    "discard": "Taslağı Sil",
+    "viewLogs": "Kurulum Günlüklerini Görüntüle",
+    "dismiss": "Reddet"
+  },
+  "donationAlert": {
+    "title": "Gelişimi Destekleyin",
+    "description": "Bu Sunucu Yöneticisi ücretsiz ve açık kaynaklıdır. Sunucularınızı yönetmenize yardımcı olacaksa lütfen devam eden güncellemeleri ve özellikleri desteklemek için küçük bir katkı yapmayı düşünün.",
+    "later": "Daha Sonra Hatırlat"
+  },
+  "aiAssistant": {
+    "title": "Sonsuzluk Yapay Zekası",
+    "subtitle": "Otonom sunucu yönetimi asistanı",
+    "placeholder": "Infinity AI'ye sorun..."
+  },
+  "enabled": "Etkin",
+  "disabled": "Engelli",
+  "closeApp": {
+    "title": "Close Application?",
+    "subtitle": "Choose how you want to handle closing the application",
+    "warningServersRunning": "Warning: {{count}} Active Server Running",
+    "warningServersRunning_plural": "Warning: {{count}} Active Servers Running",
+    "warningServersDesc": "Completely exiting will stop background cross-chat relays and RCON monitoring.",
+    "minimizeToTray": "Minimize to System Tray",
+    "minimizeToTrayDesc": "Keeps game servers & cross-chat running silently in background",
+    "exitApp": "Exit Application Completely",
+    "exitAppDesc": "Shut down all application processes and exit",
+    "rememberChoice": "Remember this choice (Don't ask me again)",
+    "confirm": "Confirm Action"
+  },
+  "appUpdate": {
+    "updateAvailable": "Update Available",
+    "upToDate": "You're Up to Date",
+    "updateAvailableSubtitle": "A new release of ARK Server Manager is ready",
+    "upToDateSubtitle": "You are running the latest version available",
+    "currentVersion": "Current",
+    "latestVersion": "Latest",
+    "releaseNotes": "Release Notes",
+    "copied": "Copied!",
+    "copyNotes": "Copy Notes",
+    "noNotes": "No release notes provided for this release.",
+    "installUpdate": "Install Update Now",
+    "close": "Close"
+  },
+  "titleBar": {
+    "checkUpdates": "Check Updates",
+    "checkUpdatesTooltip": "Click to check for application updates",
+    "serversOnline": "SERVERS: ONLINE",
+    "serversStandby": "SERVERS: STANDBY",
+    "serversOffline": "SERVERS: OFFLINE",
+    "statusOnlineTooltip": "Game Server Status: {{count}} active server instance(s) running",
+    "statusStandbyTooltip": "Game Server Status: All {{count}} configured servers are currently stopped (Standby)",
+    "statusOfflineTooltip": "Game Server Status: No game servers created or running currently (Offline)",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restoreDown": "Restore Down",
+    "close": "Close"
+  },
+  "hardware": {
+    "title": "Hardware & CPU Allocation",
+    "highPerfEngine": "High Performance Engine",
+    "subtitle": "Optimize process priorities and isolate specific physical/logical CPU cores per ARK server instance to eliminate micro-stuttering and core contention.",
+    "logicalCores": "Logical Cores",
+    "threads": "Threads",
+    "physicalCores": "Physical Cores",
+    "cores": "Cores",
+    "refreshTelemetry": "Refresh Telemetry",
+    "targetServer": "Target Server",
+    "useAllCores": "Use All CPU Cores (Automatic Load Balancing)",
+    "useAllCoresDesc": "Windows OS will dynamically distribute server thread load across all available threads",
+    "coreIsolation": "Core Isolation Mode",
+    "coreIsolationDesc": "Dedicated affinity mask configured for this instance",
+    "cpuAffinity": "CPU Affinity & Core Isolation",
+    "cpuAffinityDesc": "Assign specific CPU cores to this server instance",
+    "saveAllocation": "Save Hardware Allocation",
+    "saving": "Saving...",
+    "presets": "Presets",
+    "presetAll": "All Cores",
+    "presetPhysical": "Physical Only",
+    "presetEven": "Even Cores",
+    "presetOdd": "Odd Cores",
+    "presetFirstHalf": "First Half",
+    "presetSecondHalf": "Second Half",
+    "presetSkipOs": "Skip Core 0 (OS)",
+    "presetClear": "Clear All",
+    "processPriority": "Process Scheduling Priority",
+    "processPriorityDesc": "Windows CPU scheduling class for the server executable",
+    "priorityIdle": "Idle",
+    "priorityBelowNormal": "Below Normal",
+    "priorityNormal": "Normal",
+    "priorityAboveNormal": "Above Normal",
+    "priorityHigh": "High (Recommended)",
+    "priorityRealTime": "RealTime ⚠️",
+    "priorityIdleDesc": "Lowest priority. Only receives CPU time when system is idle.",
+    "priorityBelowNormalDesc": "Slightly reduced priority for background support services.",
+    "priorityNormalDesc": "Standard Windows process priority balance.",
+    "priorityAboveNormalDesc": "Ensures process priority over standard desktop applications.",
+    "priorityHighDesc": "Top priority for dedicated game servers. Prevents frame stutter.",
+    "priorityRealTimeDesc": "Highest possible execution priority. May lock host OS if overloaded.",
+    "realTimeWarningTitle": "Danger: RealTime Priority Warning",
+    "realTimeWarningDesc": "RealTime priority can starve critical Windows operating system threads, input drivers, and network stacks. If the game server hangs, your machine may become unresponsive.",
+    "understandRisk": "I understand the risks, set RealTime",
+    "cancel": "Cancel",
+    "coreOverlapWarning": "Warning: Core overlap detected with other server instances ({{servers}})",
+    "affinityMaskHex": "Affinity Mask (Hex)",
+    "copyMask": "Copy Mask",
+    "aseTitle": "ASE Hardware",
+    "aseSubtitle": "CPU affinity and process priority for ShooterGameServer.exe",
+    "aseAffinityDesc": "Select which CPU cores ShooterGameServer.exe should use. Leave all unchecked to use all cores.",
+    "selected": "Selected",
+    "core": "Core"
+  },
+  "wiki": {
+    "title": "Knowledge Base",
+    "guides": "Guides",
+    "subtitle": "Comprehensive technical guides and operational reference for ARK Server Manager.",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "hideIndex": "Hide Index",
+    "showIndex": "Show Index",
+    "searchPlaceholder": "Search all guides...",
+    "all": "All",
+    "coreServices": "Core Services",
+    "automationAi": "Automation & AI",
+    "modsFiles": "Mods & Files",
+    "monitoringLogs": "Monitoring & Logs",
+    "integrationsTools": "Integrations & Tools",
+    "noGuides": "No matching guides found",
+    "noGuidesDesc": "Try resetting your search query or filters.",
+    "selectGuide": "Select a Guide to Begin",
+    "selectGuideDesc": "Choose a topic from the sidebar index to view detailed operational guides, setup procedures, and troubleshooting steps."
+  },
+  "advanced": {
+    "title": "Boot Launch Parameters",
+    "subtitle": "Manage command-line switches, performance flags, and execution priority",
+    "unsavedChanges": "Unsaved Changes",
+    "noServersAvailable": "No servers available",
+    "discard": "Discard",
+    "discardTitle": "Discard unsaved changes",
+    "saveParameters": "Save Parameters",
+    "saving": "Saving...",
+    "executeServer": "Execute Server",
+    "executing": "Executing...",
+    "executeTitle": "Execute server directly with configured boot parameters",
+    "safetyBannerTitle": "Boot Command Line Safety & Override Matrix",
+    "safetyBannerDesc": "Parameters added here are directly passed to ArkAscendedServer.exe on boot. Use visual flag toggles below to prevent syntax typos.",
+    "safetyBannerDescASE": "Parameters added here are directly passed to ShooterGameServer.exe on boot. Use visual flag toggles below to prevent syntax typos.",
+    "activeSwitches": "Active Switches",
+    "flags": "Flags",
+    "rawInspectorTitle": "Raw Custom Arguments & Command Inspector",
+    "clearAll": "Clear All Flags",
+    "customArgsLabel": "Custom Launch Arguments",
+    "customArgsPlaceholder": "e.g. -NoBattlEye -ForceAllowCaveFlyers (toggle flags below to add)",
+    "bootCommandLine": "Boot Executable Command Line",
+    "copyCommand": "Copy Command",
+    "copyBatScript": "Copy .bat Script",
+    "presetsTitle": "One-Click Parameter Presets",
+    "presetsSubtitle": "Click to append optimized flag profiles",
+    "presetMaxPerf": "Max Performance Profile",
+    "presetMaxPerfDesc": "RAM & mesh stasis tuning (-structurememopts -nomansky -lowmemory)",
+    "presetHardenedSecurity": "Hardened Security & Anti-Dupe",
+    "presetHardenedSecurityDesc": "Strict spawn validation & dupe prevention flags",
+    "presetCaveFlyer": "Cave Flyer Unlocked",
+    "presetCaveFlyerDesc": "Force allow mounting & flying in cave volumes",
+    "moddedMapsPresets": "Modded Map Launch Presets",
+    "appliedPreset": "Applied {{name}} profile",
+    "active": "Active",
+    "apply": "+ Apply",
+    "matrixTitle": "Visual Parameter Matrix",
+    "matrixSubtitle": "Toggle standard server switches directly into your boot configuration",
+    "filterPlaceholder": "Filter parameters...",
+    "catAll": "All",
+    "catSecurity": "Security",
+    "catGameplay": "Gameplay",
+    "catPerformance": "Performance",
+    "catNetwork": "Network",
+    "catEvents": "Events",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "optimizerTitle": "Server Manager Performance & Hardware Optimizer",
+    "optimizerSubtitle": "Real-time memory vacuuming, process scheduling priority, and eco-mode controls",
+    "memoryVacuum": "Memory Vacuum",
+    "memoryVacuumDesc": "Force garbage collection to trim unused background RAM allocation.",
+    "optimizeRam": "Optimize System RAM",
+    "processPriority": "Process Priority",
+    "processPriorityDesc": "Raise manager CPU scheduling thread priority under heavy cluster load.",
+    "priorityNormal": "Normal",
+    "priorityHigh": "High Priority",
+    "ultraEcoMode": "Ultra Eco Mode",
+    "ultraEcoModeDesc": "Aggressively trims memory footprint when running idle in background.",
+    "ecoModeActive": "Eco Mode Active",
+    "enableEcoMode": "Enable Eco Mode"
   }
 }

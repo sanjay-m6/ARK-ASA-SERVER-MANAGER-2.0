@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS servers (
     last_started TIMESTAMP,
     battleye INTEGER NOT NULL DEFAULT 1,
     api_loader_enabled INTEGER DEFAULT 1,
+    process_id INTEGER,
     UNIQUE(name)
 );
 

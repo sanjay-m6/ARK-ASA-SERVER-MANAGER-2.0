@@ -58,7 +58,10 @@
     "updating": "更新中...",
     "repairing": "修復中...",
     "version": "バージョン",
-    "status": "ステータス",
+    "status": {
+      "online": "オンライン",
+      "offline": "オフライン"
+    },
     "name": "名前",
     "type": "タイプ",
     "size": "サイズ",
@@ -106,7 +109,28 @@
     "ascending": "昇順",
     "descending": "降順",
     "failed": "失敗: {{error}}",
-    "never": "Never"
+    "never": "Never",
+    "copied": "クリップボードにコピーされました",
+    "done": "完了",
+    "copyAddress": "LAN アドレスをコピー",
+    "seconds": "秒",
+    "mins": "分",
+    "gotIt": "わかった！",
+    "inactive": "非アクティブ",
+    "confirmDelete": "削除を確認します",
+    "dismiss": "却下",
+    "loadingSettings": "設定を読み込んでいます…",
+    "statusLabel": "ステータス",
+    "currentlyEditing": "CURRENTLY EDITING SERVER",
+    "map": "MAP",
+    "gamePort": "GAME PORT",
+    "playersUpper": "PLAYERS",
+    "noServerSelected": "No server selected for editing. Pick one below.",
+    "selectServerToEdit": "SELECT SERVER TO EDIT",
+    "editingNow": "EDITING NOW",
+    "items": "items",
+    "folder": "Folder",
+    "file": "File"
   },
   "discord": {
     "title": "Discordゲートウェイ",
@@ -159,7 +183,8 @@
     "step5Desc": "Discordの「ユーザー設定」→「詳細設定」で <1>「開発者モード」</1> を有効にします。",
     "step5ServerId": "• <1>サーバーID</1>: 左側のサーバー名を右クリック → <2>「サーバーIDをコピー」</2>します。",
     "step5ChannelId": "• <1>チャンネルID</1>: テキストチャンネル名を右クリック → <2>「IDをコピー」</2>します。",
-    "guideDone": "以上のステップをすべて完了したら、トークン、サーバーID、チャンネルIDを入力して、<1>接続テスト</1> をクリックしてください。"
+    "guideDone": "以上のステップをすべて完了したら、トークン、サーバーID、チャンネルIDを入力して、<1>接続テスト</1> をクリックしてください。",
+    "adminChannelId": "管理コマンド チャネル ID"
   },
   "sidebar": {
     "dashboard": "ダッシュボード",
@@ -184,13 +209,28 @@
     "tribeLogs": "トライブログ",
     "upnp": "UPnPポートマッピング",
     "serverOrganization": "サーバーの整理＆並び替え",
-    "wiki": "ユーザーガイド"
+    "wiki": "ユーザーガイド",
+    "boostManager": "ブーストマネージャー",
+    "expand": "サイドバーを展開します",
+    "collapse": "サイドバーを折りたたむ",
+    "switchGame": "{{game}} に切り替える",
+    "search": "検索メニュー...",
+    "hardware": "Hardware",
+    "playerManager": "Player Manager",
+    "profileSync": "Profile Sync",
+    "chatTranslator": "Chat Translator"
   },
   "welcome": {
     "title": "ASA Server Manager",
     "subtitle": "プロフェッショナルなARK: Survival Ascendedサーバー管理プラットフォーム",
     "loading": "システム初期化中...",
-    "enter": "コントロールセンターに入る"
+    "enter": "コントロールセンターに入る",
+    "headerTitle": "ゲームを選択してください",
+    "headerSubtitle": "管理する ARK バージョンを選択します",
+    "evolvedDesc": "完全な構成制御を使用して、クラシックな ARK: Survival Evolved 専用サーバーを管理します。",
+    "launching": "起動中...",
+    "select": "",
+    "ascendedDesc": "を選択してくださいUnreal Engine 5 を搭載した次世代の ARK: Survival Ascended サーバーを管理します。"
   },
   "admin": {
     "title": "管理者権限が必要です",
@@ -248,7 +288,13 @@
     "statusLoading": "読み込み中...",
     "statusPublic": "公開",
     "statusLan": "LAN",
-    "publicIpAddress": "パブリックIPアドレス"
+    "publicIpAddress": "パブリックIPアドレス",
+    "normalRestart": "通常の再起動",
+    "restartWipeDinos": "Dinos を再起動して消去",
+    "discordCommunity": "バグとアップデート",
+    "serverRestartedWipeDinos": "野生の恐竜のワイプでサーバーの再起動が開始されました",
+    "viewOverview": "View Full Server Overview & Details",
+    "noServersCreated": "No servers created yet"
   },
   "serverManager": {
     "title": "サーバー管理",
@@ -321,7 +367,10 @@
       "updating": "更新中",
       "repairing": "修復中",
       "startup_timeout": "起動タイムアウト",
-      "unknown": "不明"
+      "unknown": "不明",
+      "restarting": "再起動中",
+      "timeout": "タイムアウト",
+      "uninstalled": "アンインストールされました"
     },
     "buttons": {
       "selectedCount": "{{count}}個選択中",
@@ -342,7 +391,13 @@
       "startNoMods": "MODなしで起動",
       "normalRestart": "通常の再起動",
       "deepRepair": "MODのクリーン修復",
-      "delete": "削除"
+      "delete": "削除",
+      "restartWipeDinos": "Dinos を再起動して消去",
+      "updateSelected": "選択したものを更新します",
+      "updateOutdated": "アップデートが期限切れです",
+      "moveSelected": "選択したものを移動",
+      "editRawIni": "ファイルを手動で編集する (IDE)",
+      "fileManager": "ファイル マネージャー (参照)"
     },
     "tooltips": {
       "forceStop": "サーバープロセスを強制終了します（未保存のデータが失われる可能性があります）",
@@ -358,7 +413,12 @@
       "settings": "このサーバーの設定エディターを開きます",
       "clone": "サーバー設定の複製やセーブデータの転送を行います",
       "delete": "このサーバーに関連するすべてのファイルを永久に削除します",
-      "dataSafety": "危険な操作を行う前に、ゲーム内データの強制セーブ（SaveWorld）をトリガーし保護します"
+      "dataSafety": "危険な操作を行う前に、ゲーム内データの強制セーブ（SaveWorld）をトリガーし保護します",
+      "doubleClickToRename": "ダブルクリックして名前を変更します",
+      "serverVersion": "ローカルサーバーのバージョン",
+      "updateAvailable": "新しいバージョンが Steam で入手可能になりました!",
+      "updateRequired": "新しいアップデートが利用可能になりました!クリックしてインストールします。",
+      "move": "サーバーを移動"
     },
     "emptyState": {
       "title": "インストール済みのサーバーがありません",
@@ -378,10 +438,109 @@
       "dataSafetyLabel": "データ安全および自動自己修復",
       "consoleOutput": "リアルタイムコンソール出力",
       "waitingOutput": "最初のサーバーログ出力を待機中...",
-      "showConsole": "独立したコマンドプロンプト（CMD）ウィンドウを開く"
+      "showConsole": "独立したコマンドプロンプト（CMD）ウィンドウを開く",
+      "branch": "サーバーのバージョン",
+      "delay": "遅延",
+      "priority": "優先順位",
+      "autoRestartOnCrash": "クラッシュ時の自動再起動"
     },
     "confirmForceStop": "このサーバーを強制停止してもよろしいですか？プロセスは即座に強制終了され、保存されていないゲームの進行状況はすべて失われます。",
-    "confirmDeepRepair": "ディープ修復はサーバーを停止し、すべてのMODの一時ファイルを削除して再ダウンロードします。続行しますか？"
+    "confirmDeepRepair": "ディープ修復はサーバーを停止し、すべてのMODの一時ファイルを削除して再ダウンロードします。続行しますか？",
+    "serverUpToDate": "サーバーは最新です！",
+    "confirmForceStopTitle": "サーバーを強制停止します",
+    "nameUpdated": "サーバー名が正常に更新されました。",
+    "renameFailed": "サーバー名の変更に失敗しました。",
+    "serverCloned": "サーバーのクローンが正常に作成されました: {{name}}",
+    "cloneFailed": "クローン作成に失敗しました: {{error}}",
+    "joiningServer": "ARK を起動して接続しています...",
+    "branchUpdated": "サーバーのバージョンが更新されました。ダウンロード アイコンをクリックして検証/適用します。",
+    "branchUpdateFailed": "バージョン/ブランチを更新できませんでした",
+    "stopServerFirst": "ファイルを更新する前にサーバーを停止してください。",
+    "updateConfirm": "これにより、SteamCMD が実行され、サーバーのバージョンが検証または変更されます。続く？",
+    "updateStarted": "バックグラウンドでサーバー ファイルを更新しています...",
+    "updateSuccess": "サーバーが正常に更新されました。",
+    "updateFilesTooltip": "SteamCMD 経由でサーバー ファイルを更新/検証する",
+    "deleteTitle": "ASE サーバーを削除します",
+    "deleteConfirmMessage": "ASEサーバー「{{name}}」を削除しますか?これを元に戻すことはできません。",
+    "serverRestartedWipeDinos": "野生の恐竜のワイプでサーバーの再起動が開始されました",
+    "startingParallelUpdates": "{{count}} サーバーの並列更新を開始しています...",
+    "allServersUpToDate": "すべてのサーバーは最新です!",
+    "startingParallelOutdatedUpdates": "{{count}} の古いサーバーを並行して更新しています...",
+    "errors": {
+      "emptyName": "サーバー名を空にすることはできません。"
+    },
+    "move": {
+      "mustBeStopped": "移動する前にサーバーを停止する必要があります。",
+      "selectFolder": "新しいサーバー ディレクトリを選択",
+      "failed": "移動サーバーの準備に失敗しました。",
+      "startedBulk": "{{count}} サーバーを移動しています...",
+      "movingServer": "{{name}} を移動中...",
+      "bulkFailedOne": "サーバーの移動に失敗しました。",
+      "bulkSuccess": "{{count}} サーバーが正常に移動されました。",
+      "started": "サーバーを移動しています...",
+      "success": "サーバーは正常に移動されました!",
+      "bulkMustBeStopped": "移動する前に、選択したすべてのサーバーを停止する必要があります。",
+      "bulkTitle": "選択したサーバーを新しいディレクトリに移動します",
+      "dialogTitleBulk": "複数のサーバーを移動する",
+      "dialogTitle": "サーバーを移動",
+      "dialogDescBulk": "{{count}} サーバーを新しい場所に移動してもよろしいですか?",
+      "dialogDesc": "{{name}} を新しい場所に移動してもよろしいですか?",
+      "warningTitle": "時間のかかる操作",
+      "warningDesc": "セーブデータやサーバーファイルのサイズによっては、この操作に数分かかる場合があります。このプロセス中にアプリケーションを閉じないでください。",
+      "confirmMove": "移動を確認"
+    },
+    "conflicts": {
+      "hardTitle": "重大なポートの競合",
+      "softTitle": "ポート競合の警告",
+      "hardMessage": "1 つ以上の構成済みポートが現在、別のサーバーまたはプロセスでアクティブになっています。解決するにはポートを自動的に再割り当てします。",
+      "softMessage": "1 つ以上のポートがオフライン サーバー プロファイルで構成されています。空きポートを再割り当てすることも、そのまま開始することもできます。",
+      "detectedConflicts": "検出された競合",
+      "usedBy": "使用者:",
+      "unknownProcess": "不明な外部プロセスによって使用されています",
+      "startAnyway": "とにかく始める"
+    },
+    "statusBar": {
+      "loading": "視界診断を実施中...",
+      "diagnosticsFailed": "診断システムがオフラインです",
+      "systemLabel": "診断パネル",
+      "visibility": "可視性ステータス:",
+      "wanUnavailable": "パブリック IP クエリがブロックされました",
+      "updateMode": "SteamCMD 更新モード",
+      "startingUpdate": "SteamCMD ラッパー プロセスを開始しています...",
+      "hideLogs": "コンソール ログを非表示にする",
+      "showLogs": "コンソールログを表示",
+      "waitingOutput": "SteamCMD ストリームの出力を待機しています...",
+      "hideGuide": "検索ガイドを非表示にする",
+      "showGuide": "検索ガイドを表示",
+      "guideTitle": "ガイド: ゲーム内ブラウザでサーバーを見つける方法"
+    },
+    "diagnostics": {
+      "process": "ゲームのプロセス",
+      "processRunning": "アクティブな PID",
+      "processInactive": "非アクティブ",
+      "port": "UDP ポート バインディング",
+      "portBound": "聞いています",
+      "portClosed": "閉店",
+      "lan": "LAN の到達可能性",
+      "lanVisible": "レスポンシブ (A2S)",
+      "lanBlocked": "応答なし",
+      "wan": "グローバルな可視性",
+      "wanVisible": "公的にアクセス可能",
+      "wanBlocked": "ブロック/フィルタリング済み"
+    },
+    "toast": {
+      "nameUpdated": ""
+    },
+    "modCache": {
+      "mustBeStopped": "プロファイル名が「XVAR0X」に更新されました。 MODキャッシュをクリアする前にサーバーを停止する必要があります。",
+      "clearing": "MOD キャッシュをクリアしています...",
+      "failed": "MODキャッシュのクリアに失敗しました。",
+      "tooltip": "キャッシュされた MOD ファイルをクリアして MOD 読み込みの問題を修正",
+      "button": "Modキャッシュをクリアする"
+    },
+    "status": {
+      "updateAvailable": "利用可能なアップデート"
+    }
   },
   "configEditor": {
     "title": "設定エディター",
@@ -430,12 +589,15 @@
       "copySuccess": "設定値をクリップボードにコピーしました",
       "presetApplied": "プリセット「{{name}}」が適用されました",
       "dinoLevelSet": "野生恐竜の最大レベルを {{level}} に設定しました",
-      "playerLevelSet": "プレイヤーの最大レベルを {{level}} に設定しました"
+      "playerLevelSet": "プレイヤーの最大レベルを {{level}} に設定しました",
+      "presetSaved": "プリセットが正常に保存されました",
+      "presetUpdated": "プリセット「{{name}}」が現在の設定で更新されました"
     },
     "validation": {
       "tamingConflict": "テイムが無効に設定されていますが、テイム速度倍率が1.0を超えています（無効化されているため反映されません）。",
       "friendlyFireConflict": "PvEモードが有効ですが、フレンドリーファイアが無効になっています。トライブ内ダメージ倍率は反映されません。",
-      "xpWarning": "極端に高い経験値倍率（> 50倍）が検出されました。ゲームデータのオーバーフローや不具合が発生する可能性があります。"
+      "xpWarning": "極端に高い経験値倍率（> 50倍）が検出されました。ゲームデータのオーバーフローや不具合が発生する可能性があります。",
+      "pveOfflinePvpConflict": "PvE モードは、オフライン PvP の防止と並行して有効になります。オフライン PvP 保護は PvE モードでは冗長です。混乱を避けるために無効にすることを検討してください。"
     },
     "levelsGenerator": {
       "title": "プレイヤー＆恐竜レベルカスタムジェネレーター",
@@ -477,6 +639,696 @@
     "emptyState": {
       "title": "No settings found",
       "description": "Try searching for \"{{query}}\""
+    },
+    "fields": {
+      "ServerName": {
+        "label": "サーバー名",
+        "description": "サーバーの名前"
+      },
+      "Message": {
+        "label": "今日のメッセージ",
+        "description": "プレイヤーが参加するときに表示されるメッセージ。改行には \\n を使用します。"
+      },
+      "ServerPassword": {
+        "label": "サーバーのパスワード",
+        "description": "参加するにはパスワードが必要です"
+      },
+      "ServerAdminPassword": {
+        "label": "管理者パスワード",
+        "description": "管理者アクセス用のパスワード"
+      },
+      "MaxPlayers": {
+        "label": "最大プレイヤー数",
+        "description": "最大プレイヤー数"
+      },
+      "MapName": {
+        "label": "地図",
+        "description": "ロードするマップ"
+      },
+      "IPAddress": {
+        "label": "サーバーのIPアドレス",
+        "description": "サーバーを特定の IP アドレスにバインドします (すべてのインターフェイスでは空のままにします)"
+      },
+      "RCONEnabled": {
+        "label": "RCON を有効にする",
+        "description": "サーバー管理のためのリモート コンソール アクセスを有効にする"
+      },
+      "Port": {
+        "label": "ゲームポート",
+        "description": "プレーヤー接続用のメイン ゲーム ポート (デフォルト: 7777)"
+      },
+      "QueryPort": {
+        "label": "クエリポート",
+        "description": "サーバーブラウザクエリ用のポート (デフォルト: 27015)"
+      },
+      "RCONPort": {
+        "label": "RCONポート",
+        "description": "RCON 接続用のポート (デフォルト: 27020)"
+      },
+      "ServerCrossplay": {
+        "label": "クロスプレイを有効にする",
+        "description": "Xbox、PlayStation、および PC プレーヤーが一緒に参加できるようにします"
+      },
+      "Culture": {
+        "label": "サーバー言語 (文化)",
+        "description": "ゲーム内の言語/文化を設定します (-culture 起動引数を追加します)"
+      },
+      "XPMultiplier": {
+        "label": "XP マルチプライヤー",
+        "description": "すべてのソースからのグローバル XP 獲得率"
+      },
+      "DifficultyOffset": {
+        "label": "難易度",
+        "description": "サーバーの難易度 (野生恐竜の最大レベルに影響します)"
+      },
+      "OverrideOfficialDifficulty": {
+        "label": "最大難易度をオーバーライド",
+        "description": "野生恐竜の最大レベルを上書きします (5.0 = レベル 150)"
+      },
+      "HarvestAmountMultiplier": {
+        "label": "収穫量",
+        "description": "資源収穫量乗数"
+      },
+      "HarvestHealthMultiplier": {
+        "label": "健康を収穫する",
+        "description": "リソース ノードの健全性乗数"
+      },
+      "ResourcesRespawnPeriodMultiplier": {
+        "label": "リソースのリスポーン",
+        "description": "リソースのリスポーン速度 (低い = 速い)"
+      },
+      "TamingSpeedMultiplier": {
+        "label": "スピードを飼いならす",
+        "description": "生き物が飼いならされる速さ"
+      },
+      "DinoCharacterFoodDrainMultiplier": {
+        "label": "ディノフードドレイン",
+        "description": "恐竜の食料消費率"
+      },
+      "DinoCountMultiplier": {
+        "label": "野生の恐竜の数",
+        "description": "野生の恐竜のスポーン密度"
+      },
+      "DinoDamageMultiplier": {
+        "label": "恐竜のダメージ",
+        "description": "恐竜のダメージ出力"
+      },
+      "DinoResistanceMultiplier": {
+        "label": "恐竜の抵抗",
+        "description": "恐竜のダメージ耐性"
+      },
+      "PlayerDamageMultiplier": {
+        "label": "プレイヤーのダメージ",
+        "description": "プレイヤーのダメージ出力"
+      },
+      "PlayerResistanceMultiplier": {
+        "label": "プレイヤーの抵抗",
+        "description": "プレイヤーのダメージ耐性"
+      },
+      "PlayerCharacterWaterDrainMultiplier": {
+        "label": "排水",
+        "description": "水使用量"
+      },
+      "PlayerCharacterFoodDrainMultiplier": {
+        "label": "フードドレイン",
+        "description": "食料消費率"
+      },
+      "PlayerCharacterStaminaDrainMultiplier": {
+        "label": "スタミナの消耗",
+        "description": "スタミナ消費率"
+      },
+      "PlayerCharacterHealthRecoveryMultiplier": {
+        "label": "健康回復",
+        "description": "健康回復率"
+      },
+      "StructureResistanceMultiplier": {
+        "label": "構造抵抗",
+        "description": "構造損傷耐性"
+      },
+      "StructureDamageMultiplier": {
+        "label": "構造物の損傷",
+        "description": "構造物の損傷"
+      },
+      "PvEStructureDecayPeriodMultiplier": {
+        "label": "構造崩壊率",
+        "description": "構造崩壊期間"
+      },
+      "AlwaysAllowStructurePickup": {
+        "label": "構造物のピックアップを許可する",
+        "description": "配置された構造物を拾えるようにする"
+      },
+      "DayTimeSpeedScale": {
+        "label": "日速",
+        "description": "昼間の速度倍率"
+      },
+      "NightTimeSpeedScale": {
+        "label": "ナイトスピード",
+        "description": "夜間の速度乗数"
+      },
+      "DayCycleSpeedScale": {
+        "label": "日周期速度",
+        "description": "全体的な昼夜サイクル速度"
+      },
+      "ServerPVE": {
+        "label": "PvE モード",
+        "description": "PvE モードを有効にする (プレイヤーへのダメージなし)"
+      },
+      "AllowCaveBuildingPvE": {
+        "label": "洞窟の建設を許可する",
+        "description": "洞窟内での建築を許可"
+      },
+      "PreventTribeAlliances": {
+        "label": "同盟を阻止する",
+        "description": "部族の同盟を阻止する"
+      },
+      "AllowFlyerCarryPvE": {
+        "label": "フライヤーの持ち込みを許可します",
+        "description": "フライヤーが選手を運ぶことを許可する"
+      },
+      "EnablePvPGamma": {
+        "label": "PvP ガンマを有効にする",
+        "description": "PvP でガンマ調整を許可する"
+      },
+      "DisableFriendlyFire": {
+        "label": "フレンドリーファイアを無効にする",
+        "description": "部族のメンバーが互いに傷つけ合うのを防ぎます"
+      },
+      "PreventOfflinePvP": {
+        "label": "オフライン PvP を防ぐ",
+        "description": "所有者がオフラインのときに構造物とプレイヤーを保護"
+      },
+      "PreventOfflinePvPInterval": {
+        "label": "オフライン保護遅延 (秒)",
+        "description": "オフライン保護がアクティブになるまでの遅延 (0 = 即時)"
+      },
+      "GlobalVoiceChat": {
+        "label": "グローバルボイスチャット",
+        "description": "ボイスチャットは全員に聞こえます"
+      },
+      "ProximityChat": {
+        "label": "近接テキストチャット",
+        "description": "テキスト チャットは近くのプレイヤーにのみ表示されます"
+      },
+      "AlwaysNotifyPlayerLeft": {
+        "label": "プレイヤーに左に通知",
+        "description": "プレイヤーが離れるときにメッセージを表示する"
+      },
+      "AlwaysNotifyPlayerJoined": {
+        "label": "プレーヤーが参加したことを通知",
+        "description": "プレーヤーが参加するときにメッセージを表示します"
+      },
+      "ServerCrosshair": {
+        "label": "十字線を有効にする",
+        "description": "十字線を表示"
+      },
+      "ShowMapPlayerLocation": {
+        "label": "マップ プレーヤーの場所",
+        "description": "プレーヤーの位置を地図上に表示"
+      },
+      "ShowFloatingDamageText": {
+        "label": "浮遊ダメージテキスト",
+        "description": "ダメージ数値を表示"
+      },
+      "AllowThirdPersonPlayer": {
+        "label": "第三者を許可",
+        "description": "三人称カメラを許可"
+      },
+      "PreventDiseases": {
+        "label": "病気を予防する",
+        "description": "病気システムを無効にする"
+      },
+      "NonPermanentDiseases": {
+        "label": "永続的ではない病気",
+        "description": "病気は死んだら治る"
+      },
+      "ForceAllStructureLocking": {
+        "label": "フォースロック構造",
+        "description": "すべてのコンテナを自動ロック"
+      },
+      "AllowCrateSpawnsOnTopOfStructures": {
+        "label": "構造物上の木箱",
+        "description": "建物に補給箱を許可"
+      },
+      "NoTributeDownloads": {
+        "label": "ダウンロードを無効にする",
+        "description": "すべてのダウンロードを無効にする"
+      },
+      "PreventDownloadSurvivors": {
+        "label": "Survivor のダウンロードをブロック",
+        "description": "文字のダウンロードを禁止する"
+      },
+      "PreventDownloadItems": {
+        "label": "アイテムのダウンロードをブロック",
+        "description": "アイテムのダウンロードを禁止する"
+      },
+      "PreventDownloadDinos": {
+        "label": "Dino のダウンロードをブロックする",
+        "description": "恐竜のダウンロードを禁止します"
+      },
+      "CrossARKAllowForeignDinoDownloads": {
+        "label": "外国人の恐竜を許可する",
+        "description": "他のマップからの恐竜を許可します"
+      },
+      "AllowAnyoneBabyImprintCuddle": {
+        "label": "誰でも刻印できる",
+        "description": "部族のメンバーに赤ちゃんの刻印を許可する"
+      },
+      "DisableImprintDinoBuff": {
+        "label": "インプリントボーナスを無効にする",
+        "description": "インプリンティングからステータスボーナスを削除"
+      },
+      "AllowRaidDinoFeeding": {
+        "label": "襲撃恐竜の餌やりを許可する",
+        "description": "飼いならされた襲撃恐竜の餌やりを有効にする"
+      },
+      "DisableDinoDecayPvE": {
+        "label": "ディノディケイを無効にする (PvE)",
+        "description": "PvE で引き取られていない恐竜が朽ちるのを防ぐ"
+      },
+      "AutoDestroyDecayedDinos": {
+        "label": "朽ちた恐竜を自動破壊",
+        "description": "完全に腐った恐竜を自動的に削除します"
+      },
+      "DisableStructureDecayPvE": {
+        "label": "構造の崩壊を無効にする",
+        "description": "構造物の腐敗を防ぐ"
+      },
+      "AutoDestroyOldStructuresMultiplier": {
+        "label": "自動破壊マルチプライヤー",
+        "description": "放棄された建造物を自動破壊します (0=オフ)"
+      },
+      "FastDecayUnsnappedCoreStructures": {
+        "label": "高速減衰が解除されました",
+        "description": "折れていない基礎はより早く朽ちます"
+      },
+      "OnlyDecayUnsnappedCoreStructures": {
+        "label": "崩壊のみが解除される",
+        "description": "スナップされていない構造のみが崩壊します"
+      },
+      "OnlyAutoDestroyCoreStructures": {
+        "label": "コアのみ自動破壊",
+        "description": "基礎/柱のみを破壊してください"
+      },
+      "DestroyUnconnectedWaterPipes": {
+        "label": "接続されていないパイプを破棄する",
+        "description": "水道につながっていない配管を撤去する"
+      },
+      "AllowHitMarkers": {
+        "label": "ヒット マーカーを許可する",
+        "description": "ダメージ ヒット マーカーを表示"
+      },
+      "AllowHideDamageSourceFromLogs": {
+        "label": "ダメージソースを隠す",
+        "description": "トライブログにダメージソースを隠す"
+      },
+      "AllowMultipleAttachedC4": {
+        "label": "複数の C4",
+        "description": "同じ構造上で複数の C4 を許可する"
+      },
+      "DisablePvEGamma": {
+        "label": "PvE ガンマを無効にする",
+        "description": "PvE でガンマ コマンドをブロック"
+      },
+      "DisableWeatherFog": {
+        "label": "天気霧を無効にする",
+        "description": "霧の天候の影響を削除"
+      },
+      "MaxTamedDinos": {
+        "label": "マックス テイムド ディノス",
+        "description": "サーバー全体の飼いならされた制限"
+      },
+      "MaxPersonalTamedDinos": {
+        "label": "マックスパーソナルディノス",
+        "description": "プレイヤーごとのテイム制限 (0=無制限)"
+      },
+      "MaxPlatformSaddleStructureLimit": {
+        "label": "プラットフォームサドル制限",
+        "description": "プラットフォームサドル上の最大構造"
+      },
+      "PerPlatformMaxStructuresMultiplier": {
+        "label": "プラットフォーム構造乗数",
+        "description": "プラットフォーム構造制限の乗数"
+      },
+      "MaxTributeItems": {
+        "label": "最大トリビュートアイテム",
+        "description": "貢物在庫の最大アイテム数"
+      },
+      "MaxTributeDinos": {
+        "label": "マックス トリビュート ディノス",
+        "description": "トリビュート在庫の最大恐竜"
+      },
+      "MaxTributeCharacters": {
+        "label": "最大トリビュートキャラクター",
+        "description": "トリビュートインベントリの最大文字数"
+      },
+      "KickIdlePlayersPeriod": {
+        "label": "キックアイドル後 (秒)",
+        "description": "アイドル時間の経過後にプレーヤーをキックする (0=無効)"
+      },
+      "OverrideStructurePlatformPrevention": {
+        "label": "プラットフォームのオーバーライド防止",
+        "description": "プラットフォーム上のどこにでも構造物を許可"
+      },
+      "AllowIntegratedSPlusStructures": {
+        "label": "S+ 構造を許可する",
+        "description": "Structures Plus 機能を有効にする"
+      },
+      "ClampResourceHarvestDamage": {
+        "label": "クランプハーベストダメージ",
+        "description": "収穫ダメージ倍率を制限する"
+      },
+      "ClampItemSpoilingTimes": {
+        "label": "クランプの劣化時間",
+        "description": "ネタバレ時間の変更を制限する"
+      },
+      "ClampItemStats": {
+        "label": "クランプ アイテムの統計情報",
+        "description": "アイテムステータスの改善を制限する"
+      },
+      "AutoSavePeriodMinutes": {
+        "label": "自動保存間隔 (分)",
+        "description": "自動保存する頻度"
+      },
+      "ItemStackSizeMultiplier": {
+        "label": "スタック サイズ乗数",
+        "description": "アイテムスタックサイズを乗算する"
+      },
+      "bAutoUnlockAllEngrams": {
+        "label": "すべてのエングラムの自動ロック解除",
+        "description": "プレイヤーがレベルアップすると、すべてのエングラムのロックが自動的に解除されます"
+      },
+      "bAllowUnlimitedRespecs": {
+        "label": "無制限のリスペック",
+        "description": "Mindwipe Tonic のクールダウン タイマーを削除します"
+      },
+      "bAllowCustomRecipes": {
+        "label": "カスタム レシピを許可する",
+        "description": "プレイヤーがカスタムの消耗品レシピを作成できるようにする"
+      },
+      "CraftingSkillBonusMultiplier": {
+        "label": "クラフトスキルボーナス乗数",
+        "description": "カスタムレシピ統計に対するクラフトスキル効果の乗数"
+      },
+      "OverrideNamedEngramEntries": {
+        "label": "エングラムのオーバーライド",
+        "description": "エングラムレベル要件、ポイントコストを上書きするか、完全に非表示にします"
+      },
+      "ConfigOverrideItemCraftingCosts": {
+        "label": "作成コストの上書き",
+        "description": "リソースコストをオーバーライドして特定のアイテムを作成します"
+      },
+      "KillXPMultiplier": {
+        "label": "キル XP マルチプライヤー",
+        "description": "クリーチャーを倒すことで XP を獲得"
+      },
+      "HarvestXPMultiplier": {
+        "label": "収穫 XP 乗数",
+        "description": "資源の収穫から得られる XP"
+      },
+      "CraftXPMultiplier": {
+        "label": "クラフト XP マルチプライヤー",
+        "description": "アイテムの作成から得られる XP"
+      },
+      "GenericXPMultiplier": {
+        "label": "一般的な XP 乗数",
+        "description": "他のすべての XP ソースの乗数"
+      },
+      "SpecialXPMultiplier": {
+        "label": "特別な XP マルチプライヤー",
+        "description": "特別なイベントの乗数"
+      },
+      "EggHatchSpeedMultiplier": {
+        "label": "卵の孵化速度",
+        "description": "卵が孵化するまでの速さ"
+      },
+      "BabyMatureSpeedMultiplier": {
+        "label": "赤ちゃんの成熟速度",
+        "description": "赤ちゃんの成長の速さ"
+      },
+      "BabyFoodConsumptionSpeedMultiplier": {
+        "label": "離乳食の摂取量",
+        "description": "離乳食摂取率"
+      },
+      "BabyCuddleIntervalMultiplier": {
+        "label": "抱っこ間隔乗数",
+        "description": "抱っこを要求するまでの時間"
+      },
+      "BabyCuddleGracePeriodMultiplier": {
+        "label": "抱っこの猶予期間",
+        "description": "抱っこを完了するまでの追加時間"
+      },
+      "BabyCuddleLoseImprintQualitySpeedMultiplier": {
+        "label": "インプリント速度の低下",
+        "description": "インプリントを見逃した場合、どのくらいの速さでインプリントの品質が低下するか"
+      },
+      "BabyImprintAmountMultiplier": {
+        "label": "インプリント量乗数",
+        "description": "抱っこごとの痕跡の量"
+      },
+      "BabyImprintingStatScaleMultiplier": {
+        "label": "インプリントステータスボーナス",
+        "description": "刷り込みによるステータスボーナス"
+      },
+      "LayEggIntervalMultiplier": {
+        "label": "産卵間隔",
+        "description": "産卵までの時間"
+      },
+      "GlobalSpoilingTimeMultiplier": {
+        "label": "スポイルタイム乗数",
+        "description": "アイテムが腐る速さ"
+      },
+      "GlobalItemDecompositionTimeMultiplier": {
+        "label": "アイテムの分解時間",
+        "description": "ドロップしたアイテムがデスポーンする速度"
+      },
+      "GlobalCorpseDecompositionTimeMultiplier": {
+        "label": "死体の分解時間",
+        "description": "死体が消える速さ"
+      },
+      "CropGrowthSpeedMultiplier": {
+        "label": "作物の成長速度",
+        "description": "作物の成長の速さ"
+      },
+      "CropDecaySpeedMultiplier": {
+        "label": "作物の腐敗速度",
+        "description": "作物が腐る速さ"
+      },
+      "bAllowSpeedLeveling": {
+        "label": "速度レベリングを許可する",
+        "description": "プレイヤーと陸上恐竜の移動速度を平準化できるようにします"
+      },
+      "bAllowFlyerSpeedLeveling": {
+        "label": "フライヤー速度の平​​準化を許可します",
+        "description": "フライヤーの移動速度を平準化できるようにします"
+      },
+      "bDisableDinoTaming": {
+        "label": "テイムを無効にする",
+        "description": "すべての恐竜の飼い慣らしを阻止する"
+      },
+      "bDisableDinoRiding": {
+        "label": "乗車を無効にする",
+        "description": "飼い慣らされた恐竜に乗らないようにします"
+      },
+      "bDisableDinoBreeding": {
+        "label": "繁殖を無効にする",
+        "description": "恐竜の繁殖を阻止する"
+      },
+      "bUseSingleplayerSettings": {
+        "label": "シングルプレイヤー設定を使用する",
+        "description": "シングルプレイヤーのバランス調整を適用する"
+      },
+      "bPvEDisableFriendlyFire": {
+        "label": "PvE フレンドリーファイアを無効にする",
+        "description": "部族のメンバーがお互いを傷つけないようにしてください"
+      },
+      "bUseCorpseLocator": {
+        "label": "死体探知機を使用する",
+        "description": "地図上に死亡マーカーを表示"
+      },
+      "MaxNumberOfPlayersInTribe": {
+        "label": "最大部族メンバー",
+        "description": "部族ごとの最大プレイヤー数 (0=無制限)"
+      },
+      "MaxTribeLogs": {
+        "label": "部族ログの最大数",
+        "description": "部族ログ エントリの最大数"
+      },
+      "DinoTurretDamageMultiplier": {
+        "label": "ディノタレットのダメージ",
+        "description": "恐竜が砲塔から受けるダメージ"
+      },
+      "DinoHarvestingDamageMultiplier": {
+        "label": "恐竜の収穫によるダメージ",
+        "description": "恐竜の収穫ダメージ倍率"
+      },
+      "FishingLootQualityMultiplier": {
+        "label": "釣りの戦利品の品質",
+        "description": "釣りの戦利品の品質"
+      },
+      "MatingIntervalMultiplier": {
+        "label": "交配間隔",
+        "description": "交配間の時間 (短い = 速い)"
+      },
+      "MaxAlliancesPerTribe": {
+        "label": "最大同盟数",
+        "description": "部族ごとの最大同盟数"
+      },
+      "MaxTribesPerAlliance": {
+        "label": "同盟ごとの最大部族数",
+        "description": "同盟内の最大部族数"
+      },
+      "OverrideMaxExperiencePointsPlayer": {
+        "label": "最大プレイヤー XP",
+        "description": "最大レベルに必要な合計 XP"
+      },
+      "LevelExperienceRampOverrides": {
+        "label": "XPランプオーバーライド",
+        "description": "カスタム XP 曲線 (配列)"
+      },
+      "OverridePlayerLevelEngramPoints": {
+        "label": "レベルごとのエングラム ポイント",
+        "description": "レベルアップごとに付与されるエングラムポイント。 1 行に 1 つの値を入力します。"
+      },
+      "SupplyCrateLootQualityMultiplier": {
+        "label": "供給箱の品質",
+        "description": "供給箱の戦利品の品質"
+      },
+      "PerDinoClassResistanceMultipliers": {
+        "label": "ディノ抵抗乗数",
+        "description": "特定の恐竜クラスの耐性を調整します (低い = 耐性が高くなります)"
+      },
+      "bDisableDinoDecayPvE": {
+        "label": "ディノの衰退を無効にする",
+        "description": "PvE で恐竜の衰退を無効にする"
+      },
+      "bPassiveDefensesDamageRiderlessDinos": {
+        "label": "スパイクウォールがライダーのいない恐竜にダメージを与える",
+        "description": "スパイク壁とパッシブディフェンスはライダーのいない/野生の恐竜にダメージを与えます"
+      },
+      "bDisableStructurePlacementCollision": {
+        "label": "配置の衝突を無効にする",
+        "description": "重複する構造を許可する"
+      }
+    },
+    "groups": {
+      "serverIdentity": {
+        "title": "サーバー ID",
+        "description": "基本的なサーバー構成"
+      },
+      "xpProgression": {
+        "title": "XP と進行状況",
+        "description": "経験値とレベリング設定"
+      },
+      "harvesting": {
+        "title": "収穫",
+        "description": "リソース収集率"
+      },
+      "taming": {
+        "title": "飼いならす",
+        "description": "クリーチャーのテイム設定"
+      },
+      "dinoStats": {
+        "title": "ディノ統計",
+        "description": "恐竜のステータス乗数"
+      },
+      "playerStats": {
+        "title": "プレイヤー統計",
+        "description": "プレイヤーステータス乗数"
+      },
+      "structureSettings": {
+        "title": "構造設定",
+        "description": "構築と崩壊のオプション"
+      },
+      "dayNightCycle": {
+        "title": "昼夜のサイクル",
+        "description": "時間と照明の設定"
+      },
+      "pvpPveMode": {
+        "title": "PvP / PvE モード",
+        "description": "プレーヤー対プレーヤーの設定"
+      },
+      "chatHud": {
+        "title": "チャットと HUD",
+        "description": "通信と表示の設定"
+      },
+      "rulesPrevention": {
+        "title": "ルールと予防",
+        "description": "サーバーのルールと制限"
+      },
+      "transfers": {
+        "title": "転送",
+        "description": "Cross-ARK ダウンロード設定"
+      },
+      "breedingImprinting": {
+        "title": "繁殖と刷り込み",
+        "description": "赤ちゃんの世話と刷り込みの仕組み"
+      },
+      "structureDecay": {
+        "title": "構造の崩壊",
+        "description": "建物の腐敗と自動破壊"
+      },
+      "combatPvp": {
+        "title": "戦闘と PvP",
+        "description": "戦闘メカニズムと PvP 設定"
+      },
+      "serverLimits": {
+        "title": "サーバーの制限",
+        "description": "制限と制限を飼いならす"
+      },
+      "qualityOfLife": {
+        "title": "生活の質",
+        "description": "利便性とゲームプレイ機能"
+      },
+      "engramsCrafting": {
+        "title": "エングラムとクラフト",
+        "description": "エングラム要件とアイテム作成コストを変更"
+      },
+      "breedingSpeed": {
+        "title": "繁殖速度",
+        "description": "卵の孵化と赤ちゃんの成長"
+      },
+      "spoilingDecay": {
+        "title": "腐敗と腐敗",
+        "description": "アイテムと死体の腐敗時間"
+      },
+      "advancedGameplay": {
+        "title": "高度なゲームプレイ",
+        "description": "高度なサーバー機構"
+      },
+      "matingImprinting": {
+        "title": "嵌合とインプリンティング",
+        "description": "嵌合間隔とインプリント設定"
+      },
+      "tribeSettings": {
+        "title": "部族の設定",
+        "description": "部族の規模と統治"
+      },
+      "levelXpOverrides": {
+        "title": "レベルと XP のオーバーライド",
+        "description": "高度なレベリング設定"
+      },
+      "lootQuality": {
+        "title": "戦利品の品質",
+        "description": "供給箱と戦利品の設定"
+      },
+      "advancedOptions": {
+        "title": "詳細オプション",
+        "description": "高度なゲームプレイの調整"
+      }
+    },
+    "categories": {
+      "server": "サーバー",
+      "gameplay": "ゲームプレイ",
+      "rules": "ルール",
+      "chat": "チャットと HUD",
+      "transfers": "転送",
+      "player": "プレーヤー",
+      "dino": "恐竜",
+      "breeding": "繁殖",
+      "structure": "構造",
+      "pvp": "PvP/PvE",
+      "advanced": "高度な",
+      "engrams": "エングラムとクラフト"
     }
   },
   "modManager": {
@@ -551,7 +1403,31 @@
     "downloads": "ダウンロード数",
     "author": "作成者",
     "version": "現在バージョン",
-    "modDetails": "MOD詳細ファイル"
+    "modDetails": "MOD詳細ファイル",
+    "checkUpdates": "アップデートを確認する",
+    "checkingUpdates": "アップデートをチェック中...",
+    "pushUpdatesTitle": "Modアップデートのプッシュ",
+    "pushUpdatesSubtitle": "専用サーバー全体で MOD パッケージを更新および同期します",
+    "pushAllUpdates": "すべてのアップデートをプッシュ",
+    "pushUpdate": "プッシュアップデート",
+    "selectServerMods": "更新する Mod を選択してください",
+    "selectAll": "すべて選択",
+    "deselectAll": "すべての選択を解除",
+    "rollbackProtection": "自動ロールバック保護",
+    "cachePurgeNotice": "Mod キャッシュのクリーンパージ",
+    "safeRestartOption": "サーバーの再起動とプレーヤーのブロードキャスト警告",
+    "warningCountdown": "ゲーム内 RCON 警告カウントダウン",
+    "pushUpdatesBtn": "{{count}} Mod アップデートをプッシュする",
+    "pushingUpdates": "更新をプッシュしています...",
+    "noModsSelected": "更新する MOD を少なくとも 1 つ選択してください。",
+    "pushSuccessToast": "{{count}} MOD のアップデートが正常にプッシュされました。",
+    "pushFailedToast": "MODのアップデートに失敗しました",
+    "updatesFoundNotice": "利用可能な {{count}} Mod アップデートが見つかりました!",
+    "allModsUpToDate": "インストールされているMODはすべて最新です！",
+    "noUpdatesAvailable": "プッシュできる MOD アップデートがありません",
+    "noInstalledModsToCheck": "このサーバーには確認するインストール済み MOD がありません。",
+    "apiKeyRequiredForUpdates": "更新を確認するには CurseForge API キーが必要です。",
+    "checkUpdatesFailed": "更新をチェックできませんでした"
   },
   "clusterManager": {
     "title": "クラスター管理",
@@ -621,7 +1497,37 @@
     "validationWarnings": "クラスター設定は機能しますが、一部潜在的なリスクが検出されました",
     "validationErrors": "クラスター内で致命的なポート衝突や設定エラーが発生しています",
     "validationFailed": "クラスターの自動診断の実行中にエラーが発生しました",
-    "clusterPath": "Cluster Directory"
+    "clusterPath": "Cluster Directory",
+    "fetchFailed": "クラスターのフェッチに失敗しました",
+    "addFailed": "サーバーを追加できませんでした",
+    "removeFailed": "サーバーを削除できませんでした",
+    "serverStarted": "サーバーが起動しました",
+    "serverStartFailed": "サーバーの起動に失敗しました",
+    "serverStopped": "サーバーが停止しました",
+    "serverStopFailed": "サーバーを停止できませんでした",
+    "loadConfigFailed": "構成をロードできませんでした",
+    "hostRequired": "データベース ホストが必要です",
+    "userRequired": "データベース ユーザーは必須です",
+    "dbNameRequired": "データベース名は必須です",
+    "portRequired": "有効なデータベース ポートが必要です",
+    "saveConfigFailed": "構成を保存できませんでした",
+    "clusterIdCopied": "クラスター ID がクリップボードにコピーされました。",
+    "clusterIdString": "共有クラスター ID (コンピューター間の移動)",
+    "clusterIdHint": "このクラスター内のすべてのコンピューターで完全に一致する必要があります。",
+    "noClustersFound": "デフォルトのパスに既存のクラスター ディレクトリが見つかりません。",
+    "clustersDiscovered": "{{count}} クラスター フォルダーが検出されました。",
+    "startClusterWithDelay": "{{delay}} の遅延によるクラスター サーバーの起動",
+    "crossComputerGuide": "クロスコンピューター クラスター ガイド",
+    "guideTitle": "クロスコンピューター クラスター セットアップ ガイド",
+    "guideSubtitle": "2 台以上の物理 PC でホストされている ARK サーバーをリンクする方法",
+    "step1Title": "共有ストレージ フォルダー (LAN SMB / ネットワーク ドライブ) のセットアップ",
+    "step1Desc": "ARK クラスターは共有フォルダーを使用して、サーバー間でキャラクター、恐竜、およびアイテムの転送ファイルを書き込みます。",
+    "step2Title": "まったく同じクラスター ID 文字列を使用してください",
+    "step2Desc": "ARK クライアントが接続できるように、両方の Manager インスタンスが同じクラスター ID 文字列でサーバーを起動する必要があります。",
+    "step3Title": "両方のコンピューターにクラスターを作成します",
+    "step4Title": "サーバーを起動してマップ間を移動",
+    "step4Desc": "両方のマシンですべてのサーバーを起動します。ゲーム内のオベリスク、サプライ ドロップ、Tek トランスミッターは、シームレスな転送のために両方のコンピューターにわたるすべてのマップを自動的にリストします。",
+    "guideTip": "パブリック プレイでは、ポート転送がマシンごとに個別に必要になります。"
   },
   "scheduler": {
     "title": "タスクスケジューラー",
@@ -706,7 +1612,20 @@
     "toggleFailed": "タスク有効化の切り替えに失敗しました",
     "status": "タスク状態",
     "noTasksDesc": "現在、アクティブなスケジュールはありません",
-    "taskNamePlaceholder": "Enter task name..."
+    "taskNamePlaceholder": "Enter task name...",
+    "saveWorld": "世界を救え",
+    "boostStart": "ブーストイベント開始",
+    "boostEnd": "ブーストイベント終了",
+    "backupServer": "バックアップ サーバー",
+    "backupServerDesc": "サーバー ファイルの自動バックアップを作成します。",
+    "noServers": "サーバーが見つかりません",
+    "noServersDesc": "スケジュールされたタスクを構成するには、最初にサーバー マネージャーでサーバーを作成してください。",
+    "presetApplied": "6 時間メンテナンス ループのプリセットを適用",
+    "toggleTask": "タスクの切り替え",
+    "editScheduledTask": "スケジュールされたタスクを編集",
+    "editTaskDesc": "以下のタスク構成を変更します",
+    "addTaskDesc": "新しい自動化タスクを構成する",
+    "onServerOnline": "サーバーがオンラインになったとき"
   },
   "discordBot": {
     "title": "Discordコミュニティ連携設定",
@@ -724,7 +1643,8 @@
       "bot": "双方向チャット連携ボット",
       "admin": "管理者制御チャンネル",
       "alerts": "監視警告イベント設定",
-      "activity": "警告送信ログ履歴"
+      "activity": "警告送信ログ履歴",
+      "players": "リンクされたプレーヤー"
     },
     "webhook": {
       "setupTitle": "簡易Webhook通知の接続設定",
@@ -738,7 +1658,12 @@
         "step1": "Discordサーバー設定 -> 「連携サービス」 -> 「ウェブフックを作成」をクリックします。",
         "step2": "ターゲットとするチャンネルを選択し、「ウェブフックURLをコピー」をクリックします。",
         "step3": "コピーしたアドレスを上の入力ボックスに貼り付け、「保存」をクリックしてテストを送信してください。"
-      }
+      },
+      "howToTitle": "Discord Webhook の作成方法:",
+      "step1": "1. Discord を開き、チャンネルを右クリックして、「チャンネルの編集」→「統合」を選択します。",
+      "step2": "2. [Webhook の作成] または [Webhook の表示] をクリックし、[新しい Webhook] をクリックします。",
+      "step3": "3. Webhook に名前を付け (例: Server Alerts)、Webhook URL をコピーします。",
+      "step4": "4. 上記の Webhook URL を貼り付け、「Webhook を保存」をクリックします。"
     },
     "quickActions": {
       "title": "管理システムによる簡易一括通知",
@@ -758,6 +1683,14 @@
       "maintenance": {
         "label": "緊急メンテナンスの通知",
         "desc": "システムメンテナンスが開始され、サーバーへのアクセスが一時的に中断されることを告知します"
+      },
+      "restartWarn": {
+        "label": "15 分間の再起動警告",
+        "desc": "サーバーを再起動する前に 15 分間のカウントダウン アラートをブロードキャストします。"
+      },
+      "updateDone": {
+        "label": "アップデート完了のお知らせ",
+        "desc": "サーバーの更新が完了し、サーバーがオンラインに戻ったことをプレーヤーに通知します。"
       }
     },
     "bot": {
@@ -906,7 +1839,8 @@
       "connFailedGeneric": "Discordへの接続が一時的に遮断されました。自動再接続を試みています...",
       "serverMaintenance": "【システム告知】本サーバーは、メンテナンスアップデート実施のため間もなく一時オフラインになります",
       "serverRestart": "【システム告知】サーバーは間もなく再起動します。進行状況を守るため、安全な場所に移動してログアウトしてください！",
-      "maintenanceBegins": "【システム告知】システムメンテナンス作業が開始されました。作業終了後、接続サービスは即座に回復します！"
+      "maintenanceBegins": "【システム告知】システムメンテナンス作業が開始されました。作業終了後、接続サービスは即座に回復します！",
+      "loadFailed": "Discord設定をロードできませんでした"
     },
     "embeds": {
       "connectionEstablished": "🟢 連携サービスが正常に接続されました",
@@ -1175,7 +2109,28 @@
       "listPlayers": "オンラインプレイヤー一覧",
       "broadcast": "ゲーム内全体放送",
       "destroyDinos": "野生恐竜のクリーンリセット"
-    }
+    },
+    "lineCopied": "行をクリップボードにコピーしました",
+    "allCopied": "{{count}} ログ エントリをクリップボードにコピーしました",
+    "commandSuccess": "RCON: {{cmd}} が実行されました",
+    "commandFailed": "RCON エラー: {{msg}}",
+    "noLogsToExport": "エクスポートできるログがありません",
+    "liveStreaming": "ライブストリーム",
+    "streamPaused": "一時停止中",
+    "disableWordWrap": "ワードラップを無効にする",
+    "enableWordWrap": "ワードラップを有効にする",
+    "copyAllLogs": "すべてのログをクリップボードにコピーします",
+    "cleared": "コンソールがクリアされました",
+    "export": "輸出",
+    "entries": "エントリ",
+    "noSearchResults": "現在のクエリに一致するログはありません",
+    "waitingForLogs": "サーバー出力を待っています",
+    "clearQueryHint": "検索キーワードまたはアクティブなログ レベル フィルターを調整してみてください。",
+    "startServerHint": "サーバーが起動を開始して ShooterGame.log に書き込むと、ログはここに自動的にストリーミングされます。",
+    "copyThisLine": "行をコピー",
+    "rconSuite": "RCON 管理端末",
+    "enterCommandPlaceholder": "RCON コマンドを入力してください... (履歴を表示するには ↑ / ↓ を押し、送信するには Enter を押してください)",
+    "serverOfflinePlaceholder": "RCON コマンドを送信するにはサーバーが実行されている必要があります"
   },
   "rcon": {
     "title": "RCONコマンドハブ",
@@ -1218,9 +2173,91 @@
       "destroyWild": "野生恐竜をリセット",
       "dayTime": "時間を昼にする",
       "nightTime": "時間を夜にする",
-      "clearHistory": "履歴をクリア"
+      "clearHistory": "履歴をクリア",
+      "copyPlayerId": "プレーヤー ID をコピー",
+      "serverChat": "チャットを送信",
+      "autoBroadcast": "自動ブロードキャスト設定"
     },
-    "noHistory": "このセッション中に送信されたコマンドはありません"
+    "noHistory": "このセッション中に送信されたコマンドはありません",
+    "idCopied": "プレーヤー ID がクリップボードにコピーされました",
+    "copyPlayerId": "プレーヤー ID をコピー",
+    "connectionLost": "RCON への接続が失われました",
+    "chatPrompt": "グローバル チャット メッセージを入力します:",
+    "chatSent": "チャット メッセージが送信されました",
+    "chatFailed": "チャットの送信に失敗しました: {{error}}",
+    "clusterExecComplete": "クラスター コマンドの実行が完了しました",
+    "clusterExecFailed": "クラスターの実行に失敗しました: {{error}}",
+    "notConnected": "コマンドを送信するには接続する必要があります",
+    "notConnectedSave": "保存を実行するには接続する必要があります。",
+    "saveVerified": "ワールドの保存が正常に確認されました。",
+    "saveIntegrityError": "保存ファイルの検証に失敗しました。",
+    "saveFailed": "手動保存に失敗しました: {{error}}",
+    "connectedTo": "{{address}}:{{port}} に接続されました",
+    "since": "{{time}} 以降",
+    "creatingBackup": "バックアップ中...",
+    "createBackup": "バックアップの作成",
+    "clearLogs": "クリア",
+    "toasts": {
+      "creatingBackup": "サーバーのバックアップを作成しています...",
+      "backupSuccess": "サーバーのバックアップが正常に作成されました。",
+      "backupFailed": "バックアップの作成に失敗しました: {{error}}"
+    },
+    "maint": {
+      "seqAborted": "メンテナンス シーケンスが中止されました。",
+      "seqSuccess": "メンテナンス シーケンスが正常に完了しました。",
+      "seqFailed": "メンテナンス シーケンスが失敗しました: {{error}}"
+    },
+    "tabs": {
+      "terminal": "インタラクティブターミナル",
+      "logStream": "ライブ ログ フィード",
+      "cluster": "クラスターデッキ",
+      "saveManager": "確認済みの保存",
+      "maintenance": "メンテナンス",
+      "giveItems": "アイテムを与える"
+    },
+    "giveItem": {
+      "onlineResolutionFailed": "選択したプレイヤーを ARK プレイヤー ID に解決できませんでした。",
+      "manualResolutionFailed": "完全にログインしていることを確認してください。手動 Steam ID を ARK プレーヤー ID に解決できませんでした。プレーヤーがサーバーに参加していることを確認するか、9 桁のプレーヤー ID を直接入力してください。",
+      "noTarget": "プレーヤーを選択するか、プレーヤー ID を入力してください",
+      "noBlueprint": "項目を選択するか、カスタム ブループリント パスを入力してください",
+      "success": "アイテムコマンドが正常に送信されました。",
+      "failed": "失敗: {{errMsg}}",
+      "title": "アイテムを与える",
+      "subtitle": "アイテムをオンライン プレーヤーまたは手動 ID に直接送信します。",
+      "targetTitle": "ターゲットを選択",
+      "targetOnline": "オンラインプレイヤー",
+      "targetManual": "マニュアル ID / Steam ID",
+      "noPlayers": "現在オンラインのプレイヤーはいません。手動 ID を使用するか、プレイヤーが参加するのを待ちます。",
+      "itemTitle": "アイテムを選択",
+      "sourcePreset": "カタログ",
+      "sourceCustom": "カスタム ブループリント",
+      "searchPlaceholder": "アイテムを検索...",
+      "settingsTitle": "項目設定",
+      "targetSurvivor": "ターゲット生存者",
+      "targetType": {
+        "online": "オンライン生存者",
+        "manual": "マニュアル ID / EOS ID"
+      },
+      "selectSurvivor": "生存者を選択",
+      "enterPlayerId": "固有のプレイヤー ID / SteamID / EOS ID を入力してください",
+      "configuration": "属性と貨物の詳細",
+      "quantity": "数量",
+      "quality": "品質指数",
+      "forceBlueprint": {
+        "title": "ブループリントのみをスポーン",
+        "desc": "アイテム自体の代わりに作成可能な設計図を提供します"
+      },
+      "cmdPreview": "生成された RCON コマンド プレビュー",
+      "delivering": "貨物を配達しています...",
+      "deliver": "生存者にアイテムを届ける",
+      "itemCatalog": "貨物カタログ",
+      "presets": "プリセットカタログ",
+      "customBp": "カスタム ブループリント",
+      "searchPreset": "アイテムを検索...",
+      "noMatches": "一致するアイテムが見つかりませんでした。",
+      "pasteBpPath": "項目のブループリント パスを貼り付け",
+      "bpTip": "「Blueprint'」で始まり「'」で終わるブループリントの完全なパスを必ず含めてください。"
+    }
   },
   "settings": {
     "curseforgeKey": {
@@ -1233,7 +2270,8 @@
       "verifying": "CurseForge APIサーバーと疎通確認を実行中...",
       "verified": "検証に成功しました。接続は正常です",
       "invalid": "APIキーが無効です。入力ミスがないかご確認ください",
-      "verifyKey": "接続テスト"
+      "verifyKey": "接続テスト",
+      "enterKeyFirst": "最初に API キーを入力してください"
     },
     "diagnostics": {
       "title": "サーバー動作環境の健康診断",
@@ -1252,7 +2290,9 @@
       "installNow": "SteamCMDを自動的にダウンロードして配置する",
       "installSteamCmd": "SteamCMD公式CDNから必要なパッケージをダウンロードし、自動展開しています...",
       "installSuccess": "SteamCMD環境のセットアップが完了しました！動作準備完了です",
-      "installFailed": "SteamCMDの自動セットアップに失敗しました: {{error}}"
+      "installFailed": "SteamCMDの自動セットアップに失敗しました: {{error}}",
+      "nonAsciiPath": "SteamCMD パス エラー",
+      "nonAsciiPathDesc": "現在の SteamCMD パスには、非 ASCII/非英語文字「{{path}}」が含まれています。 SteamCMD はこの場所からは操作できません。 [設定] で ASCII のみのカスタム SteamCMD パスを設定してください。"
     },
     "portValidator": {
       "title": "ポート到達性のオンラインリアルタイム検証ツール",
@@ -1325,7 +2365,8 @@
           "headers": {
             "port": "標準ポート番号",
             "protocol": "プロトコル",
-            "purpose": "ポートの用途"
+            "purpose": "ポートの用途",
+            "required": "必須"
           },
           "purposes": {
             "game": "ARKメインゲームポート",
@@ -1389,7 +2430,9 @@
       "network": "Network & Guides",
       "firewall": "Firewall",
       "updates": "Updates",
-      "language": "Language"
+      "language": "Language",
+      "appearance": "外観とテーマ",
+      "startup": "起動と回復"
     },
     "saved": "Settings saved successfully!",
     "saveFailed": "Failed to save settings",
@@ -1442,7 +2485,16 @@
       "maxCrashes": "Max Crash Restarts",
       "maxCrashesDesc": "Max crash recovery attempts in window.",
       "observationWindow": "Observation Window",
-      "observationWindowDesc": "Time in minutes to track crash counts."
+      "observationWindowDesc": "Time in minutes to track crash counts.",
+      "adminRequired": "Bypass UAC (タスク スケジューラ) を有効にするには、管理者権限が必要です。管理者としてアプリケーションを再起動してください。",
+      "closeBehaviorTitle": "ウィンドウを閉じるアクション",
+      "closeBehaviorDesc": "アプリケーションを閉じる[X]ボタンをクリックしたときの動作を設定します。",
+      "closeActionAsk": "常に質問してください",
+      "closeActionAskDesc": "ウィンドウが閉じるたびに確認モーダルを表示する",
+      "closeActionTray": "システム トレイに最小化",
+      "closeActionTrayDesc": "ゲームサーバーとクロスチャットをバックグラウンドでサイレントに実行し続ける",
+      "closeActionExit": "完全に終了します",
+      "closeActionExitDesc": "バックグラウンド サーバー プロセスをシャットダウンし、アプリケーションを終了します"
     },
     "firewallAutomation": {
       "title": "ファイアウォールルールの自動管理設定",
@@ -1460,7 +2512,8 @@
         "gamePort": "Game Port",
         "queryPort": "Query Port",
         "rconPort": "RCON Port",
-        "actions": "Actions"
+        "actions": "Actions",
+        "peerPort": "ピアポート"
       },
       "manual": {
         "title": "Manual Port Assignment",
@@ -1502,6 +2555,104 @@
           "assign": "Assign"
         }
       }
+    },
+    "autoSave": "自動保存",
+    "autoSaving": "自動保存中…",
+    "autoSaved": "保存しました",
+    "saveUnsaved": "⚡ 設定を保存",
+    "saveUnsavedShort": "⚡ 設定を保存",
+    "autoSaveActive": "自動保存が有効です",
+    "unsavedChanges": "未保存の設定編集",
+    "allSaved": "最新の設定",
+    "autoSaveNotice": "編集内容はバックグラウンドで自動的に保存されます",
+    "unsavedChangesDesc": "[設定を保存] をクリックして変更を適用します",
+    "savedNotice": "すべての変更が保存されました",
+    "verify": "確認します",
+    "curseforgeKeySaved": "CurseForge API キーが正常に保存されました。",
+    "curseforgeModalTitle": "CurseForge API キーの設定",
+    "curseforgeModalSubtitle": "ライブ MOD 検索とサーバー更新用の API キーを構成する",
+    "curseforgeKeyLabel": "CurseForge API キー",
+    "curseforgeKeyPlaceholder": "CurseForge API キーを入力してください",
+    "keyValidMessage": "キーが確認され、アクティブになりました。",
+    "keyInvalidMessage": "キーの検証に失敗しました。キーを確認してください。",
+    "needCurseforgeKey": "API キーをお持ちでない場合は、",
+    "curseforgeModalHelp": "CurseForge では、MOD を検索し、サーバー起動時に自動 MOD 更新を有効にするために無料の API キーが必要です。 CurseForge コンソールにサインインしてキーを生成します。",
+    "appearance": {
+      "themeApplied": "適用された {{name}} テーマ",
+      "title": "アプリケーションのテーマとビジュアル スタイル",
+      "description": "ARK Server Manager の視覚的な雰囲気をカスタマイズします。変更は、すべてのパネル、ダッシュボード、ターミナル、モーダルにわたってリアルタイムでグローバルに適用されます。",
+      "select": "",
+      "palette": "を選択してくださいパレット スウォッチ"
+    },
+    "diagnosticsTab": {
+      "title": "トラブルシューティングと診断",
+      "noLogYet": "起動ログ ファイルが見つからないか、読み取りに失敗しました。",
+      "folderOpened": "ファイル エクスプローラーで開いたログ フォルダー",
+      "folderOpenFailed": "ログ フォルダーを開けませんでした",
+      "openFolder": "ログ フォルダーを開く",
+      "viewLog": "起動ログを表示する",
+      "modalTitle": "起動および診断ログ",
+      "modalSubtitle": "アクティブなアプリケーションの状態メッセージとエラーを確認します。",
+      "loadingLogs": "ログ ファイルを読み取り中...",
+      "noMatches": "検索クエリに一致する行はありません",
+      "logLocation": "ログ パス:",
+      "desc": "アプリケーション ログを調べてログ ディレクトリを開いて、起動の問題や更新の失敗を診断します。"
+    },
+    "userConfigFolder": {
+      "title": "ユーザー設定フォルダー",
+      "desc": "サーバー構成ファイル (GameUserSettings.ini、Game.ini) を含むカスタム フォルダーを指定します。設定すると、アプリはサーバーのインストール ディレクトリではなく、このフォルダーから構成の読み取りと書き込みを行います。",
+      "placeholder": "設定されていません - デフォルトのサーバー インストール パスを使用します",
+      "browseFailed": "フォルダー ピッカーを開けませんでした",
+      "clear": "クリアしてデフォルトを使用します",
+      "activeNote": "構成ファイルはこのフォルダーから読み取られ、このフォルダーに保存されます"
+    },
+    "customSteamcmdPath": {
+      "title": "カスタム SteamCMD パス",
+      "desc": "SteamCMD とサーバー ワークショップのダウンロードをカスタム フォルダーにリダイレクトします。 Windows ユーザー名に非 ASCII 文字が含まれている場合に便利です。",
+      "placeholder": "未設定 — デフォルトのローミング AppData を使用",
+      "browseFailed": "フォルダー ピッカーを開けませんでした",
+      "clear": "クリアしてデフォルトを使用します",
+      "invalidWarning": "警告: パスに非 ASCII 文字が含まれています。 SteamCMD はここでは実行できません。"
+    },
+    "updatesTab": {
+      "currentVersion": "現在のバージョン:",
+      "checking": "サーバーをチェックしています...",
+      "checkNow": "今すぐチェック",
+      "lastError": "最終更新エラー",
+      "downloadManually": "GitHub リリースからダウンロード",
+      "dismissError": "却下",
+      "autoUpdate": "バックグラウンドでの自動更新",
+      "autoUpdateDesc": "バックグラウンドでサイレントに更新をダウンロードして準備します。",
+      "updateChannel": "チャンネルを更新",
+      "channelDesc": "受信したい更新ストリームを選択します。ベータおよびナイトリー ストリームは早期に機能を取得しますが、安定性が劣る可能性があります。",
+      "releaseChannel": "安定版リリース",
+      "releaseDesc": "運用サーバーに推奨されます。完全にテストされ、安定していることが確認されています。",
+      "betaChannel": "ベータ版ビルド",
+      "betaDesc": "今後のメジャーアップデートの早期テスト用のプレリリースビルド。",
+      "nightlyChannel": "ナイトリービルド",
+      "nightlyDesc": "最先端の自動ビルドは毎日更新されます。非常に実験的。",
+      "clearSkipped": "スキップされたバージョンをクリアする",
+      "resetCache": "アップデートキャッシュをリセット",
+      "noHistory": "更新履歴はまだありません",
+      "previousVersions": "以前のバージョン",
+      "previousDesc": "ロールバックする必要がありますか?以前のリリースをすべて表示し、GitHub リポジトリから古いバージョンをダウンロードしてください。",
+      "viewReleases": "GitHub でリリースを表示する",
+      "updateAvailable": "アップデート v{{version}} が利用可能になりました。",
+      "latestVersion": "最新バージョンを使用しています",
+      "checkFailed": "アップデートの確認に失敗しました",
+      "checkForUpdates": "アップデートをチェックする",
+      "autoEnabled": "自動更新が有効になっています",
+      "autoDisabled": "自動更新が無効になっています",
+      "channelChanged": "更新チャネルが {{channel}} に切り替わりました",
+      "skippedCleared": "スキップされたバージョンがクリアされました",
+      "cacheReset": "更新キャッシュがクリアされました。アップデーターは次のサイクルで再チェックします。"
+    },
+    "unsaved": {
+      "title": "未保存の変更",
+      "body": "未保存の設定があります。このページを離れるとそれらは破棄されます。",
+      "stay": "滞在する",
+      "discard": "保存せずに放置する",
+      "saveLeave": "保存して終了"
     }
   },
   "firewallConfig": {
@@ -1549,7 +2700,112 @@
     "pluginInstalled": "プラグインが正常にインストールされ、サーバー環境に統合されました！",
     "pluginUninstalled": "プラグインが正常にアンインストールされました！",
     "installFailed": "プラグインのインストールに失敗しました: {{error}}",
-    "uninstallFailed": "プラグインの削除に失敗しました: {{error}}"
+    "uninstallFailed": "プラグインの削除に失敗しました: {{error}}",
+    "scanFailed": "サーバープラグインのスキャンに失敗しました: {{error}}",
+    "enabled": "プラグインが有効になっている",
+    "disabled": "プラグインが無効です",
+    "enablingAll": "すべてのプラグインを有効にしています...",
+    "disablingAll": "すべてのプラグインを無効にしています...",
+    "allEnabled": "すべてのプラグインが有効になっています",
+    "allDisabled": "すべてのプラグインが無効になっています",
+    "toggleAllFailed": "すべてのプラグインの切り替えに失敗しました: {{error}}",
+    "installingLoader": "ASA サーバ API をダウンロードしてインストールしています...",
+    "installLoaderFailed": "ASA サーバ API のインストールに失敗しました: {{error}}",
+    "selectServerFirst": "最初にサーバーを選択してください",
+    "importing": "プラグインをインポートしています...",
+    "importSuccess": "プラグイン {{name}} が正常にインポートされました",
+    "importFailed": "プラグインのインポートに失敗しました: {{error}}",
+    "creatingDefault": "デフォルトのプラグイン テンプレートを作成しています...",
+    "createDefaultSuccess": "DefaultPlugin テンプレートが作成されました。 config.json でパラメーターを構成します。",
+    "createDefaultFailed": "DefaultPlugin の作成に失敗しました: {{error}}",
+    "confirmUninstall": "「{{name}}」をアンインストールしてもよろしいですか?これにより、フォルダーと構成が完全に削除されます。",
+    "uninstalling": "プラグインをアンインストールしています...",
+    "uninstallSuccess": "プラグインは正常にアンインストールされました",
+    "savingConfig": "プラグイン設定を保存しています...",
+    "saveConfigSuccess": "構成は正常に保存されました",
+    "saveConfigFailed": "構成の保存に失敗しました: {{error}}",
+    "loaderNotice": "ASA サーバー API (AsaApi) は、Ark: Survival Ascended サーバーでネイティブ C++ プラグインを実行するために必要です。プロキシ DLL 経由で ShooterGameServer.exe に挿入されます。",
+    "loaderInstalled": "ASA サーバ API (ローダ) がこのサーバにインストールされ、アクティブになっています。",
+    "loaderMissing": "ASA サーバ API ローダがありません。これがないとネイティブ プラグインを読み込むことができません。",
+    "installLoaderBtn": "ASA サーバ API ローダーのインストール",
+    "installLoaderPrompt": "クリックすると、AsaApi が自動的にダウンロードされ、バイナリ/Win64 に設定されます。",
+    "tabInstalled": "インストールされているプラ​​グイン",
+    "tabMarketplace": "プラグイン マーケットプレイス",
+    "tabConfigs": "構成エディター",
+    "filterAll": "すべてのプラグイン",
+    "filterEnabled": "有効のみ",
+    "filterDisabled": "無効のみ",
+    "searchPlugins": "プラグインを名前、作成者、キーワードで検索します...",
+    "enableAllBtn": "すべてを有効にする",
+    "disableAllBtn": "すべて無効にする",
+    "importPluginBtn": "プラグインのインポート (.zip)",
+    "createTemplateBtn": "+ デフォルトのプラグインを作成",
+    "refreshList": "プラグインを更新",
+    "noPluginsFound": "このサーバーにはプラグインがインストールされていません。",
+    "noPluginsFoundDesc": "コンパイルされたプラグイン アーカイブをインポートするか、ASA サーバ API ローダーをインストールして開始します。",
+    "author": "著者",
+    "version": "バージョン",
+    "apiCompatibility": "API バージョン",
+    "dllStatus": "DLL ステータス",
+    "hasConfig": "構成ファイル",
+    "yes": "はい",
+    "no": "いいえ",
+    "actions": "アクション",
+    "editConfigBtn": "構成の編集",
+    "uninstallBtn": "アンインストール",
+    "configEditorTitle": "プラグイン構成エディター",
+    "selectPluginToEdit": "config.json を表示および変更するプラグインを選択します",
+    "saveChanges": "設定の保存",
+    "resetDefaults": "テンプレートのデフォルトにリセット",
+    "invalidJson": "JSON形式が無効です!保存する前に構文エラーを修正してください。",
+    "configReadOnly": "このプラグインは編集可能な構成ファイルを提供しません。",
+    "openFolderFailed": "フォルダーを開けませんでした: {{error}}",
+    "apiLoaderEnabled": "API ローダーが有効になりました",
+    "apiLoaderDisabled": "API ローダーが無効です",
+    "openFolderTooltip": "ファイル エクスプローラーで Plugins ディレクトリを開きます",
+    "openFolder": "プラグイン フォルダー",
+    "createDefault": "テンプレートの作成",
+    "import": "プラグインのインポート",
+    "serverRunningWarning": "サーバーは現在実行中またはオンラインです。プラグインの状態の変更は、次回の起動時に有効になります。",
+    "loaderLaunchMode": "起動モード: プラグイン ローダーがアクティブ",
+    "normalLaunchMode": "起動モード: 通常サーバーがアクティブ",
+    "loaderLaunchDesc": "{{exe}} を使用してフック プラグインでサーバーを起動します。",
+    "normalLaunchDesc": "{{exe}} を使用しています (プラグイン ローダーが無効になっているか、存在しません)。",
+    "serverControls": "サーバーコントロール",
+    "serverApiToggle": "サーバー API (ローダー)",
+    "loaderMissingDesc": "有効なプラグインをロードするには、プラグイン ローダーが必要です。プラグインの切り替えは、API をインストールするまでロックされます。",
+    "installing": "インストール中...",
+    "autoInstallApi": "自動インストール API",
+    "manualDownload": "マニュアルのダウンロード",
+    "searchPlaceholder": "名前またはフォルダーでフィルターします...",
+    "enableAll": "すべてを有効にする",
+    "disableAll": "すべて無効にする",
+    "refresh": "リストを更新",
+    "scanningFolder": "プラグイン フォルダーをスキャン中...",
+    "noMatchingPlugins": "現在のフィルターに一致するプラグインが見つかりませんでした。",
+    "noPluginsDesc": "ディレクトリ内にプラグインが見つかりません。アーカイブをダウンロードしてインポートし、フックをアクティブにします。",
+    "visitRepo": "公式リポジトリを参照",
+    "by": "{{author}} によって",
+    "depCount": "{{count}} 依存関係",
+    "clickToDisable": "プラグインを無効にする",
+    "clickToEnable": "プラグインを有効にする",
+    "errorDetected": "プラグインの読み込みエラー",
+    "missingTitle": "プラグインがありません",
+    "description": "説明",
+    "noDescription": "このプラグインについては説明がありません。",
+    "dependencies": "依存関係",
+    "depActive": "アクティブ",
+    "depDisabled": "無効",
+    "depMissing": "欠落しています",
+    "installPath": "インストールされたパス",
+    "id": "ID: {{id}}",
+    "delete": "プラグインをアンインストールします",
+    "loadingDetails": "サーバーのディレクトリとプラグインの構成を確認しています。",
+    "unableToLoad": "プラグインは利用できません",
+    "unableToLoadDesc": "このサーバーのプラグイン データをロードできませんでした。サーバー ディレクトリが存在し、アクセス可能であることを確認してください。",
+    "retry": "スキャンを再試行します",
+    "noServerSelected": "サーバーが選択されていません",
+    "selectServerDesc": "ドロップダウンから ASA ゲーム サーバーを選択して、そのフック プラグインを監査および設定します。"
   },
   "fileManager": {
     "title": "ファイルマネージャー",
@@ -1572,7 +2828,35 @@
     "saveFailed": "ファイルの保存に失敗しました: {{error}}",
     "deleteFailed": "ファイルの削除に失敗しました: {{error}}",
     "confirmDelete": "削除の確認",
-    "confirmDeleteMsg": "このファイルを完全に削除してもよろしいですか？この操作は取り消せません。"
+    "confirmDeleteMsg": "このファイルを完全に削除してもよろしいですか？この操作は取り消せません。",
+    "thisPc": "This PC",
+    "quickAccess": "Quick Access",
+    "newFolder": "New Folder",
+    "openInExplorer": "Open in Explorer",
+    "gridView": "Grid View",
+    "listView": "List View",
+    "searchPlaceholder": "Search...",
+    "localDisk": "Local Disk",
+    "arkServers": "ARK Servers",
+    "users": "Users",
+    "rename": "Rename",
+    "delete": "Delete",
+    "folderEmpty": "Folder is empty",
+    "save": "Save",
+    "createNewFolder": "Create New Folder",
+    "folderName": "Folder Name",
+    "cancel": "Cancel",
+    "create": "Create",
+    "renameItem": "Rename Item",
+    "newName": "New Name",
+    "aseTitle": "ASE File Manager",
+    "aseSubtitle": "Browse server files and directories",
+    "emptyDirectory": "Empty directory",
+    "installPath": "Install Path",
+    "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This cannot be undone.",
+    "folderCreated": "Folder created",
+    "itemRenamed": "Item renamed",
+    "itemDeleted": "Item deleted"
   },
   "installDialog": {
     "title": "ARK専用サーバーインストールウィザード",
@@ -1639,7 +2923,21 @@
     "updateNow": "今すぐアップデート",
     "later": "後で",
     "skip": "スキップ",
-    "error": "ダウンロード中にエラーが発生しました。インターネット接続を確認して後ほど再試行してください。"
+    "error": "ダウンロード中にエラーが発生しました。インターネット接続を確認して後ほど再試行してください。",
+    "refetchFailed": "自動アップデーターを初期化できませんでした。アップデートを手動でダウンロードしてください。",
+    "noUpdater": "更新チェックでデータが返されませんでした。もう一度試すか、手動でダウンロードしてください。",
+    "signatureError": "アップデートの署名が一致しません。これは通常、更新が別のキーで署名されたことを意味します。 GitHub Releases から最新バージョンを手動でダウンロードしてください。",
+    "elevationError": "アップデーターがファイルを置き換えるには管理者権限が必要です。管理者としてアプリを再起動するか、アップデートを手動でダウンロードしてください。",
+    "signatureToast": "更新に失敗しました: 署名が一致しません。詳細については、「設定」→「アップデート」を確認してください。",
+    "elevationToast": "更新に失敗しました: 管理者権限が必要です。アプリを右クリック→「管理者として実行」。",
+    "skippedToast": "バージョンがスキップされました。 「設定」でアップデートを再度確認できます。",
+    "relaunchFailed": "再起動に失敗しました。アプリケーションを手動で閉じて再度開いてください。",
+    "readyTitle": "更新準備完了",
+    "readyDesc": "アップデートがダウンロードされ、インストールする準備ができました。アプリケーションを再起動して変更を適用します。",
+    "downloadInstaller": "インストーラーをダウンロード",
+    "downloadPortable": "ポータブル ZIP",
+    "relaunch": "今すぐ再起動",
+    "openGitHub": "Github からダウンロード"
   },
   "errorBoundary": {
     "title": "予期せぬエラーが発生しました",
@@ -1738,7 +3036,15 @@
         "genesis2": "ジェネシス パート 2 (Genesis Part 2)",
         "fjordur": "フィヨルド (Fjordur)",
         "astraeos": "アストライオス (Astraeos)",
-        "forglar": "フォグラー (Forglar)"
+        "forglar": "フォグラー (Forglar)",
+        "clubArk": "クラブアーク",
+        "svartalfheim": "スヴァルタルフヘイム",
+        "amissa": "アミッサ",
+        "insaluna": "インサルナ",
+        "temptressLagoon": "テンプトレス ラグーン",
+        "reverence": "敬意",
+        "crystalIsles": "クリスタル アイルズ",
+        "lostIsland": "ロストアイランド"
       },
       "mapDescriptions": {
         "original": "ARKのすべての冒険の始まりとなる、原始的な生態系が残る孤島マップ",
@@ -1750,7 +3056,9 @@
         "community": "コミュニティの開発者が制作し、公式に採用された非常に完成度の高いマップ",
         "dlc": "ストーリーラインの後半を飾る、未知のハイテク仮想空間や巨大宇宙船マップ",
         "comingSoon": "このマップの公式サポート・リリースは {{date}} を予定しています",
-        "premium": "コミュニティで制作された、非常にクオリティの高いプレミアム有料MODマップ"
+        "premium": "コミュニティで制作された、非常にクオリティの高いプレミアム有料MODマップ",
+        "genesis1": "ユニークなバイオームとミッションを備えたシミュレーション",
+        "clubArk": "ミニゲームを備えたソーシャル ハブ"
       },
       "officialMaps": "ARK公式ワールドマップ",
       "premiumMaps": "プレミアムMOD有料マップ",
@@ -1792,7 +3100,49 @@
       "chooseMap": "Choose Your Map",
       "chooseMapDesc": "Select the world you want to explore",
       "serverDetails": "Server Details",
-      "serverDetailsDesc": "Give your server a name and location"
+      "serverDetailsDesc": "Give your server a name and location",
+      "cancelInstall": "インストールをキャンセル",
+      "cancelling": "キャンセル中...",
+      "cancelSuccess": "インストールは正常にキャンセルされました。",
+      "cancelOptionsTitle": "キャンセルオプション",
+      "cancelKeepFiles": "部分ダウンロードを停止して保持",
+      "cancelKeepFilesDesc": "SteamCMD を停止します。後で再開できるように、ダウンロードしたファイルを保存します。",
+      "cancelDeleteFiles": "サーバー フォルダーの停止と削除",
+      "cancelDeleteFilesDesc": "プロセスを停止し、ターゲット ディレクトリを完全に削除します。",
+      "cancelPurgeCache": "SteamCMD キャッシュの停止とパージ",
+      "cancelPurgeCacheDesc": "プロセスを停止し、ダウンロード キャッシュを削除し、リセットします。",
+      "minimize": "背景に最小化",
+      "minimizeBtn": "最小化する",
+      "dlcMaps": "DLC拡張",
+      "moddedMaps": "改造された拡張マップ",
+      "moddedMapSuccess": "✓ 起動構成は自動的に設定されます",
+      "upcomingMaps": "近日公開",
+      "maxPlayers": "最大プレイヤー数",
+      "maxPlayersDesc": "サーバー上で許可される最大プレイヤー数",
+      "adminPassword": "管理者パスワード",
+      "adminPasswordDesc": "サーバーの管理者権限を取得するために使用するパスワード (デフォルト: admin123)",
+      "serverPassword": "サーバーのパスワード",
+      "serverPasswordDesc": "プレイヤーがサーバーに参加するにはパスワードが必要です",
+      "preflight": "飛行前のレビュー",
+      "preflightDesc": "インストールを開始する前にすべての詳細を確認してください",
+      "preflightWarning": "一部の設定には注意が必要です - 以下の警告を確認してください",
+      "preflightOk": "すべての設定は良好です。展開する準備ができています",
+      "reviewIdentity": "アイデンティティ",
+      "reviewGameMode": "ゲームモード",
+      "reviewNetwork": "ネットワーク",
+      "portCollision": "ポートの衝突が検出されました — ゲーム、クエリ、および RCON ポートはすべて異なる必要があります",
+      "privilegedPorts": "1024 未満のポートには特権があり、管理者アクセスが必要になる場合があります",
+      "reviewSecurity": "セキュリティ",
+      "publicAccess": "パブリック",
+      "weakPassword": "パスワードが短いです — セキ​​ュリティを強化するために 6 文字以上の使用を検討してください",
+      "reviewStorage": "ストレージ",
+      "installPath": "インストール パス",
+      "downloadWarning": "SteamCMD は最大 60 GB のサーバー ファイル (AppID 2430930) をダウンロードします",
+      "tryAgain": "もう一度試してください",
+      "repairSteamcmd": "SteamCMD を修復する",
+      "clearCache": "キャッシュをクリア",
+      "diagnosticTips": "トラブルシューティングのヒント",
+      "install": "インストール"
     },
     "importServer": {
       "title": "ローカルの既存ARKサーバーをインポートする",
@@ -1814,7 +3164,10 @@
         "rcon": "以前のRCON管理接続設定"
       },
       "success": "サーバー「{{name}}」のインポートおよび管理端末への登録が正常に完了しました！",
-      "error": "サーバーのインポートに失敗しました"
+      "error": "サーバーのインポートに失敗しました",
+      "previewError": "フォルダー構造の検査に失敗しました。パスを確認してください。",
+      "portsResolved": "ポートの競合は正常に解決されました。",
+      "aseSubtitle": "既存の ARK: Survival Evolved サーバーをインポートします"
     },
     "importSave": {
       "title": "ローカルシングルプレイヤーセーブデータのサーバー移行",
@@ -1831,7 +3184,9 @@
       "folderImportDesc": "【完全データ引き継ぎ（推奨）】：各プレイヤーのキャラクターレベル、飼育した恐竜、トライブの所有権、アイテムスロットのデータがすべて100%引き継がれます！",
       "startImport": "移行処理を実行する",
       "success": "ローカルのセーブデータが専用サーバーに正常に移行されました！お疲れ様でした！",
-      "error": "セーブデータの移行処理中にエラーが発生しました"
+      "error": "セーブデータの移行処理中にエラーが発生しました",
+      "validationError": "ターゲット サーバーとソース ファイルまたはフォルダーを選択してください。",
+      "aseSubtitle": "セーブデータを ASE サーバーにインポートします"
     },
     "welcome": {
       "title": "おかえりなさい、",
@@ -1999,5 +3354,394 @@
         "assign": "許可登録"
       }
     }
+  },
+  "boost": {
+    "loadFailed": "ブーストプロファイルのロードに失敗しました",
+    "nameRequired": "プロファイル名は必須です",
+    "saveSuccess": "Boost プロファイルが正常に保存されました。",
+    "confirmDelete": "このプロファイルを削除してもよろしいですか?",
+    "deleteSuccess": "ブースト プロファイルが削除されました",
+    "activatingText": "サーバーを再起動してイベント レートを適用しています...",
+    "activateSuccess": "ブーストイベントが無事発動しました！",
+    "deactivatingText": "サーバーを再起動して元の料金を復元しています...",
+    "deactivateSuccess": "ブーストが無効化され、元のレートが復元されました。",
+    "title": "ブーストマネージャー",
+    "titleAse": "ブースト マネージャー (ASE)",
+    "subtitle": "一時的な季節イベントを安全に構成し、サーバー料金を倍増します。",
+    "newProfile": "+ 新しいプロフィール",
+    "bannerTitle": "ブーストマネージャーはどのように機能しますか?",
+    "bannerDesc": "ブースト プロファイルをアクティブ化すると、マネージャーは RCON 経由で定期的なブロードキャストを実行してプレーヤーに通知します。次に、サーバーを安全にシャットダウンし、元の構成のバックアップ (.boostbackup) を作成し、新しい乗算器を挿入します。非アクティブ化すると、バックアップ構成が完全に復元されます。",
+    "setupTip": "自動化するには、スケジューラで BoostStart / BoostEnd タスクを構成します",
+    "activeEvent": "アクティブなイベント",
+    "deactivate": "イベントを非アクティブにする",
+    "noActiveEvent": "このサーバーにはアクティブなブースト プロファイルがありません",
+    "loading": "プロファイルをロード中...",
+    "noProfiles": "ブースト プロファイルが登録されていません",
+    "noProfilesDesc": "新しいプロファイルを作成して、季節料金の構成を開始します。",
+    "createFirst": "最初のプロファイルを作成する",
+    "active": "アクティブ",
+    "activateBtn": "サーバーでアクティブ化",
+    "editTitle": "ブーストプロファイルの編集",
+    "newTitle": "新しいブースト プロファイル",
+    "profileName": "プロファイル名",
+    "profileNamePlaceholder": "例えば2x 週末、イースター イベント"
+  },
+  "crashDoctor": {
+    "title": "クラッシュドクターとマップリカバリ",
+    "refresh": "再スキャンして診断します",
+    "repairSuccess": "サーバー環境が修復され、起動が開始されました。",
+    "diagnosing": "クラッシュ ダンプとサーバー ログを分析中...",
+    "primaryCause": "検出された主な原因",
+    "quarantineProxyDlls": "隔離プロキシ DLL (.disabled)",
+    "purgeModCache": "CFCore Mod キャッシュをパージ",
+    "wipeWildDinos": "Wild Dino Wipe で起動 (-ForceRespawnDinos)",
+    "validateFiles": "SteamCMD フルファイル検証を実行する",
+    "safeRecoveryMode": "セーフ リカバリ モード (MOD なしで開始)",
+    "diagnosingDesc": "プロキシ DLL フック、MOD キャッシュ、ワールド セーブの整合性を検査しています",
+    "quarantineDesc": "",
+    "purgeModCacheDesc": "即座のプロセスクラッシュを防ぐために、version.dll、dxgi.dll、winhttp.dll を安全に無効にします。 ShooterGame/Binaries/Win64/ShooterGame/Mods をクリーンアップして、新しい MOD アセットを再コンパイルします",
+    "wipeWildDinosDesc": "更新されたマップでワールドの読み込みをクラッシュさせる破損したスポーン アクターを削除します",
+    "validateFilesDesc": "欠落または不完全なゲーム エンジン バイナリを修復します (2 ～ 5 分かかります)",
+    "safeRecoveryDesc": "純粋なバニラ マップを起動して、基本ゲームとファイルの健全性を確認します",
+    "identifiedFactors": "特定されたクラッシュ要因 ({{count}})",
+    "recentLogsTitle": "最近のクラッシュ ログと致命的エラー コールスタック ({{count}} 行)",
+    "customizePipeline": "修復パイプライン オプションのカスタマイズ",
+    "healing": "サーバー環境を修復中...",
+    "healedCleanly": "修復され、きれいに起動されました",
+    "autoFixLaunch": "1クリックで自動修正してマップを起動",
+    "metrics": {
+      "proxyDlls": "プロキシ DLL",
+      "activeCrashing": "{{count}} アクティブ (クラッシュ)",
+      "cleanQuarantined": "クリーン (隔離済み)",
+      "noHooks": "アクティブなフックがありません",
+      "modCache": "Mod キャッシュ",
+      "cachedCount": "{{count}} キャッシュされました",
+      "mbCompiled": "{{size}} MB コンパイル済み",
+      "worldSave": "ワールドセーブ",
+      "saveOk": "マップ保存 OK",
+      "freshMap": "新しい/新鮮な地図",
+      "saveFiles": "{{size}} MB ({{count}} ファイル)",
+      "crashErrors": "クラッシュ エラー",
+      "detectedCount": "{{count}} が検出されました",
+      "inShooterLog": "ShooterGame.log 内",
+      "noAssertErrors": "アサートエラーはありません"
+    }
+  },
+  "translator": {
+    "installSuccess": "Chat Translator プラグインが正常にインストールされました。",
+    "installError": "プラグインのインストールに失敗しました",
+    "confirmUninstall": "Chat Translator をアンインストールしてもよろしいですか?これにより、ローカル構成が削除されます。",
+    "uninstallSuccess": "Chat Translator プラグインがアンインストールされました。",
+    "uninstallError": "プラグインのアンインストールに失敗しました",
+    "configSaved": "翻訳設定が正常に更新されました。",
+    "configSaveError": "構成を保存できませんでした",
+    "fieldsRequired": "Steam IDとプレイヤー名は必須です。",
+    "prefSaved": "プレーヤーの翻訳設定が更新されました。",
+    "prefSaveError": "プレーヤーの設定を保存できませんでした",
+    "confirmDeletePref": "このプレーヤー設定を削除してもよろしいですか?",
+    "prefDeleted": "設定が削除されました。",
+    "prefDeleteError": "設定を削除できませんでした",
+    "confirmResetStats": "すべての翻訳使用カウンタをリセットしてもよろしいですか?",
+    "statsReset": "統計が正常にリセットされました。",
+    "statsResetError": "統計をリセットできませんでした",
+    "title": "チャット翻訳者",
+    "subtitle": "ゲーム内サーバー チャットをさまざまな言語のプレーヤー間で動的に自動翻訳します",
+    "noServers": "管理するサーバーを選択してください。",
+    "pluginNotInstalled": "翻訳プラグインがインストールされていません",
+    "pluginDescription": "Chat Translator を使用すると、ARK サーバーでのシームレスな異言語コミュニケーションが可能になります。ゲーム内サーバー チャットにフックし、DeepL または LibreTranslate を使用してメッセージを動的に翻訳します。",
+    "installPlugin": "チャット トランスレータをインストールする",
+    "totalTrans": "翻訳された合計文字数",
+    "apiProvider": "翻訳 API",
+    "prefCount": "プレーヤーの設定",
+    "cacheHits": "キャッシュ保存効率",
+    "tabOverview": "概要",
+    "tabSettings": "API と設定",
+    "tabPlayers": "プレーヤーの言語設定",
+    "inGameTitle": "ゲーム内での使用法とプレイヤーコマンド",
+    "usageInstructions": "Chat Translator プラグインをインストールして有効にすると、生存者間のチャット メッセージがリアルタイムで自動的に翻訳されます。プレイヤーはカスタム チャット コマンドを使用して独自の設定を構成できます:",
+    "cmdLang": "優先言語を設定する",
+    "cmdLangDesc": "受信したすべての翻訳のターゲット言語を変更します。例えば。 /lang tr は、プレーヤーのターゲット言語をトルコ語に設定します。",
+    "cmdTrans": "翻訳を切り替え",
+    "cmdTransDesc": "プレーヤーの自動翻訳を有効または無効にします。たとえば、/translate off は投稿の翻訳を停止します。",
+    "uninstallPluginBtn": "Chat Translator をアンインストールする",
+    "cacheDetails": "キャッシュ統計",
+    "totalRequests": "API リクエストの総数",
+    "totalSaved": "キャッシュ/保存されたリクエスト",
+    "activeCache": "アクティブ キャッシュ レート",
+    "cacheNotice": "翻訳をキャッシュすると API ルックアップ文字が節約され、商用翻訳エンドポイント (DeepL Pro など) を使用する場合の請求コストが大幅に削減されます。",
+    "resetStatsBtn": "使用量カウンターをリセット",
+    "settingsSetup": "API 構成と変換設定",
+    "generalSettings": "一般設定",
+    "enablePlugin": "翻訳サービスを有効にする",
+    "enablePluginDesc": "チャットで自動翻訳フックを有効にする",
+    "defaultLang": "デフォルトの翻訳ターゲット",
+    "transSys": "アラート/システムの翻訳",
+    "transSysDesc": "ゲーム内の参加/退出アラートとサーバー ブロードキャストを処理する",
+    "enableCache": "クエリキャッシュを有効にする",
+    "enableCacheDesc": "チャット行を繰り返すために翻訳 API を再取得しないようにします",
+    "apiSettings": "翻訳 API プロバイダー",
+    "apiProviderLabel": "プロバイダー API エンジン",
+    "deeplKey": "DeepL API 認証キー",
+    "libreUrl": "LibreTranslate URL / キー",
+    "playerLanguages": "プレーヤー言語のオーバーライド",
+    "addPref": "オーバーライドを追加",
+    "searchPlayers": "Steam ID または名前を検索...",
+    "noMatchingPrefs": "プレーヤーの設定は保存されません。",
+    "player": "プレーヤー",
+    "steamId": "スチーム ID",
+    "targetLang": "ターゲット言語",
+    "lastUpdated": "最終更新日",
+    "actions": "アクション",
+    "prefDetails": "言語オーバーライド マッピング",
+    "playerSteamId": "プレイヤーの Steam ID",
+    "playerNameLabel": "プレイヤー名",
+    "targetLanguage": "優先言語"
+  },
+  "tribeLog": {
+    "title": "ASE トライブ ログ ビューア",
+    "subtitle": "自分の部族の歴史を解析して探索する",
+    "totalEntries": "エントリ総数",
+    "deaths": "死亡者",
+    "tames": "テイムス",
+    "destroyed": "破壊されました",
+    "searchPlaceholder": "部族のログを検索...",
+    "noEntries": "このサーバーの部族ログ エントリは見つかりませんでした。",
+    "noEntriesDesc": "ゲーム内でイベントが発生した後、部族のログがここに表示されます"
+  },
+  "upnp": {
+    "title": "ASE UPnP ポート転送",
+    "subtitle": "サーバー アクセス用にルーターを自動的に構成する",
+    "gateway": "UPnP IGD ゲートウェイのステータス",
+    "gatewayAddr": "ゲートウェイ ローカル アドレス",
+    "externalIp": "外部パブリック IP",
+    "status": "UPnP IGD ステータス",
+    "available": "IGD マッピングが利用可能",
+    "clickDiscover": "[ゲートウェイの検出] をクリックしてブロードキャストし、UPnP ルーターのアナウンスを聞きます。",
+    "results": "転送結果",
+    "forwarded": "転送されました",
+    "portForward": "ポートフォワーディング",
+    "remove": "削除"
+  },
+  "exportProfile": {
+    "noSelection": "エクスポートするサーバー プロファイルを少なくとも 1 つ選択してください。",
+    "saveSuccess": "{{count}} プロファイルが正常にエクスポートされました。",
+    "copySuccess": "{{count}} サーバー プロファイルをクリップボードにコピーしました。",
+    "modalTitle": "サーバー プロファイルのエクスポート",
+    "modalSubtitle": "サーバー構成、ネットワーク ポート、レート、modlist を JSON プロファイル バンドルにエクスポート",
+    "searchPlaceholder": "サーバーをフィルターします...",
+    "selectServersTitle": "1. 含めるプロファイルを選択します",
+    "optionsTitle": "2. 含めるモジュールとコンポーネントを選択します",
+    "tabs": {
+      "setup": "セットアップと選択",
+      "preview": "JSON プレビュー"
+    },
+    "actions": {
+      "selectAll": "すべてのプロファイルをエクスポート",
+      "clear": "選択をクリア"
+    },
+    "buttons": {
+      "copy": "JSON をコピー",
+      "save": "ファイル (.json) に保存"
+    }
+  },
+  "installCenter": {
+    "title": "インストール センター",
+    "activeJobs": "{{count}} は実行中にインストールされます",
+    "setupDraftActive": "1 つのセットアップ ドラフトが最小化されました",
+    "allDone": "すべてのインストールが完了しました",
+    "clearAll": "完了したジョブをクリア",
+    "setupDraft": "セットアップ ドラフト",
+    "resume": "サーバーセットアップを再開する",
+    "discard": "ドラフトを破棄",
+    "viewLogs": "インストール ログを表示する",
+    "dismiss": "却下"
+  },
+  "donationAlert": {
+    "title": "開発をサポートします",
+    "description": "このサーバー マネージャーは無料でオープンソースです。サーバーの管理に役立つ場合は、継続的なアップデートと機能をサポートするために少額の寄付を検討してください。",
+    "later": "後で通知する"
+  },
+  "aiAssistant": {
+    "title": "インフィニティ AI",
+    "subtitle": "自律型サーバー管理アシスタント",
+    "placeholder": "Infinity AI に質問してください..."
+  },
+  "enabled": "有効",
+  "disabled": "無効",
+  "closeApp": {
+    "title": "Close Application?",
+    "subtitle": "Choose how you want to handle closing the application",
+    "warningServersRunning": "Warning: {{count}} Active Server Running",
+    "warningServersRunning_plural": "Warning: {{count}} Active Servers Running",
+    "warningServersDesc": "Completely exiting will stop background cross-chat relays and RCON monitoring.",
+    "minimizeToTray": "Minimize to System Tray",
+    "minimizeToTrayDesc": "Keeps game servers & cross-chat running silently in background",
+    "exitApp": "Exit Application Completely",
+    "exitAppDesc": "Shut down all application processes and exit",
+    "rememberChoice": "Remember this choice (Don't ask me again)",
+    "confirm": "Confirm Action"
+  },
+  "appUpdate": {
+    "updateAvailable": "Update Available",
+    "upToDate": "You're Up to Date",
+    "updateAvailableSubtitle": "A new release of ARK Server Manager is ready",
+    "upToDateSubtitle": "You are running the latest version available",
+    "currentVersion": "Current",
+    "latestVersion": "Latest",
+    "releaseNotes": "Release Notes",
+    "copied": "Copied!",
+    "copyNotes": "Copy Notes",
+    "noNotes": "No release notes provided for this release.",
+    "installUpdate": "Install Update Now",
+    "close": "Close"
+  },
+  "titleBar": {
+    "checkUpdates": "Check Updates",
+    "checkUpdatesTooltip": "Click to check for application updates",
+    "serversOnline": "SERVERS: ONLINE",
+    "serversStandby": "SERVERS: STANDBY",
+    "serversOffline": "SERVERS: OFFLINE",
+    "statusOnlineTooltip": "Game Server Status: {{count}} active server instance(s) running",
+    "statusStandbyTooltip": "Game Server Status: All {{count}} configured servers are currently stopped (Standby)",
+    "statusOfflineTooltip": "Game Server Status: No game servers created or running currently (Offline)",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restoreDown": "Restore Down",
+    "close": "Close"
+  },
+  "hardware": {
+    "title": "Hardware & CPU Allocation",
+    "highPerfEngine": "High Performance Engine",
+    "subtitle": "Optimize process priorities and isolate specific physical/logical CPU cores per ARK server instance to eliminate micro-stuttering and core contention.",
+    "logicalCores": "Logical Cores",
+    "threads": "Threads",
+    "physicalCores": "Physical Cores",
+    "cores": "Cores",
+    "refreshTelemetry": "Refresh Telemetry",
+    "targetServer": "Target Server",
+    "useAllCores": "Use All CPU Cores (Automatic Load Balancing)",
+    "useAllCoresDesc": "Windows OS will dynamically distribute server thread load across all available threads",
+    "coreIsolation": "Core Isolation Mode",
+    "coreIsolationDesc": "Dedicated affinity mask configured for this instance",
+    "cpuAffinity": "CPU Affinity & Core Isolation",
+    "cpuAffinityDesc": "Assign specific CPU cores to this server instance",
+    "saveAllocation": "Save Hardware Allocation",
+    "saving": "Saving...",
+    "presets": "Presets",
+    "presetAll": "All Cores",
+    "presetPhysical": "Physical Only",
+    "presetEven": "Even Cores",
+    "presetOdd": "Odd Cores",
+    "presetFirstHalf": "First Half",
+    "presetSecondHalf": "Second Half",
+    "presetSkipOs": "Skip Core 0 (OS)",
+    "presetClear": "Clear All",
+    "processPriority": "Process Scheduling Priority",
+    "processPriorityDesc": "Windows CPU scheduling class for the server executable",
+    "priorityIdle": "Idle",
+    "priorityBelowNormal": "Below Normal",
+    "priorityNormal": "Normal",
+    "priorityAboveNormal": "Above Normal",
+    "priorityHigh": "High (Recommended)",
+    "priorityRealTime": "RealTime ⚠️",
+    "priorityIdleDesc": "Lowest priority. Only receives CPU time when system is idle.",
+    "priorityBelowNormalDesc": "Slightly reduced priority for background support services.",
+    "priorityNormalDesc": "Standard Windows process priority balance.",
+    "priorityAboveNormalDesc": "Ensures process priority over standard desktop applications.",
+    "priorityHighDesc": "Top priority for dedicated game servers. Prevents frame stutter.",
+    "priorityRealTimeDesc": "Highest possible execution priority. May lock host OS if overloaded.",
+    "realTimeWarningTitle": "Danger: RealTime Priority Warning",
+    "realTimeWarningDesc": "RealTime priority can starve critical Windows operating system threads, input drivers, and network stacks. If the game server hangs, your machine may become unresponsive.",
+    "understandRisk": "I understand the risks, set RealTime",
+    "cancel": "Cancel",
+    "coreOverlapWarning": "Warning: Core overlap detected with other server instances ({{servers}})",
+    "affinityMaskHex": "Affinity Mask (Hex)",
+    "copyMask": "Copy Mask",
+    "aseTitle": "ASE Hardware",
+    "aseSubtitle": "CPU affinity and process priority for ShooterGameServer.exe",
+    "aseAffinityDesc": "Select which CPU cores ShooterGameServer.exe should use. Leave all unchecked to use all cores.",
+    "selected": "Selected",
+    "core": "Core"
+  },
+  "wiki": {
+    "title": "Knowledge Base",
+    "guides": "Guides",
+    "subtitle": "Comprehensive technical guides and operational reference for ARK Server Manager.",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "hideIndex": "Hide Index",
+    "showIndex": "Show Index",
+    "searchPlaceholder": "Search all guides...",
+    "all": "All",
+    "coreServices": "Core Services",
+    "automationAi": "Automation & AI",
+    "modsFiles": "Mods & Files",
+    "monitoringLogs": "Monitoring & Logs",
+    "integrationsTools": "Integrations & Tools",
+    "noGuides": "No matching guides found",
+    "noGuidesDesc": "Try resetting your search query or filters.",
+    "selectGuide": "Select a Guide to Begin",
+    "selectGuideDesc": "Choose a topic from the sidebar index to view detailed operational guides, setup procedures, and troubleshooting steps."
+  },
+  "advanced": {
+    "title": "Boot Launch Parameters",
+    "subtitle": "Manage command-line switches, performance flags, and execution priority",
+    "unsavedChanges": "Unsaved Changes",
+    "noServersAvailable": "No servers available",
+    "discard": "Discard",
+    "discardTitle": "Discard unsaved changes",
+    "saveParameters": "Save Parameters",
+    "saving": "Saving...",
+    "executeServer": "Execute Server",
+    "executing": "Executing...",
+    "executeTitle": "Execute server directly with configured boot parameters",
+    "safetyBannerTitle": "Boot Command Line Safety & Override Matrix",
+    "safetyBannerDesc": "Parameters added here are directly passed to ArkAscendedServer.exe on boot. Use visual flag toggles below to prevent syntax typos.",
+    "safetyBannerDescASE": "Parameters added here are directly passed to ShooterGameServer.exe on boot. Use visual flag toggles below to prevent syntax typos.",
+    "activeSwitches": "Active Switches",
+    "flags": "Flags",
+    "rawInspectorTitle": "Raw Custom Arguments & Command Inspector",
+    "clearAll": "Clear All Flags",
+    "customArgsLabel": "Custom Launch Arguments",
+    "customArgsPlaceholder": "e.g. -NoBattlEye -ForceAllowCaveFlyers (toggle flags below to add)",
+    "bootCommandLine": "Boot Executable Command Line",
+    "copyCommand": "Copy Command",
+    "copyBatScript": "Copy .bat Script",
+    "presetsTitle": "One-Click Parameter Presets",
+    "presetsSubtitle": "Click to append optimized flag profiles",
+    "presetMaxPerf": "Max Performance Profile",
+    "presetMaxPerfDesc": "RAM & mesh stasis tuning (-structurememopts -nomansky -lowmemory)",
+    "presetHardenedSecurity": "Hardened Security & Anti-Dupe",
+    "presetHardenedSecurityDesc": "Strict spawn validation & dupe prevention flags",
+    "presetCaveFlyer": "Cave Flyer Unlocked",
+    "presetCaveFlyerDesc": "Force allow mounting & flying in cave volumes",
+    "moddedMapsPresets": "Modded Map Launch Presets",
+    "appliedPreset": "Applied {{name}} profile",
+    "active": "Active",
+    "apply": "+ Apply",
+    "matrixTitle": "Visual Parameter Matrix",
+    "matrixSubtitle": "Toggle standard server switches directly into your boot configuration",
+    "filterPlaceholder": "Filter parameters...",
+    "catAll": "All",
+    "catSecurity": "Security",
+    "catGameplay": "Gameplay",
+    "catPerformance": "Performance",
+    "catNetwork": "Network",
+    "catEvents": "Events",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "optimizerTitle": "Server Manager Performance & Hardware Optimizer",
+    "optimizerSubtitle": "Real-time memory vacuuming, process scheduling priority, and eco-mode controls",
+    "memoryVacuum": "Memory Vacuum",
+    "memoryVacuumDesc": "Force garbage collection to trim unused background RAM allocation.",
+    "optimizeRam": "Optimize System RAM",
+    "processPriority": "Process Priority",
+    "processPriorityDesc": "Raise manager CPU scheduling thread priority under heavy cluster load.",
+    "priorityNormal": "Normal",
+    "priorityHigh": "High Priority",
+    "ultraEcoMode": "Ultra Eco Mode",
+    "ultraEcoModeDesc": "Aggressively trims memory footprint when running idle in background.",
+    "ecoModeActive": "Eco Mode Active",
+    "enableEcoMode": "Enable Eco Mode"
   }
 }

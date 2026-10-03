@@ -359,6 +359,7 @@ pub async fn stop_ase_server(server_id: i64, state: State<'_, AppState>) -> Resu
 pub async fn restart_ase_server(app: AppHandle, server_id: i64, wipe_dinos: Option<bool>, state: State<'_, AppState>) -> Result<(), String> {
     println!("🔄 Restarting ASE server {} (graceful stop first, wipe_dinos: {:?})", server_id, wipe_dinos);
     let _ = AseLauncher::stop_server(server_id, &state).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
     AseLauncher::spawn_server(app, server_id, &state, wipe_dinos).await
 }
 

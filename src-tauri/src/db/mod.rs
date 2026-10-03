@@ -156,6 +156,9 @@ impl Database {
         // Mod Watchdog Settings table migration
         Self::run_mod_watchdog_migration(conn)?;
 
+        // Servers table process_id migration
+        Self::run_servers_process_id_migration(conn)?;
+
         Ok(())
     }
 
@@ -1831,6 +1834,28 @@ impl Database {
                 FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
             );"
         )?;
+        Ok(())
+    }
+
+    fn run_servers_process_id_migration(conn: &Connection) -> Result<()> {
+        let has_column = {
+            let mut stmt = conn.prepare("PRAGMA table_info(servers)")?;
+            let mut rows = stmt.query([])?;
+            let mut found = false;
+            while let Some(row) = rows.next()? {
+                let name: String = row.get(1)?;
+                if name == "process_id" {
+                    found = true;
+                    break;
+                }
+            }
+            found
+        };
+
+        if !has_column {
+            conn.execute("ALTER TABLE servers ADD COLUMN process_id INTEGER", [])?;
+            println!("  ✅ Added missing process_id column to servers table.");
+        }
         Ok(())
     }
 }

@@ -5,6 +5,26 @@ All notable changes to the ARK ASA Server Manager are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.28] — 2026-10-03
+
+### Fixed & Improved
+- **🛡️ Fix Afternoon & Scheduled Restarts Failing to Start Up**:
+  - Resolved critical issue where afternoon/morning scheduled restarts and manual reboots cleanly stopped servers and completed pre-restart backups, but failed to start servers back up.
+  - Removed `game_port + 1` from process termination target ports in `restart_server` and `launcher::stop_server`, preventing restart sequences from force-killing adjacent cluster servers running on consecutive ports (e.g. 7777 and 7778).
+  - Removed invalid `-PeerPort` command line argument and redundant `("Peer", game_port + 1)` port check from `ProcessManager::start_server` which caused consecutive ASA cluster nodes to falsely collide and abort startup.
+  - Implemented protocol-aware port checking (`is_udp_port_in_use` for Game/Query UDP sockets and `is_tcp_port_in_use` with active connection probing for RCON TCP sockets), preventing post-shutdown Windows `TIME_WAIT` socket states from falsely timing out and aborting server launches.
+  - Updated startup conflict validation so that offline/dormant server profiles in the database never block active server launches.
+- **⚡ Fix Map Starts Becoming Unresponsive in Server Manager**:
+  - Fixed `checkPortsBeforeStart` in Server Manager to only intercept on active port conflicts (`has_active_conflicts`) rather than offline/inactive profile matches, allowing manual map launches to respond immediately.
+  - Updated `PortConflictModal` to always provide an active "Start Anyway" button so administrators are never locked out of starting their servers.
+  - Updated frontend `portAllocator` to restrict Raw Port (`gp + 1`) reservations to ASE servers only, allowing ASA servers to use consecutive ports without conflict warnings.
+- **📢 Startup Observability & Failure Reporting**:
+  - Added real-time in-app console logging (`server_log` event) and Discord webhook failure embed alerts when a server startup fails, providing immediate diagnostic error details rather than silent failure.
+- **🌐 Comprehensive Internationalization & UI Polish**:
+  - Synchronized and updated localization dictionaries across all supported languages (DE, EN, ES, FR, IT, JA, KO, PT-BR, RU, TA, TR, ZH-CN, ZH-TW).
+
+---
+
 ## [4.6.27] — 2026-09-24
 
 ### Fixed & Improved

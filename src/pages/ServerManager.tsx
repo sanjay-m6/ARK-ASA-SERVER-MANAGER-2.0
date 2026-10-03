@@ -302,7 +302,7 @@ export default function ServerManager() {
     const checkPortsBeforeStart = async (serverId: number): Promise<boolean> => {
         try {
             const result = await checkPortConflicts(serverId);
-            if (result.has_active_conflicts || result.has_inactive_conflicts) {
+            if (result.has_active_conflicts) {
                 setConflictResult(result);
                 setShowConflictModal(true);
                 return false;
@@ -1295,7 +1295,7 @@ export default function ServerManager() {
                                 title="Start Server"
                             >
                                 <Play className="w-3.5 h-3.5 fill-current" />
-                                <span>Start</span>
+                                <span>{t('serverManager.buttons.start', 'Start')}</span>
                             </button>
                             {/* Start Options Dropdown */}
                             <div className="absolute bottom-full left-0 mb-2 w-52 bg-[var(--surface)] backdrop-blur-xl border border-[var(--border)] rounded-xl shadow-2xl opacity-0 invisible group-hover/gridstart:opacity-100 group-hover/gridstart:visible transition-all duration-200 z-50 overflow-hidden scale-95 group-hover/gridstart:scale-100 p-1">
@@ -1307,7 +1307,7 @@ export default function ServerManager() {
                                     className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg transition-colors flex items-center gap-2 cursor-pointer font-semibold"
                                 >
                                     <Play className="w-3.5 h-3.5" />
-                                    <span>Normal Start</span>
+                                    <span>{t('serverManager.actions.normalStart', 'Normal Start')}</span>
                                 </button>
                                 <button
                                     onClick={(e) => {
@@ -1318,7 +1318,7 @@ export default function ServerManager() {
                                     title="Start server without loading any mods"
                                 >
                                     <Shield className="w-3.5 h-3.5" />
-                                    <span>Start (No Mods)</span>
+                                    <span>{t('serverManager.actions.startNoMods', 'Start (No Mods)')}</span>
                                 </button>
                                 <button
                                     onClick={(e) => {
@@ -1329,7 +1329,7 @@ export default function ServerManager() {
                                     title="Diagnose map crash logs and run automated recovery"
                                 >
                                     <Stethoscope className="w-3.5 h-3.5 text-rose-500" />
-                                    <span>Crash Doctor & Auto-Fix</span>
+                                    <span>{t('serverManager.actions.crashDoctor', 'Crash Doctor & Auto-Fix')}</span>
                                 </button>
                             </div>
                         </div>
@@ -1344,7 +1344,7 @@ export default function ServerManager() {
                                 title="Diagnose and 1-Click Fix Map Crash"
                             >
                                 <Stethoscope className="w-3.5 h-3.5 text-rose-500" />
-                                <span>Fix Crash</span>
+                                <span>{t('serverManager.actions.fixCrash', 'Fix Crash')}</span>
                             </button>
                         )}
                     </div>
@@ -1368,8 +1368,8 @@ export default function ServerManager() {
                             >
                                 <Timer className="w-4 h-4 text-amber-500 shrink-0" />
                                 <div className="flex flex-col">
-                                    <span className="font-bold">Timed Shutdown</span>
-                                    <span className="text-[10px] text-[var(--text-muted)] font-normal">Countdown with broadcasts</span>
+                                    <span className="font-bold">{t('serverManager.actions.timedShutdown', 'Timed Shutdown')}</span>
+                                    <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.timedShutdownDesc', 'Countdown with broadcasts')}</span>
                                 </div>
                             </button>
                             <button
@@ -1378,8 +1378,8 @@ export default function ServerManager() {
                             >
                                 <Square className="w-4 h-4 fill-current text-red-500 shrink-0" />
                                 <div className="flex flex-col">
-                                    <span className="font-bold">Immediate Stop</span>
-                                    <span className="text-[10px] text-[var(--text-muted)] font-normal">Halt process right away</span>
+                                    <span className="font-bold">{t('serverManager.actions.immediateStop', 'Immediate Stop')}</span>
+                                    <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.immediateStopDesc', 'Halt process right away')}</span>
                                 </div>
                             </button>
                         </div>
@@ -1407,28 +1407,28 @@ export default function ServerManager() {
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg transition-colors flex items-center gap-2"
                             >
                                 <RotateCw className="w-3.5 h-3.5" />
-                                <span>Normal Restart</span>
+                                <span>{t('serverManager.actions.normalRestart', 'Normal Restart')}</span>
                             </button>
                             <button
                                 onClick={() => handleRestartServer(server.id, true)}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-amber-500/15 text-amber-700 dark:text-amber-400 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)]"
                             >
                                 <RefreshCw className="w-3.5 h-3.5 text-amber-500" />
-                                <span>Restart & Wipe Dinos</span>
+                                <span>{t('serverManager.actions.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
                             </button>
                             <button
                                 onClick={() => handleHardcoreRetry(server.id)}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-red-500/15 text-red-700 dark:text-red-400 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)]"
                             >
                                 <Shield className="w-3.5 h-3.5" />
-                                <span>Deep Repair</span>
+                                <span>{t('serverManager.actions.deepRepair', 'Deep Repair')}</span>
                             </button>
                             <button
                                 onClick={() => handleOpenCrashDoctor(server)}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-rose-500/15 text-rose-700 dark:text-rose-400 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)] font-semibold"
                             >
                                 <Stethoscope className="w-3.5 h-3.5 text-rose-500" />
-                                <span>Crash Doctor</span>
+                                <span>{t('serverManager.actions.crashDoctorDiag', 'Crash Doctor')}</span>
                             </button>
                         </div>
                     </div>
@@ -1485,7 +1485,7 @@ export default function ServerManager() {
                             <label className="w-full text-left px-3 py-2 hover:bg-amber-500/15 text-amber-700 dark:text-amber-300 rounded-lg transition-colors flex items-center justify-between border-t border-[var(--border)] cursor-pointer text-xs">
                                 <div className="flex items-center gap-2">
                                     <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-                                    <span className="text-xs font-semibold">Auto-Update on Release</span>
+                                    <span className="text-xs font-semibold">{t('serverManager.actions.autoUpdateRelease', 'Auto-Update on Release')}</span>
                                 </div>
                                 <input
                                     type="checkbox"
@@ -1511,14 +1511,14 @@ export default function ServerManager() {
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg transition-colors flex items-center gap-2"
                             >
                                 <Settings className="w-3.5 h-3.5 text-violet-500" />
-                                <span>Config Editor</span>
+                                <span>{t('serverManager.actions.configEditor', 'Config Editor')}</span>
                             </button>
                             <button
                                 onClick={() => navigate('/config', { state: { serverId: server.id, initialMode: 'gus' } })}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-amber-500/15 text-amber-700 dark:text-amber-300 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)]"
                             >
                                 <FileText className="w-3.5 h-3.5 text-amber-500" />
-                                <span>Edit Raw INI Files</span>
+                                <span>{t('serverManager.actions.editRawIni', 'Edit Raw INI Files')}</span>
                             </button>
                             <button
                                 onClick={(e) => handleSyncFromIni(server.id, e)}
@@ -1526,49 +1526,49 @@ export default function ServerManager() {
                                 title="Sync Max Players, Server IP, RCON and Ports from GameUserSettings.ini or Beacon"
                             >
                                 <RotateCw className="w-3.5 h-3.5 text-emerald-500" />
-                                <span>Sync from INI / Beacon</span>
+                                <span>{t('serverManager.actions.syncFromIni', 'Sync from INI / Beacon')}</span>
                             </button>
                             <button
                                 onClick={() => navigate('/tools/files', { state: { initialPath: server.installPath } })}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-sky-500/15 text-sky-700 dark:text-sky-300 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)]"
                             >
                                 <FolderOpen className="w-3.5 h-3.5 text-sky-500" />
-                                <span>File Manager</span>
+                                <span>{t('serverManager.actions.fileManager', 'File Manager')}</span>
                             </button>
                             <button
                                 onClick={() => handleMoveServer(server.id)}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-amber-500/15 text-amber-700 dark:text-amber-300 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)]"
                             >
                                 <FolderOpen className="w-3.5 h-3.5 text-amber-500" />
-                                <span>Move Server</span>
+                                <span>{t('serverManager.actions.moveServer', 'Move Server')}</span>
                             </button>
                             <button
                                 onClick={() => openCloneModal(server)}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-sky-500/15 text-sky-700 dark:text-sky-300 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)]"
                             >
                                 <Copy className="w-3.5 h-3.5 text-sky-500" />
-                                <span>Clone Server</span>
+                                <span>{t('serverManager.actions.cloneServer', 'Clone Server')}</span>
                             </button>
                             <button
                                 onClick={() => handleOpenPresetModal('export', server.id)}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-violet-500/15 text-violet-700 dark:text-violet-300 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)]"
                             >
                                 <Sparkles className="w-3.5 h-3.5 text-violet-500" />
-                                <span>Export as Template</span>
+                                <span>{t('serverManager.actions.exportTemplate', 'Export as Template')}</span>
                             </button>
                             <button
                                 onClick={() => handleClearModCache(server.id)}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-orange-500/15 text-orange-700 dark:text-orange-400 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)]"
                             >
                                 <RefreshCw className="w-3.5 h-3.5 text-orange-500" />
-                                <span>Clear Mod Cache</span>
+                                <span>{t('serverManager.actions.clearModCache', 'Clear Mod Cache')}</span>
                             </button>
                             <button
                                 onClick={() => handleInitiateDeleteServer(server)}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-red-500/15 text-red-700 dark:text-red-400 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)] font-semibold"
                             >
                                 <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                                <span>Delete Server</span>
+                                <span>{t('serverManager.actions.deleteServer', 'Delete Server')}</span>
                             </button>
                         </div>
                     </div>
@@ -1627,7 +1627,7 @@ export default function ServerManager() {
                             {moveProgress[server.id] && (
                                 <div className="mt-3 p-3 bg-slate-900 rounded-lg border border-slate-800">
                                     <div className="flex justify-between items-center mb-1.5">
-                                        <span className="text-xs font-semibold text-slate-300">Moving Server...</span>
+                                        <span className="text-xs font-semibold text-slate-300">{t('serverManager.actions.movingServer', 'Moving Server...')}</span>
                                         <span className="text-[10px] text-slate-400 truncate max-w-[50%]">
                                             {moveProgress[server.id].status}
                                         </span>
@@ -2490,7 +2490,7 @@ export default function ServerManager() {
                                                                       </button>
                                                                       {/* Start Options Dropdown */}
                                                                       <div className="absolute top-full left-1/2 -translate-x-1/2 xl:translate-x-0 xl:left-0 xl:right-auto mt-3 w-52 bg-[var(--surface)] backdrop-blur-2xl border border-[var(--border)] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.06)] opacity-0 invisible group-hover/start:opacity-100 group-hover/start:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-left scale-95 group-hover/start:scale-100 p-1.5 space-y-1">
-                                                                          <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-emerald-600 dark:text-emerald-400">Launch Options</div>
+                                                                          <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-emerald-600 dark:text-emerald-400">{t('serverManager.actions.launchOptions', 'Launch Options')}</div>
                                                                           <button
                                                                               onClick={() => handleStartServer(server.id)}
                                                                               className="w-full text-left px-3 py-2.5 hover:bg-emerald-500/15 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl transition-all flex items-center gap-2.5 text-xs font-semibold group/item cursor-pointer"
@@ -2500,7 +2500,7 @@ export default function ServerManager() {
                                                                               </div>
                                                                               <div className="flex flex-col">
                                                                                   <span>{t('serverManager.buttons.start', 'Normal Start')}</span>
-                                                                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Launch with active mods</span>
+                                                                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.launchActiveMods', 'Launch with active mods')}</span>
                                                                               </div>
                                                                           </button>
                                                                           <button
@@ -2513,7 +2513,7 @@ export default function ServerManager() {
                                                                               </div>
                                                                               <div className="flex flex-col">
                                                                                   <span>{t('serverManager.buttons.startNoMods', 'Start (No Mods)')}</span>
-                                                                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Clean boot without mods</span>
+                                                                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.cleanBootNoMods', 'Clean boot without mods')}</span>
                                                                               </div>
                                                                           </button>
                                                                           <button
@@ -2526,7 +2526,7 @@ export default function ServerManager() {
                                                                               </div>
                                                                               <div className="flex flex-col">
                                                                                   <span>Crash Doctor & Auto-Fix</span>
-                                                                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Auto-heal DLLs & mod cache</span>
+                                                                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.autoHealMods', 'Auto-heal DLLs & mod cache')}</span>
                                                                               </div>
                                                                           </button>
                                                                       </div>
@@ -2543,7 +2543,7 @@ export default function ServerManager() {
 
                                                                       {/* Stop Options Dropdown */}
                                                                       <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-3 w-56 bg-[var(--surface)] backdrop-blur-2xl border border-[var(--border)] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.06)] opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/stop:scale-100 p-1.5 space-y-1">
-                                                                          <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-rose-600 dark:text-rose-400">Shutdown Options</div>
+                                                                          <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-rose-600 dark:text-rose-400">{t('serverManager.actions.shutdownOptions', 'Shutdown Options')}</div>
                                                                           <button
                                                                               onClick={() => setTimedShutdownServer(server)}
                                                                               className="w-full text-left px-3 py-2.5 hover:bg-amber-500/15 text-[var(--text-secondary)] hover:text-amber-600 dark:hover:text-amber-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-semibold group/item cursor-pointer"
@@ -2565,7 +2565,7 @@ export default function ServerManager() {
                                                                               </div>
                                                                               <div className="flex flex-col">
                                                                                   <span className="font-bold">Immediate Stop</span>
-                                                                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Halt process immediately</span>
+                                                                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.haltProcessImmediately', 'Halt process immediately')}</span>
                                                                               </div>
                                                                           </button>
                                                                       </div>
@@ -2587,7 +2587,7 @@ export default function ServerManager() {
 
                                                                   {/* Dropdown Menu */}
                                                                   <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-3 w-56 bg-[var(--surface)] backdrop-blur-2xl border border-[var(--border)] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.06)] opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/dropdown:scale-100 p-1.5 space-y-1">
-                                                                      <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400">Restart Control</div>
+                                                                      <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400">{t('serverManager.actions.restartControl', 'Restart Control')}</div>
                                                                       <button
                                                                           onClick={() => handleRestartServer(server.id)}
                                                                           className="w-full text-left px-3 py-2.5 hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
@@ -2597,7 +2597,7 @@ export default function ServerManager() {
                                                                           </div>
                                                                           <div className="flex flex-col">
                                                                               <span>{t('serverManager.buttons.normalRestart', 'Normal Restart')}</span>
-                                                                              <span className="text-[10px] text-[var(--text-muted)] font-normal">Graceful server restart</span>
+                                                                              <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.gracefulRestart', 'Graceful server restart')}</span>
                                                                           </div>
                                                                       </button>
                                                                       <button
@@ -2610,7 +2610,7 @@ export default function ServerManager() {
                                                                           </div>
                                                                           <div className="flex flex-col">
                                                                               <span>{t('serverManager.buttons.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
-                                                                              <span className="text-[10px] text-[var(--text-muted)] font-normal">DestroyWildDinos on boot</span>
+                                                                              <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.destroyWildDinos', 'DestroyWildDinos on boot')}</span>
                                                                           </div>
                                                                       </button>
                                                                       <button
@@ -2623,7 +2623,7 @@ export default function ServerManager() {
                                                                           </div>
                                                                           <div className="flex flex-col">
                                                                               <span>{t('serverManager.buttons.deepRepair', 'Deep Repair')}</span>
-                                                                              <span className="text-[10px] text-[var(--text-muted)] font-normal">Revalidate mods & files</span>
+                                                                              <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.revalidateModsFiles', 'Revalidate mods & files')}</span>
                                                                           </div>
                                                                       </button>
                                                                       <button
@@ -2636,7 +2636,7 @@ export default function ServerManager() {
                                                                           </div>
                                                                           <div className="flex flex-col">
                                                                               <span>Crash Doctor & Auto-Fix</span>
-                                                                              <span className="text-[10px] text-[var(--text-muted)] font-normal">1-Click Map Recovery</span>
+                                                                              <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.oneClickRecovery', '1-Click Map Recovery')}</span>
                                                                           </div>
                                                                       </button>
                                                                   </div>
@@ -2678,7 +2678,7 @@ export default function ServerManager() {
                                                                   
                                                                   {/* Update Options Dropdown */}
                                                                   <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-3 w-64 bg-[var(--surface)] backdrop-blur-2xl border border-[var(--border)] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.06)] opacity-0 invisible group-hover/update:opacity-100 group-hover/update:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/update:scale-100 p-1.5 space-y-1">
-                                                                      <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-sky-600 dark:text-sky-400">SteamCMD Updates</div>
+                                                                      <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-sky-600 dark:text-sky-400">{t('serverManager.actions.steamCmdUpdates', 'SteamCMD Updates')}</div>
                                                                       <button
                                                                           onClick={() => handleUpdateServer(server.id)}
                                                                           className="w-full text-left px-3 py-2.5 hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl transition-all flex items-center gap-2.5 text-xs font-semibold group/item cursor-pointer"
@@ -2688,7 +2688,7 @@ export default function ServerManager() {
                                                                           </div>
                                                                           <div className="flex flex-col">
                                                                               <span>{t('serverManager.tooltips.update', 'Update Server Now')}</span>
-                                                                              <span className="text-[10px] text-[var(--text-muted)] font-normal">Check and apply Steam updates</span>
+                                                                              <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.checkApplyUpdates', 'Check and apply Steam updates')}</span>
                                                                           </div>
                                                                       </button>
 
@@ -2699,7 +2699,7 @@ export default function ServerManager() {
                                                                               </div>
                                                                               <div className="flex flex-col">
                                                                                   <span className="text-xs font-semibold">{t('serverManager.buttons.updateOnStart', 'Update on Start')}</span>
-                                                                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Verify files before launch</span>
+                                                                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.verifyFilesLaunch', 'Verify files before launch')}</span>
                                                                               </div>
                                                                           </div>
                                                                           <input
@@ -2717,7 +2717,7 @@ export default function ServerManager() {
                                                                               </div>
                                                                               <div className="flex flex-col">
                                                                                   <span className="text-xs font-semibold">Auto-Update on Release</span>
-                                                                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Install Steam patches automatically</span>
+                                                                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.installPatchesAuto', 'Install Steam patches automatically')}</span>
                                                                               </div>
                                                                           </div>
                                                                           <input
@@ -2742,7 +2742,7 @@ export default function ServerManager() {
 
                                                                   {/* Settings Options Dropdown */}
                                                                   <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-60 bg-[var(--surface)] backdrop-blur-2xl border border-[var(--border)] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.06)] opacity-0 invisible group-hover/settings:opacity-100 group-hover/settings:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/settings:scale-100 p-1.5 space-y-0.5">
-                                                                      <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-violet-600 dark:text-violet-400">Management & Config</div>
+                                                                      <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-violet-600 dark:text-violet-400">{t('serverManager.actions.managementConfig', 'Management & Config')}</div>
                                                                       <button
                                                                           onClick={() => navigate('/config', { state: { serverId: server.id } })}
                                                                           className="w-full text-left px-3 py-2 hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
@@ -2769,7 +2769,7 @@ export default function ServerManager() {
                                                                           <div className="w-6 h-6 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-500 group-hover/item:scale-110 transition-transform">
                                                                               <RotateCw className="w-3.5 h-3.5" />
                                                                           </div>
-                                                                          <span>Sync from INI / Beacon</span>
+                                                                          <span>{t('serverManager.actions.syncFromIni', 'Sync from INI / Beacon')}</span>
                                                                       </button>
                                                                       <button
                                                                           onClick={() => openCloneModal(server)}
@@ -2787,7 +2787,7 @@ export default function ServerManager() {
                                                                           <div className="w-6 h-6 rounded-lg bg-violet-500/15 flex items-center justify-center text-violet-500 group-hover/item:scale-110 transition-transform">
                                                                               <Sparkles className="w-3.5 h-3.5" />
                                                                           </div>
-                                                                          <span>Export as Template</span>
+                                                                          <span>{t('serverManager.actions.exportTemplate', 'Export as Template')}</span>
                                                                       </button>
                                                                       <button
                                                                           onClick={() => navigate('/tools/files', { state: { initialPath: server.installPath } })}
@@ -2888,7 +2888,7 @@ export default function ServerManager() {
                                 {moveProgress[server.id] && (
                                     <div className="mt-4 p-4 bg-[var(--surface)] rounded-xl border border-[var(--border)]">
                                         <div className="flex justify-between items-center mb-2">
-                                            <span className="text-sm font-semibold text-[var(--text-primary)]">Moving Server...</span>
+                                            <span className="text-sm font-semibold text-[var(--text-primary)]">{t('serverManager.actions.movingServer', 'Moving Server...')}</span>
                                             <span className="text-xs text-[var(--text-muted)] truncate max-w-[50%]">
                                                 {moveProgress[server.id].status}
                                             </span>

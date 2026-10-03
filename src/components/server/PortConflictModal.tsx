@@ -173,17 +173,15 @@ export default function PortConflictModal({
                         {t('dialogs.confirm.cancel', 'Cancel')}
                     </button>
 
-                    {!isHardConflict && (
-                        <button
-                            onClick={() => {
-                                onConfirm();
-                                onClose();
-                            }}
-                            className="w-full sm:w-auto px-4 py-2.5 text-xs font-semibold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl transition-all"
-                        >
-                            {t('serverManager.conflicts.startAnyway', 'Start Anyway')}
-                        </button>
-                    )}
+                    <button
+                        onClick={() => {
+                            onConfirm();
+                            onClose();
+                        }}
+                        className="w-full sm:w-auto px-4 py-2.5 text-xs font-semibold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl transition-all"
+                    >
+                        {t('serverManager.conflicts.startAnyway', 'Start Anyway')}
+                    </button>
 
                     {onAutoFix && suggestedPorts && (
                         <button

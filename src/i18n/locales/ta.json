@@ -58,7 +58,10 @@
     "updating": "புதுப்பிக்கப்படுகிறது",
     "repairing": "பழுதுபார்க்கப்படுகிறது",
     "version": "பதிப்பு",
-    "status": "நிலை",
+    "status": {
+      "online": "ஆன்லைன்",
+      "offline": "ஆஃப்லைன்"
+    },
     "name": "பெயர்",
     "type": "வகை",
     "size": "அளவு",
@@ -106,7 +109,28 @@
     "ascending": "ஏறுவரிசை",
     "descending": "இறங்குவரிசை",
     "failed": "தோல்வி: {{error}}",
-    "never": "ஒருபோதும் இல்லை"
+    "never": "ஒருபோதும் இல்லை",
+    "copied": "கிளிப்போர்டுக்கு நகலெடுக்கப்பட்டது",
+    "done": "முடிந்தது",
+    "copyAddress": "LAN முகவரியை நகலெடுக்கவும்",
+    "seconds": "வினாடிகள்",
+    "mins": "நிமிடங்கள்",
+    "gotIt": "கிடைத்தது!",
+    "inactive": "செயலற்றது",
+    "confirmDelete": "நீக்குதலை உறுதிப்படுத்தவும்",
+    "dismiss": "நிராகரி",
+    "loadingSettings": "விருப்பத்தேர்வுகளை ஏற்றுகிறது…",
+    "statusLabel": "நிலை",
+    "currentlyEditing": "CURRENTLY EDITING SERVER",
+    "map": "MAP",
+    "gamePort": "GAME PORT",
+    "playersUpper": "PLAYERS",
+    "noServerSelected": "No server selected for editing. Pick one below.",
+    "selectServerToEdit": "SELECT SERVER TO EDIT",
+    "editingNow": "EDITING NOW",
+    "items": "items",
+    "folder": "Folder",
+    "file": "File"
   },
   "discord": {
     "title": "டிஸ்கார்ட் பிரிட்ஜ் (Discord Bridge)",
@@ -159,7 +183,8 @@
     "step5Desc": "டிஸ்கார்டில், <1>User Settings → Advanced → Enable Developer Mode</1> ஐச் செயல்படுத்தவும்.",
     "step5ServerId": "• <1>சர்வர் ஐடி</1>: உங்கள் சர்வர் பெயரை வலது கிளிக் செய்து → <2>Copy Server ID</2> ஐ அழுத்தவும்",
     "step5ChannelId": "• <1>சேனல் ஐடி</1>: அரட்டை சேனலை வலது கிளிக் செய்து → <2>Copy Channel ID</2> ஐ அழுத்தவும்",
-    "guideDone": "அனைத்து படிகளையும் முடித்ததும், உங்கள் பாட் டோக்கன், கில்ட் ஐடி மற்றும் சேனல் ஐடியை மேலே ஒட்டி, பின்னர் <1>இணைப்பைச் சோதி</1> என்பதைக் கிளிக் செய்யவும்."
+    "guideDone": "அனைத்து படிகளையும் முடித்ததும், உங்கள் பாட் டோக்கன், கில்ட் ஐடி மற்றும் சேனல் ஐடியை மேலே ஒட்டி, பின்னர் <1>இணைப்பைச் சோதி</1> என்பதைக் கிளிக் செய்யவும்.",
+    "adminChannelId": "நிர்வாக கட்டளை சேனல் ஐடி"
   },
   "sidebar": {
     "dashboard": "டாஷ்போர்டு",
@@ -184,13 +209,28 @@
     "tribeLogs": "பழங்குடி பதிவுகள்",
     "upnp": "UPnP போர்ட் பகிர்தல்",
     "serverOrganization": "சர்வர் ஒழுங்கமைப்பு",
-    "wiki": "விக்கி வழிகாட்டி"
+    "wiki": "விக்கி வழிகாட்டி",
+    "boostManager": "பூஸ்ட் மேலாளர்",
+    "expand": "பக்கப்பட்டியை விரிவாக்கு",
+    "collapse": "பக்கப்பட்டியைச் சுருக்கவும்",
+    "switchGame": "{{game}}க்கு மாறவும்",
+    "search": "தேடல் மெனு...",
+    "hardware": "Hardware",
+    "playerManager": "Player Manager",
+    "profileSync": "Profile Sync",
+    "chatTranslator": "Chat Translator"
   },
   "welcome": {
     "title": "ASA சர்வர் மேலாளர்",
     "subtitle": "தொழில்முறை ARK: Survival Ascended சர்வர் மேலாண்மை",
     "loading": "கணினிகள் தொடங்கப்படுகின்றன...",
-    "enter": "கட்டளை மையத்திற்குள் நுழையவும்"
+    "enter": "கட்டளை மையத்திற்குள் நுழையவும்",
+    "headerTitle": "உங்கள் விளையாட்டைத் தேர்ந்தெடுக்கவும்",
+    "headerSubtitle": "நீங்கள் நிர்வகிக்க விரும்பும் ARK பதிப்பைத் தேர்ந்தெடுக்கவும்",
+    "evolvedDesc": "உங்கள் கிளாசிக் ARK ஐ நிர்வகிக்கவும்: சர்வைவல் முழு உள்ளமைவுக் கட்டுப்பாட்டுடன் உருவாக்கப்பட்ட அர்ப்பணிப்பு சேவையகங்கள்.",
+    "launching": "துவக்குகிறது...",
+    "select": "தேர்ந்தெடு",
+    "ascendedDesc": "அடுத்த தலைமுறை ARK ஐ நிர்வகி: அன்ரியல் இன்ஜின் 5 மூலம் இயங்கும் சர்வைவல் அசென்டெட் சர்வர்கள்."
   },
   "admin": {
     "title": "நிர்வாகி சலுகைகள் தேவை",
@@ -248,7 +288,13 @@
     "statusLoading": "ஏற்றப்படுகிறது...",
     "statusPublic": "பொது",
     "statusLan": "லேன் (LAN)",
-    "publicIpAddress": "பொது ஐபி முகவரி"
+    "publicIpAddress": "பொது ஐபி முகவரி",
+    "normalRestart": "இயல்பான மறுதொடக்கம்",
+    "restartWipeDinos": "டினோஸை மறுதொடக்கம் செய்து துடைக்கவும்",
+    "discordCommunity": "பிழைகள் & புதுப்பிப்புகள்",
+    "serverRestartedWipeDinos": "காட்டு டினோ துடைப்புடன் சர்வர் மறுதொடக்கம் தொடங்கப்பட்டது",
+    "viewOverview": "View Full Server Overview & Details",
+    "noServersCreated": "No servers created yet"
   },
   "serverManager": {
     "title": "சர்வர் மேலாளர் (Server Manager)",
@@ -389,7 +435,10 @@
       "updating": "புதுப்பிக்கிறது",
       "repairing": "பழுதுபார்த்தல்",
       "startup_timeout": "ஸ்டார்ட்அப் டைம்அவுட்",
-      "unknown": "தெரியவில்லை"
+      "unknown": "தெரியவில்லை",
+      "restarting": "மறுதொடக்கம்",
+      "timeout": "டைம்அவுட்",
+      "uninstalled": "நிறுவல் நீக்கப்பட்டது"
     },
     "buttons": {
       "selectedCount": "{{count}} தேர்ந்தெடுக்கப்பட்டது",
@@ -410,7 +459,13 @@
       "startNoMods": "தொடங்கு (மோட்ஸ் இல்லை)",
       "normalRestart": "இயல்பான மறுதொடக்கம்",
       "deepRepair": "ஆழமான பழுதுபார்க்கும் முறைகள்",
-      "delete": "நீக்கு"
+      "delete": "நீக்கு",
+      "restartWipeDinos": "டினோஸை மறுதொடக்கம் செய்து துடைக்கவும்",
+      "updateSelected": "புதுப்பிப்பு தேர்ந்தெடுக்கப்பட்டது",
+      "updateOutdated": "புதுப்பிப்பு காலாவதியானது",
+      "moveSelected": "நகர்த்து தேர்ந்தெடுக்கப்பட்டது",
+      "editRawIni": "கோப்புகளை கைமுறையாக திருத்து (IDE)",
+      "fileManager": "கோப்பு மேலாளர் (உலாவு)"
     },
     "tooltips": {
       "forceStop": "கட்டாய நிறுத்து / தொடக்கத்தை ரத்து செய்",
@@ -426,7 +481,12 @@
       "settings": "சேவையக அமைப்புகள்",
       "clone": "குளோன் / இடமாற்றம் / பிரித்தெடுத்தல்",
       "delete": "சேவையகத்தை நீக்கு",
-      "dataSafety": "புதுப்பிப்புகளின் போது சேவையகத்தைப் பாதுகாக்கிறது மற்றும் இறக்குமதிகளைச் சேமிக்கிறது"
+      "dataSafety": "புதுப்பிப்புகளின் போது சேவையகத்தைப் பாதுகாக்கிறது மற்றும் இறக்குமதிகளைச் சேமிக்கிறது",
+      "doubleClickToRename": "மறுபெயரிட இருமுறை கிளிக் செய்யவும்",
+      "serverVersion": "உள்ளூர் சர்வர் பதிப்பு",
+      "updateAvailable": "Steam இல் புதிய பதிப்பு கிடைக்கிறது!",
+      "updateRequired": "புதிய அப்டேட் கிடைக்கிறது! நிறுவ கிளிக் செய்யவும்.",
+      "move": "சர்வரை நகர்த்தவும்"
     },
     "emptyState": {
       "title": "சேவையகங்கள் எதுவும் நிறுவப்படவில்லை",
@@ -446,10 +506,108 @@
       "dataSafetyLabel": "தரவு பாதுகாப்பு மற்றும் தானியங்கு பழுது",
       "consoleOutput": "கன்சோல் வெளியீடு",
       "waitingOutput": "சேவையக வெளியீட்டிற்காக காத்திருக்கிறது...",
-      "showConsole": "சர்வர் கன்சோலைக் காட்டு"
+      "showConsole": "சர்வர் கன்சோலைக் காட்டு",
+      "branch": "சர்வர் பதிப்பு",
+      "delay": "தாமதம்",
+      "priority": "முன்னுரிமை",
+      "autoRestartOnCrash": "செயலிழந்தவுடன் தானாக மறுதொடக்கம்"
     },
     "confirmForceStop": "இந்த சேவையகத்தை கட்டாயமாக நிறுத்த விரும்புகிறீர்களா? தொங்கவிடப்பட்ட செயல்முறையை மறுதொடக்கம் செய்ய இது உங்களை அனுமதிக்கிறது.",
-    "confirmDeepRepair": "ஆழமான பழுதுபார்ப்பு சேவையகத்தை நிறுத்தி, மோட் கேச் (.temp கோப்புறை) நீக்கி, புதிய பதிவிறக்கத்தை கட்டாயப்படுத்தும். இது வழக்கமான மறுதொடக்கத்தை விட அதிக நேரம் ஆகலாம். தொடரவா?"
+    "confirmDeepRepair": "ஆழமான பழுதுபார்ப்பு சேவையகத்தை நிறுத்தி, மோட் கேச் (.temp கோப்புறை) நீக்கி, புதிய பதிவிறக்கத்தை கட்டாயப்படுத்தும். இது வழக்கமான மறுதொடக்கத்தை விட அதிக நேரம் ஆகலாம். தொடரவா?",
+    "serverUpToDate": "சேவையகம் புதுப்பித்த நிலையில் உள்ளது!",
+    "confirmForceStopTitle": "கட்டாய நிறுத்து சர்வர்",
+    "nameUpdated": "சர்வர் பெயர் வெற்றிகரமாக புதுப்பிக்கப்பட்டது.",
+    "renameFailed": "சேவையகத்தை மறுபெயரிடுவதில் தோல்வி.",
+    "serverCloned": "சர்வர் வெற்றிகரமாக குளோன் செய்யப்பட்டது: {{name}}",
+    "cloneFailed": "குளோன் தோல்வி: {{error}}",
+    "joiningServer": "ARK ஐ துவக்கி இணைக்கிறது...",
+    "branchUpdated": "சர்வர் பதிப்பு புதுப்பிக்கப்பட்டது. சரிபார்க்க/விண்ணப்பிக்க பதிவிறக்க ஐகானைக் கிளிக் செய்யவும்.",
+    "branchUpdateFailed": "பதிப்பு/கிளையைப் புதுப்பிக்க முடியவில்லை",
+    "stopServerFirst": "கோப்புகளைப் புதுப்பிக்கும் முன் சர்வரை நிறுத்தவும்.",
+    "updateConfirm": "இது சர்வர் பதிப்பை சரிபார்க்க அல்லது மாற்ற SteamCMD ஐ இயக்கும். தொடரவா?",
+    "updateStarted": "பின்னணியில் சர்வர் கோப்புகளைப் புதுப்பிக்கிறது...",
+    "updateFilesTooltip": "SteamCMD வழியாக சர்வர் கோப்புகளைப் புதுப்பிக்கவும் / சரிபார்க்கவும்",
+    "deleteTitle": "ASE சேவையகத்தை நீக்கு",
+    "deleteConfirmMessage": "\"{{name}}\" ASE சேவையகத்தை நீக்கவா? இதை செயல்தவிர்க்க முடியாது.",
+    "serverRestartedWipeDinos": "காட்டு டினோ துடைப்புடன் சர்வர் மறுதொடக்கம் தொடங்கப்பட்டது",
+    "startingParallelUpdates": "{{count}} சர்வர்(கள்)க்கான இணையான புதுப்பிப்பைத் தொடங்குகிறது...",
+    "allServersUpToDate": "அனைத்து சேவையகங்களும் புதுப்பித்த நிலையில் உள்ளன!",
+    "startingParallelOutdatedUpdates": "{{count}} காலாவதியான சர்வர்(களை) இணையாக புதுப்பிக்கிறது...",
+    "errors": {
+      "emptyName": "சேவையகத்தின் பெயர் காலியாக இருக்கக்கூடாது."
+    },
+    "move": {
+      "mustBeStopped": "நகரும் முன் சர்வர் நிறுத்தப்பட வேண்டும்.",
+      "selectFolder": "புதிய சேவையக கோப்பகத்தைத் தேர்ந்தெடுக்கவும்",
+      "failed": "நகர்த்தும் சேவையகத்தைத் தயாரிப்பதில் தோல்வி.",
+      "startedBulk": "{{count}} சேவையகங்களை நகர்த்துகிறது...",
+      "movingServer": "{{name}} ஐ நகர்த்துகிறது...",
+      "bulkFailedOne": "சேவையகத்தை நகர்த்த முடியவில்லை.",
+      "bulkSuccess": "{{count}} சேவையகங்கள் வெற்றிகரமாக நகர்த்தப்பட்டன!",
+      "started": "சேவையகத்தை நகர்த்துகிறது...",
+      "success": "சர்வர் வெற்றிகரமாக நகர்த்தப்பட்டது!",
+      "bulkMustBeStopped": "தேர்ந்தெடுக்கப்பட்ட அனைத்து சேவையகங்களும் நகரும் முன் நிறுத்தப்பட வேண்டும்.",
+      "bulkTitle": "தேர்ந்தெடுக்கப்பட்ட சேவையகங்களை புதிய கோப்பகத்திற்கு நகர்த்தவும்",
+      "dialogTitleBulk": "பல சேவையகங்களை நகர்த்தவும்",
+      "dialogTitle": "சர்வரை நகர்த்தவும்",
+      "dialogDescBulk": "{{count}} சேவையகங்களை புதிய இடத்திற்கு நகர்த்த விரும்புகிறீர்களா?",
+      "dialogDesc": "{{name}} ஐ புதிய இடத்திற்கு நிச்சயமாக நகர்த்த விரும்புகிறீர்களா?",
+      "warningTitle": "நேரத்தை எடுத்துக்கொள்ளும் செயல்பாடு",
+      "warningDesc": "சேமித்த தரவு மற்றும் சர்வர் கோப்புகளின் அளவைப் பொறுத்து, இந்தச் செயல்பாடு பல நிமிடங்கள் ஆகலாம். இந்தச் செயல்பாட்டின் போது பயன்பாட்டை மூட வேண்டாம்.",
+      "confirmMove": "நகர்த்துவதை உறுதிப்படுத்தவும்"
+    },
+    "conflicts": {
+      "hardTitle": "முக்கியமான துறைமுக மோதல்",
+      "softTitle": "துறைமுக மோதல் எச்சரிக்கை",
+      "hardMessage": "ஒன்று அல்லது அதற்கு மேற்பட்ட உள்ளமைக்கப்பட்ட போர்ட்கள் தற்போது மற்றொரு சேவையகம் அல்லது செயல்பாட்டில் செயலில் உள்ளன. தீர்க்க தானாக போர்ட்களை மீண்டும் ஒதுக்கவும்.",
+      "softMessage": "ஆஃப்லைன் சர்வர் சுயவிவரங்களில் ஒன்று அல்லது அதற்கு மேற்பட்ட போர்ட்கள் கட்டமைக்கப்பட்டுள்ளன. நீங்கள் இலவச போர்ட்களை மீண்டும் ஒதுக்கலாம் அல்லது எப்படியும் தொடங்கலாம்.",
+      "detectedConflicts": "கண்டறியப்பட்ட முரண்பாடுகள்",
+      "usedBy": "பயன்படுத்தியது:",
+      "unknownProcess": "அறியப்படாத வெளிப்புற செயல்முறை மூலம் பயன்படுத்தப்படுகிறது",
+      "startAnyway": "எப்படியும் தொடங்குங்கள்"
+    },
+    "statusBar": {
+      "loading": "தெரிவுநிலை கண்டறிதல்களை நடத்துகிறது...",
+      "diagnosticsFailed": "நோயறிதல் அமைப்பு ஆஃப்லைன்",
+      "systemLabel": "கண்டறியும் குழு",
+      "visibility": "தெரிவுநிலை நிலை:",
+      "wanUnavailable": "பொது ஐபி வினவல்கள் தடுக்கப்பட்டன",
+      "updateMode": "SteamCMD புதுப்பிப்பு முறை",
+      "startingUpdate": "SteamCMD ரேப்பர் செயல்முறையைத் தொடங்குகிறது...",
+      "hideLogs": "கன்சோல் பதிவுகளை மறை",
+      "showLogs": "கன்சோல் பதிவுகளைக் காட்டு",
+      "waitingOutput": "SteamCMD ஸ்ட்ரீம் வெளியீட்டிற்காகக் காத்திருக்கிறது...",
+      "hideGuide": "தேடல் வழிகாட்டியை மறை",
+      "showGuide": "தேடல் வழிகாட்டியைக் காட்டு",
+      "guideTitle": "வழிகாட்டி: இன்-கேம் உலாவியில் உங்கள் சேவையகத்தை எவ்வாறு கண்டுபிடிப்பது"
+    },
+    "diagnostics": {
+      "process": "விளையாட்டு செயல்முறை",
+      "processRunning": "செயலில் உள்ள PID",
+      "processInactive": "செயலற்றது",
+      "port": "UDP போர்ட் பைண்டிங்",
+      "portBound": "கேட்பது",
+      "portClosed": "மூடப்பட்டது",
+      "lan": "லேன் அணுகல்",
+      "lanVisible": "பதிலளிக்கக்கூடிய (A2S)",
+      "lanBlocked": "பதில் இல்லை",
+      "wan": "உலகளாவிய பார்வை",
+      "wanVisible": "பொதுவில் அணுகக்கூடியது",
+      "wanBlocked": "தடுக்கப்பட்டது / வடிகட்டப்பட்டது"
+    },
+    "toast": {
+      "nameUpdated": "சுயவிவரப் பெயர் \"{{name}}\" க்கு புதுப்பிக்கப்பட்டது"
+    },
+    "modCache": {
+      "mustBeStopped": "மோட் தற்காலிக சேமிப்பை அழிக்கும் முன் சர்வர் நிறுத்தப்பட வேண்டும்.",
+      "clearing": "மோட் தற்காலிக சேமிப்பை அழிக்கிறது...",
+      "failed": "மோட் தற்காலிக சேமிப்பை அழிக்க முடியவில்லை.",
+      "tooltip": "மோட் ஏற்றுதல் சிக்கல்களைச் சரிசெய்ய தற்காலிகச் சேமிப்பு மோட் கோப்புகளை அழிக்கவும்",
+      "button": "மோட் தற்காலிக சேமிப்பை அழிக்கவும்"
+    },
+    "status": {
+      "updateAvailable": "புதுப்பிப்பு கிடைக்கிறது"
+    }
   },
   "configEditor": {
     "title": "அமைப்பு எடிட்டர் (Config Editor)",
@@ -466,7 +624,16 @@
       "rules": "விதிகள்",
       "pve": "PvE அமைப்புகள்",
       "pvp": "PvP அமைப்புகள்",
-      "chat": "அரட்டை & குரல்"
+      "chat": "அரட்டை & குரல்",
+      "server": "சேவையகம்",
+      "gameplay": "விளையாட்டு",
+      "transfers": "இடமாற்றங்கள்",
+      "player": "வீரர்",
+      "dino": "டைனோசர்கள்",
+      "breeding": "இனப்பெருக்கம்",
+      "structure": "கட்டமைப்புகள்",
+      "advanced": "மேம்பட்டது",
+      "engrams": "பொறிப்புகள் & கைவினை"
     },
     "rates": {
       "tamingSpeed": "உணவூட்டும் வேகம் (Taming Speed)",
@@ -527,12 +694,15 @@
       "copySuccess": "கிளிப்போர்டுக்கு நகலெடுக்கப்பட்டது",
       "presetApplied": "முன்னமைக்கப்பட்ட '{{name}}' பயன்படுத்தப்பட்டது",
       "dinoLevelSet": "டினோ நிலை {{level}}க்கு அமைக்கப்பட்டது",
-      "playerLevelSet": "பிளேயர் அதிகபட்ச நிலை {{level}}க்கு அமைக்கப்பட்டது"
+      "playerLevelSet": "பிளேயர் அதிகபட்ச நிலை {{level}}க்கு அமைக்கப்பட்டது",
+      "presetSaved": "முன்னமைவு வெற்றிகரமாக சேமிக்கப்பட்டது",
+      "presetUpdated": "முன்னமைக்கப்பட்ட \"{{name}}\" தற்போதைய அமைப்புகளுடன் புதுப்பிக்கப்பட்டது"
     },
     "validation": {
       "tamingConflict": "டேமிங் முடக்கப்பட்டுள்ளது, ஆனால் டேமிங் ஸ்பீட் மல்டிபிளையர் > 1.0 (பெருக்கி எந்த விளைவையும் ஏற்படுத்தாது).",
       "friendlyFireConflict": "PvE Friendly Fire முடக்கப்பட்டுள்ளது, ஆனால் பெருக்கி மாற்றியமைக்கப்பட்டுள்ளது (பெருக்கி எந்த விளைவையும் ஏற்படுத்தாது).",
-      "xpWarning": "எக்ஸ்ட்ரீம் எக்ஸ்பி மல்டிபிளயர் கண்டறியப்பட்டது (> 50x). இது உறுதியற்ற தன்மை அல்லது விரைவான முன்னேற்ற சுழற்சிகளை ஏற்படுத்தலாம்."
+      "xpWarning": "எக்ஸ்ட்ரீம் எக்ஸ்பி மல்டிபிளயர் கண்டறியப்பட்டது (> 50x). இது உறுதியற்ற தன்மை அல்லது விரைவான முன்னேற்ற சுழற்சிகளை ஏற்படுத்தலாம்.",
+      "pveOfflinePvpConflict": "PvE பயன்முறையானது, ஆஃப்லைன் PvP ஐத் தடுப்பதுடன் இயக்கப்பட்டது. PvE பயன்முறையில் ஆஃப்லைன் PvP பாதுகாப்பு தேவையற்றது - குழப்பத்தைத் தவிர்க்க அதை முடக்கவும்."
     },
     "emptyState": {
       "title": "அமைப்புகள் எதுவும் இல்லை",
@@ -573,7 +743,683 @@
     "configFailed": "உள்ளமைவைச் சேமிப்பதில் தோல்வி: {{error}}",
     "configReset": "உள்ளமைவு இயல்புநிலைக்கு மீட்டமைக்கப்பட்டது",
     "playerStats": "பிளேயர் ஸ்டாட் மல்டிபிளயர்ஸ்",
-    "dinoStats": "டினோ ஸ்டேட் பெருக்கிகள்"
+    "dinoStats": "டினோ ஸ்டேட் பெருக்கிகள்",
+    "fields": {
+      "ServerName": {
+        "label": "சர்வர் பெயர்",
+        "description": "உங்கள் சேவையகத்தின் பெயர்"
+      },
+      "Message": {
+        "label": "அன்றைய செய்தி",
+        "description": "வீரர்கள் சேரும்போது அவர்களுக்குக் காட்டப்படும் செய்தி. புதிய வரிகளுக்கு \\n பயன்படுத்தவும்."
+      },
+      "ServerPassword": {
+        "label": "சேவையக கடவுச்சொல்",
+        "description": "சேர கடவுச்சொல் தேவை"
+      },
+      "ServerAdminPassword": {
+        "label": "நிர்வாகி கடவுச்சொல்",
+        "description": "நிர்வாகி அணுகலுக்கான கடவுச்சொல்"
+      },
+      "MaxPlayers": {
+        "label": "அதிகபட்ச வீரர்கள்",
+        "description": "வீரர்களின் அதிகபட்ச எண்ணிக்கை"
+      },
+      "MapName": {
+        "label": "வரைபடம்",
+        "description": "ஏற்ற வேண்டிய வரைபடம்"
+      },
+      "IPAddress": {
+        "label": "சேவையக ஐபி முகவரி",
+        "description": "குறிப்பிட்ட ஐபி முகவரியுடன் சர்வரை இணைக்கவும் (அனைத்து இடைமுகங்களுக்கும் காலியாக விடவும்)"
+      },
+      "RCONEnabled": {
+        "label": "RCON இயக்கப்பட்டது",
+        "description": "சர்வர் நிர்வாகத்திற்கான ரிமோட் கன்சோல் அணுகலை இயக்கவும்"
+      },
+      "Port": {
+        "label": "விளையாட்டு துறைமுகம்",
+        "description": "பிளேயர் இணைப்புகளுக்கான முக்கிய கேம் போர்ட் (இயல்புநிலை: 7777)"
+      },
+      "QueryPort": {
+        "label": "வினவல் துறைமுகம்",
+        "description": "சர்வர் உலாவி வினவல்களுக்கான போர்ட் (இயல்புநிலை: 27015)"
+      },
+      "RCONPort": {
+        "label": "RCON போர்ட்",
+        "description": "RCON இணைப்புகளுக்கான போர்ட் (இயல்புநிலை: 27020)"
+      },
+      "ServerCrossplay": {
+        "label": "கிராஸ்பிளேயை இயக்கு",
+        "description": "எக்ஸ்பாக்ஸ், பிளேஸ்டேஷன் மற்றும் பிசி பிளேயர்களை ஒன்றாக இணைக்க அனுமதிக்கவும்"
+      },
+      "Culture": {
+        "label": "சர்வர் மொழி (கலாச்சாரம்)",
+        "description": "விளையாட்டின் மொழி/கலாச்சாரத்தை அமைக்கிறது (கலாச்சார வெளியீட்டு வாதத்தை இணைக்கிறது)"
+      },
+      "XPMultiplier": {
+        "label": "எக்ஸ்பி பெருக்கி",
+        "description": "அனைத்து மூலங்களிலிருந்தும் உலகளாவிய XP ஆதாய விகிதம்"
+      },
+      "DifficultyOffset": {
+        "label": "சிரமம்",
+        "description": "சர்வர் சிரமம் (அதிகபட்ச காட்டு டைனோ அளவை பாதிக்கிறது)"
+      },
+      "OverrideOfficialDifficulty": {
+        "label": "அதிகபட்ச சிரமத்தை மேலெழுதவும்",
+        "description": "அதிகபட்ச வைல்டு டினோ அளவை மீறு (5.0 = நிலை 150)"
+      },
+      "HarvestAmountMultiplier": {
+        "label": "அறுவடை அளவு",
+        "description": "வள அறுவடை அளவு பெருக்கி"
+      },
+      "HarvestHealthMultiplier": {
+        "label": "அறுவடை ஆரோக்கியம்",
+        "description": "வள முனை ஆரோக்கிய பெருக்கி"
+      },
+      "ResourcesRespawnPeriodMultiplier": {
+        "label": "ரிசோர்ஸ் ரெஸ்பான்",
+        "description": "ரிசோர்ஸ் ரெஸ்பான் வீதம் (குறைந்த = வேகமாக)"
+      },
+      "TamingSpeedMultiplier": {
+        "label": "அடக்கும் வேகம்",
+        "description": "உயிரினங்கள் எவ்வளவு வேகமாக அடக்கப்படுகின்றன"
+      },
+      "DinoCharacterFoodDrainMultiplier": {
+        "label": "டினோ உணவு வடிகால்",
+        "description": "டினோ உணவு நுகர்வு விகிதம்"
+      },
+      "DinoCountMultiplier": {
+        "label": "காட்டு டினோ எண்ணிக்கை",
+        "description": "காட்டு டைனோ முட்டையிடும் அடர்த்தி"
+      },
+      "DinoDamageMultiplier": {
+        "label": "டினோ சேதம்",
+        "description": "டினோ சேத வெளியீடு"
+      },
+      "DinoResistanceMultiplier": {
+        "label": "டினோ எதிர்ப்பு",
+        "description": "டினோ சேத எதிர்ப்பு"
+      },
+      "PlayerDamageMultiplier": {
+        "label": "வீரர் சேதம்",
+        "description": "பிளேயர் சேத வெளியீடு"
+      },
+      "PlayerResistanceMultiplier": {
+        "label": "வீரர் எதிர்ப்பு",
+        "description": "வீரர் சேதம் எதிர்ப்பு"
+      },
+      "PlayerCharacterWaterDrainMultiplier": {
+        "label": "நீர் வடிகால்",
+        "description": "நீர் நுகர்வு விகிதம்"
+      },
+      "PlayerCharacterFoodDrainMultiplier": {
+        "label": "உணவு வடிகால்",
+        "description": "உணவு நுகர்வு விகிதம்"
+      },
+      "PlayerCharacterStaminaDrainMultiplier": {
+        "label": "ஸ்டாமினா வடிகால்",
+        "description": "சகிப்புத்தன்மை நுகர்வு விகிதம்"
+      },
+      "PlayerCharacterHealthRecoveryMultiplier": {
+        "label": "உடல்நலம் மீட்பு",
+        "description": "ஆரோக்கிய மீளுருவாக்கம் விகிதம்"
+      },
+      "StructureResistanceMultiplier": {
+        "label": "கட்டமைப்பு எதிர்ப்பு",
+        "description": "கட்டமைப்பு சேதம் எதிர்ப்பு"
+      },
+      "StructureDamageMultiplier": {
+        "label": "கட்டமைப்பு சேதம்",
+        "description": "கட்டமைப்புகளுக்கு சேதம்"
+      },
+      "PvEStructureDecayPeriodMultiplier": {
+        "label": "கட்டமைப்பு சிதைவு விகிதம்",
+        "description": "கட்டமைப்பு சிதைவு காலம்"
+      },
+      "AlwaysAllowStructurePickup": {
+        "label": "கட்டமைப்பு எடுப்பதை அனுமதிக்கவும்",
+        "description": "வைக்கப்பட்டுள்ள கட்டமைப்புகளை எடுக்க அனுமதிக்கவும்"
+      },
+      "DayTimeSpeedScale": {
+        "label": "நாள் வேகம்",
+        "description": "பகல் நேர வேக பெருக்கி"
+      },
+      "NightTimeSpeedScale": {
+        "label": "இரவு வேகம்",
+        "description": "இரவு நேர வேக பெருக்கி"
+      },
+      "DayCycleSpeedScale": {
+        "label": "நாள் சுழற்சி வேகம்",
+        "description": "ஒட்டுமொத்த பகல்/இரவு சுழற்சி வேகம்"
+      },
+      "ServerPVE": {
+        "label": "PvE பயன்முறை",
+        "description": "PvE பயன்முறையை இயக்கு (பிளேயர் சேதம் இல்லை)"
+      },
+      "AllowCaveBuildingPvE": {
+        "label": "குகை கட்டிடத்தை அனுமதிக்கவும்",
+        "description": "குகைகளுக்குள் கட்ட அனுமதி"
+      },
+      "PreventTribeAlliances": {
+        "label": "கூட்டணிகளைத் தடுக்கவும்",
+        "description": "பழங்குடி கூட்டணிகளைத் தடுக்கவும்"
+      },
+      "AllowFlyerCarryPvE": {
+        "label": "ஃப்ளையர் கேரியை அனுமதிக்கவும்",
+        "description": "பிளேயர்களை பிளேயர்களை எடுத்துச் செல்ல அனுமதிக்கவும்"
+      },
+      "EnablePvPGamma": {
+        "label": "பிவிபி காமாவை இயக்கு",
+        "description": "PvP இல் காமா சரிசெய்தலை அனுமதிக்கவும்"
+      },
+      "DisableFriendlyFire": {
+        "label": "நட்பு தீயை முடக்கு",
+        "description": "பழங்குடியினர் ஒருவருக்கொருவர் காயப்படுத்துவதைத் தடுக்கவும்"
+      },
+      "PreventOfflinePvP": {
+        "label": "ஆஃப்லைன் பிவிபியைத் தடுக்கவும்",
+        "description": "உரிமையாளர்கள் ஆஃப்லைனில் இருக்கும்போது கட்டமைப்புகளையும் பிளேயர்களையும் பாதுகாக்கவும்"
+      },
+      "PreventOfflinePvPInterval": {
+        "label": "ஆஃப்லைன் பாதுகாப்பு தாமதம் (வினாடிகள்)",
+        "description": "ஆஃப்லைன் பாதுகாப்பு செயல்படும் முன் தாமதம் (0 = உடனடி)"
+      },
+      "GlobalVoiceChat": {
+        "label": "உலகளாவிய குரல் அரட்டை",
+        "description": "குரல் அரட்டை எல்லோராலும் கேட்கப்படுகிறது"
+      },
+      "ProximityChat": {
+        "label": "அருகாமை உரை அரட்டை",
+        "description": "உரை அரட்டை அருகிலுள்ள பிளேயர்களுக்கு மட்டுமே தெரியும்"
+      },
+      "AlwaysNotifyPlayerLeft": {
+        "label": "பிளேயரை இடதுபுறம் தெரிவிக்கவும்",
+        "description": "வீரர் வெளியேறும்போது செய்தியைக் காட்டு"
+      },
+      "AlwaysNotifyPlayerJoined": {
+        "label": "பிளேயர் சேர்ந்தார் என்பதை அறிவிக்கவும்",
+        "description": "பிளேயர் சேரும்போது செய்தியைக் காட்டு"
+      },
+      "ServerCrosshair": {
+        "label": "Crosshair ஐ இயக்கு",
+        "description": "குறுக்கு நாற்காலியைக் காட்டு"
+      },
+      "ShowMapPlayerLocation": {
+        "label": "மேப் பிளேயர் இருப்பிடம்",
+        "description": "வரைபடத்தில் வீரர் நிலையைக் காட்டு"
+      },
+      "ShowFloatingDamageText": {
+        "label": "மிதக்கும் சேத உரை",
+        "description": "சேத எண்களைக் காட்டு"
+      },
+      "AllowThirdPersonPlayer": {
+        "label": "மூன்றாம் நபரை அனுமதிக்கவும்",
+        "description": "மூன்றாம் நபர் கேமராவை அனுமதிக்கவும்"
+      },
+      "PreventDiseases": {
+        "label": "நோய்களைத் தடுக்கும்",
+        "description": "நோய் அமைப்பை முடக்கு"
+      },
+      "NonPermanentDiseases": {
+        "label": "நிரந்தரமற்ற நோய்கள்",
+        "description": "நோய்கள் இறந்தவுடன் குணமாகும்"
+      },
+      "ForceAllStructureLocking": {
+        "label": "கட்டாய பூட்டு கட்டமைப்புகள்",
+        "description": "அனைத்து கொள்கலன்களையும் தானாக பூட்டு"
+      },
+      "AllowCrateSpawnsOnTopOfStructures": {
+        "label": "கட்டமைப்புகள் மீது கிரேட்ஸ்",
+        "description": "கட்டிடங்களில் சப்ளை கிரேட்களை அனுமதிக்கவும்"
+      },
+      "NoTributeDownloads": {
+        "label": "பதிவிறக்கங்களை முடக்கு",
+        "description": "அனைத்து பதிவிறக்கங்களையும் முடக்கு"
+      },
+      "PreventDownloadSurvivors": {
+        "label": "சர்வைவர் பதிவிறக்கங்களைத் தடு",
+        "description": "எழுத்துகளைப் பதிவிறக்குவதைத் தடுக்கவும்"
+      },
+      "PreventDownloadItems": {
+        "label": "உருப்படி பதிவிறக்கங்களைத் தடு",
+        "description": "பொருட்களைப் பதிவிறக்குவதைத் தடுக்கவும்"
+      },
+      "PreventDownloadDinos": {
+        "label": "டினோ பதிவிறக்கங்களைத் தடு",
+        "description": "டைனோக்களைப் பதிவிறக்குவதைத் தடுக்கவும்"
+      },
+      "CrossARKAllowForeignDinoDownloads": {
+        "label": "வெளிநாட்டு டினோக்களை அனுமதிக்கவும்",
+        "description": "மற்ற வரைபடங்களிலிருந்து டைனோக்களை அனுமதிக்கவும்"
+      },
+      "AllowAnyoneBabyImprintCuddle": {
+        "label": "யார் வேண்டுமானாலும் பதியலாம்",
+        "description": "எந்தவொரு பழங்குடி உறுப்பினரும் குழந்தைகளை அச்சிட அனுமதிக்கவும்"
+      },
+      "DisableImprintDinoBuff": {
+        "label": "இம்ப்ரிண்ட் போனஸை முடக்கு",
+        "description": "இம்ப்ரின்டிங்கிலிருந்து ஸ்டேட் போனஸை அகற்றவும்"
+      },
+      "AllowRaidDinoFeeding": {
+        "label": "ரெய்டு டினோ ஃபீடிங்கை அனுமதிக்கவும்",
+        "description": "அடக்கப்பட்ட ரெய்டு டைனோக்களுக்கு உணவளிப்பதை இயக்கவும்"
+      },
+      "DisableDinoDecayPvE": {
+        "label": "டினோ டிகேயை (PvE) முடக்கு",
+        "description": "PvE இல் உரிமை கோரப்படாத டைனோக்கள் சிதைவதைத் தடுக்கவும்"
+      },
+      "AutoDestroyDecayedDinos": {
+        "label": "சிதைந்த டைனோஸை தானாக அழிக்கவும்",
+        "description": "முற்றிலும் சிதைந்த டைனோக்களை தானாக அகற்றவும்"
+      },
+      "DisableStructureDecayPvE": {
+        "label": "கட்டமைப்பு சிதைவை முடக்கு",
+        "description": "கட்டமைப்புகள் சிதைவதைத் தடுக்கவும்"
+      },
+      "AutoDestroyOldStructuresMultiplier": {
+        "label": "தானாக அழிக்கும் பெருக்கி",
+        "description": "கைவிடப்பட்ட கட்டமைப்புகளை தானாக அழிக்கவும் (0=ஆஃப்)"
+      },
+      "FastDecayUnsnappedCoreStructures": {
+        "label": "வேகமான சிதைவு நீக்கப்படாதது",
+        "description": "துண்டிக்கப்படாத அடித்தளங்கள் வேகமாக சிதைந்துவிடும்"
+      },
+      "OnlyDecayUnsnappedCoreStructures": {
+        "label": "ஒன்லி டிகே அன்ஸ்னாப்ட்",
+        "description": "துண்டிக்கப்படாத கட்டமைப்புகள் மட்டுமே சிதைகின்றன"
+      },
+      "OnlyAutoDestroyCoreStructures": {
+        "label": "தானாக அழிக்கும் கோர் மட்டும்",
+        "description": "அடித்தளம்/தூண்களை மட்டும் அழிக்கவும்"
+      },
+      "DestroyUnconnectedWaterPipes": {
+        "label": "இணைக்கப்படாத குழாய்களை அழிக்கவும்",
+        "description": "தண்ணீருடன் இணைக்கப்படாத குழாய்களை அகற்றவும்"
+      },
+      "AllowHitMarkers": {
+        "label": "வெற்றி குறிப்பான்களை அனுமதிக்கவும்",
+        "description": "சேதம் தாக்கக் குறிப்பான்களைக் காட்டு"
+      },
+      "AllowHideDamageSourceFromLogs": {
+        "label": "சேத மூலத்தை மறை",
+        "description": "பழங்குடி பதிவுகளில் சேதத்தின் மூலத்தை மறைக்கவும்"
+      },
+      "AllowMultipleAttachedC4": {
+        "label": "பல C4",
+        "description": "ஒரே கட்டமைப்பில் பல C4 ஐ அனுமதிக்கவும்"
+      },
+      "DisablePvEGamma": {
+        "label": "PvE காமாவை முடக்கு",
+        "description": "PvE இல் காமா கட்டளையைத் தடு"
+      },
+      "DisableWeatherFog": {
+        "label": "வானிலை மூடுபனியை முடக்கு",
+        "description": "மூடுபனி வானிலை விளைவுகளை அகற்றவும்"
+      },
+      "MaxTamedDinos": {
+        "label": "மேக்ஸ் டேம்ட் டினோஸ்",
+        "description": "சர்வர்-வைட் டேம் வரம்பு"
+      },
+      "MaxPersonalTamedDinos": {
+        "label": "மேக்ஸ் பெர்சனல் டினோஸ்",
+        "description": "ஒரு வீரருக்கு டேம் வரம்பு (0=அன்லிமிடெட்)"
+      },
+      "MaxPlatformSaddleStructureLimit": {
+        "label": "பிளாட்ஃபார்ம் சேடில் வரம்பு",
+        "description": "பிளாட்ஃபார்ம் சாடில்களில் அதிகபட்ச கட்டமைப்புகள்"
+      },
+      "PerPlatformMaxStructuresMultiplier": {
+        "label": "பிளாட்ஃபார்ம் கட்டமைப்பு பெருக்கி",
+        "description": "பிளாட்ஃபார்ம் கட்டமைப்பு வரம்புகளுக்கான பெருக்கி"
+      },
+      "MaxTributeItems": {
+        "label": "அதிகபட்ச அஞ்சலி பொருட்கள்",
+        "description": "அஞ்சலி சரக்குகளில் அதிகபட்ச பொருட்கள்"
+      },
+      "MaxTributeDinos": {
+        "label": "மேக்ஸ் ட்ரிபியூட் டினோஸ்",
+        "description": "அஞ்சலி சரக்குகளில் அதிகபட்ச டைனோக்கள்"
+      },
+      "MaxTributeCharacters": {
+        "label": "அதிகபட்ச அஞ்சலி பாத்திரங்கள்",
+        "description": "அஞ்சலி சரக்குகளில் அதிகபட்ச எழுத்துக்கள்"
+      },
+      "KickIdlePlayersPeriod": {
+        "label": "பிறகு செயலற்ற உதை (வினாடிகள்)",
+        "description": "செயலற்ற நேரத்திற்குப் பிறகு வீரர்களை உதைக்கவும் (0=முடக்கப்பட்டது)"
+      },
+      "OverrideStructurePlatformPrevention": {
+        "label": "பிளாட்ஃபார்ம் தடுப்பு மேலெழுதல்",
+        "description": "தளங்களில் எங்கும் கட்டமைப்புகளை அனுமதிக்கவும்"
+      },
+      "AllowIntegratedSPlusStructures": {
+        "label": "S+ கட்டமைப்புகளை அனுமதிக்கவும்",
+        "description": "Structures Plus அம்சங்களை இயக்கவும்"
+      },
+      "ClampResourceHarvestDamage": {
+        "label": "கிளாம்ப் அறுவடை சேதம்",
+        "description": "அறுவடை சேதம் பெருக்கிகளை வரம்பிடவும்"
+      },
+      "ClampItemSpoilingTimes": {
+        "label": "கிளாம்ப் கெட்டுப்போகும் நேரங்கள்",
+        "description": "கெட்டுப்போகும் நேர மாற்றங்களைக் கட்டுப்படுத்துங்கள்"
+      },
+      "ClampItemStats": {
+        "label": "கிளாம்ப் உருப்படி புள்ளிவிவரங்கள்",
+        "description": "உருப்படி புள்ளிவிவர மேம்பாடுகளை வரம்பிடவும்"
+      },
+      "AutoSavePeriodMinutes": {
+        "label": "தானியங்கு சேமிப்பு இடைவெளி (நிமிடங்கள்)",
+        "description": "எத்தனை முறை தானாகச் சேமிப்பது"
+      },
+      "ItemStackSizeMultiplier": {
+        "label": "அடுக்கு அளவு பெருக்கி",
+        "description": "பொருள் அடுக்கு அளவுகளை பெருக்கவும்"
+      },
+      "bAutoUnlockAllEngrams": {
+        "label": "அனைத்து என்கிராம்களையும் தானாகத் திறக்கவும்",
+        "description": "பிளேயர்களுக்கான அனைத்து பொறிப்புகளையும் தானாகத் திறக்கவும்"
+      },
+      "bAllowUnlimitedRespecs": {
+        "label": "வரம்பற்ற மரியாதை",
+        "description": "மைண்ட்வைப் டோனிக்கிற்கான கூல்டவுன் டைமரை நீக்குகிறது"
+      },
+      "bAllowCustomRecipes": {
+        "label": "தனிப்பயன் ரெசிபிகளை அனுமதிக்கவும்",
+        "description": "தனிப்பயன் நுகர்வு சமையல் குறிப்புகளை உருவாக்க வீரர்களை அனுமதிக்கவும்"
+      },
+      "CraftingSkillBonusMultiplier": {
+        "label": "கைவினைத் திறன் போனஸ் பெருக்கி",
+        "description": "தனிப்பயன் செய்முறை புள்ளிவிவரங்களில் திறன் விளைவுகளை உருவாக்குவதற்கான பெருக்கி"
+      },
+      "OverrideNamedEngramEntries": {
+        "label": "என்கிராம் மேலெழுகிறது",
+        "description": "என்கிராம் நிலை தேவைகள், புள்ளி செலவுகள் அல்லது அவற்றை முழுவதுமாக மறைக்கவும்"
+      },
+      "ConfigOverrideItemCraftingCosts": {
+        "label": "கைவினைச் செலவு மீறுகிறது",
+        "description": "குறிப்பிட்ட பொருட்களை வடிவமைக்க ஆதார செலவினங்களை மேலெழுதவும்"
+      },
+      "KillXPMultiplier": {
+        "label": "XP பெருக்கியைக் கொல்லுங்கள்",
+        "description": "XP ஆனது உயிரினங்களைக் கொல்வதன் மூலம் பெறப்பட்டது"
+      },
+      "HarvestXPMultiplier": {
+        "label": "அறுவடை XP பெருக்கி",
+        "description": "XP அறுவடை வளங்கள் மூலம் பெறப்பட்டது"
+      },
+      "CraftXPMultiplier": {
+        "label": "கைவினை XP பெருக்கி",
+        "description": "பொருட்களை கைவினை செய்வதன் மூலம் XP ஆனது"
+      },
+      "GenericXPMultiplier": {
+        "label": "பொதுவான XP பெருக்கி",
+        "description": "மற்ற எல்லா XP மூலங்களுக்கும் பெருக்கி"
+      },
+      "SpecialXPMultiplier": {
+        "label": "சிறப்பு XP பெருக்கி",
+        "description": "சிறப்பு நிகழ்வுகளுக்கான பெருக்கி"
+      },
+      "EggHatchSpeedMultiplier": {
+        "label": "முட்டை பொரிக்கும் வேகம்",
+        "description": "முட்டைகள் எவ்வளவு வேகமாக குஞ்சு பொரிக்கின்றன"
+      },
+      "BabyMatureSpeedMultiplier": {
+        "label": "குழந்தை முதிர்ந்த வேகம்",
+        "description": "குழந்தைகள் எவ்வளவு வேகமாக முதிர்ச்சியடைகின்றன"
+      },
+      "BabyFoodConsumptionSpeedMultiplier": {
+        "label": "குழந்தை உணவு நுகர்வு",
+        "description": "குழந்தை உணவு நுகர்வு விகிதம்"
+      },
+      "BabyCuddleIntervalMultiplier": {
+        "label": "கட்ல் இடைவெளி பெருக்கி",
+        "description": "அரவணைப்பு கோரிக்கைகளுக்கு இடையிலான நேரம்"
+      },
+      "BabyCuddleGracePeriodMultiplier": {
+        "label": "அரவணைப்பு கிரேஸ் காலம்",
+        "description": "அரவணைப்பை முடிக்க கூடுதல் நேரம்"
+      },
+      "BabyCuddleLoseImprintQualitySpeedMultiplier": {
+        "label": "இம்ப்ரிண்ட் வேகத்தை இழக்கவும்",
+        "description": "தவறவிடப்பட்டால் எவ்வளவு விரைவாக இம்ப்ரின்ட் தரம் குறைகிறது"
+      },
+      "BabyImprintAmountMultiplier": {
+        "label": "இம்ப்ரிண்ட் தொகை பெருக்கி",
+        "description": "ஒரு அரவணைப்பின் அளவு"
+      },
+      "BabyImprintingStatScaleMultiplier": {
+        "label": "இம்ப்ரிண்ட் ஸ்டேட் போனஸ்",
+        "description": "இம்ப்ரிண்டிங்கிலிருந்து ஸ்டேட் போனஸ்"
+      },
+      "LayEggIntervalMultiplier": {
+        "label": "முட்டை இடைவெளி",
+        "description": "முட்டை இடுவதற்கு இடைப்பட்ட நேரம்"
+      },
+      "GlobalSpoilingTimeMultiplier": {
+        "label": "கெடும் நேரம் பெருக்கி",
+        "description": "பொருட்கள் எவ்வளவு வேகமாக கெட்டுவிடும்"
+      },
+      "GlobalItemDecompositionTimeMultiplier": {
+        "label": "பொருள் சிதைவு நேரம்",
+        "description": "கைவிடப்பட்ட பொருட்கள் எவ்வளவு வேகமாக மறைந்துவிடும்"
+      },
+      "GlobalCorpseDecompositionTimeMultiplier": {
+        "label": "சடலம் சிதைவு நேரம்",
+        "description": "சடலங்கள் எவ்வளவு விரைவாக மறைந்துவிடும்"
+      },
+      "CropGrowthSpeedMultiplier": {
+        "label": "பயிர் வளர்ச்சி வேகம்",
+        "description": "பயிர்கள் எவ்வளவு வேகமாக வளரும்"
+      },
+      "CropDecaySpeedMultiplier": {
+        "label": "பயிர் சிதைவு வேகம்",
+        "description": "பயிர்கள் எவ்வளவு வேகமாக அழுகும்"
+      },
+      "bAllowSpeedLeveling": {
+        "label": "ஸ்பீட் லெவலிங் அனுமதி",
+        "description": "பிளேயர்களுக்கும் லேண்ட் டைனோக்களுக்கும் இயக்க வேகத்தை சமன் செய்ய அனுமதிக்கவும்"
+      },
+      "bAllowFlyerSpeedLeveling": {
+        "label": "ஃப்ளையர் ஸ்பீட் லெவலிங்கை அனுமதிக்கவும்",
+        "description": "ஃப்ளையர்களில் இயக்க வேகத்தை சமன் செய்ய அனுமதிக்கவும்"
+      },
+      "bDisableDinoTaming": {
+        "label": "டேமிங்கை முடக்கு",
+        "description": "அனைத்து டினோவை அடக்குவதைத் தடுக்கவும்"
+      },
+      "bDisableDinoRiding": {
+        "label": "சவாரி செய்வதை முடக்கு",
+        "description": "அடக்கப்பட்ட டைனோக்களை சவாரி செய்வதைத் தடுக்கவும்"
+      },
+      "bDisableDinoBreeding": {
+        "label": "இனப்பெருக்கத்தை முடக்கு",
+        "description": "டைனோ இனப்பெருக்கத்தைத் தடுக்கவும்"
+      },
+      "bUseSingleplayerSettings": {
+        "label": "சிங்கிள்பிளேயர் அமைப்புகளைப் பயன்படுத்தவும்",
+        "description": "ஒற்றை ஆட்டக்காரர் சமநிலை சரிசெய்தல்களைப் பயன்படுத்தவும்"
+      },
+      "bPvEDisableFriendlyFire": {
+        "label": "PvE நட்பு தீயை முடக்கு",
+        "description": "பழங்குடியினர் ஒருவருக்கொருவர் காயப்படுத்துவதைத் தடுக்கவும்"
+      },
+      "bUseCorpseLocator": {
+        "label": "சடல இருப்பிடத்தைப் பயன்படுத்தவும்",
+        "description": "வரைபடத்தில் இறப்பு குறிப்பானைக் காட்டு"
+      },
+      "MaxNumberOfPlayersInTribe": {
+        "label": "அதிகபட்ச பழங்குடி உறுப்பினர்கள்",
+        "description": "ஒரு பழங்குடியினருக்கு அதிகபட்ச வீரர்கள் (0=வரம்பற்ற)"
+      },
+      "MaxTribeLogs": {
+        "label": "அதிகபட்ச பழங்குடி பதிவுகள்",
+        "description": "அதிகபட்ச பழங்குடி பதிவு உள்ளீடுகள்"
+      },
+      "DinoTurretDamageMultiplier": {
+        "label": "டினோ டரெட் சேதம்",
+        "description": "கோபுரங்களிலிருந்து டைனோக்கள் சேதமடைகின்றன"
+      },
+      "DinoHarvestingDamageMultiplier": {
+        "label": "டினோ அறுவடை சேதம்",
+        "description": "டைனோக்களுக்கான அறுவடை சேதப் பெருக்கி"
+      },
+      "FishingLootQualityMultiplier": {
+        "label": "மீன்பிடி கொள்ளை தரம்",
+        "description": "மீன்பிடி கொள்ளையின் தரம்"
+      },
+      "MatingIntervalMultiplier": {
+        "label": "இனச்சேர்க்கை இடைவெளி",
+        "description": "இனச்சேர்க்கைக்கு இடையிலான நேரம் (குறைந்த = வேகமாக)"
+      },
+      "MaxAlliancesPerTribe": {
+        "label": "அதிகபட்ச கூட்டணிகள்",
+        "description": "ஒரு பழங்குடிக்கு அதிகபட்ச கூட்டணிகள்"
+      },
+      "MaxTribesPerAlliance": {
+        "label": "ஒரு கூட்டணிக்கு அதிகபட்ச பழங்குடியினர்",
+        "description": "கூட்டணியில் அதிகபட்ச பழங்குடியினர்"
+      },
+      "OverrideMaxExperiencePointsPlayer": {
+        "label": "மேக்ஸ் பிளேயர் எக்ஸ்பி",
+        "description": "அதிகபட்ச நிலைக்கு தேவையான மொத்த XP"
+      },
+      "LevelExperienceRampOverrides": {
+        "label": "XP ராம்ப் மேலெழுதுதல்",
+        "description": "தனிப்பயன் XP வளைவு (வரிசை)"
+      },
+      "OverridePlayerLevelEngramPoints": {
+        "label": "ஒவ்வொரு நிலைக்கும் என்கிராம் புள்ளிகள்",
+        "description": "ஒவ்வொரு நிலைக்கும் என்கிராம் புள்ளிகள் வழங்கப்படும். ஒரு வரிக்கு ஒரு மதிப்பை உள்ளிடவும்."
+      },
+      "SupplyCrateLootQualityMultiplier": {
+        "label": "சப்ளை க்ரேட் தரம்",
+        "description": "சப்ளை க்ரேட் லூட் தரம்"
+      },
+      "PerDinoClassResistanceMultipliers": {
+        "label": "டினோ எதிர்ப்பு பெருக்கிகள்",
+        "description": "குறிப்பிட்ட டினோ வகுப்புகளுக்கு எதிர்ப்பை சரிசெய்யவும் (குறைந்த = அதிக எதிர்ப்பு)"
+      },
+      "bDisableDinoDecayPvE": {
+        "label": "டினோ சிதைவை முடக்கு",
+        "description": "PvE இல் டினோ சிதைவை முடக்கு"
+      },
+      "bPassiveDefensesDamageRiderlessDinos": {
+        "label": "ஸ்பைக் சுவர்கள் ரைடர்லெஸ் டினோஸை சேதப்படுத்துகின்றன",
+        "description": "ஸ்பைக் சுவர்கள் மற்றும் செயலற்ற பாதுகாப்புகள் ரைடர்லெஸ்/வைல்ட் டைனோக்களை சேதப்படுத்தும்"
+      },
+      "bDisableStructurePlacementCollision": {
+        "label": "வேலை வாய்ப்பு மோதலை முடக்கு",
+        "description": "ஒன்றுடன் ஒன்று கட்டமைப்புகளை அனுமதிக்கவும்"
+      }
+    },
+    "groups": {
+      "serverIdentity": {
+        "title": "சேவையக அடையாளம்",
+        "description": "அடிப்படை சேவையக கட்டமைப்பு"
+      },
+      "xpProgression": {
+        "title": "எக்ஸ்பி & முன்னேற்றம்",
+        "description": "அனுபவம் மற்றும் சமநிலை அமைப்புகள்"
+      },
+      "harvesting": {
+        "title": "அறுவடை",
+        "description": "வள சேகரிப்பு விகிதங்கள்"
+      },
+      "taming": {
+        "title": "அடக்குதல்",
+        "description": "உயிரினங்களை அடக்கும் அமைப்புகள்"
+      },
+      "dinoStats": {
+        "title": "டினோ புள்ளிவிவரங்கள்",
+        "description": "டைனோசர் ஸ்டேட் பெருக்கிகள்"
+      },
+      "playerStats": {
+        "title": "வீரர் புள்ளிவிவரங்கள்",
+        "description": "பிளேயர் ஸ்டேட் பெருக்கிகள்"
+      },
+      "structureSettings": {
+        "title": "கட்டமைப்பு அமைப்புகள்",
+        "description": "கட்டிடம் மற்றும் சிதைவு விருப்பங்கள்"
+      },
+      "dayNightCycle": {
+        "title": "பகல்/இரவு சுழற்சி",
+        "description": "நேரம் மற்றும் லைட்டிங் அமைப்புகள்"
+      },
+      "pvpPveMode": {
+        "title": "PvP / PvE பயன்முறை",
+        "description": "பிளேயர் vs பிளேயர் அமைப்புகள்"
+      },
+      "chatHud": {
+        "title": "அரட்டை & HUD",
+        "description": "தொடர்பு மற்றும் காட்சி அமைப்புகள்"
+      },
+      "rulesPrevention": {
+        "title": "விதிகள் மற்றும் தடுப்பு",
+        "description": "சேவையக விதிகள் மற்றும் கட்டுப்பாடுகள்"
+      },
+      "transfers": {
+        "title": "இடமாற்றங்கள்",
+        "description": "கிராஸ்-ARK பதிவிறக்க அமைப்புகள்"
+      },
+      "breedingImprinting": {
+        "title": "இனப்பெருக்கம் மற்றும் அச்சிடுதல்",
+        "description": "குழந்தை பராமரிப்பு மற்றும் அச்சிடுதல் இயக்கவியல்"
+      },
+      "structureDecay": {
+        "title": "கட்டமைப்பு சிதைவு",
+        "description": "கட்டிட சிதைவு மற்றும் தானாக அழிவு"
+      },
+      "combatPvp": {
+        "title": "போர் & PvP",
+        "description": "போர் இயக்கவியல் மற்றும் PvP அமைப்புகள்"
+      },
+      "serverLimits": {
+        "title": "சேவையக வரம்புகள்",
+        "description": "வரம்புகள் மற்றும் கட்டுப்பாடுகள்"
+      },
+      "qualityOfLife": {
+        "title": "வாழ்க்கைத் தரம்",
+        "description": "வசதி மற்றும் விளையாட்டு அம்சங்கள்"
+      },
+      "engramsCrafting": {
+        "title": "பொறிப்புகள் & கைவினை",
+        "description": "என்கிராம் தேவைகள் மற்றும் உருப்படி கைவினை செலவுகளை மாற்றவும்"
+      },
+      "breedingSpeed": {
+        "title": "இனப்பெருக்க வேகம்",
+        "description": "முட்டை குஞ்சு பொரித்தல் மற்றும் குழந்தை முதிர்ச்சி"
+      },
+      "spoilingDecay": {
+        "title": "கெடுதல் & சிதைவு",
+        "description": "பொருள் மற்றும் சடலம் சிதைவு நேரம்"
+      },
+      "advancedGameplay": {
+        "title": "மேம்பட்ட விளையாட்டு",
+        "description": "மேம்பட்ட சேவையக இயக்கவியல்"
+      },
+      "matingImprinting": {
+        "title": "இனச்சேர்க்கை & பதித்தல்",
+        "description": "இனச்சேர்க்கை இடைவெளிகள் மற்றும் அச்சிடுதல் அமைப்புகள்"
+      },
+      "tribeSettings": {
+        "title": "பழங்குடி அமைப்புகள்",
+        "description": "பழங்குடி அளவு மற்றும் நிர்வாகம்"
+      },
+      "levelXpOverrides": {
+        "title": "நிலை & XP மேலெழுதுதல்",
+        "description": "மேம்பட்ட நிலைப்படுத்தல் உள்ளமைவு"
+      },
+      "lootQuality": {
+        "title": "கொள்ளை தரம்",
+        "description": "சப்ளை க்ரேட் மற்றும் லூட் அமைப்புகள்"
+      },
+      "advancedOptions": {
+        "title": "மேம்பட்ட விருப்பங்கள்",
+        "description": "மேம்பட்ட விளையாட்டு மாற்றங்கள்"
+      }
+    }
   },
   "modManager": {
     "title": "மோட் மேலாளர் (Mod Manager)",
@@ -663,7 +1509,31 @@
     "searchHint": "பெயர் மூலம் தேடவும் அல்லது மோட் ஐடியை ஒட்டவும்",
     "loading": "மோட்களை ஏற்றுகிறது...",
     "version": "பதிப்பு",
-    "modDetails": "மோட் விவரங்கள்"
+    "modDetails": "மோட் விவரங்கள்",
+    "checkUpdates": "புதுப்பிப்புகளைச் சரிபார்க்கவும்",
+    "checkingUpdates": "புதுப்பிப்புகளைச் சரிபார்க்கிறது...",
+    "pushUpdatesTitle": "புஷ் மோட் புதுப்பிப்புகள்",
+    "pushUpdatesSubtitle": "உங்கள் பிரத்யேக சேவையகம் முழுவதும் மோட் தொகுப்புகளை புதுப்பித்து ஒத்திசைக்கவும்",
+    "pushAllUpdates": "அனைத்து புதுப்பிப்புகளையும் அழுத்தவும்",
+    "pushUpdate": "புஷ் புதுப்பிப்பு",
+    "selectServerMods": "புதுப்பிக்க மோட்ஸைத் தேர்ந்தெடுக்கவும்",
+    "selectAll": "அனைத்தையும் தேர்ந்தெடுக்கவும்",
+    "deselectAll": "அனைத்தையும் தேர்வுநீக்கவும்",
+    "rollbackProtection": "தானியங்கி திரும்பப் பெறுதல் பாதுகாப்பு",
+    "cachePurgeNotice": "சுத்தமான மோட் கேச் பர்ஜ்",
+    "safeRestartOption": "சர்வர் ரீஸ்டார்ட் & பிளேயர் பிராட்காஸ்ட் எச்சரிக்கை",
+    "warningCountdown": "இன்-கேம் RCON எச்சரிக்கை கவுண்டவுன்",
+    "pushUpdatesBtn": "புஷ் {{count}} மோட் புதுப்பிப்பு(கள்)",
+    "pushingUpdates": "புஷிங் புதுப்பிப்புகள்...",
+    "noModsSelected": "புதுப்பிக்க குறைந்தபட்சம் ஒரு மோடையாவது தேர்ந்தெடுக்கவும்.",
+    "pushSuccessToast": "{{count}} மோட்(கள்)க்கான புதுப்பிப்புகள் வெற்றிகரமாகத் தள்ளப்பட்டன!",
+    "pushFailedToast": "மோட் புதுப்பிப்பு தோல்வியடைந்தது",
+    "updatesFoundNotice": "{{count}} மோட் புதுப்பிப்பு(கள்) கிடைக்கின்றன!",
+    "allModsUpToDate": "நிறுவப்பட்ட அனைத்து மோட்களும் புதுப்பித்த நிலையில் உள்ளன!",
+    "noUpdatesAvailable": "புஷ் செய்ய மோட் புதுப்பிப்புகள் எதுவும் இல்லை",
+    "noInstalledModsToCheck": "இந்த சர்வரில் சரிபார்க்க நிறுவப்பட்ட மோட்ஸ் எதுவும் இல்லை.",
+    "apiKeyRequiredForUpdates": "புதுப்பிப்புகளைச் சரிபார்க்க CurseForge API விசை தேவை.",
+    "checkUpdatesFailed": "புதுப்பிப்புகளைச் சரிபார்க்க முடியவில்லை"
   },
   "clusterManager": {
     "title": "கிளஸ்டர் மேலாளர்",
@@ -730,7 +1600,37 @@
     "validationWarnings": "எச்சரிக்கைகளுடன் செல்லுபடியாகும் கிளஸ்டர்",
     "validationErrors": "கிளஸ்டருக்கு உள்ளமைவு சிக்கல்கள் உள்ளன",
     "validationFailed": "கிளஸ்டர் உள்ளமைவைச் சரிபார்க்க முடியவில்லை",
-    "clusterPath": "கிளஸ்டர் டைரக்டரி"
+    "clusterPath": "கிளஸ்டர் டைரக்டரி",
+    "fetchFailed": "கிளஸ்டர்களைப் பெறுவதில் தோல்வி",
+    "addFailed": "சேவையகத்தைச் சேர்ப்பதில் தோல்வி",
+    "removeFailed": "சேவையகத்தை அகற்றுவதில் தோல்வி",
+    "serverStarted": "சர்வர் தொடங்கியது",
+    "serverStartFailed": "சேவையகத்தைத் தொடங்குவதில் தோல்வி",
+    "serverStopped": "சர்வர் நிறுத்தப்பட்டது",
+    "serverStopFailed": "சேவையகத்தை நிறுத்த முடியவில்லை",
+    "loadConfigFailed": "உள்ளமைவை ஏற்றுவதில் தோல்வி",
+    "hostRequired": "தரவுத்தள ஹோஸ்ட் தேவை",
+    "userRequired": "தரவுத்தள பயனர் தேவை",
+    "dbNameRequired": "தரவுத்தளத்தின் பெயர் தேவை",
+    "portRequired": "சரியான தரவுத்தள போர்ட் தேவை",
+    "saveConfigFailed": "உள்ளமைவைச் சேமிப்பதில் தோல்வி",
+    "clusterIdCopied": "கிளஸ்டர் ஐடி கிளிப்போர்டுக்கு நகலெடுக்கப்பட்டது!",
+    "clusterIdString": "பகிரப்பட்ட கிளஸ்டர் ஐடி (கிராஸ்-கம்ப்யூட்டர் பயணம்)",
+    "clusterIdHint": "இந்தக் கிளஸ்டரில் உள்ள எல்லா கணினிகளிலும் சரியாகப் பொருந்த வேண்டும்.",
+    "noClustersFound": "இயல்புநிலை பாதையில் தற்போதுள்ள கிளஸ்டர் கோப்பகங்கள் எதுவும் இல்லை.",
+    "clustersDiscovered": "{{count}} கிளஸ்டர் கோப்புறைகள் கண்டுபிடிக்கப்பட்டன.",
+    "startClusterWithDelay": "{{delay}}s தாமதத்துடன் கிளஸ்டர் சேவையகங்களைத் தொடங்குதல்",
+    "crossComputerGuide": "குறுக்கு-கணினி கிளஸ்டர் வழிகாட்டி",
+    "guideTitle": "குறுக்கு-கணினி கிளஸ்டர் அமைவு வழிகாட்டி",
+    "guideSubtitle": "2 அல்லது அதற்கு மேற்பட்ட இயற்பியல் கணினிகளில் ஹோஸ்ட் செய்யப்பட்ட ARK சர்வர்களை எப்படி இணைப்பது",
+    "step1Title": "பகிர்ந்த சேமிப்பக கோப்புறையை அமைக்கவும் (LAN SMB / Network Drive)",
+    "step1Desc": "ARK கிளஸ்டர்கள், கேரக்டர், டினோ மற்றும் உருப்படி பரிமாற்றக் கோப்புகளை சர்வர்களுக்கு இடையே எழுத பகிரப்பட்ட கோப்புறையைப் பயன்படுத்துகின்றன.",
+    "step2Title": "அதே கிளஸ்டர் ஐடி சரத்தைப் பயன்படுத்தவும்",
+    "step2Desc": "இரண்டு மேலாளர் நிகழ்வுகளும் தங்கள் சேவையகங்களை ஒரே மாதிரியான கிளஸ்டர் ஐடி சரத்துடன் தொடங்க வேண்டும், எனவே ARK கிளையன்ட் அவற்றை இணைக்கிறது.",
+    "step3Title": "இரண்டு கணினிகளிலும் கிளஸ்டரை உருவாக்கவும்",
+    "step4Title": "சேவையகங்களைத் தொடங்கவும் & வரைபடங்கள் முழுவதும் பயணம் செய்யவும்",
+    "step4Desc": "இரண்டு கணினிகளிலும் அனைத்து சேவையகங்களையும் தொடங்கவும். விளையாட்டுத் தூபிகள், சப்ளை டிரான்ஸ்மிட்டர்கள் மற்றும் டெக் டிரான்ஸ்மிட்டர்கள் தடையற்ற இடமாற்றங்களுக்காக இரண்டு கணினிகளிலும் உள்ள அனைத்து வரைபடங்களையும் தானாகவே பட்டியலிடும்!",
+    "guideTip": "பொது விளையாட்டுக்காக ஒரு இயந்திரத்திற்கு தனித்தனியாக போர்ட் பகிர்தல் இன்னும் தேவைப்படுகிறது."
   },
   "scheduler": {
     "title": "அட்டவணைப்படுத்தி (Scheduler)",
@@ -836,7 +1736,20 @@
     "enabled": "இயக்கப்பட்டது",
     "disabled": "முடக்கப்பட்டது",
     "confirmDelete": "பணியை நீக்கு",
-    "confirmDeleteMsg": "இந்த திட்டமிடப்பட்ட பணியை நிச்சயமாக நீக்க விரும்புகிறீர்களா?"
+    "confirmDeleteMsg": "இந்த திட்டமிடப்பட்ட பணியை நிச்சயமாக நீக்க விரும்புகிறீர்களா?",
+    "saveWorld": "உலகைக் காப்பாற்றுங்கள்",
+    "boostStart": "நிகழ்வு தொடக்கத்தை அதிகரிக்கவும்",
+    "boostEnd": "நிகழ்வு முடிவை அதிகரிக்கவும்",
+    "backupServer": "காப்பு சேவையகம்",
+    "backupServerDesc": "சர்வர் கோப்புகளின் தானியங்கு காப்புப்பிரதியை உருவாக்கவும்.",
+    "noServers": "சேவையகங்கள் எதுவும் இல்லை",
+    "noServersDesc": "திட்டமிடப்பட்ட பணிகளை உள்ளமைக்க முதலில் சர்வர் மேனேஜரில் சர்வரை உருவாக்கவும்.",
+    "presetApplied": "6 மணி நேர பராமரிப்பு லூப் ப்ரீசெட் பயன்படுத்தப்பட்டது",
+    "toggleTask": "பணியை மாற்று",
+    "editScheduledTask": "திட்டமிடப்பட்ட பணியைத் திருத்தவும்",
+    "editTaskDesc": "கீழே உள்ள பணி உள்ளமைவை மாற்றவும்",
+    "addTaskDesc": "ஒரு புதிய தானியங்கி பணியை உள்ளமைக்கவும்",
+    "onServerOnline": "சர்வர் ஆன்லைனில் வரும்போது"
   },
   "discordBot": {
     "title": "டிஸ்கார்ட் ஒருங்கிணைப்பு",
@@ -854,7 +1767,8 @@
       "bot": "பாட் ஒருங்கிணைப்பு",
       "admin": "நிர்வாக கட்டளைகள்",
       "alerts": "எச்சரிக்கைகள்",
-      "activity": "செயல்பாடு"
+      "activity": "செயல்பாடு",
+      "players": "இணைக்கப்பட்ட வீரர்கள்"
     },
     "webhook": {
       "setupTitle": "Webhook அமைப்பு",
@@ -868,7 +1782,12 @@
         "step1": "Discord → Server Settings → Integrations என்பதைத் திறக்கவும்",
         "step2": "Webhook → URL ஐ நகலெடுக்கவும்",
         "step3": "மேலே ஒட்டவும் மற்றும் சேமி என்பதைக் கிளிக் செய்யவும்"
-      }
+      },
+      "howToTitle": "டிஸ்கார்ட் வெப்ஹூக்கை எவ்வாறு உருவாக்குவது:",
+      "step1": "1. டிஸ்கார்டைத் திறந்து, உங்கள் சேனலை வலது கிளிக் செய்து, சேனலைத் திருத்து → ஒருங்கிணைப்புகளைத் தேர்ந்தெடுக்கவும்.",
+      "step2": "2. Webhook ஐ உருவாக்கு அல்லது Webhookகளைக் காண்க என்பதைக் கிளிக் செய்து, புதிய Webhook என்பதைக் கிளிக் செய்யவும்.",
+      "step3": "3. உங்கள் வெப்ஹூக்கிற்குப் பெயரிடவும் (எ.கா. சர்வர் எச்சரிக்கைகள்) மற்றும் Webhook URL ஐ நகலெடுக்கவும்.",
+      "step4": "4. மேலே உள்ள Webhook URL ஐ ஒட்டவும் மற்றும் Webhook ஐ சேமி என்பதைக் கிளிக் செய்யவும்."
     },
     "quickActions": {
       "title": "விரைவான செயல்கள்",
@@ -888,6 +1807,14 @@
       "maintenance": {
         "label": "பராமரிப்பு",
         "desc": "பராமரிப்பு எச்சரிக்கை"
+      },
+      "restartWarn": {
+        "label": "15 நிமிட மறுதொடக்கம் எச்சரிக்கை",
+        "desc": "சேவையகத்தை மறுதொடக்கம் செய்வதற்கு முன் 15 நிமிட கவுண்ட்டவுன் எச்சரிக்கையை ஒளிபரப்பவும்."
+      },
+      "updateDone": {
+        "label": "முழுமையான அறிவிப்பைப் புதுப்பிக்கவும்",
+        "desc": "சேவையகப் புதுப்பிப்பு முடிந்தது மற்றும் சேவையகம் மீண்டும் ஆன்லைனில் உள்ளது என்பதை பிளேயர்களுக்குத் தெரிவிக்கவும்."
       }
     },
     "bot": {
@@ -1032,7 +1959,8 @@
       "connFailedGeneric": "இணைப்பு தோல்வியடைந்தது",
       "serverMaintenance": "சர்வர் பராமரிப்பு திட்டமிடப்பட்டுள்ளது",
       "serverRestart": "சேவையக மறுதொடக்கம் செயலில் உள்ளது...",
-      "maintenanceBegins": "திட்டமிடப்பட்ட பராமரிப்பு ஆரம்பம்"
+      "maintenanceBegins": "திட்டமிடப்பட்ட பராமரிப்பு ஆரம்பம்",
+      "loadFailed": "டிஸ்கார்ட் உள்ளமைவை ஏற்றுவதில் தோல்வி"
     },
     "embeds": {
       "connectionEstablished": "🟢 இணைப்பு நிறுவப்பட்டது",
@@ -1329,7 +2257,28 @@
       "listPlayers": "பட்டியல் வீரர்கள்",
       "broadcast": "ஒளிபரப்பு",
       "destroyDinos": "காட்டு Dinos அழிக்க"
-    }
+    },
+    "lineCopied": "கிளிப்போர்டுக்கு வரி நகலெடுக்கப்பட்டது",
+    "allCopied": "{{count}} பதிவு உள்ளீடுகள் கிளிப்போர்டுக்கு நகலெடுக்கப்பட்டது",
+    "commandSuccess": "RCON: {{cmd}} செயல்படுத்தப்பட்டது",
+    "commandFailed": "RCON பிழை: {{msg}}",
+    "noLogsToExport": "ஏற்றுமதி செய்ய பதிவுகள் இல்லை",
+    "liveStreaming": "லைவ் ஸ்ட்ரீம்",
+    "streamPaused": "இடைநிறுத்தப்பட்டது",
+    "disableWordWrap": "வார்த்தை மடக்கு முடக்கு",
+    "enableWordWrap": "Word Wrap ஐ இயக்கவும்",
+    "copyAllLogs": "அனைத்து பதிவுகளையும் கிளிப்போர்டுக்கு நகலெடுக்கவும்",
+    "cleared": "கன்சோல் அழிக்கப்பட்டது",
+    "export": "ஏற்றுமதி",
+    "entries": "உள்ளீடுகள்",
+    "noSearchResults": "தற்போதைய வினவலுடன் பொருந்தக்கூடிய பதிவுகள் இல்லை",
+    "waitingForLogs": "சேவையக வெளியீட்டிற்காக காத்திருக்கிறது",
+    "clearQueryHint": "உங்கள் தேடல் குறிப்புகள் அல்லது செயலில் உள்ள பதிவு நிலை வடிப்பான்களை சரிசெய்ய முயற்சிக்கவும்.",
+    "startServerHint": "சேவையகம் தொடங்கப்பட்டு ShooterGame.log க்கு எழுதும் போது பதிவுகள் தானாகவே இங்கு ஸ்ட்ரீம் செய்யப்படும்.",
+    "copyThisLine": "வரியை நகலெடுக்கவும்",
+    "rconSuite": "RCON நிர்வாக முனையம்",
+    "enterCommandPlaceholder": "RCON கட்டளையை உள்ளிடவும்... (வரலாற்றிற்கு ↑ / ↓ அழுத்தவும், அனுப்ப Enter ஐ அழுத்தவும்)",
+    "serverOfflinePlaceholder": "RCON கட்டளைகளை அனுப்ப சர்வர் இயங்க வேண்டும்"
   },
   "rcon": {
     "title": "RCON கட்டளை மையம்",
@@ -1354,7 +2303,10 @@
       "destroyWild": "காட்டு Dinos அழிக்க",
       "dayTime": "பகல் நேரம்",
       "nightTime": "இரவு நேரம்",
-      "clearHistory": "தெளிவான வரலாறு"
+      "clearHistory": "தெளிவான வரலாறு",
+      "copyPlayerId": "பிளேயர் ஐடியை நகலெடுக்கவும்",
+      "serverChat": "அரட்டையை அனுப்பு",
+      "autoBroadcast": "தானியங்கு ஒளிபரப்பு அமைப்புகள்"
     },
     "saveWorld": "உலகைச் சேமி (SaveWorld)",
     "broadcast": "ஒளிபரப்பு செய்தி (Broadcast)",
@@ -1398,7 +2350,86 @@
     "noPlayers": "ஆன்லைனில் வீரர்கள் இல்லை",
     "connectToView": "பிளேயர்களைப் பார்க்க இணைக்கவும்",
     "welcomeMsg": "இணைக்கப்பட்டது. கட்டளையைத் தட்டச்சு செய்து Enter ஐ அழுத்தவும்...",
-    "connectMsg": "RCON கட்டளைகளை அனுப்புவதற்கு சேவையகத்துடன் இணைக்கவும்..."
+    "connectMsg": "RCON கட்டளைகளை அனுப்புவதற்கு சேவையகத்துடன் இணைக்கவும்...",
+    "idCopied": "பிளேயர் ஐடி கிளிப்போர்டுக்கு நகலெடுக்கப்பட்டது",
+    "copyPlayerId": "பிளேயர் ஐடியை நகலெடுக்கவும்",
+    "connectionLost": "RCON உடனான இணைப்பு துண்டிக்கப்பட்டது",
+    "chatPrompt": "உலகளாவிய அரட்டை செய்தியை உள்ளிடவும்:",
+    "chatSent": "அரட்டை செய்தி அனுப்பப்பட்டது",
+    "chatFailed": "அரட்டையை அனுப்ப முடியவில்லை: {{error}}",
+    "clusterExecComplete": "கிளஸ்டர் கட்டளைகளை செயல்படுத்துதல் முடிந்தது",
+    "clusterExecFailed": "கிளஸ்டர் செயலாக்கம் தோல்வியடைந்தது: {{error}}",
+    "notConnected": "கட்டளைகளை அனுப்ப இணைக்கப்பட்டிருக்க வேண்டும்",
+    "notConnectedSave": "சேமிப்பை இயக்க இணைக்கப்பட்டிருக்க வேண்டும்.",
+    "saveVerified": "உலக சேமிப்பு வெற்றிகரமாக சரிபார்க்கப்பட்டது!",
+    "saveIntegrityError": "கோப்பைச் சேமித்தல் சரிபார்ப்பு தோல்வியடைந்தது.",
+    "saveFailed": "கைமுறையாகச் சேமிக்க முடியவில்லை: {{error}}",
+    "connectedTo": "{{address}}:{{port}} உடன் இணைக்கப்பட்டது",
+    "since": "{{time}} முதல்",
+    "creatingBackup": "காப்புப் பிரதி எடுக்கிறது...",
+    "createBackup": "காப்புப்பிரதியை உருவாக்கவும்",
+    "clearLogs": "தெளிவு",
+    "toasts": {
+      "creatingBackup": "சேவையக காப்புப்பிரதியை உருவாக்குகிறது...",
+      "backupSuccess": "சேவையக காப்புப்பிரதி வெற்றிகரமாக உருவாக்கப்பட்டது!",
+      "backupFailed": "காப்புப்பிரதியை உருவாக்குவதில் தோல்வி: {{error}}"
+    },
+    "maint": {
+      "seqAborted": "பராமரிப்பு வரிசை நிறுத்தப்பட்டது.",
+      "seqSuccess": "பராமரிப்பு வரிசை வெற்றிகரமாக முடிந்தது!",
+      "seqFailed": "பராமரிப்பு வரிசை தோல்வி: {{error}}"
+    },
+    "tabs": {
+      "terminal": "ஊடாடும் முனையம்",
+      "logStream": "நேரடி பதிவு ஊட்டம்",
+      "cluster": "கிளஸ்டர் டெக்",
+      "saveManager": "சரிபார்க்கப்பட்ட சேமிப்புகள்",
+      "maintenance": "பராமரிப்பு",
+      "giveItems": "பொருட்களை கொடுங்கள்"
+    },
+    "giveItem": {
+      "onlineResolutionFailed": "தேர்ந்தெடுக்கப்பட்ட பிளேயரை அவர்களின் ARK பிளேயர் ஐடிக்கு சரிசெய்ய முடியவில்லை. அவர்கள் முழுமையாக உள்நுழைந்திருப்பதை உறுதிசெய்யவும்.",
+      "manualResolutionFailed": "மேனுவல் ஸ்டீம் ஐடியை அவர்களின் ARK பிளேயர் ஐடிக்கு சரிசெய்ய முடியவில்லை. பிளேயர் சர்வரில் சேர்ந்துள்ளதா என்பதை உறுதிப்படுத்தவும் அல்லது 9 இலக்க பிளேயர் ஐடியை நேரடியாக உள்ளிடவும்.",
+      "noTarget": "பிளேயரைத் தேர்ந்தெடுக்கவும் அல்லது பிளேயர் ஐடியை உள்ளிடவும்",
+      "noBlueprint": "ஒரு பொருளைத் தேர்ந்தெடுக்கவும் அல்லது தனிப்பயன் புளூபிரிண்ட் பாதையை உள்ளிடவும்",
+      "success": "உருப்படி கட்டளை வெற்றிகரமாக அனுப்பப்பட்டது!",
+      "failed": "தோல்வி: {{errMsg}}",
+      "title": "பொருட்களை கொடுங்கள்",
+      "subtitle": "ஆன்லைன் பிளேயர்கள் அல்லது கையேடு ஐடிகளுக்கு நேரடியாக பொருட்களை அனுப்பவும்.",
+      "targetTitle": "இலக்கைத் தேர்ந்தெடுக்கவும்",
+      "targetOnline": "ஆன்லைன் வீரர்கள்",
+      "targetManual": "கையேடு ஐடி / நீராவி ஐடி",
+      "noPlayers": "தற்போது ஆன்லைனில் வீரர்கள் இல்லை. மேனுவல் ஐடியைப் பயன்படுத்தவும் அல்லது வீரர்கள் சேர்வதற்கு காத்திருக்கவும்.",
+      "itemTitle": "உருப்படியைத் தேர்ந்தெடுக்கவும்",
+      "sourcePreset": "பட்டியல்",
+      "sourceCustom": "தனிப்பயன் ப்ளூபிரிண்ட்",
+      "searchPlaceholder": "உருப்படிகளைத் தேடு...",
+      "settingsTitle": "பொருள் அமைப்புகள்",
+      "targetSurvivor": "இலக்கு உயிர் பிழைத்தவர்",
+      "targetType": {
+        "online": "ஆன்லைன் உயிர் பிழைத்தவர்கள்",
+        "manual": "கையேடு ஐடி / ஈஓஎஸ் ஐடி"
+      },
+      "selectSurvivor": "சர்வைவரைத் தேர்ந்தெடுக்கவும்",
+      "enterPlayerId": "தனித்துவமான பிளேயர் ஐடி / ஸ்டீம்ஐடி / ஈஓஎஸ் ஐடியை உள்ளிடவும்",
+      "configuration": "பண்புக்கூறுகள் & சரக்கு விவரங்கள்",
+      "quantity": "அளவு",
+      "quality": "தரக் குறியீடு",
+      "forceBlueprint": {
+        "title": "ஸ்பான் புளூபிரிண்ட் மட்டும்",
+        "desc": "உருப்படிக்கு பதிலாக கைவினைத் திட்டத்தை வழங்குகிறது"
+      },
+      "cmdPreview": "RCON கட்டளை மாதிரிக்காட்சியை உருவாக்கியது",
+      "delivering": "சரக்குகளை டெலிவரி செய்கிறது...",
+      "deliver": "உயிர் பிழைத்தவருக்கு பொருளை வழங்கவும்",
+      "itemCatalog": "சரக்கு பட்டியல்",
+      "presets": "முன்னமைக்கப்பட்ட பட்டியல்",
+      "customBp": "தனிப்பயன் ப்ளூபிரிண்ட்",
+      "searchPreset": "உருப்படிகளைத் தேடு...",
+      "noMatches": "பொருந்தக்கூடிய உருப்படிகள் எதுவும் இல்லை.",
+      "pasteBpPath": "உருப்படி புளூபிரிண்ட் பாதையை ஒட்டவும்",
+      "bpTip": "\"புளூபிரிண்ட்' என்று தொடங்கி \"'\" என்று முடிவடையும் முழு ப்ளூபிரிண்ட் பாதையையும் சேர்த்துள்ளீர்கள் என்பதை உறுதிப்படுத்தவும்."
+    }
   },
   "settings": {
     "title": "அமைப்புகள்",
@@ -1448,7 +2479,9 @@
       "network": "நெட்வொர்க் & வழிகாட்டிகள்",
       "firewall": "பயர்வால்",
       "updates": "புதுப்பிப்புகள்",
-      "language": "மொழி"
+      "language": "மொழி",
+      "appearance": "தோற்றம் & தீம்",
+      "startup": "தொடக்கம் & மீட்பு"
     },
     "saved": "அமைப்புகள் வெற்றிகரமாக சேமிக்கப்பட்டன!",
     "saveFailed": "அமைப்புகளைச் சேமிக்க முடியவில்லை",
@@ -1486,7 +2519,8 @@
       "verifying": "CurseForge உடனான இணைப்பு சரிபார்க்கப்படுகிறது...",
       "verified": "சரிபார்ப்பு வெற்றிகரமாக முடிந்தது",
       "invalid": "செல்லுபடியற்ற API கீ, உங்கள் உள்ளீட்டைச் சரிபார்க்கவும்",
-      "verifyKey": "இணைப்பைச் சோதிக்கவும்"
+      "verifyKey": "இணைப்பைச் சோதிக்கவும்",
+      "enterKeyFirst": "முதலில் API விசையை உள்ளிடவும்"
     },
     "keyVerified": "API கீ சரிபார்க்கப்பட்டு வேலை செய்கிறது!",
     "invalidKey": "செல்லுபடியற்ற API கீ, மீண்டும் சரிபார்க்கவும்",
@@ -1513,7 +2547,16 @@
       "maxCrashes": "அதிகபட்ச செயலிழப்பு மறுதொடக்கங்கள்",
       "maxCrashesDesc": "குறிப்பிட்ட நேர சாளரத்திற்குள் அனுமதிக்கப்படும் அதிகபட்ச செயலிழப்பு மீட்பு முயற்சிகள்.",
       "observationWindow": "கண்காணிப்பு சாளரம்",
-      "observationWindowDesc": "செயலிழப்பு எண்ணிக்கையைக் கண்காணிக்க வேண்டிய நேரம் (நிமிடங்களில்)."
+      "observationWindowDesc": "செயலிழப்பு எண்ணிக்கையைக் கண்காணிக்க வேண்டிய நேரம் (நிமிடங்களில்).",
+      "adminRequired": "பைபாஸ் UAC (பணி திட்டமிடுபவர்) இயக்க நிர்வாகி சிறப்புரிமைகள் தேவை. நிர்வாகியாக பயன்பாட்டை மறுதொடக்கம் செய்யவும்.",
+      "closeBehaviorTitle": "சாளரத்தை மூடும் நடவடிக்கை",
+      "closeBehaviorDesc": "பயன்பாட்டை மூடு [X] பொத்தானைக் கிளிக் செய்தால் என்ன நடக்கும் என்பதை உள்ளமைக்கவும்.",
+      "closeActionAsk": "எப்போதும் கேள்",
+      "closeActionAskDesc": "ஒவ்வொரு முறை சாளரம் மூடப்படும்போதும் உறுதிப்படுத்தல் மாதிரியுடன் கேட்கவும்",
+      "closeActionTray": "சிஸ்டம் ட்ரேயாக குறைக்கவும்",
+      "closeActionTrayDesc": "கேம் சர்வர்கள் மற்றும் குறுக்கு அரட்டை பின்னணியில் அமைதியாக இயங்கும்",
+      "closeActionExit": "முற்றிலும் வெளியேறு",
+      "closeActionExitDesc": "பின்னணி சேவையக செயல்முறைகளை முடக்கி, பயன்பாட்டிலிருந்து வெளியேறவும்"
     },
     "diagnostics": {
       "title": "தானியங்கு கண்டறிதல்",
@@ -1532,7 +2575,9 @@
       "installNow": "இப்போது நிறுவவும்",
       "installSteamCmd": "SteamCMD ஐப் பதிவிறக்கி நிறுவுகிறது...",
       "installSuccess": "SteamCMD வெற்றிகரமாக நிறுவப்பட்டது!",
-      "installFailed": "நிறுவல் தோல்வி: {{error}}"
+      "installFailed": "நிறுவல் தோல்வி: {{error}}",
+      "nonAsciiPath": "SteamCMD பாதை பிழை",
+      "nonAsciiPathDesc": "உங்கள் தற்போதைய SteamCMD பாதையில் ASCII அல்லாத/ஆங்கிலம் அல்லாத எழுத்துக்கள் உள்ளன: \"{{path}}\". SteamCMD இந்த இடத்திலிருந்து செயல்பட முடியாது. அமைப்புகளில் ASCII-மட்டும் தனிப்பயன் SteamCMD பாதையை அமைக்கவும்."
     },
     "portValidator": {
       "title": "துறைமுக நிலை சரிபார்ப்பு",
@@ -1605,7 +2650,8 @@
           "headers": {
             "port": "துறைமுகம்",
             "protocol": "நெறிமுறை",
-            "purpose": "நோக்கம்"
+            "purpose": "நோக்கம்",
+            "required": "தேவை"
           },
           "purposes": {
             "game": "விளையாட்டு துறைமுகம்",
@@ -1638,7 +2684,8 @@
         "gamePort": "விளையாட்டு துறைமுகம்",
         "queryPort": "வினவல் துறைமுகம்",
         "rconPort": "RCON போர்ட்",
-        "actions": "செயல்கள்"
+        "actions": "செயல்கள்",
+        "peerPort": "பியர் போர்ட்"
       },
       "manual": {
         "title": "கையேடு போர்ட் ஒதுக்கீடு",
@@ -1680,6 +2727,104 @@
           "assign": "ஒதுக்கு"
         }
       }
+    },
+    "autoSave": "தானாக சேமிக்கவும்",
+    "autoSaving": "தானாகச் சேமிக்கிறது…",
+    "autoSaved": "சேமிக்கப்பட்டது",
+    "saveUnsaved": "⚡ அமைப்புகளைச் சேமிக்கவும்",
+    "saveUnsavedShort": "⚡ அமைப்புகளைச் சேமிக்கவும்",
+    "autoSaveActive": "ஆட்டோ சேவ் ஆக்டிவ்",
+    "unsavedChanges": "சேமிக்கப்படாத அமைப்புகள் திருத்தங்கள்",
+    "allSaved": "அமைப்புகள் புதுப்பித்த நிலையில் உள்ளன",
+    "autoSaveNotice": "திருத்தங்கள் பின்னணியில் தானாகவே சேமிக்கப்படும்",
+    "unsavedChangesDesc": "மாற்றங்களைப் பயன்படுத்த, அமைப்புகளைச் சேமி என்பதைக் கிளிக் செய்யவும்",
+    "savedNotice": "அனைத்து மாற்றங்களும் சேமிக்கப்பட்டன",
+    "verify": "சரிபார்க்கவும்",
+    "curseforgeKeySaved": "CurseForge API விசை வெற்றிகரமாக சேமிக்கப்பட்டது!",
+    "curseforgeModalTitle": "CurseForge API விசை அமைப்புகள்",
+    "curseforgeModalSubtitle": "நேரடி மோட் தேடல் மற்றும் சர்வர் புதுப்பிப்புகளுக்கு API விசையை உள்ளமைக்கவும்",
+    "curseforgeKeyLabel": "CurseForge API விசை",
+    "curseforgeKeyPlaceholder": "உங்கள் CurseForge API விசையை உள்ளிடவும்",
+    "keyValidMessage": "விசை சரிபார்க்கப்பட்டு செயலில் உள்ளது!",
+    "keyInvalidMessage": "முக்கிய சரிபார்ப்பு தோல்வியடைந்தது. உங்கள் சாவியைச் சரிபார்க்கவும்.",
+    "needCurseforgeKey": "API விசை இல்லையா?",
+    "curseforgeModalHelp": "CurseForge க்கு ஒரு இலவச API விசை தேவை மோட்களைத் தேடவும் மற்றும் சர்வர் தொடக்கத்தில் தானியங்கு மோட் புதுப்பிப்புகளை இயக்கவும். விசையை உருவாக்க CurseForge Console இல் உள்நுழையவும்.",
+    "appearance": {
+      "themeApplied": "{{name}} தீம் பயன்படுத்தப்பட்டது",
+      "title": "பயன்பாட்டு தீம் & காட்சி நடை",
+      "description": "ARK சர்வர் மேலாளரின் காட்சி சூழலைத் தனிப்பயனாக்கவும். அனைத்து பேனல்கள், டாஷ்போர்டுகள், டெர்மினல்கள் மற்றும் மாதிரிகள் முழுவதும் நிகழ்நேரத்தில் மாற்றங்கள் உலகளாவிய அளவில் பொருந்தும்.",
+      "select": "தேர்ந்தெடு",
+      "palette": "தட்டு ஸ்வாட்சுகள்"
+    },
+    "diagnosticsTab": {
+      "title": "சரிசெய்தல் & கண்டறிதல்",
+      "noLogYet": "தொடக்க பதிவு கோப்பு எதுவும் இல்லை அல்லது படிக்க முடியவில்லை.",
+      "folderOpened": "கோப்பு எக்ஸ்ப்ளோரரில் பதிவுகள் கோப்புறை திறக்கப்பட்டது",
+      "folderOpenFailed": "பதிவுகள் கோப்புறையைத் திறக்க முடியவில்லை",
+      "openFolder": "பதிவுகள் கோப்புறையைத் திறக்கவும்",
+      "viewLog": "தொடக்கப் பதிவைக் காண்க",
+      "modalTitle": "தொடக்க & கண்டறிதல் பதிவுகள்",
+      "modalSubtitle": "செயலில் உள்ள பயன்பாட்டு நிலை செய்திகளையும் பிழைகளையும் மதிப்பாய்வு செய்யவும்.",
+      "loadingLogs": "பதிவுக் கோப்பைப் படிக்கிறது...",
+      "noMatches": "தேடல் வினவலுடன் பொருந்தக்கூடிய கோடுகள் இல்லை",
+      "logLocation": "பதிவு பாதை:",
+      "desc": "தொடக்கச் சிக்கல்களைக் கண்டறிய அல்லது தோல்விகளைப் புதுப்பிக்க, பயன்பாட்டுப் பதிவுகளை ஆராய்ந்து பதிவு கோப்பகத்தைத் திறக்கவும்."
+    },
+    "userConfigFolder": {
+      "title": "பயனர் கட்டமைப்பு கோப்புறை",
+      "desc": "உங்கள் சர்வர் உள்ளமைவு கோப்புகள் (GameUserSettings.ini, Game.ini) உள்ள தனிப்பயன் கோப்புறையை சுட்டிக்காட்டவும். அமைக்கப்படும் போது, ​​சேவையக நிறுவல் கோப்பகத்திற்குப் பதிலாக, இந்த கோப்புறையிலிருந்து உள்ளமைவுகளை ஆப்ஸ் படித்து எழுதும்.",
+      "placeholder": "அமைக்கப்படவில்லை - இயல்புநிலை சர்வர் நிறுவல் பாதையைப் பயன்படுத்துகிறது",
+      "browseFailed": "கோப்புறை தேர்வியைத் திறக்க முடியவில்லை",
+      "clear": "இயல்புநிலையை அழித்து பயன்படுத்தவும்",
+      "activeNote": "இந்த கோப்புறையில் இருந்து கட்டமைப்பு கோப்புகள் படிக்கப்பட்டு சேமிக்கப்படும்"
+    },
+    "customSteamcmdPath": {
+      "title": "தனிப்பயன் SteamCMD பாதை",
+      "desc": "SteamCMD மற்றும் சர்வர் பட்டறை பதிவிறக்கங்களை தனிப்பயன் கோப்புறைக்கு திருப்பிவிடவும். உங்கள் Windows பயனர்பெயரில் ASCII அல்லாத எழுத்துகள் இருந்தால் பயனுள்ளதாக இருக்கும்.",
+      "placeholder": "அமைக்கப்படவில்லை — இயல்புநிலை Roaming AppData ஐப் பயன்படுத்துகிறது",
+      "browseFailed": "கோப்புறை தேர்வியைத் திறக்க முடியவில்லை",
+      "clear": "இயல்புநிலையை அழித்து பயன்படுத்தவும்",
+      "invalidWarning": "எச்சரிக்கை: பாதையில் ASCII அல்லாத எழுத்துக்கள் உள்ளன. SteamCMD இங்கே இயங்கத் தவறிவிடும்."
+    },
+    "updatesTab": {
+      "currentVersion": "தற்போதைய பதிப்பு:",
+      "checking": "சர்வர்களைச் சரிபார்க்கிறது...",
+      "checkNow": "இப்போது சரிபார்க்கவும்",
+      "lastError": "கடைசியாக புதுப்பித்ததில் பிழை",
+      "downloadManually": "GitHub வெளியீடுகளிலிருந்து பதிவிறக்கவும்",
+      "dismissError": "நிராகரி",
+      "autoUpdate": "தானியங்கி பின்னணி புதுப்பிப்புகள்",
+      "autoUpdateDesc": "பின்னணியில் அமைதியாக புதுப்பிப்புகளைப் பதிவிறக்கி தயார் செய்யவும்.",
+      "updateChannel": "சேனலைப் புதுப்பிக்கவும்",
+      "channelDesc": "எந்த புதுப்பிப்பு ஸ்ட்ரீமை நீங்கள் பெற விரும்புகிறீர்கள் என்பதைத் தேர்ந்தெடுக்கவும். பீட்டா மற்றும் இரவு நேர ஸ்ட்ரீம்கள் முன்னதாகவே அம்சங்களைப் பெறுகின்றன, ஆனால் நிலைத்தன்மை குறைவாக இருக்கலாம்.",
+      "releaseChannel": "நிலையான வெளியீடு",
+      "releaseDesc": "உற்பத்தி சேவையகங்களுக்கு பரிந்துரைக்கப்படுகிறது. முழுமையாக சோதிக்கப்பட்டது மற்றும் சரிபார்க்கப்பட்டது நிலையானது.",
+      "betaChannel": "பீட்டா உருவாக்கம்",
+      "betaDesc": "வரவிருக்கும் முக்கிய புதுப்பிப்புகளின் ஆரம்ப சோதனைக்காக முன்-வெளியீடு உருவாக்குகிறது.",
+      "nightlyChannel": "நைட்லி பில்ட்",
+      "nightlyDesc": "ப்ளீடிங்-எட்ஜ் தானியங்கு உருவாக்கங்கள் தினசரி புதுப்பிக்கப்படும். மிகவும் சோதனைக்குரியது.",
+      "clearSkipped": "தவிர்க்கப்பட்ட பதிப்புகளை அழிக்கவும்",
+      "resetCache": "புதுப்பிப்பு தற்காலிக சேமிப்பை மீட்டமைக்கவும்",
+      "noHistory": "இதுவரை புதுப்பிக்கப்பட்ட வரலாறு இல்லை",
+      "previousVersions": "முந்தைய பதிப்புகள்",
+      "previousDesc": "பின்வாங்க வேண்டுமா? முந்தைய அனைத்து வெளியீடுகளையும் பார்க்கவும் மற்றும் எங்கள் GitHub களஞ்சியத்திலிருந்து பழைய பதிப்புகளைப் பதிவிறக்கவும்.",
+      "viewReleases": "GitHub இல் வெளியீடுகளைக் காண்க",
+      "updateAvailable": "புதுப்பிப்பு v{{version}} கிடைக்கிறது!",
+      "latestVersion": "நீங்கள் சமீபத்திய பதிப்பில் உள்ளீர்கள்",
+      "checkFailed": "புதுப்பிப்புகளைச் சரிபார்க்க முடியவில்லை",
+      "checkForUpdates": "புதுப்பிப்புகளைச் சரிபார்க்கவும்",
+      "autoEnabled": "தானியங்கி புதுப்பிப்புகள் இயக்கப்பட்டன",
+      "autoDisabled": "தானியங்கி புதுப்பிப்புகள் முடக்கப்பட்டுள்ளன",
+      "channelChanged": "புதுப்பிப்பு சேனல் {{channel}} க்கு மாறியது",
+      "skippedCleared": "தவிர்க்கப்பட்ட பதிப்புகள் அழிக்கப்பட்டன",
+      "cacheReset": "புதுப்பிப்பு தற்காலிக சேமிப்பு அழிக்கப்பட்டது. புதுப்பிப்பவர் அடுத்த சுழற்சியை மீண்டும் சரிபார்க்கும்."
+    },
+    "unsaved": {
+      "title": "சேமிக்கப்படாத மாற்றங்கள்",
+      "body": "உங்களிடம் சேமிக்கப்படாத அமைப்புகள் உள்ளன. இந்தப் பக்கத்தை விட்டு வெளியேறினால் அவை நிராகரிக்கப்படும்.",
+      "stay": "இருங்கள்",
+      "discard": "சேமிக்காமல் விட்டு விடுங்கள்",
+      "saveLeave": "சேமித்து விட்டு"
     }
   },
   "firewallConfig": {
@@ -1735,7 +2880,112 @@
     "pluginInstalled": "செருகுநிரல் நிறுவப்பட்டது!",
     "pluginUninstalled": "செருகுநிரல் நிறுவல் நீக்கப்பட்டது!",
     "installFailed": "செருகுநிரலை நிறுவுவதில் தோல்வி: {{error}}",
-    "uninstallFailed": "செருகுநிரலை நிறுவல் நீக்குவதில் தோல்வி: {{error}}"
+    "uninstallFailed": "செருகுநிரலை நிறுவல் நீக்குவதில் தோல்வி: {{error}}",
+    "scanFailed": "சர்வர் செருகுநிரல்களை ஸ்கேன் செய்வதில் தோல்வி: {{error}}",
+    "enabled": "செருகுநிரல் இயக்கப்பட்டது",
+    "disabled": "செருகுநிரல் முடக்கப்பட்டது",
+    "enablingAll": "அனைத்து செருகுநிரல்களையும் இயக்குகிறது...",
+    "disablingAll": "அனைத்து செருகுநிரல்களையும் முடக்குகிறது...",
+    "allEnabled": "அனைத்து செருகுநிரல்களும் இயக்கப்பட்டன",
+    "allDisabled": "அனைத்து செருகுநிரல்களும் முடக்கப்பட்டுள்ளன",
+    "toggleAllFailed": "அனைத்து செருகுநிரல்களையும் மாற்றுவதில் தோல்வி: {{error}}",
+    "installingLoader": "ASA சர்வர் API ஐ பதிவிறக்கி நிறுவுகிறது...",
+    "installLoaderFailed": "ASA சர்வர் API ஐ நிறுவுவதில் தோல்வி: {{error}}",
+    "selectServerFirst": "முதலில் சர்வரைத் தேர்ந்தெடுக்கவும்",
+    "importing": "செருகுநிரலை இறக்குமதி செய்கிறது...",
+    "importSuccess": "{{name}} செருகுநிரல் வெற்றிகரமாக இறக்குமதி செய்யப்பட்டது",
+    "importFailed": "செருகுநிரலை இறக்குமதி செய்வதில் தோல்வி: {{error}}",
+    "creatingDefault": "இயல்புநிலை செருகுநிரல் டெம்ப்ளேட்டை உருவாக்குகிறது...",
+    "createDefaultSuccess": "DefaultPlugin டெம்ப்ளேட் உருவாக்கப்பட்டது! config.json இல் அளவுருக்களை உள்ளமைக்கவும்.",
+    "createDefaultFailed": "DefaultPlugin ஐ உருவாக்க முடியவில்லை: {{error}}",
+    "confirmUninstall": "\"{{name}}\" ஐ நிச்சயமாக நீக்க விரும்புகிறீர்களா? இது அதன் கோப்புறை மற்றும் உள்ளமைவை நிரந்தரமாக நீக்கும்.",
+    "uninstalling": "செருகுநிரலை நிறுவல் நீக்குகிறது...",
+    "uninstallSuccess": "செருகுநிரல் வெற்றிகரமாக நிறுவல் நீக்கப்பட்டது",
+    "savingConfig": "செருகுநிரல் உள்ளமைவைச் சேமிக்கிறது...",
+    "saveConfigSuccess": "உள்ளமைவு வெற்றிகரமாக சேமிக்கப்பட்டது",
+    "saveConfigFailed": "உள்ளமைவைச் சேமிப்பதில் தோல்வி: {{error}}",
+    "loaderNotice": "ASA சர்வர் API (AsaApi) ஆர்க்கில் சொந்த C++ செருகுநிரல்களை இயக்க வேண்டும்: Survival Ascended சேவையகங்கள். இது ப்ராக்ஸி DLL வழியாக ShooterGameServer.exe இல் செலுத்துகிறது.",
+    "loaderInstalled": "ASA சர்வர் API (லோடர்) இந்த சர்வரில் நிறுவப்பட்டு செயலில் உள்ளது.",
+    "loaderMissing": "ASA சர்வர் API ஏற்றி காணவில்லை. இது இல்லாமல் நேட்டிவ் செருகுநிரல்களை ஏற்ற முடியாது.",
+    "installLoaderBtn": "ASA சர்வர் API லோடரை நிறுவவும்",
+    "installLoaderPrompt": "AsaApi ஐ பைனரிகள்/Win64 இல் தானாக பதிவிறக்கம் செய்து கட்டமைக்க கிளிக் செய்யவும்.",
+    "tabInstalled": "நிறுவப்பட்ட செருகுநிரல்கள்",
+    "tabMarketplace": "சொருகி சந்தை",
+    "tabConfigs": "கட்டமைப்பு திருத்தி",
+    "filterAll": "அனைத்து செருகுநிரல்கள்",
+    "filterEnabled": "இயக்கப்பட்டது மட்டும்",
+    "filterDisabled": "ஊனமுற்றோர் மட்டும்",
+    "searchPlugins": "பெயர், ஆசிரியர் அல்லது முக்கிய வார்த்தை மூலம் செருகுநிரல்களைத் தேடுங்கள்...",
+    "enableAllBtn": "அனைத்தையும் இயக்கு",
+    "disableAllBtn": "அனைத்தையும் முடக்கு",
+    "importPluginBtn": "செருகுநிரலை இறக்குமதி செய் (.zip)",
+    "createTemplateBtn": "+ இயல்புநிலை செருகுநிரலை உருவாக்கவும்",
+    "refreshList": "செருகுநிரல்களைப் புதுப்பிக்கவும்",
+    "noPluginsFound": "இந்த சர்வரில் செருகுநிரல்கள் எதுவும் நிறுவப்படவில்லை.",
+    "noPluginsFoundDesc": "தொகுக்கப்பட்ட செருகுநிரல் காப்பகத்தை இறக்குமதி செய்யவும் அல்லது தொடங்குவதற்கு ASA சர்வர் API ஏற்றி நிறுவவும்.",
+    "author": "ஆசிரியர்",
+    "version": "பதிப்பு",
+    "apiCompatibility": "API பதிப்பு",
+    "dllStatus": "DLL நிலை",
+    "hasConfig": "கட்டமைப்பு கோப்பு",
+    "yes": "ஆம்",
+    "no": "இல்லை",
+    "actions": "செயல்கள்",
+    "editConfigBtn": "கட்டமைப்பைத் திருத்து",
+    "uninstallBtn": "நிறுவல் நீக்கவும்",
+    "configEditorTitle": "செருகுநிரல் கட்டமைப்பு திருத்தி",
+    "selectPluginToEdit": "அதன் config.json ஐப் பார்க்கவும் மாற்றவும் ஒரு செருகுநிரலைத் தேர்ந்தெடுக்கவும்",
+    "saveChanges": "உள்ளமைவைச் சேமிக்கவும்",
+    "resetDefaults": "டெம்ப்ளேட் இயல்புநிலைக்கு மீட்டமைக்கவும்",
+    "invalidJson": "தவறான JSON வடிவம்! சேமிப்பதற்கு முன் தொடரியல் பிழைகளை சரிசெய்யவும்.",
+    "configReadOnly": "இந்த செருகுநிரல் திருத்தக்கூடிய உள்ளமைவு கோப்பை வழங்கவில்லை.",
+    "openFolderFailed": "கோப்புறையைத் திறக்க முடியவில்லை: {{error}}",
+    "apiLoaderEnabled": "API ஏற்றி இயக்கப்பட்டது",
+    "apiLoaderDisabled": "API ஏற்றி முடக்கப்பட்டது",
+    "openFolderTooltip": "கோப்பு எக்ஸ்ப்ளோரரில் செருகுநிரல் கோப்பகத்தைத் திறக்கவும்",
+    "openFolder": "செருகுநிரல்கள் கோப்புறை",
+    "createDefault": "டெம்ப்ளேட்டை உருவாக்கவும்",
+    "import": "செருகுநிரலை இறக்குமதி செய்யவும்",
+    "serverRunningWarning": "சர்வர் தற்போது இயங்குகிறது/ஆன்லைனில் உள்ளது. செருகுநிரல் நிலைகளில் மாற்றங்கள் அடுத்த தொடக்கத்தில் நடைமுறைக்கு வரும்.",
+    "loaderLaunchMode": "துவக்க முறை: செருகுநிரல் ஏற்றி செயலில் உள்ளது",
+    "normalLaunchMode": "துவக்க முறை: இயல்பான சர்வர் செயலில் உள்ளது",
+    "loaderLaunchDesc": "ஹூக் செருகுநிரல்களுடன் சேவையகத்தைத் தொடங்க {{exe}} ஐப் பயன்படுத்துதல்.",
+    "normalLaunchDesc": "{{exe}} ஐப் பயன்படுத்துதல் (செருகுகள் ஏற்றி முடக்கப்பட்டுள்ளது அல்லது காணவில்லை).",
+    "serverControls": "சர்வர் கட்டுப்பாடுகள்",
+    "serverApiToggle": "சர்வர் ஏபிஐ (லோடர்)",
+    "loaderMissingDesc": "செயல்படுத்தப்பட்ட செருகுநிரல்களை ஏற்றுவதற்கு செருகுநிரல் ஏற்றி தேவை. நீங்கள் API ஐ நிறுவும் வரை செருகுநிரல்களை மாற்றுவது பூட்டப்பட்டிருக்கும்.",
+    "installing": "நிறுவுகிறது...",
+    "autoInstallApi": "ஆட்டோ நிறுவல் API",
+    "manualDownload": "கைமுறையாக பதிவிறக்கம்",
+    "searchPlaceholder": "பெயர் அல்லது கோப்புறையின்படி வடிகட்டவும்...",
+    "enableAll": "அனைத்தையும் இயக்கு",
+    "disableAll": "அனைத்தையும் முடக்கு",
+    "refresh": "பட்டியலைப் புதுப்பிக்கவும்",
+    "scanningFolder": "செருகுநிரல் கோப்புறையை ஸ்கேன் செய்கிறது...",
+    "noMatchingPlugins": "தற்போதைய வடிப்பான்களுடன் பொருந்தக்கூடிய செருகுநிரல்கள் எதுவும் கண்டறியப்படவில்லை.",
+    "noPluginsDesc": "கோப்பகத்தில் செருகுநிரல்கள் எதுவும் இல்லை. கொக்கிகளை செயல்படுத்த காப்பகங்களைப் பதிவிறக்கி இறக்குமதி செய்யவும்.",
+    "visitRepo": "அதிகாரப்பூர்வ களஞ்சியத்தை உலாவவும்",
+    "by": "{{author}} மூலம்",
+    "depCount": "{{count}} சார்புகள்",
+    "clickToDisable": "செருகுநிரலை முடக்கு",
+    "clickToEnable": "செருகுநிரலை இயக்கு",
+    "errorDetected": "செருகுநிரலை ஏற்றுவதில் பிழை",
+    "missingTitle": "செருகுநிரல் காணவில்லை",
+    "description": "விளக்கம்",
+    "noDescription": "இந்த செருகுநிரலுக்கு விளக்கம் எதுவும் வழங்கப்படவில்லை.",
+    "dependencies": "சார்புநிலைகள்",
+    "depActive": "செயலில்",
+    "depDisabled": "முடக்கப்பட்டது",
+    "depMissing": "காணவில்லை",
+    "installPath": "நிறுவப்பட்ட பாதை",
+    "id": "ஐடி: {{id}}",
+    "delete": "செருகுநிரலை நிறுவல் நீக்கவும்",
+    "loadingDetails": "சர்வர் கோப்பகம் மற்றும் செருகுநிரல் உள்ளமைவுகளைச் சரிபார்க்கிறது.",
+    "unableToLoad": "செருகுநிரல்கள் கிடைக்கவில்லை",
+    "unableToLoadDesc": "இந்த சேவையகத்திற்கான செருகுநிரல் தரவை ஏற்ற முடியவில்லை. சர்வர் கோப்பகம் உள்ளதா மற்றும் அணுகக்கூடியதா என சரிபார்க்கவும்.",
+    "retry": "ஸ்கேன் மீண்டும் முயற்சிக்கவும்",
+    "noServerSelected": "சேவையகம் எதுவும் தேர்ந்தெடுக்கப்படவில்லை",
+    "selectServerDesc": "தணிக்கை மற்றும் அதன் ஹூக் செருகுநிரல்களை உள்ளமைக்க கீழ்தோன்றலில் இருந்து ASA கேம் சேவையகத்தைத் தேர்ந்தெடுக்கவும்."
   },
   "fileManager": {
     "title": "கோப்பு மேலாளர்",
@@ -1758,7 +3008,35 @@
     "saveFailed": "கோப்பைச் சேமிப்பதில் தோல்வி: {{error}}",
     "deleteFailed": "நீக்குவதில் தோல்வி: {{error}}",
     "confirmDelete": "கோப்பை நீக்கு",
-    "confirmDeleteMsg": "இந்தக் கோப்பை நிச்சயமாக நீக்க விரும்புகிறீர்களா? இதை செயல்தவிர்க்க முடியாது."
+    "confirmDeleteMsg": "இந்தக் கோப்பை நிச்சயமாக நீக்க விரும்புகிறீர்களா? இதை செயல்தவிர்க்க முடியாது.",
+    "thisPc": "This PC",
+    "quickAccess": "Quick Access",
+    "newFolder": "New Folder",
+    "openInExplorer": "Open in Explorer",
+    "gridView": "Grid View",
+    "listView": "List View",
+    "searchPlaceholder": "Search...",
+    "localDisk": "Local Disk",
+    "arkServers": "ARK Servers",
+    "users": "Users",
+    "rename": "Rename",
+    "delete": "Delete",
+    "folderEmpty": "Folder is empty",
+    "save": "Save",
+    "createNewFolder": "Create New Folder",
+    "folderName": "Folder Name",
+    "cancel": "Cancel",
+    "create": "Create",
+    "renameItem": "Rename Item",
+    "newName": "New Name",
+    "aseTitle": "ASE File Manager",
+    "aseSubtitle": "Browse server files and directories",
+    "emptyDirectory": "Empty directory",
+    "installPath": "Install Path",
+    "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This cannot be undone.",
+    "folderCreated": "Folder created",
+    "itemRenamed": "Item renamed",
+    "itemDeleted": "Item deleted"
   },
   "installDialog": {
     "title": "ARK சேவையகத்தை நிறுவவும்",
@@ -1825,7 +3103,21 @@
     "updateNow": "இப்போது புதுப்பிக்கவும்",
     "later": "பின்னர்",
     "skip": "இந்தப் பதிப்பைத் தவிர்க்கவும்",
-    "error": "புதுப்பிப்பைப் பதிவிறக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும் அல்லது கைமுறையாக பதிவிறக்கவும்."
+    "error": "புதுப்பிப்பைப் பதிவிறக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும் அல்லது கைமுறையாக பதிவிறக்கவும்.",
+    "refetchFailed": "தானியங்கு புதுப்பிப்பை துவக்க முடியவில்லை. புதுப்பிப்பை கைமுறையாக பதிவிறக்கவும்.",
+    "noUpdater": "புதுப்பிப்பு சரிபார்ப்பு தரவு இல்லை. மீண்டும் முயற்சிக்கவும் அல்லது கைமுறையாக பதிவிறக்கவும்.",
+    "signatureError": "புதுப்பிப்பு கையொப்பம் பொருந்தவில்லை. இது பொதுவாக புதுப்பிப்பு வேறு விசையுடன் கையொப்பமிடப்பட்டதைக் குறிக்கிறது. GitHub வெளியீடுகளிலிருந்து சமீபத்திய பதிப்பை கைமுறையாகப் பதிவிறக்கவும்.",
+    "elevationError": "கோப்புகளை மாற்றுவதற்கு புதுப்பித்தலுக்கு நிர்வாகி சிறப்புரிமைகள் தேவை. நிர்வாகியாக பயன்பாட்டை மறுதொடக்கம் செய்யவும் அல்லது புதுப்பிப்பை கைமுறையாகப் பதிவிறக்கவும்.",
+    "signatureToast": "புதுப்பிப்பு தோல்வியடைந்தது: கையொப்பம் பொருந்தவில்லை. விவரங்களுக்கு அமைப்புகள் → புதுப்பிப்புகளைப் பார்க்கவும்.",
+    "elevationToast": "புதுப்பிப்பு தோல்வியடைந்தது: நிர்வாகி சிறப்புரிமைகள் தேவை. பயன்பாட்டை வலது கிளிக் செய்யவும் → நிர்வாகியாக இயக்கவும்.",
+    "skippedToast": "பதிப்பு தவிர்க்கப்பட்டது. அமைப்புகளில் புதுப்பிப்புகளை மீண்டும் சரிபார்க்கலாம்.",
+    "relaunchFailed": "மறுதொடக்கம் செய்ய முடியவில்லை. பயன்பாட்டை கைமுறையாக மூடிவிட்டு மீண்டும் திறக்கவும்.",
+    "readyTitle": "புதுப்பிப்பு தயார்",
+    "readyDesc": "புதுப்பிப்பு பதிவிறக்கம் செய்யப்பட்டு நிறுவ தயாராக உள்ளது. மாற்றங்களைப் பயன்படுத்த, பயன்பாட்டை மறுதொடக்கம் செய்யவும்.",
+    "downloadInstaller": "நிறுவியைப் பதிவிறக்கவும்",
+    "downloadPortable": "போர்ட்டபிள் ZIP",
+    "relaunch": "இப்போது மீண்டும் தொடங்கவும்",
+    "openGitHub": "GITHUB இலிருந்து பதிவிறக்கவும்"
   },
   "errorBoundary": {
     "title": "ஏதோ தவறாகிவிட்டது",
@@ -1924,7 +3216,15 @@
         "genesis2": "ஆதியாகமம் பகுதி 2",
         "fjordur": "ஃப்ஜோர்டூர்",
         "astraeos": "நட்சத்திரங்கள்",
-        "forglar": "மோசடி செய்பவர்"
+        "forglar": "மோசடி செய்பவர்",
+        "clubArk": "கிளப் ARK",
+        "svartalfheim": "ஸ்வார்டால்ஃப்ஹெய்ம்",
+        "amissa": "அமிசா",
+        "insaluna": "இன்சலுனா",
+        "temptressLagoon": "டெம்ப்ட்ரஸ் லகூன்",
+        "reverence": "வணக்கம்",
+        "crystalIsles": "கிரிஸ்டல் தீவுகள்",
+        "lostIsland": "தொலைந்த தீவு"
       },
       "mapDescriptions": {
         "original": "அசல் ARK அனுபவம்",
@@ -1936,7 +3236,9 @@
         "community": "சமூக வரைபடம்",
         "dlc": "புதிய நியமன DLC",
         "comingSoon": "வரும் {{date}}",
-        "premium": "பிரீமியம் மோட் வரைபடம்"
+        "premium": "பிரீமியம் மோட் வரைபடம்",
+        "genesis1": "தனித்துவமான பயோம்கள் மற்றும் பணிகளுடன் உருவகப்படுத்துதல்",
+        "clubArk": "மினி-கேம்களுடன் சமூக மையம்"
       },
       "officialMaps": "அதிகாரப்பூர்வ வரைபடங்கள்",
       "premiumMaps": "பிரீமியம் மோட் வரைபடங்கள்",
@@ -1978,7 +3280,49 @@
       "chooseMap": "உங்கள் வரைபடத்தைத் தேர்ந்தெடுக்கவும்",
       "chooseMapDesc": "நீங்கள் ஆராய விரும்பும் உலகத்தைத் தேர்ந்தெடுக்கவும்",
       "serverDetails": "சேவையக விவரங்கள்",
-      "serverDetailsDesc": "உங்கள் சேவையகத்தின் பெயரையும் இருப்பிடத்தையும் கொடுங்கள்"
+      "serverDetailsDesc": "உங்கள் சேவையகத்தின் பெயரையும் இருப்பிடத்தையும் கொடுங்கள்",
+      "cancelInstall": "நிறுவலை ரத்துசெய்",
+      "cancelling": "ரத்துசெய்கிறது...",
+      "cancelSuccess": "நிறுவல் வெற்றிகரமாக ரத்துசெய்யப்பட்டது.",
+      "cancelOptionsTitle": "ரத்து விருப்பங்கள்",
+      "cancelKeepFiles": "பகுதி பதிவிறக்கத்தை நிறுத்தி வைக்கவும்",
+      "cancelKeepFilesDesc": "SteamCMD ஐ நிறுத்துகிறது. பதிவிறக்கம் செய்யப்பட்ட கோப்புகளை பின்னர் மீண்டும் தொடங்க வைக்கும்.",
+      "cancelDeleteFiles": "சர்வர் கோப்புறையை நிறுத்தி நீக்கவும்",
+      "cancelDeleteFilesDesc": "செயல்முறையை நிறுத்துகிறது மற்றும் இலக்கு கோப்பகத்தை முழுமையாக நீக்குகிறது.",
+      "cancelPurgeCache": "SteamCMD தற்காலிக சேமிப்பை நிறுத்தவும் மற்றும் சுத்தப்படுத்தவும்",
+      "cancelPurgeCacheDesc": "செயல்முறையை நிறுத்துகிறது, பதிவிறக்க தற்காலிக சேமிப்பை நீக்குகிறது மற்றும் மீட்டமைக்கிறது.",
+      "minimize": "பின்னணிக்கு குறைக்கவும்",
+      "minimizeBtn": "குறைக்கவும்",
+      "dlcMaps": "DLC விரிவாக்கங்கள்",
+      "moddedMaps": "மாற்றியமைக்கப்பட்ட விரிவாக்க வரைபடங்கள்",
+      "moddedMapSuccess": "✓ துவக்க உள்ளமைவு தானாகவே அமைக்கப்படும்",
+      "upcomingMaps": "விரைவில்",
+      "maxPlayers": "அதிகபட்ச வீரர்கள்",
+      "maxPlayersDesc": "சர்வரில் அனுமதிக்கப்பட்ட அதிகபட்ச வீரர்களின் எண்ணிக்கை",
+      "adminPassword": "நிர்வாகி கடவுச்சொல்",
+      "adminPasswordDesc": "சேவையகத்தில் நிர்வாகி உரிமைகளைப் பெற பயன்படுத்தப்படும் கடவுச்சொல் (இயல்புநிலை: admin123)",
+      "serverPassword": "சேவையக கடவுச்சொல்",
+      "serverPasswordDesc": "வீரர்கள் சர்வரில் சேர கடவுச்சொல் தேவை",
+      "preflight": "விமானத்திற்கு முந்தைய ஆய்வு",
+      "preflightDesc": "நிறுவல் தொடங்கும் முன் ஒவ்வொரு விவரத்தையும் சரிபார்க்கவும்",
+      "preflightWarning": "சில அமைப்புகளில் கவனம் தேவை — கீழே உள்ள எச்சரிக்கைகளை மதிப்பாய்வு செய்யவும்",
+      "preflightOk": "அனைத்து அமைப்புகளும் நன்றாக உள்ளன — பயன்படுத்த தயாராக உள்ளது",
+      "reviewIdentity": "அடையாளம்",
+      "reviewGameMode": "விளையாட்டு முறை",
+      "reviewNetwork": "நெட்வொர்க்",
+      "portCollision": "போர்ட் மோதல் கண்டறியப்பட்டது - கேம், வினவல் மற்றும் RCON போர்ட்கள் அனைத்தும் வித்தியாசமாக இருக்க வேண்டும்",
+      "privilegedPorts": "1024 க்குக் கீழே உள்ள துறைமுகங்கள் சிறப்புரிமை பெற்றவை மற்றும் நிர்வாகி அணுகல் தேவைப்படலாம்",
+      "reviewSecurity": "பாதுகாப்பு",
+      "publicAccess": "பொது",
+      "weakPassword": "கடவுச்சொல் சிறியது — சிறந்த பாதுகாப்பிற்காக 6+ எழுத்துகளைப் பயன்படுத்தவும்",
+      "reviewStorage": "சேமிப்பு",
+      "installPath": "பாதையை நிறுவவும்",
+      "downloadWarning": "SteamCMD ~60 GB சர்வர் கோப்புகளைப் பதிவிறக்கும் (AppID 2430930)",
+      "tryAgain": "மீண்டும் முயற்சிக்கவும்",
+      "repairSteamcmd": "SteamCMD பழுது",
+      "clearCache": "தற்காலிக சேமிப்பை அழிக்கவும்",
+      "diagnosticTips": "பிழைகாணல் குறிப்புகள்",
+      "install": "நிறுவவும்"
     },
     "importServer": {
       "title": "ஏற்கனவே உள்ள சேவையகத்தை இறக்குமதி செய்யவும்",
@@ -2000,7 +3344,10 @@
         "rcon": "RCON அமைப்புகள்"
       },
       "success": "\"{{name}}\" சேவையகம் வெற்றிகரமாக இறக்குமதி செய்யப்பட்டது!",
-      "error": "சேவையகத்தை இறக்குமதி செய்ய முடியவில்லை"
+      "error": "சேவையகத்தை இறக்குமதி செய்ய முடியவில்லை",
+      "previewError": "கோப்புறை கட்டமைப்பை ஆய்வு செய்ய முடியவில்லை. பாதையை சரிபார்க்கவும்.",
+      "portsResolved": "துறைமுக மோதல்கள் வெற்றிகரமாக தீர்க்கப்பட்டன!",
+      "aseSubtitle": "ஏற்கனவே உள்ள ARK ஐ இறக்குமதி செய்: சர்வைவல் எவால்வ்டு சர்வர்"
     },
     "importSave": {
       "title": "ஒற்றை வீரர் சேமிப்பை இறக்குமதி செய்யவும்",
@@ -2017,7 +3364,9 @@
       "folderImportDesc": "கோப்புறை இறக்குமதி: அனைத்தையும் நகலெடுக்கிறது (வரைபடம், வீரர்கள், பழங்குடியினர்). முழு இடம்பெயர்வுக்கு இதைப் பயன்படுத்தவும்.",
       "startImport": "இறக்குமதியைத் தொடங்கவும்",
       "success": "வெற்றிகரமாக இறக்குமதி செய்யப்பட்ட தரவைச் சேமிக்கவும்!",
-      "error": "சேமிக்கும் தரவை இறக்குமதி செய்ய முடியவில்லை"
+      "error": "சேமிக்கும் தரவை இறக்குமதி செய்ய முடியவில்லை",
+      "validationError": "இலக்கு சேவையகம் மற்றும் மூலக் கோப்பு அல்லது கோப்புறையைத் தேர்ந்தெடுக்கவும்.",
+      "aseSubtitle": "ASE சர்வரில் சேமிக்கும் தரவை இறக்குமதி செய்யவும்"
     },
     "welcome": {
       "title": "மீண்டும் வரவேற்கிறோம்",
@@ -2187,7 +3536,8 @@
     "send": "அனுப்பு",
     "clear": "அரட்டையைத் துடை",
     "noMessages": "AI உதவியாளருடன் உங்கள் உரையாடலைத் தொடங்குங்கள்.",
-    "thinking": "AI யோசிக்கிறது..."
+    "thinking": "AI யோசிக்கிறது...",
+    "placeholder": "Infinity AI ஐ கேள்..."
   },
   "tribeLogs": {
     "title": "பழங்குடி பதிவுகள் (Tribe Logs)",
@@ -2214,7 +3564,16 @@
     "testSuccess": "UPnP வெற்றிகரமாக சோதிக்கப்பட்டது! உங்கள் ரூட்டர் இதற்கு ஆதரவளிக்கிறது.",
     "testFailed": "UPnP சோதனை தோல்வியடைந்தது. உங்கள் ரூட்டரில் UPnP செயல்படுத்தப்பட்டுள்ளதா எனச் சரிபார்க்கவும்.",
     "mappingSuccess": "போர்ட் மேப்பிங் வெற்றிகரமாக சேர்க்கப்பட்டது!",
-    "mappingFailed": "போர்ட் மேப்பிங் சேர்க்க முடியவில்லை: {{error}}"
+    "mappingFailed": "போர்ட் மேப்பிங் சேர்க்க முடியவில்லை: {{error}}",
+    "gateway": "UPnP IGD கேட்வே நிலை",
+    "gatewayAddr": "கேட்வே உள்ளூர் முகவரி",
+    "externalIp": "வெளிப்புற பொது ஐபி",
+    "available": "IGD மேப்பிங்ஸ் கிடைக்கும்",
+    "clickDiscover": "UPnP ரூட்டர் அறிவிப்புகளை ஒளிபரப்ப மற்றும் கேட்க \"டிஸ்கவர் கேட்வே\" என்பதைக் கிளிக் செய்யவும்.",
+    "results": "முடிவுகளை அனுப்புதல்",
+    "forwarded": "அனுப்பப்பட்டது",
+    "portForward": "போர்ட் பகிர்தல்",
+    "remove": "அகற்று"
   },
   "serverOrganization": {
     "title": "சர்வர் ஒழுங்கமைப்பு மற்றும் நிர்வாகம்",
@@ -2232,7 +3591,23 @@
       "configuration": "அமைப்புகள் வழிகாட்டி",
       "performance": "செயல்திறன் மேம்பாடு",
       "troubleshooting": "பழுது நீக்குதல்"
-    }
+    },
+    "guides": "Guides",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "hideIndex": "Hide Index",
+    "showIndex": "Show Index",
+    "searchPlaceholder": "Search all guides...",
+    "all": "All",
+    "coreServices": "Core Services",
+    "automationAi": "Automation & AI",
+    "modsFiles": "Mods & Files",
+    "monitoringLogs": "Monitoring & Logs",
+    "integrationsTools": "Integrations & Tools",
+    "noGuides": "No matching guides found",
+    "noGuidesDesc": "Try resetting your search query or filters.",
+    "selectGuide": "Select a Guide to Begin",
+    "selectGuideDesc": "Choose a topic from the sidebar index to view detailed operational guides, setup procedures, and troubleshooting steps."
   },
   "firewallAutomation": {
     "description": "உங்கள் ARK சேவையகங்களுக்கான Windows Firewall விதிகளை தானாக உள்ளமைக்கவும்",
@@ -2290,5 +3665,355 @@
         "assign": "ஒதுக்கு"
       }
     }
+  },
+  "boost": {
+    "loadFailed": "பூஸ்ட் சுயவிவரங்களை ஏற்றுவதில் தோல்வி",
+    "nameRequired": "சுயவிவரப் பெயர் தேவை",
+    "saveSuccess": "பூஸ்ட் சுயவிவரம் வெற்றிகரமாக சேமிக்கப்பட்டது!",
+    "confirmDelete": "இந்தச் சுயவிவரத்தை நிச்சயமாக நீக்க விரும்புகிறீர்களா?",
+    "deleteSuccess": "பூஸ்ட் சுயவிவரம் நீக்கப்பட்டது",
+    "activatingText": "சேவையகத்தை மறுதொடக்கம் செய்து நிகழ்வு கட்டணங்களைப் பயன்படுத்துகிறது...",
+    "activateSuccess": "பூஸ்ட் நிகழ்வு வெற்றிகரமாக செயல்படுத்தப்பட்டது!",
+    "deactivatingText": "சேவையகத்தை மறுதொடக்கம் செய்து அசல் கட்டணத்தை மீட்டெடுக்கிறது...",
+    "deactivateSuccess": "பூஸ்ட் செயலிழக்கப்பட்டது மற்றும் அசல் கட்டணங்கள் மீட்டெடுக்கப்பட்டன!",
+    "title": "பூஸ்ட் மேலாளர்",
+    "titleAse": "பூஸ்ட் மேலாளர் (ASE)",
+    "subtitle": "தற்காலிக பருவகால நிகழ்வுகளை பாதுகாப்பாக உள்ளமைக்கவும் மற்றும் சேவையக விகிதங்களை பெருக்கவும்.",
+    "newProfile": "+ புதிய சுயவிவரம்",
+    "bannerTitle": "பூஸ்ட் மேனேஜர் எப்படி வேலை செய்கிறது?",
+    "bannerDesc": "பூஸ்ட் சுயவிவரத்தை செயல்படுத்தும் போது, ​​மேலாளர் RCON மூலம் அவ்வப்போது ஒளிபரப்புகளைச் செய்து வீரர்களுக்குத் தெரிவிக்கிறார். அது பின்னர் பாதுகாப்பாக சேவையகத்தை மூடுகிறது, அசல் கட்டமைப்புகளின் (.boostbackup) காப்புப்பிரதிகளை உருவாக்குகிறது மற்றும் புதிய பெருக்கிகளை செலுத்துகிறது. செயலிழக்கப்படும்போது, ​​காப்புப் பிரதி கட்டமைப்புகள் முழுமையாக மீட்டமைக்கப்படும்.",
+    "setupTip": "ஆட்டோமேஷனுக்காக, ஷெட்யூலரில் BoostStart / BoostEnd பணிகளை உள்ளமைக்கவும்",
+    "activeEvent": "செயலில் நிகழ்வு",
+    "deactivate": "நிகழ்வை முடக்கு",
+    "noActiveEvent": "இந்த சேவையகத்தில் செயலில் உள்ள பூஸ்ட் சுயவிவரம் இல்லை",
+    "loading": "சுயவிவரங்களை ஏற்றுகிறது...",
+    "noProfiles": "பூஸ்ட் சுயவிவரங்கள் எதுவும் பதிவு செய்யப்படவில்லை",
+    "noProfilesDesc": "பருவகால கட்டணங்களை உள்ளமைக்க புதிய சுயவிவரத்தை உருவாக்கவும்.",
+    "createFirst": "முதல் சுயவிவரத்தை உருவாக்கவும்",
+    "active": "செயலில்",
+    "activateBtn": "சேவையகத்தில் செயல்படுத்தவும்",
+    "editTitle": "பூஸ்ட் சுயவிவரத்தைத் திருத்தவும்",
+    "newTitle": "புதிய பூஸ்ட் சுயவிவரம்",
+    "profileName": "சுயவிவரப் பெயர்",
+    "profileNamePlaceholder": "எ.கா. 2x வார இறுதி, ஈஸ்டர் நிகழ்வு"
+  },
+  "crashDoctor": {
+    "title": "க்ராஷ் டாக்டர் & வரைபட மீட்பு",
+    "refresh": "மீண்டும் ஸ்கேன் செய்து கண்டறியவும்",
+    "repairSuccess": "சர்வர் சூழல் குணமடைந்து, துவக்கம் தொடங்கப்பட்டது!",
+    "diagnosing": "கிராஷ் டம்ப் மற்றும் சர்வர் பதிவுகளை பகுப்பாய்வு செய்கிறது...",
+    "primaryCause": "முதன்மைக் காரணம் கண்டறியப்பட்டது",
+    "quarantineProxyDlls": "தனிமைப்படுத்தப்பட்ட ப்ராக்ஸி DLLகள் (.disabled)",
+    "purgeModCache": "CFCore மோட் தற்காலிக சேமிப்பை அகற்றவும்",
+    "wipeWildDinos": "Wild Dino Wipe (-ForceRespawnDinos) மூலம் தொடங்கவும்",
+    "validateFiles": "SteamCMD முழு கோப்பு சரிபார்ப்பை இயக்கவும்",
+    "safeRecoveryMode": "பாதுகாப்பான மீட்பு முறை (மோட்ஸ் இல்லாமல் தொடங்கவும்)",
+    "diagnosingDesc": "ப்ராக்ஸி டிஎல்எல் ஹூக்குகள், மோட் கேச் மற்றும் வேர்ல்ட் சேவ் ஒருமைப்பாடு ஆகியவற்றை ஆய்வு செய்தல்",
+    "quarantineDesc": "உடனடி செயலிழப்பைத் தடுக்க, version.dll, dxgi.dll, winhttp.dll ஆகியவற்றைப் பாதுகாப்பாக முடக்குகிறது",
+    "purgeModCacheDesc": "புதிய மோட் சொத்துக்களை மீண்டும் தொகுக்க ஷூட்டர் கேம்/பைனரிஸ்/வின்64/ஷூட்டர் கேம்/மோட்களை சுத்தம் செய்கிறது",
+    "wipeWildDinosDesc": "புதுப்பிக்கப்பட்ட வரைபடங்களில் ஏற்றப்படும் உலகத்தை செயலிழக்கச் செய்யும் ஊழல் ஸ்பான் நடிகர்களை நீக்குகிறது",
+    "validateFilesDesc": "காணாமல் போன அல்லது முழுமையடையாத கேம் என்ஜின் பைனரிகளை சரிசெய்கிறது (2-5 நிமிடங்கள் ஆகும்)",
+    "safeRecoveryDesc": "பேஸ் கேமைச் சரிபார்க்கவும், கோப்பு ஆரோக்கியத்தைச் சேமிக்கவும் தூய வெண்ணிலா வரைபடத்தைத் துவக்குகிறது",
+    "identifiedFactors": "அடையாளம் காணப்பட்ட செயலிழப்பு காரணிகள் ({{count}})",
+    "recentLogsTitle": "சமீபத்திய கிராஷ் பதிவுகள் & அபாயகரமான பிழை கால்ஸ்டாக் ({{count}} வரிகள்)",
+    "customizePipeline": "ஹீலிங் பைப்லைன் விருப்பங்களைத் தனிப்பயனாக்குங்கள்",
+    "healing": "ஹீலிங் சர்வர் சூழல்...",
+    "healedCleanly": "குணமடைந்து, சுத்தமாக தொடங்கப்பட்டது",
+    "autoFixLaunch": "1-தானியங்கு சரிசெய்தல் & வரைபடத்தை துவக்கவும் என்பதைக் கிளிக் செய்யவும்",
+    "metrics": {
+      "proxyDlls": "ப்ராக்ஸி DLLகள்",
+      "activeCrashing": "{{count}} செயலில் (செயல்படுகிறது)",
+      "cleanQuarantined": "சுத்தமான (தனிமைப்படுத்தப்பட்ட)",
+      "noHooks": "செயலில் கொக்கிகள் இல்லை",
+      "modCache": "மோட் கேச்",
+      "cachedCount": "{{count}} தற்காலிக சேமிப்பு",
+      "mbCompiled": "{{size}} MB தொகுக்கப்பட்டது",
+      "worldSave": "உலக சேமிப்பு",
+      "saveOk": "வரைபடம் சேமி சரி",
+      "freshMap": "புதிய / புதிய வரைபடம்",
+      "saveFiles": "{{size}} MB ({{count}} கோப்புகள்)",
+      "crashErrors": "செயலிழப்பு பிழைகள்",
+      "detectedCount": "{{count}} கண்டறியப்பட்டது",
+      "inShooterLog": "ShooterGame.log இல்",
+      "noAssertErrors": "உறுதியான பிழைகள் இல்லை"
+    }
+  },
+  "translator": {
+    "installSuccess": "அரட்டை மொழிபெயர்ப்பாளர் செருகுநிரல் வெற்றிகரமாக நிறுவப்பட்டது!",
+    "installError": "செருகுநிரலை நிறுவுவதில் தோல்வி",
+    "confirmUninstall": "அரட்டை மொழிபெயர்ப்பாளரை நிச்சயமாக நிறுவல் நீக்க விரும்புகிறீர்களா? இது உள்ளூர் கட்டமைப்புகளை நீக்கும்.",
+    "uninstallSuccess": "அரட்டை மொழிபெயர்ப்பாளர் செருகுநிரல் நிறுவல் நீக்கப்பட்டது.",
+    "uninstallError": "செருகுநிரலை நிறுவல் நீக்குவதில் தோல்வி",
+    "configSaved": "மொழிபெயர்ப்பு அமைப்புகள் வெற்றிகரமாக புதுப்பிக்கப்பட்டன!",
+    "configSaveError": "கட்டமைப்பைச் சேமிக்க முடியவில்லை",
+    "fieldsRequired": "நீராவி ஐடி மற்றும் பிளேயர் பெயர் தேவை.",
+    "prefSaved": "பிளேயர் மொழிபெயர்ப்பு விருப்பம் புதுப்பிக்கப்பட்டது.",
+    "prefSaveError": "பிளேயர் விருப்பத்தை சேமிக்க முடியவில்லை",
+    "confirmDeletePref": "இந்த பிளேயர் விருப்பத்தை நிச்சயமாக அகற்ற விரும்புகிறீர்களா?",
+    "prefDeleted": "விருப்பம் அகற்றப்பட்டது.",
+    "prefDeleteError": "விருப்பத்தேர்வை அகற்ற முடியவில்லை",
+    "confirmResetStats": "அனைத்து மொழிபெயர்ப்பு பயன்பாட்டு கவுண்டர்களையும் நிச்சயமாக மீட்டமைக்க விரும்புகிறீர்களா?",
+    "statsReset": "புள்ளிவிவரங்கள் வெற்றிகரமாக மீட்டமைக்கப்பட்டது.",
+    "statsResetError": "புள்ளிவிவரங்களை மீட்டமைக்க முடியவில்லை",
+    "title": "அரட்டை மொழிபெயர்ப்பாளர்",
+    "subtitle": "வெவ்வேறு மொழிகளில் உள்ள பிளேயர்களில் உள்ள-கேம் சர்வர் அரட்டை மாறும் வகையில் தானாக மொழிபெயர்க்கவும்",
+    "noServers": "நிர்வகிக்க ஒரு சேவையகத்தைத் தேர்ந்தெடுக்கவும்.",
+    "pluginNotInstalled": "மொழிபெயர்ப்பாளர் செருகுநிரல் நிறுவப்படவில்லை",
+    "pluginDescription": "அரட்டை மொழிபெயர்ப்பாளர் உங்கள் ARK சேவையகத்திற்கு தடையற்ற குறுக்கு மொழி தொடர்பை செயல்படுத்துகிறது. இது DeepL அல்லது LibreTranslate ஐப் பயன்படுத்தி மாறும் வகையில் செய்திகளை மொழிபெயர்க்க, விளையாட்டு சேவையக அரட்டையில் இணைகிறது.",
+    "installPlugin": "அரட்டை மொழிபெயர்ப்பாளரை நிறுவவும்",
+    "totalTrans": "மொழிபெயர்க்கப்பட்ட மொத்த எழுத்துக்கள்",
+    "apiProvider": "மொழிபெயர்ப்பு API",
+    "prefCount": "வீரர் விருப்பத்தேர்வுகள்",
+    "cacheHits": "கேச் சேமிப்பு திறன்",
+    "tabOverview": "கண்ணோட்டம்",
+    "tabSettings": "API & அமைப்புகள்",
+    "tabPlayers": "பிளேயர் மொழி முன்னுரிமைகள்",
+    "inGameTitle": "இன்-கேம் பயன்பாடு & பிளேயர் கட்டளைகள்",
+    "usageInstructions": "நிறுவப்பட்டு இயக்கப்பட்டதும், அரட்டை மொழிபெயர்ப்பாளர் செருகுநிரல் நிகழ்நேரத்தில் உயிர் பிழைத்தவர்களிடையே அரட்டை செய்திகளை தானாகவே மொழிபெயர்க்கும். தனிப்பயன் அரட்டை கட்டளைகளைப் பயன்படுத்தி வீரர்கள் தங்கள் சொந்த அமைப்புகளை உள்ளமைக்க முடியும்:",
+    "cmdLang": "விருப்பமான மொழியை அமைக்கவும்",
+    "cmdLangDesc": "அனைத்து உள்வரும் மொழிபெயர்ப்புகளுக்கான இலக்கு மொழியை மாற்றுகிறது. எ.கா. /lang tr வீரர் இலக்கு மொழியை துருக்கிய மொழியாக அமைக்கிறது.",
+    "cmdTrans": "மொழிபெயர்ப்புகளை நிலைமாற்று",
+    "cmdTransDesc": "பிளேயருக்கான தானியங்கு மொழிபெயர்ப்பை இயக்குகிறது அல்லது முடக்குகிறது. எ.கா., /translate off இடுகைகளை மொழிபெயர்ப்பது நிறுத்தப்படும்.",
+    "uninstallPluginBtn": "அரட்டை மொழிபெயர்ப்பாளரை நிறுவல் நீக்கவும்",
+    "cacheDetails": "கேச் புள்ளிவிவரங்கள்",
+    "totalRequests": "மொத்த API கோரிக்கைகள்",
+    "totalSaved": "தற்காலிக சேமிப்பு / சேமிக்கப்பட்ட கோரிக்கைகள்",
+    "activeCache": "செயலில் உள்ள தற்காலிக சேமிப்பு விகிதம்",
+    "cacheNotice": "கேச்சிங் மொழிபெயர்ப்புகள் API லுக்-அப் எழுத்துக்களைச் சேமிக்கிறது, வணிக ரீதியான மொழிபெயர்ப்பு இறுதிப்புள்ளிகளைப் பயன்படுத்தினால் (DeepL Pro போன்றவை) பில்லிங் செலவைக் கணிசமாகக் குறைக்கிறது.",
+    "resetStatsBtn": "பயன்பாட்டு கவுண்டர்களை மீட்டமைக்கவும்",
+    "settingsSetup": "API உள்ளமைவுகள் & மொழிபெயர்ப்பு முன்னுரிமைகள்",
+    "generalSettings": "பொது கட்டமைப்பு",
+    "enablePlugin": "மொழிபெயர்ப்பு சேவையை இயக்கவும்",
+    "enablePluginDesc": "அரட்டையில் தானியங்கு மொழிபெயர்ப்பு ஹூக்குகளை இயக்கவும்",
+    "defaultLang": "இயல்புநிலை மொழிபெயர்ப்பு இலக்கு",
+    "transSys": "விழிப்பூட்டல்கள் / சிஸ்டத்தை மொழிபெயர்",
+    "transSysDesc": "கேமில் சேர்/லீவ் எச்சரிக்கைகள் மற்றும் சர்வர் ஒளிபரப்புகளைச் செயல்படுத்தவும்",
+    "enableCache": "வினவல் தற்காலிக சேமிப்பை இயக்கு",
+    "enableCacheDesc": "அரட்டை வரிகளை மீண்டும் மீண்டும் செய்வதற்கு மொழிபெயர்ப்பு API ஐ மீண்டும் பெறுவதைத் தவிர்க்கவும்",
+    "apiSettings": "மொழிபெயர்ப்பு API வழங்குநர்",
+    "apiProviderLabel": "வழங்குநர் API இயந்திரம்",
+    "deeplKey": "DeepL API அங்கீகார விசை",
+    "libreUrl": "LibreTranslate URL / Key",
+    "playerLanguages": "பிளேயர் மொழி மேலெழுதப்பட்டது",
+    "addPref": "மேலெழுதச் சேர்",
+    "searchPlayers": "நீராவி ஐடி அல்லது பெயரைத் தேடுங்கள்...",
+    "noMatchingPrefs": "பிளேயர் விருப்பத்தேர்வுகள் எதுவும் சேமிக்கப்படவில்லை.",
+    "player": "வீரர்",
+    "steamId": "நீராவி ஐடி",
+    "targetLang": "இலக்கு மொழி",
+    "lastUpdated": "கடைசியாக புதுப்பிக்கப்பட்டது",
+    "actions": "செயல்கள்",
+    "prefDetails": "மொழி மேலெழுதல் மேப்பிங்",
+    "playerSteamId": "பிளேயர் ஸ்டீம் ஐடி",
+    "playerNameLabel": "வீரர் பெயர்",
+    "targetLanguage": "விருப்பமான மொழி"
+  },
+  "tribeLog": {
+    "title": "ASE பழங்குடி பதிவு பார்வையாளர்",
+    "subtitle": "உங்கள் பழங்குடி வரலாற்றை அலசி ஆராயுங்கள்",
+    "totalEntries": "மொத்த உள்ளீடுகள்",
+    "deaths": "உயிரிழப்புகள்",
+    "tames": "டேம்ஸ்",
+    "destroyed": "அழிக்கப்பட்டது",
+    "searchPlaceholder": "பழங்குடி பதிவுகளைத் தேடு...",
+    "noEntries": "இந்த சேவையகத்திற்கான பழங்குடி பதிவு உள்ளீடுகள் எதுவும் இல்லை.",
+    "noEntriesDesc": "விளையாட்டில் நிகழ்வுகள் நடந்த பிறகு பழங்குடி பதிவுகள் இங்கு தோன்றும்"
+  },
+  "exportProfile": {
+    "noSelection": "ஏற்றுமதி செய்ய குறைந்தபட்சம் ஒரு சேவையக சுயவிவரத்தைத் தேர்ந்தெடுக்கவும்.",
+    "saveSuccess": "{{count}} சுயவிவரம்(கள்) வெற்றிகரமாக ஏற்றுமதி செய்யப்பட்டது!",
+    "copySuccess": "{{count}} சேவையக சுயவிவரம்(கள்) கிளிப்போர்டுக்கு நகலெடுக்கப்பட்டது!",
+    "modalTitle": "சேவையக சுயவிவரங்களை ஏற்றுமதி செய்யவும்",
+    "modalSubtitle": "சேவையக உள்ளமைவுகள், நெட்வொர்க் போர்ட்கள், கட்டணங்கள் மற்றும் மாட்லிஸ்ட்களை JSON சுயவிவரத் தொகுப்பிற்கு ஏற்றுமதி செய்யவும்",
+    "searchPlaceholder": "சர்வர்களை வடிகட்டி...",
+    "selectServersTitle": "1. சேர்க்க சுயவிவரங்களைத் தேர்ந்தெடுக்கவும்",
+    "optionsTitle": "2. சேர்க்க வேண்டிய தொகுதிகள் மற்றும் கூறுகளைத் தேர்ந்தெடுக்கவும்",
+    "tabs": {
+      "setup": "அமைப்பு மற்றும் தேர்வு",
+      "preview": "JSON முன்னோட்டம்"
+    },
+    "actions": {
+      "selectAll": "அனைத்து சுயவிவரங்களையும் ஏற்றுமதி செய்யவும்",
+      "clear": "தேர்வை அழிக்கவும்"
+    },
+    "buttons": {
+      "copy": "JSON ஐ நகலெடு",
+      "save": "கோப்பில் சேமி (.json)"
+    }
+  },
+  "installCenter": {
+    "title": "நிறுவல் மையம்",
+    "activeJobs": "{{count}} நிறுவல் இயங்குகிறது",
+    "setupDraftActive": "1 அமைவு வரைவு குறைக்கப்பட்டது",
+    "allDone": "அனைத்து நிறுவல்களும் முடிந்தது",
+    "clearAll": "முடிக்கப்பட்ட வேலைகளை அழிக்கவும்",
+    "setupDraft": "அமைவு வரைவு",
+    "resume": "சேவையக அமைப்பை மீண்டும் தொடங்கவும்",
+    "discard": "வரைவை நிராகரிக்கவும்",
+    "viewLogs": "நிறுவல் பதிவுகளைப் பார்க்கவும்",
+    "dismiss": "நிராகரி"
+  },
+  "donationAlert": {
+    "title": "வளர்ச்சியை ஆதரிக்கவும்",
+    "description": "இந்த சேவையக மேலாளர் இலவசம் மற்றும் திறந்த மூலமானது. உங்கள் சேவையகங்களை நிர்வகிக்க இது உங்களுக்கு உதவினால், தற்போதைய புதுப்பிப்புகள் மற்றும் அம்சங்களை ஆதரிக்க ஒரு சிறிய பங்களிப்பைக் கவனியுங்கள்.",
+    "later": "எனக்கு பிறகு நினைவூட்டு"
+  },
+  "enabled": "இயக்கப்பட்டது",
+  "disabled": "முடக்கப்பட்டது",
+  "closeApp": {
+    "title": "Close Application?",
+    "subtitle": "Choose how you want to handle closing the application",
+    "warningServersRunning": "Warning: {{count}} Active Server Running",
+    "warningServersRunning_plural": "Warning: {{count}} Active Servers Running",
+    "warningServersDesc": "Completely exiting will stop background cross-chat relays and RCON monitoring.",
+    "minimizeToTray": "Minimize to System Tray",
+    "minimizeToTrayDesc": "Keeps game servers & cross-chat running silently in background",
+    "exitApp": "Exit Application Completely",
+    "exitAppDesc": "Shut down all application processes and exit",
+    "rememberChoice": "Remember this choice (Don't ask me again)",
+    "confirm": "Confirm Action"
+  },
+  "appUpdate": {
+    "updateAvailable": "Update Available",
+    "upToDate": "You're Up to Date",
+    "updateAvailableSubtitle": "A new release of ARK Server Manager is ready",
+    "upToDateSubtitle": "You are running the latest version available",
+    "currentVersion": "Current",
+    "latestVersion": "Latest",
+    "releaseNotes": "Release Notes",
+    "copied": "Copied!",
+    "copyNotes": "Copy Notes",
+    "noNotes": "No release notes provided for this release.",
+    "installUpdate": "Install Update Now",
+    "close": "Close"
+  },
+  "titleBar": {
+    "checkUpdates": "Check Updates",
+    "checkUpdatesTooltip": "Click to check for application updates",
+    "serversOnline": "SERVERS: ONLINE",
+    "serversStandby": "SERVERS: STANDBY",
+    "serversOffline": "SERVERS: OFFLINE",
+    "statusOnlineTooltip": "Game Server Status: {{count}} active server instance(s) running",
+    "statusStandbyTooltip": "Game Server Status: All {{count}} configured servers are currently stopped (Standby)",
+    "statusOfflineTooltip": "Game Server Status: No game servers created or running currently (Offline)",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restoreDown": "Restore Down",
+    "close": "Close"
+  },
+  "hardware": {
+    "title": "Hardware & CPU Allocation",
+    "highPerfEngine": "High Performance Engine",
+    "subtitle": "Optimize process priorities and isolate specific physical/logical CPU cores per ARK server instance to eliminate micro-stuttering and core contention.",
+    "logicalCores": "Logical Cores",
+    "threads": "Threads",
+    "physicalCores": "Physical Cores",
+    "cores": "Cores",
+    "refreshTelemetry": "Refresh Telemetry",
+    "targetServer": "Target Server",
+    "useAllCores": "Use All CPU Cores (Automatic Load Balancing)",
+    "useAllCoresDesc": "Windows OS will dynamically distribute server thread load across all available threads",
+    "coreIsolation": "Core Isolation Mode",
+    "coreIsolationDesc": "Dedicated affinity mask configured for this instance",
+    "cpuAffinity": "CPU Affinity & Core Isolation",
+    "cpuAffinityDesc": "Assign specific CPU cores to this server instance",
+    "saveAllocation": "Save Hardware Allocation",
+    "saving": "Saving...",
+    "presets": "Presets",
+    "presetAll": "All Cores",
+    "presetPhysical": "Physical Only",
+    "presetEven": "Even Cores",
+    "presetOdd": "Odd Cores",
+    "presetFirstHalf": "First Half",
+    "presetSecondHalf": "Second Half",
+    "presetSkipOs": "Skip Core 0 (OS)",
+    "presetClear": "Clear All",
+    "processPriority": "Process Scheduling Priority",
+    "processPriorityDesc": "Windows CPU scheduling class for the server executable",
+    "priorityIdle": "Idle",
+    "priorityBelowNormal": "Below Normal",
+    "priorityNormal": "Normal",
+    "priorityAboveNormal": "Above Normal",
+    "priorityHigh": "High (Recommended)",
+    "priorityRealTime": "RealTime ⚠️",
+    "priorityIdleDesc": "Lowest priority. Only receives CPU time when system is idle.",
+    "priorityBelowNormalDesc": "Slightly reduced priority for background support services.",
+    "priorityNormalDesc": "Standard Windows process priority balance.",
+    "priorityAboveNormalDesc": "Ensures process priority over standard desktop applications.",
+    "priorityHighDesc": "Top priority for dedicated game servers. Prevents frame stutter.",
+    "priorityRealTimeDesc": "Highest possible execution priority. May lock host OS if overloaded.",
+    "realTimeWarningTitle": "Danger: RealTime Priority Warning",
+    "realTimeWarningDesc": "RealTime priority can starve critical Windows operating system threads, input drivers, and network stacks. If the game server hangs, your machine may become unresponsive.",
+    "understandRisk": "I understand the risks, set RealTime",
+    "cancel": "Cancel",
+    "coreOverlapWarning": "Warning: Core overlap detected with other server instances ({{servers}})",
+    "affinityMaskHex": "Affinity Mask (Hex)",
+    "copyMask": "Copy Mask",
+    "aseTitle": "ASE Hardware",
+    "aseSubtitle": "CPU affinity and process priority for ShooterGameServer.exe",
+    "aseAffinityDesc": "Select which CPU cores ShooterGameServer.exe should use. Leave all unchecked to use all cores.",
+    "selected": "Selected",
+    "core": "Core"
+  },
+  "advanced": {
+    "title": "Boot Launch Parameters",
+    "subtitle": "Manage command-line switches, performance flags, and execution priority",
+    "unsavedChanges": "Unsaved Changes",
+    "noServersAvailable": "No servers available",
+    "discard": "Discard",
+    "discardTitle": "Discard unsaved changes",
+    "saveParameters": "Save Parameters",
+    "saving": "Saving...",
+    "executeServer": "Execute Server",
+    "executing": "Executing...",
+    "executeTitle": "Execute server directly with configured boot parameters",
+    "safetyBannerTitle": "Boot Command Line Safety & Override Matrix",
+    "safetyBannerDesc": "Parameters added here are directly passed to ArkAscendedServer.exe on boot. Use visual flag toggles below to prevent syntax typos.",
+    "safetyBannerDescASE": "Parameters added here are directly passed to ShooterGameServer.exe on boot. Use visual flag toggles below to prevent syntax typos.",
+    "activeSwitches": "Active Switches",
+    "flags": "Flags",
+    "rawInspectorTitle": "Raw Custom Arguments & Command Inspector",
+    "clearAll": "Clear All Flags",
+    "customArgsLabel": "Custom Launch Arguments",
+    "customArgsPlaceholder": "e.g. -NoBattlEye -ForceAllowCaveFlyers (toggle flags below to add)",
+    "bootCommandLine": "Boot Executable Command Line",
+    "copyCommand": "Copy Command",
+    "copyBatScript": "Copy .bat Script",
+    "presetsTitle": "One-Click Parameter Presets",
+    "presetsSubtitle": "Click to append optimized flag profiles",
+    "presetMaxPerf": "Max Performance Profile",
+    "presetMaxPerfDesc": "RAM & mesh stasis tuning (-structurememopts -nomansky -lowmemory)",
+    "presetHardenedSecurity": "Hardened Security & Anti-Dupe",
+    "presetHardenedSecurityDesc": "Strict spawn validation & dupe prevention flags",
+    "presetCaveFlyer": "Cave Flyer Unlocked",
+    "presetCaveFlyerDesc": "Force allow mounting & flying in cave volumes",
+    "moddedMapsPresets": "Modded Map Launch Presets",
+    "appliedPreset": "Applied {{name}} profile",
+    "active": "Active",
+    "apply": "+ Apply",
+    "matrixTitle": "Visual Parameter Matrix",
+    "matrixSubtitle": "Toggle standard server switches directly into your boot configuration",
+    "filterPlaceholder": "Filter parameters...",
+    "catAll": "All",
+    "catSecurity": "Security",
+    "catGameplay": "Gameplay",
+    "catPerformance": "Performance",
+    "catNetwork": "Network",
+    "catEvents": "Events",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "optimizerTitle": "Server Manager Performance & Hardware Optimizer",
+    "optimizerSubtitle": "Real-time memory vacuuming, process scheduling priority, and eco-mode controls",
+    "memoryVacuum": "Memory Vacuum",
+    "memoryVacuumDesc": "Force garbage collection to trim unused background RAM allocation.",
+    "optimizeRam": "Optimize System RAM",
+    "processPriority": "Process Priority",
+    "processPriorityDesc": "Raise manager CPU scheduling thread priority under heavy cluster load.",
+    "priorityNormal": "Normal",
+    "priorityHigh": "High Priority",
+    "ultraEcoMode": "Ultra Eco Mode",
+    "ultraEcoModeDesc": "Aggressively trims memory footprint when running idle in background.",
+    "ecoModeActive": "Eco Mode Active",
+    "enableEcoMode": "Enable Eco Mode"
   }
 }

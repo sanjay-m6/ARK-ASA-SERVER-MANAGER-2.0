@@ -15,13 +15,13 @@ use tokio::sync::Mutex;
 use tokio::time::Duration;
 
 /// Maximum number of retry attempts when connecting
-const MAX_RETRIES: u32 = 4;
+const MAX_RETRIES: u32 = 2;
 
 /// Base delay between retries (multiplied by attempt number for linear backoff)
-const RETRY_BASE_DELAY: Duration = Duration::from_millis(1000);
+const RETRY_BASE_DELAY: Duration = Duration::from_millis(500);
 
 struct RconSession {
-    connection: ArkRconClient,
+    connection: Arc<Mutex<ArkRconClient>>,
     address: String,
     port: u16,
     password: String,
@@ -49,9 +49,8 @@ impl RconService {
     }
 
     /// Connect to a server's RCON with timeout and retry logic.
-    /// ARK: ASA servers can take 30–120s to fully start RCON, so we retry
-    /// up to MAX_RETRIES times with linear backoff before giving up.
-    /// Includes automatic fallback to 127.0.0.1 if public IP connection is refused by Windows loopback.
+    /// Reuses healthy existing connections to avoid colliding connections that freeze Unreal Engine's socket subsystem.
+    /// Prioritizes local NIC IPs when -MultiHome is used, avoiding 127.0.0.1 timeouts.
     pub async fn connect(
         &self,
         server_id: i64,
@@ -60,6 +59,66 @@ impl RconService {
         password: &str,
     ) -> Result<RconResponse, String> {
         let clean_address = address.trim();
+
+        // 1. Session reuse: Check if an active session already exists with matching port & credentials
+        let existing_session = {
+            let sessions = self.sessions.lock().await;
+            sessions.get(&server_id).map(|s| {
+                (
+                    s.connection.clone(),
+                    s.address.clone(),
+                    s.port,
+                    s.password.clone(),
+                )
+            })
+        };
+
+        if let Some((conn, addr, existing_port, existing_pwd)) = existing_session {
+            if existing_port == port && existing_pwd == password {
+                // Test liveness to see if the socket is genuinely responsive
+                if let Ok(mut client) = conn.try_lock() {
+                    log::info!(
+                        "[RCON] Found existing session for server {} at {}:{}. Verifying liveness...",
+                        server_id,
+                        addr,
+                        port
+                    );
+                    match client.send_command("GetChat").await {
+                        Ok(_) => {
+                            log::info!(
+                                "[RCON] Existing session for server {} is healthy. Reusing connection.",
+                                server_id
+                            );
+                            return Ok(RconResponse {
+                                success: true,
+                                message: format!("Connected to RCON at {}:{}", addr, port),
+                                data: None,
+                            });
+                        }
+                        Err(e) => {
+                            log::warn!(
+                                "[RCON] Existing session for server {} was unresponsive ({}). Cleaning up before reconnecting.",
+                                server_id,
+                                e
+                            );
+                            let _ = client.close().await;
+                            drop(client);
+                            let mut sessions = self.sessions.lock().await;
+                            sessions.remove(&server_id);
+                        }
+                    }
+                }
+            } else {
+                // Port or password changed: close previous connection cleanly
+                let mut sessions = self.sessions.lock().await;
+                if let Some(s) = sessions.remove(&server_id) {
+                    if let Ok(mut c) = s.connection.try_lock() {
+                        let _ = c.close().await;
+                    }
+                }
+            }
+        }
+
         let is_unspecified_or_loopback = clean_address.is_empty()
             || clean_address == "0.0.0.0"
             || clean_address == "127.0.0.1"
@@ -67,10 +126,18 @@ impl RconService {
 
         let targets = if is_unspecified_or_loopback {
             vec![format!("127.0.0.1:{}", port)]
+        } else if crate::services::network::is_local_interface_ip(clean_address) {
+            // Server was bound to a specific local NIC via -MultiHome (e.g. 192.168.x.x).
+            // UE socket binds explicitly to this IP, meaning 127.0.0.1 won't reach it.
+            // Try the configured local NIC IP first, with fallback to 127.0.0.1.
+            vec![
+                format!("{}:{}", clean_address, port),
+                format!("127.0.0.1:{}", port),
+            ]
         } else {
-            // A non-loopback IP/host was configured. Since ARK servers run locally,
-            // prioritize 127.0.0.1 first to avoid NAT loopback/hairpinning issues on routers,
-            // with fallback to the configured IP if the server was specifically bound with -MultiHome.
+            // A non-local / WAN IP was configured in the settings.
+            // Servers run locally, so prioritize 127.0.0.1 first to avoid NAT loopback / router hairpinning,
+            // then fall back to the configured address.
             vec![
                 format!("127.0.0.1:{}", port),
                 format!("{}:{}", clean_address, port),
@@ -101,7 +168,7 @@ impl RconService {
                         sessions.insert(
                             server_id,
                             RconSession {
-                                connection: conn,
+                                connection: Arc::new(Mutex::new(conn)),
                                 address: if is_unspecified_or_loopback {
                                     "127.0.0.1".to_string()
                                 } else {
@@ -152,8 +219,8 @@ impl RconService {
             if attempt < MAX_RETRIES {
                 let delay = RETRY_BASE_DELAY * attempt;
                 log::info!(
-                    "[RCON] Waiting {}s before retry for server {}...",
-                    delay.as_secs(),
+                    "[RCON] Waiting {}ms before retry for server {}...",
+                    delay.as_millis(),
                     server_id
                 );
                 tokio::time::sleep(delay).await;
@@ -174,8 +241,14 @@ impl RconService {
 
     /// Disconnect from a server's RCON
     pub async fn disconnect(&self, server_id: i64) -> Result<RconResponse, String> {
-        let mut sessions = self.sessions.lock().await;
-        if sessions.remove(&server_id).is_some() {
+        let session_opt = {
+            let mut sessions = self.sessions.lock().await;
+            sessions.remove(&server_id)
+        };
+
+        if let Some(session) = session_opt {
+            let mut client = session.connection.lock().await;
+            let _ = client.close().await;
             log::info!("[RCON] Disconnected from server {}", server_id);
             Ok(RconResponse {
                 success: true,
@@ -262,14 +335,26 @@ impl RconService {
             }
         }
 
-        let mut sessions = self.sessions.lock().await;
+        let session_info = {
+            let sessions = self.sessions.lock().await;
+            sessions.get(&server_id).map(|s| {
+                (
+                    s.connection.clone(),
+                    s.address.clone(),
+                    s.port,
+                    s.password.clone(),
+                )
+            })
+        };
 
-        if let Some(session) = sessions.get_mut(&server_id) {
+        if let Some((conn, address, port, password)) = session_info {
             log::info!(
                 "[RCON] Sending command to server {}: '{}'",
                 server_id,
                 command_owned
             );
+
+            let mut client = conn.lock().await;
 
             // In ASA, native RCON Broadcast commands are bugged/suppressed in ArkAscendedServer.exe.
             // Dual-dispatch ServerChat so announcements render reliably in the in-game chat box for players.
@@ -277,11 +362,11 @@ impl RconService {
                 if !clean_msg.is_empty() {
                     let chat_cmd = format!("ServerChat \"[ANNOUNCEMENT] {}\"", clean_msg);
                     log::info!("[RCON] Dual-dispatching ServerChat for ASA announcement on server {}: '{}'", server_id, chat_cmd);
-                    let _ = session.connection.send_command(&chat_cmd).await;
+                    let _ = client.send_command(&chat_cmd).await;
                 }
             }
 
-            match session.connection.send_command(&command_owned).await {
+            match client.send_command(&command_owned).await {
                 Ok(response) => {
                     log::info!(
                         "[RCON] Command '{}' executed on server {}, response length: {} bytes",
@@ -310,18 +395,15 @@ impl RconService {
                         e
                     );
 
-                    let addr = format!("{}:{}", session.address, session.port);
-                    let password = session.password.clone();
-                    drop(sessions);
+                    let _ = client.close().await;
+                    drop(client);
 
+                    let addr = format!("{}:{}", address, port);
                     self.try_reconnect_and_retry(server_id, &addr, &password, &command_owned)
                         .await
                 }
             }
         } else {
-            // Drop sessions mutex guard immediately to avoid lock contention with state.db
-            drop(sessions);
-
             // Check if we can automatically establish the connection
             let mut auto_connected = false;
             let mut ip = String::new();
@@ -391,15 +473,16 @@ impl RconService {
                     .unwrap_or(&pwd)
                     .to_string();
 
-                // drop(sessions) already released before DB queries above
-
                 if let Ok(resp) = self.connect(server_id, &ip, port, &clean_password).await {
                     if resp.success {
                         log::info!("[RCON] Auto-connect successful for server {}. Retrying command...", server_id);
-                        // Re-acquire lock and retry send
-                        let mut sessions = self.sessions.lock().await;
-                        if let Some(session) = sessions.get_mut(&server_id) {
-                            match session.connection.send_command(&command_owned).await {
+                        let conn_opt = {
+                            let sessions = self.sessions.lock().await;
+                            sessions.get(&server_id).map(|s| s.connection.clone())
+                        };
+                        if let Some(conn) = conn_opt {
+                            let mut client = conn.lock().await;
+                            match client.send_command(&command_owned).await {
                                 Ok(response) => {
                                     return Ok(RconResponse {
                                         success: true,
@@ -457,40 +540,43 @@ impl RconService {
         match conn_res {
             Ok(new_conn) => {
                 log::info!("[RCON] Auto-reconnect successful for server {}", server_id);
-                let mut sessions = self.sessions.lock().await;
-
-                if let Some(s) = sessions.get_mut(&server_id) {
-                    s.connection = new_conn;
-
-                    // Retry the command once
-                    match s.connection.send_command(command).await {
-                        Ok(response) => {
-                            log::info!(
-                                "[RCON] Command '{}' executed successfully after auto-reconnect for server {}",
-                                command,
-                                server_id
-                            );
-                            Ok(RconResponse {
-                                success: true,
-                                message: "Command executed after auto-reconnect".to_string(),
-                                data: Some(response),
-                            })
-                        }
-                        Err(retry_err) => {
-                            log::error!(
-                                "[RCON] Command failed again after auto-reconnect for server {}: {}",
-                                server_id,
-                                retry_err
-                            );
-                            sessions.remove(&server_id);
-                            Err(format!(
-                                "Connection lost and recovery failed: {}",
-                                retry_err
-                            ))
-                        }
+                let new_conn_arc = Arc::new(Mutex::new(new_conn));
+                {
+                    let mut sessions = self.sessions.lock().await;
+                    if let Some(s) = sessions.get_mut(&server_id) {
+                        s.connection = new_conn_arc.clone();
                     }
-                } else {
-                    Err("RCON session lost during auto-reconnect.".to_string())
+                }
+
+                let mut client = new_conn_arc.lock().await;
+                match client.send_command(command).await {
+                    Ok(response) => {
+                        log::info!(
+                            "[RCON] Command '{}' executed successfully after auto-reconnect for server {}",
+                            command,
+                            server_id
+                        );
+                        Ok(RconResponse {
+                            success: true,
+                            message: "Command executed after auto-reconnect".to_string(),
+                            data: Some(response),
+                        })
+                    }
+                    Err(retry_err) => {
+                        log::error!(
+                            "[RCON] Command failed again after auto-reconnect for server {}: {}",
+                            server_id,
+                            retry_err
+                        );
+                        let _ = client.close().await;
+                        drop(client);
+                        let mut sessions = self.sessions.lock().await;
+                        sessions.remove(&server_id);
+                        Err(format!(
+                            "Connection lost and recovery failed: {}",
+                            retry_err
+                        ))
+                    }
                 }
             }
             Err(e) => {
@@ -499,8 +585,15 @@ impl RconService {
                     server_id,
                     e
                 );
-                let mut sessions = self.sessions.lock().await;
-                sessions.remove(&server_id);
+                let session_opt = {
+                    let mut sessions = self.sessions.lock().await;
+                    sessions.remove(&server_id)
+                };
+                if let Some(s) = session_opt {
+                    if let Ok(mut c) = s.connection.try_lock() {
+                        let _ = c.close().await;
+                    }
+                }
                 Err(format!("Connection lost — reconnect failed: {}", e))
             }
         }
@@ -705,32 +798,12 @@ impl RconService {
                             "[RCON Heartbeat] Auto-connecting to server {} at {}:{} for player tracking",
                             server_id, clean_addr, rcon_port
                         );
-                        // Use a single attempt (not full retry loop) to avoid blocking the heartbeat
-                        let addr = format!("{}:{}", clean_addr, rcon_port);
-                        match crate::services::ark_rcon::ArkRconClient::connect(&addr, &clean_password).await {
-                            Ok(conn) => {
-                                let mut sessions = service.sessions.lock().await;
-                                sessions.insert(
-                                    *server_id,
-                                    RconSession {
-                                        connection: conn,
-                                        address: clean_addr.to_string(),
-                                        port: *rcon_port,
-                                        password: clean_password.clone(),
-                                    },
-                                );
-                                log::info!(
-                                    "[RCON Heartbeat] Auto-connected to server {} for player tracking",
-                                    server_id
-                                );
-                            }
-                            Err(e) => {
-                                log::debug!(
-                                    "[RCON Heartbeat] Could not auto-connect to server {}: {} (will retry next cycle)",
-                                    server_id, e
-                                );
-                                continue;
-                            }
+                        if let Err(e) = service.connect(*server_id, clean_addr, *rcon_port, &clean_password).await {
+                            log::debug!(
+                                "[RCON Heartbeat] Could not auto-connect to server {}: {} (will retry next cycle)",
+                                server_id, e
+                            );
+                            continue;
                         }
                     }
 
@@ -767,9 +840,8 @@ impl RconService {
                     let player_intel = app_handle.state::<Arc<crate::services::player_intelligence::PlayerIntelligenceService>>();
                     player_intel.inner().clear_server_sessions(stale_id).await;
 
-                    // Remove RCON session
-                    let mut sessions = service.sessions.lock().await;
-                    sessions.remove(&stale_id);
+                    // Remove RCON session cleanly
+                    let _ = service.disconnect(stale_id).await;
                 }
             }
         });

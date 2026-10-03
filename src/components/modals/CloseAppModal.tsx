@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { exit } from '@tauri-apps/plugin-process';
 import { AlertTriangle, X, Minimize2, LogOut, CheckSquare, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useServerStore } from '../../stores/serverStore';
+import { useAseServerStore } from '../../ase/stores/aseServerStore';
 
 interface CloseAppModalProps {
     isOpen: boolean;
@@ -11,11 +13,24 @@ interface CloseAppModalProps {
 }
 
 export default function CloseAppModal({ isOpen, onClose }: CloseAppModalProps) {
+    const { t } = useTranslation();
     const { servers } = useServerStore();
-    const runningServers = servers.filter((s) => s.status === 'running' || s.status === 'online').length;
+    const aseServers = useAseServerStore((state) => state.servers);
+    const runningServers = 
+        servers.filter((s) => s.status === 'running' || s.status === 'online').length +
+        aseServers.filter((s) => s.status === 'running' || s.status === 'online').length;
 
-    const [selectedAction, setSelectedAction] = useState<'tray' | 'exit'>('tray');
+    const [selectedAction, setSelectedAction] = useState<'tray' | 'exit'>(
+        runningServers > 0 ? 'tray' : 'exit'
+    );
     const [rememberChoice, setRememberChoice] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            setSelectedAction(runningServers > 0 ? 'tray' : 'exit');
+            setRememberChoice(false);
+        }
+    }, [isOpen, runningServers]);
 
     if (!isOpen) return null;
 
@@ -75,8 +90,8 @@ export default function CloseAppModal({ isOpen, onClose }: CloseAppModalProps) {
                             <AlertTriangle className="w-6 h-6" />
                         </div>
                         <div>
-                            <h3 className="text-xl font-bold text-white">Close Application?</h3>
-                            <p className="text-xs text-slate-400">Choose how you want to handle closing the application</p>
+                            <h3 className="text-xl font-bold text-white">{t('closeApp.title', 'Close Application?')}</h3>
+                            <p className="text-xs text-slate-400">{t('closeApp.subtitle', 'Choose how you want to handle closing the application')}</p>
                         </div>
                     </div>
 
@@ -85,8 +100,12 @@ export default function CloseAppModal({ isOpen, onClose }: CloseAppModalProps) {
                         <div className="mb-4 p-3.5 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-start gap-3">
                             <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
                             <div className="text-xs text-amber-200">
-                                <p className="font-semibold text-amber-300">Warning: {runningServers} Active Server{runningServers > 1 ? 's' : ''} Running</p>
-                                <p className="text-amber-200/80 mt-0.5">Completely exiting will stop background cross-chat relays and RCON monitoring.</p>
+                                <p className="font-semibold text-amber-300">
+                                    {runningServers > 1 
+                                        ? t('closeApp.warningServersRunning_plural', `Warning: ${runningServers} Active Servers Running`, { count: runningServers })
+                                        : t('closeApp.warningServersRunning', `Warning: ${runningServers} Active Server Running`, { count: runningServers })}
+                                </p>
+                                <p className="text-amber-200/80 mt-0.5">{t('closeApp.warningServersDesc', 'Completely exiting will stop background cross-chat relays and RCON monitoring.')}</p>
                             </div>
                         </div>
                     )}
@@ -108,8 +127,8 @@ export default function CloseAppModal({ isOpen, onClose }: CloseAppModalProps) {
                                     <Minimize2 className="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <span className="font-semibold text-sm block text-white">Minimize to System Tray</span>
-                                    <span className="text-xs text-slate-400">Keeps game servers & cross-chat running silently in background</span>
+                                    <span className="font-semibold text-sm block text-white">{t('closeApp.minimizeToTray', 'Minimize to System Tray')}</span>
+                                    <span className="text-xs text-slate-400">{t('closeApp.minimizeToTrayDesc', 'Keeps game servers & cross-chat running silently in background')}</span>
                                 </div>
                             </div>
                             <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${selectedAction === 'tray' ? 'border-purple-400 bg-purple-500' : 'border-slate-600'}`}>
@@ -132,8 +151,8 @@ export default function CloseAppModal({ isOpen, onClose }: CloseAppModalProps) {
                                     <LogOut className="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <span className="font-semibold text-sm block text-white">Exit Application Completely</span>
-                                    <span className="text-xs text-slate-400">Shut down all application processes and exit</span>
+                                    <span className="font-semibold text-sm block text-white">{t('closeApp.exitApp', 'Exit Application Completely')}</span>
+                                    <span className="text-xs text-slate-400">{t('closeApp.exitAppDesc', 'Shut down all application processes and exit')}</span>
                                 </div>
                             </div>
                             <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${selectedAction === 'exit' ? 'border-rose-400 bg-rose-500' : 'border-slate-600'}`}>
@@ -156,7 +175,7 @@ export default function CloseAppModal({ isOpen, onClose }: CloseAppModalProps) {
                             )}
                         </button>
                         <span className="text-xs text-slate-300 font-medium group-hover:text-white transition-colors">
-                            Remember this choice (Don't ask me again)
+                            {t('closeApp.rememberChoice', "Remember this choice (Don't ask me again)")}
                         </span>
                     </label>
 
@@ -166,13 +185,13 @@ export default function CloseAppModal({ isOpen, onClose }: CloseAppModalProps) {
                             onClick={onClose}
                             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium transition-colors"
                         >
-                            Cancel
+                            {t('common.cancel', 'Cancel')}
                         </button>
                         <button
                             onClick={handleConfirm}
                             className="px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-purple-500/20 transition-all"
                         >
-                            Confirm Action
+                            {t('closeApp.confirm', 'Confirm Action')}
                         </button>
                     </div>
                 </motion.div>
