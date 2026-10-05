@@ -5,6 +5,29 @@ All notable changes to the ARK ASA Server Manager are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.30] — 2026-10-05
+
+### Fixed & Improved
+- **⏰ Fix Staggered Scheduled Restarts Skipping Subsequent Maps (Extinction, Gen1, Valguero)**:
+  - Resolved critical issue where staggered morning/afternoon restarts (e.g. 06:00, 06:03, 06:06, 06:12, 06:18) successfully restarted the first servers (Astraeos and The Island) but completely skipped subsequent maps (Extinction, Gen1, Valguero).
+  - Offloaded all server maintenance execution chains (`process_asa_advanced_mode`, `process_ase_advanced_mode`, `process_tasks`, `process_basic_mode`, and `process_ase_basic_mode`) to asynchronous background tasks via `tauri::async_runtime::spawn`. The scheduler ticker loop now returns in <1ms without blocking on lengthy `SaveWorld`, graceful stop, backup, or SteamCMD operations.
+  - Enhanced `parse_time_str` to support European dot notation (e.g. `6.00`, `6.03`, `06.00`, `06:12`) by normalizing `.` to `:` and parsing 1- or 2-part time strings cleanly.
+  - Added scheduling catch-up tolerance (2-minute window) protected by a 180-second debounce so minor timer drifts or busy ticks never cause scheduled restarts to be missed.
+- **🛡️ Fix ASE Port 7778 Collision & Instant Exit (Code 0) on The Island & Valguero**:
+  - Resolved issue where ASE servers terminated immediately upon launch or restart with exit code 0 (`STATUS_SUCCESS`).
+  - Added `PeerPort` (`port + 1`, UDP 7778) to `AseLauncher::stop_server` and `AseLauncher::spawn_server` port tracking and socket cleanup routines, ensuring `ShooterGameServer.exe`'s raw/peer UDP port is completely freed before the new instance starts.
+  - Increased restart socket release cooldown from 2s to 4s in `restart_ase_server` and scheduler maintenance chains to allow complete Windows UDP socket deallocation.
+- **🗺️ Fix Gen1 (Genesis Part 1) Failing to Start & Official Map Normalization**:
+  - Resolved issue where Genesis Part 1 stopped but failed to start due to spaces in the launch command URL (`"Genesis Part 1?listen"`), which Unreal Engine rejected.
+  - Added `normalize_ase_map_name` in `AseLauncher` to format map parameters into canonical ASE engine map names (`Genesis`, `Valguero_P`, `ScorchedEarth_P`, `Aberration_P`, `TheCenter`, `Gen2`, etc.).
+  - Added Genesis Part 1 / Gen1 (`Genesis_WP`) and Genesis Part 2 / Gen2 (`Genesis2_WP`) to `normalize_map_name` in `config_generator.rs` so they are correctly recognized as official maps.
+- **💾 Fix Astraeos Database Corruption & Automatic SQLite Healing (`FAtlasSaveManager`)**:
+  - Resolved issue where large ASA maps suffered save file corruption (`FAtlasSaveManager::LoadOperationSql: SQL database is corrupt`) after restarts.
+  - Extended `graceful_stop` wait from 10s to 30s with progress logging, giving `ArkAscendedServer.exe` sufficient time to flush WAL frames and checkpoint SQLite safely before any fallback kill.
+  - Implemented `auto_heal_corrupted_sqlite_save` in `perform_server_startup_inner`: automatically runs `PRAGMA quick_check;` before launch. If corruption is detected, it archives the damaged file as `<Map>_corrupted_<timestamp>.db`, finds and verifies the newest healthy backup (`.bak` or timestamped `.db`), restores it to `<Map>.db`, and clears stale `.db-wal` and `.db-shm` files.
+
+---
+
 ## [4.6.29] — 2026-10-04
 
 ### Fixed & Improved

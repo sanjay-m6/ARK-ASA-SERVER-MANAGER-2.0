@@ -1608,6 +1608,43 @@ pub fn normalize_map_name(map: &str) -> String {
     if trimmed.eq_ignore_ascii_case("Reverence") || trimmed.eq_ignore_ascii_case("Reverence_WP") {
         return "Reverence_WP".to_string();
     }
+    if trimmed.eq_ignore_ascii_case("Genesis")
+        || trimmed.eq_ignore_ascii_case("Genesis_WP")
+        || trimmed.eq_ignore_ascii_case("Genesis Part 1")
+        || trimmed.eq_ignore_ascii_case("Genesis Part1")
+        || trimmed.eq_ignore_ascii_case("Genesis 1")
+        || trimmed.eq_ignore_ascii_case("Gen1")
+        || trimmed.eq_ignore_ascii_case("Gen 1")
+    {
+        return "Genesis_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("Genesis2")
+        || trimmed.eq_ignore_ascii_case("Genesis2_WP")
+        || trimmed.eq_ignore_ascii_case("Genesis 2")
+        || trimmed.eq_ignore_ascii_case("Genesis Part 2")
+        || trimmed.eq_ignore_ascii_case("Genesis Part2")
+        || trimmed.eq_ignore_ascii_case("Gen2")
+        || trimmed.eq_ignore_ascii_case("Gen 2")
+    {
+        return "Genesis2_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("CrystalIsles")
+        || trimmed.eq_ignore_ascii_case("CrystalIsles_WP")
+        || trimmed.eq_ignore_ascii_case("Crystal Isles")
+    {
+        return "CrystalIsles_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("LostIsland")
+        || trimmed.eq_ignore_ascii_case("LostIsland_WP")
+        || trimmed.eq_ignore_ascii_case("Lost Island")
+    {
+        return "LostIsland_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("Fjordur")
+        || trimmed.eq_ignore_ascii_case("Fjordur_WP")
+    {
+        return "Fjordur_WP".to_string();
+    }
     if trimmed.eq_ignore_ascii_case("Bjarnheim") || trimmed.eq_ignore_ascii_case("Bjarnheim_WP") {
         return "Bjarnheim_WP".to_string();
     }

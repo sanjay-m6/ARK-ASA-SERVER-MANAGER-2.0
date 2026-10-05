@@ -208,6 +208,35 @@ impl AseLauncher {
         Ok(determined_state)
     }
 
+    pub fn normalize_ase_map_name(map: &str) -> String {
+        let trimmed = map.trim();
+        let lower = trimmed.to_lowercase();
+        let cleaned = lower.replace([' ', '_', '-'], "");
+
+        match cleaned.as_str() {
+            "theisland" | "island" => "TheIsland".to_string(),
+            "scorchedearth" | "scorchedearthp" => "ScorchedEarth_P".to_string(),
+            "aberration" | "aberrationp" => "Aberration_P".to_string(),
+            "extinction" => "Extinction".to_string(),
+            "thecenter" | "center" => "TheCenter".to_string(),
+            "ragnarok" => "Ragnarok".to_string(),
+            "valguero" | "valguerop" => "Valguero_P".to_string(),
+            "genesis" | "genesispart1" | "genesis1" | "gen1" | "genesispt1" => "Genesis".to_string(),
+            "genesis2" | "genesispart2" | "gen2" | "genesispt2" => "Gen2".to_string(),
+            "crystalisles" | "crystal" => "CrystalIsles".to_string(),
+            "lostisland" => "LostIsland".to_string(),
+            "fjordur" => "Fjordur".to_string(),
+            _ => {
+                // Strip any trailing _WP from ASA if user copied an ASA config to ASE
+                if trimmed.ends_with("_WP") {
+                    let stripped = &trimmed[..trimmed.len() - 3];
+                    return Self::normalize_ase_map_name(stripped);
+                }
+                trimmed.to_string()
+            }
+        }
+    }
+
     pub fn build_arguments(
         server: &AseServer,
         _config: &AseGameConfig,
@@ -216,8 +245,9 @@ impl AseLauncher {
         cluster_dir: Option<String>,
     ) -> Vec<String> {
         let mut args = Vec::new();
-        // ASE uses "TheIsland", NOT "TheIsland_WP" (that's ASA)
-        let map = if server.map_name.is_empty() { "TheIsland" } else { &server.map_name };
+        // Canonical map name normalized for ASE (e.g. Genesis Part 1 -> Genesis, Valguero -> Valguero_P)
+        let raw_map = if server.map_name.is_empty() { "TheIsland" } else { &server.map_name };
+        let map = Self::normalize_ase_map_name(raw_map);
         
         let mut launch_string = format!("{}?listen", map);
         
@@ -563,10 +593,12 @@ impl AseLauncher {
         let _ = std::fs::remove_file(&log_file_path_init);
 
         // Verify ports are free before spawning to prevent instant exit (code 0)
-        let check_ports: [(&str, u16, bool); 3] = [
-            ("Game", server.port, true),  // UDP
+        let peer_port = if server.port > 0 { server.port.saturating_add(1) } else { 0 };
+        let check_ports: [(&str, u16, bool); 4] = [
+            ("Game", server.port, true),        // UDP
+            ("Peer/Raw", peer_port, true),     // UDP (ShooterGameServer.exe binds port + 1)
             ("Query", server.query_port, true), // UDP
-            ("RCON", server.rcon_port, false), // TCP
+            ("RCON", server.rcon_port, false),  // TCP
         ];
         for (p_name, p_val, is_udp) in check_ports {
             if p_val > 0 {
@@ -589,7 +621,7 @@ impl AseLauncher {
                         let db = state.db.lock().map_err(|e| e.to_string())?;
                         let conn = db.get_connection().map_err(|e| e.to_string())?;
                         conn.query_row(
-                            "SELECT 1 FROM ase_servers WHERE id != ?1 AND (port = ?2 OR query_port = ?2 OR rcon_port = ?2) AND status IN ('running', 'starting', 'online')",
+                            "SELECT 1 FROM ase_servers WHERE id != ?1 AND (port = ?2 OR (port + 1) = ?2 OR query_port = ?2 OR rcon_port = ?2) AND status IN ('running', 'starting', 'online')",
                             [server.id, p_val as i64],
                             |_| Ok(true)
                         ).unwrap_or(false)
@@ -954,14 +986,15 @@ impl AseLauncher {
             }
         }
 
-        // Kill lingering processes holding ASE ports
-        let target_ports: Vec<u16> = [port, query_port, rcon_port].into_iter().filter(|&p| p > 0).collect();
+        // Kill lingering processes holding ASE ports (including PeerPort port + 1)
+        let peer_port = if port > 0 { port.saturating_add(1) } else { 0 };
+        let target_ports: Vec<u16> = [port, peer_port, query_port, rcon_port].into_iter().filter(|&p| p > 0).collect();
         crate::services::process_manager::ProcessManager::kill_processes_on_ports(&target_ports);
 
-        // Wait up to 3 seconds for sockets to release
+        // Wait up to 5 seconds for sockets to release
         for &p in &target_ports {
             let mut port_wait = 0;
-            let is_udp = p == port || p == query_port;
+            let is_udp = p == port || p == peer_port || p == query_port;
             let check_in_use = || {
                 if is_udp {
                     crate::services::network::is_udp_port_in_use(p)
@@ -969,7 +1002,7 @@ impl AseLauncher {
                     crate::services::network::is_tcp_port_in_use(p)
                 }
             };
-            while check_in_use() && port_wait < 6 {
+            while check_in_use() && port_wait < 10 {
                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
                 port_wait += 1;
             }

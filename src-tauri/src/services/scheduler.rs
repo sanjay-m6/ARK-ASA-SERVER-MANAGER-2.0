@@ -121,7 +121,11 @@ impl SchedulerService {
                     task.id,
                     task.task_type
                 );
-                Self::execute_task(app_handle, &task).await;
+                let app_c = app_handle.clone();
+                let task_c = task.clone();
+                tauri::async_runtime::spawn(async move {
+                    Self::execute_task(&app_c, &task_c).await;
+                });
 
                 let now_str = Local::now().to_rfc3339();
                 if let Ok(db) = state.db.lock() {
@@ -579,102 +583,111 @@ impl SchedulerService {
             }
         }
 
-        if time.hour() == hour && time.minute() == minute {
-            // Guard: Ensure we only run once per scheduled time window (debounce 65s)
+        let target_mins = (hour * 60 + minute) as i32;
+        let current_mins = (time.hour() * 60 + time.minute()) as i32;
+        let mut min_diff = current_mins - target_mins;
+        if min_diff < -720 {
+            min_diff += 1440;
+        }
+        let is_due = min_diff >= 0 && min_diff <= 2;
+
+        if is_due {
+            // Guard: Ensure we only run once per scheduled time window (debounce 180s)
             {
                 let mut last_map = LAST_ADVANCED_RUN.lock().unwrap_or_else(|e| e.into_inner());
                 if let Some(last_dt) = last_map.get(&server_id) {
-                    if (time - *last_dt).num_seconds() < 65 {
+                    if (time - *last_dt).num_seconds() < 180 {
                         return;
                     }
                 }
                 last_map.insert(server_id, time);
             }
 
-            log::info!("🚀 Advanced ASA Scheduler: Running execution chain for server {}", server_id);
+            log::info!("🚀 Advanced ASA Scheduler: Dispatching execution chain for server {}", server_id);
 
-            let state = app_handle.state::<AppState>();
-            
-            // Step 0: SaveWorld & Final RCON Notice
-            if let Some(rcon_state) = app_handle.try_state::<RconState>() {
-                let rcon = &rcon_state.inner().0;
-                log::info!("  [Advanced ASA] Step 0: Executing RCON SaveWorld & Final Warning");
-                let _ = rcon.send_command(server_id, "SaveWorld").await;
-                let _ = rcon.send_command(server_id, "Broadcast ⚠️ SERVER RESTARTING FOR MAINTENANCE NOW!").await;
-                let _ = rcon.send_command(server_id, "ServerChat ⚠️ SERVER RESTARTING FOR MAINTENANCE NOW!").await;
-                sleep(Duration::from_secs(3)).await;
-            }
-
-            if shutdown || restart || update {
-                log::info!("  [Advanced ASA] Step 1/5: Graceful Shutdown (scheduled maintenance)");
-                state.process_manager.set_pending_stop_reason(
-                    server_id,
-                    crate::services::process_manager::StopReason::ScheduledRestart,
-                );
-                if let Some(guardian) = app_handle.try_state::<crate::services::guardian::GuardianState>() {
-                    let guard = guardian.0.lock().await;
-                    guard.mark_as_stopping(server_id).await;
+            let app = (*app_handle).clone();
+            tauri::async_runtime::spawn(async move {
+                let state = app.state::<AppState>();
+                
+                // Step 0: SaveWorld & Final RCON Notice
+                if let Some(rcon_state) = app.try_state::<RconState>() {
+                    let rcon = &rcon_state.inner().0;
+                    log::info!("  [Advanced ASA] Step 0: Executing RCON SaveWorld & Final Warning");
+                    let _ = rcon.send_command(server_id, "SaveWorld").await;
+                    let _ = rcon.send_command(server_id, "Broadcast ⚠️ SERVER RESTARTING FOR MAINTENANCE NOW!").await;
+                    let _ = rcon.send_command(server_id, "ServerChat ⚠️ SERVER RESTARTING FOR MAINTENANCE NOW!").await;
+                    sleep(Duration::from_secs(3)).await;
                 }
 
-                let _ = crate::commands::server::stop_server(state.clone(), server_id).await;
-
-                // Poll until the server process is verified to be fully stopped
-                let mut wait_attempts = 0;
-                while state.process_manager.is_running(server_id) && wait_attempts < 25 {
-                    sleep(Duration::from_secs(1)).await;
-                    wait_attempts += 1;
-                }
-
-                if state.process_manager.is_running(server_id) {
-                    log::warn!("  ⚠️ Server {} still running after 25s — forcing process stop", server_id);
-                    let _ = state.process_manager.stop_server_with_reason(
+                if shutdown || restart || update {
+                    log::info!("  [Advanced ASA] Step 1/5: Graceful Shutdown (scheduled maintenance)");
+                    state.process_manager.set_pending_stop_reason(
                         server_id,
                         crate::services::process_manager::StopReason::ScheduledRestart,
                     );
+                    if let Some(guardian) = app.try_state::<crate::services::guardian::GuardianState>() {
+                        let guard = guardian.0.lock().await;
+                        guard.mark_as_stopping(server_id).await;
+                    }
+
+                    let _ = crate::commands::server::stop_server(state.clone(), server_id).await;
+
+                    // Poll until the server process is verified to be fully stopped (allow up to 35s for clean SQLite checkpoint)
+                    let mut wait_attempts = 0;
+                    while state.process_manager.is_running(server_id) && wait_attempts < 35 {
+                        sleep(Duration::from_secs(1)).await;
+                        wait_attempts += 1;
+                    }
+
+                    if state.process_manager.is_running(server_id) {
+                        log::warn!("  ⚠️ Server {} still running after 35s — forcing process stop", server_id);
+                        let _ = state.process_manager.stop_server_with_reason(
+                            server_id,
+                            crate::services::process_manager::StopReason::ScheduledRestart,
+                        );
+                    }
+
+                    sleep(Duration::from_secs(2)).await;
                 }
 
-                sleep(Duration::from_secs(2)).await;
-            }
+                if backup {
+                    log::info!("  [Advanced ASA] Step 2/5: Creating automated backup");
+                    let _ = Self::create_preupdate_backup_for_server(&app, server_id);
+                }
 
-            if backup {
-                log::info!("  [Advanced ASA] Step 2/5: Creating automated backup");
-                let _ = Self::create_preupdate_backup_for_server(app_handle, server_id);
-            }
+                if update {
+                    log::info!("  [Advanced ASA] Step 3/5: Updating server");
+                    let _ = crate::commands::server::update_server(app.clone(), state.clone(), server_id).await;
+                    sleep(Duration::from_secs(3)).await;
+                }
 
-            if update {
-                log::info!("  [Advanced ASA] Step 3/5: Updating server");
-                let app = (*app_handle).clone();
-                let _ = crate::commands::server::update_server(app, state.clone(), server_id).await;
-                sleep(Duration::from_secs(3)).await;
-            }
-
-            if restart {
-                log::info!("  [Advanced ASA] Step 4/5: Restarting server");
-                let app = (*app_handle).clone();
-                
-                // Clear any residual tracking entry to ensure a pristine start
-                state.process_manager.force_cleanup_server_entry(server_id);
-                
-                let _ = crate::commands::server::start_server(app, server_id, false).await;
-                
-                if dino_wipe {
-                    log::info!("  [Advanced ASA] Step 5/5: Queuing DestroyWildDinos command (retrying post-startup)");
-                    let app = (*app_handle).clone();
-                    tauri::async_runtime::spawn(async move {
-                        for attempt in 1..=10 {
-                            sleep(Duration::from_secs(20)).await;
-                            if let Some(rcon_state) = app.try_state::<RconState>() {
-                                let rcon = &rcon_state.inner().0;
-                                if let Ok(res) = rcon.send_command(server_id, "DestroyWildDinos").await {
-                                    let _ = rcon.send_command(server_id, "cheat DestroyWildDinos").await;
-                                    log::info!("✅ [ASA] DestroyWildDinos executed on attempt {}: {:?}", attempt, res.data);
-                                    break;
+                if restart {
+                    log::info!("  [Advanced ASA] Step 4/5: Restarting server");
+                    
+                    // Clear any residual tracking entry to ensure a pristine start
+                    state.process_manager.force_cleanup_server_entry(server_id);
+                    
+                    let _ = crate::commands::server::start_server(app.clone(), server_id, false).await;
+                    
+                    if dino_wipe {
+                        log::info!("  [Advanced ASA] Step 5/5: Queuing DestroyWildDinos command (retrying post-startup)");
+                        let app_dino = app.clone();
+                        tauri::async_runtime::spawn(async move {
+                            for attempt in 1..=10 {
+                                sleep(Duration::from_secs(20)).await;
+                                if let Some(rcon_state) = app_dino.try_state::<RconState>() {
+                                    let rcon = &rcon_state.inner().0;
+                                    if let Ok(res) = rcon.send_command(server_id, "DestroyWildDinos").await {
+                                        let _ = rcon.send_command(server_id, "cheat DestroyWildDinos").await;
+                                        log::info!("✅ [ASA] DestroyWildDinos executed on attempt {}: {:?}", attempt, res.data);
+                                        break;
+                                    }
                                 }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
-            }
+            });
         }
     }
 
@@ -740,23 +753,27 @@ impl SchedulerService {
         if seconds_left <= 5 && seconds_left >= -55 {
             log::info!("🚀 Basic ASE Scheduler: Restarting ASE Server {}", server_id);
 
-            let state = app_handle.state::<AppState>();
-            state.process_manager.set_pending_stop_reason(
-                server_id,
-                crate::services::process_manager::StopReason::ScheduledRestart,
-            );
-            if let Some(guardian) = app_handle.try_state::<crate::services::guardian::GuardianState>() {
-                let guard = guardian.0.lock().await;
-                guard.mark_as_stopping(-server_id).await;
-            }
+            let app_c = (*app_handle).clone();
+            tauri::async_runtime::spawn(async move {
+                let state = app_c.state::<AppState>();
+                state.process_manager.set_pending_stop_reason(
+                    server_id,
+                    crate::services::process_manager::StopReason::ScheduledRestart,
+                );
+                if let Some(guardian) = app_c.try_state::<crate::services::guardian::GuardianState>() {
+                    let guard = guardian.0.lock().await;
+                    guard.mark_as_stopping(-server_id).await;
+                }
 
-            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "SaveWorld".into(), state.clone()).await;
-            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "Broadcast ⚠️ RESTARTING SERVER NOW!".into(), state.clone()).await;
-            sleep(Duration::from_secs(3)).await;
+                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "SaveWorld".into(), state.clone()).await;
+                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "Broadcast ⚠️ RESTARTING SERVER NOW!".into(), state.clone()).await;
+                sleep(Duration::from_secs(3)).await;
 
-            let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
-            sleep(Duration::from_secs(2)).await;
-            let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await;
+                let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
+                // Allow generous socket deallocation cooldown (including PeerPort 7778)
+                sleep(Duration::from_secs(4)).await;
+                let _ = crate::ase::commands::server::start_ase_server(app_c.clone(), server_id, state.clone()).await;
+            });
 
             Self::update_ase_next_run(app_handle, server_id, interval, now).await;
             return;
@@ -840,98 +857,109 @@ impl SchedulerService {
             }
         }
 
-        if time.hour() == hour && time.minute() == minute {
-            // Guard: Ensure we only run once per scheduled time window (debounce 65s)
+        let target_mins = (hour * 60 + minute) as i32;
+        let current_mins = (time.hour() * 60 + time.minute()) as i32;
+        let mut min_diff = current_mins - target_mins;
+        if min_diff < -720 {
+            min_diff += 1440;
+        }
+        let is_due = min_diff >= 0 && min_diff <= 2;
+
+        if is_due {
+            // Guard: Ensure we only run once per scheduled time window (debounce 180s)
             {
                 let mut last_map = LAST_ADVANCED_RUN.lock().unwrap_or_else(|e| e.into_inner());
                 if let Some(last_dt) = last_map.get(&(-server_id)) {
-                    if (time - *last_dt).num_seconds() < 65 {
+                    if (time - *last_dt).num_seconds() < 180 {
                         return;
                     }
                 }
                 last_map.insert(-server_id, time);
             }
 
-            log::info!("🚀 Advanced ASE Scheduler: Running execution chain for server {}", server_id);
+            log::info!("🚀 Advanced ASE Scheduler: Dispatching execution chain for server {}", server_id);
 
-            let state = app_handle.state::<AppState>();
+            let app = (*app_handle).clone();
+            tauri::async_runtime::spawn(async move {
+                let state = app.state::<AppState>();
 
-            // Step 0: SaveWorld & Final RCON Notice
-            log::info!("  [Advanced ASE] Step 0: Executing RCON SaveWorld & Final Warning");
-            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "SaveWorld".into(), state.clone()).await;
-            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "Broadcast ⚠️ SERVER RESTARTING FOR MAINTENANCE NOW!".into(), state.clone()).await;
-            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "ServerChat ⚠️ SERVER RESTARTING FOR MAINTENANCE NOW!".into(), state.clone()).await;
-            sleep(Duration::from_secs(3)).await;
+                // Step 0: SaveWorld & Final RCON Notice
+                log::info!("  [Advanced ASE] Step 0: Executing RCON SaveWorld & Final Warning");
+                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "SaveWorld".into(), state.clone()).await;
+                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "Broadcast ⚠️ SERVER RESTARTING FOR MAINTENANCE NOW!".into(), state.clone()).await;
+                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "ServerChat ⚠️ SERVER RESTARTING FOR MAINTENANCE NOW!".into(), state.clone()).await;
+                sleep(Duration::from_secs(3)).await;
 
-            if shutdown || restart || update {
-                log::info!("  [Advanced ASE] Step 1/5: Graceful Shutdown (scheduled maintenance)");
-                if let Some(guardian) = app_handle.try_state::<crate::services::guardian::GuardianState>() {
-                    let guard = guardian.0.lock().await;
-                    guard.mark_as_stopping(-server_id.abs()).await;
+                if shutdown || restart || update {
+                    log::info!("  [Advanced ASE] Step 1/5: Graceful Shutdown (scheduled maintenance)");
+                    if let Some(guardian) = app.try_state::<crate::services::guardian::GuardianState>() {
+                        let guard = guardian.0.lock().await;
+                        guard.mark_as_stopping(-server_id.abs()).await;
+                    }
+
+                    let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
+                    // Allow generous socket deallocation cooldown (including PeerPort 7778)
+                    sleep(Duration::from_secs(4)).await;
                 }
 
-                let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
-                sleep(Duration::from_secs(2)).await;
-            }
+                if backup {
+                    log::info!("  [Advanced ASE] Step 2/5: Creating automated backup");
+                    let _ = crate::ase::commands::backup::create_ase_backup(server_id, state.clone()).await;
+                }
 
-            if backup {
-                log::info!("  [Advanced ASE] Step 2/5: Creating automated backup");
-                let _ = crate::ase::commands::backup::create_ase_backup(server_id, state.clone()).await;
-            }
+                if update {
+                    log::info!("  [Advanced ASE] Step 3/5: SteamCMD mod/server update");
+                    let install_path: Option<String> = if let Ok(db) = state.db.lock() {
+                        if let Ok(conn) = db.get_connection() {
+                            conn.query_row(
+                                "SELECT install_path FROM ase_servers WHERE id = ?1",
+                                [server_id],
+                                |row| row.get(0),
+                            ).ok()
+                        } else { None }
+                    } else { None };
 
-            if update {
-                log::info!("  [Advanced ASE] Step 3/5: SteamCMD mod/server update");
-                let install_path: Option<String> = if let Ok(db) = state.db.lock() {
-                    if let Ok(conn) = db.get_connection() {
-                        conn.query_row(
-                            "SELECT install_path FROM ase_servers WHERE id = ?1",
-                            [server_id],
-                            |row| row.get(0),
-                        ).ok()
-                    } else { None }
-                } else { None };
-
-                if let Some(path) = install_path {
-
-                    if let Ok(app_dir) = app_handle.path().app_data_dir() {
-                        let steamcmd_exe = app_dir.join("steamcmd").join(crate::platform::Platform::steamcmd_executable_name());
-                        if steamcmd_exe.exists() {
-                            let _ = tokio::process::Command::new(&steamcmd_exe)
-                                .args([
-                                    "+force_install_dir", &path,
-                                    "+login", "anonymous",
-                                    "+app_update", "376030", "validate",
-                                    "+quit",
-                                ])
-                                .no_window()
-                                .output()
-                                .await;
+                    if let Some(path) = install_path {
+                        if let Ok(app_dir) = app.path().app_data_dir() {
+                            let steamcmd_exe = app_dir.join("steamcmd").join(crate::platform::Platform::steamcmd_executable_name());
+                            if steamcmd_exe.exists() {
+                                let _ = tokio::process::Command::new(&steamcmd_exe)
+                                    .args([
+                                        "+force_install_dir", &path,
+                                        "+login", "anonymous",
+                                        "+app_update", "376030", "validate",
+                                        "+quit",
+                                    ])
+                                    .no_window()
+                                    .output()
+                                    .await;
+                            }
                         }
                     }
                 }
-            }
 
-            if restart {
-                log::info!("  [Advanced ASE] Step 4/5: Starting server up");
-                let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await;
-                
-                if dino_wipe {
-                    log::info!("  [Advanced ASE] Step 5/5: Queuing DestroyWildDinos command (retrying post-startup)");
-                    let app = (*app_handle).clone();
-                    tauri::async_runtime::spawn(async move {
-                        for attempt in 1..=10 {
-                            sleep(Duration::from_secs(20)).await;
-                            if let Some(state) = app.try_state::<AppState>() {
-                                if let Ok(res) = crate::ase::commands::rcon::send_ase_rcon(server_id, "DestroyWildDinos".into(), state.clone()).await {
-                                    let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "cheat DestroyWildDinos".into(), state.clone()).await;
-                                    log::info!("✅ [ASE] DestroyWildDinos executed on attempt {}: {:?}", attempt, res);
-                                    break;
+                if restart {
+                    log::info!("  [Advanced ASE] Step 4/5: Starting server up");
+                    let _ = crate::ase::commands::server::start_ase_server(app.clone(), server_id, state.clone()).await;
+                    
+                    if dino_wipe {
+                        log::info!("  [Advanced ASE] Step 5/5: Queuing DestroyWildDinos command (retrying post-startup)");
+                        let app_dino = app.clone();
+                        tauri::async_runtime::spawn(async move {
+                            for attempt in 1..=10 {
+                                sleep(Duration::from_secs(20)).await;
+                                if let Some(state) = app_dino.try_state::<AppState>() {
+                                    if let Ok(res) = crate::ase::commands::rcon::send_ase_rcon(server_id, "DestroyWildDinos".into(), state.clone()).await {
+                                        let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "cheat DestroyWildDinos".into(), state.clone()).await;
+                                        log::info!("✅ [ASE] DestroyWildDinos executed on attempt {}: {:?}", attempt, res);
+                                        break;
+                                    }
                                 }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
-            }
+            });
         }
     }
 
@@ -1011,28 +1039,32 @@ impl SchedulerService {
                 setting.server_id
             );
 
-            if let Some(rcon_state) = app_handle.try_state::<RconState>() {
-                let rcon = &rcon_state.inner().0;
-                let _ = rcon.send_command(setting.server_id, "SaveWorld").await;
-                let _ = rcon.send_command(setting.server_id, "Broadcast ⚠️ RESTARTING SERVER NOW!").await;
-                sleep(Duration::from_secs(3)).await;
-            }
+            let app_c = (*app_handle).clone();
+            let server_id = setting.server_id;
+            tauri::async_runtime::spawn(async move {
+                if let Some(rcon_state) = app_c.try_state::<RconState>() {
+                    let rcon = &rcon_state.inner().0;
+                    let _ = rcon.send_command(server_id, "SaveWorld").await;
+                    let _ = rcon.send_command(server_id, "Broadcast ⚠️ RESTARTING SERVER NOW!").await;
+                    sleep(Duration::from_secs(3)).await;
+                }
 
-            // Execute Restart (Basic Mode is Loop Restart)
-            let task = ScheduledTask {
-                id: 0,
-                server_id: setting.server_id,
-                task_name: Some("Basic Scheduler Restart".to_string()),
-                task_type: "Restart".to_string(),
-                cron_expression: "".to_string(),
-                command: None,
-                message: None,
-                pre_warning_minutes: 0,
-                enabled: true,
-                last_run: None,
-                created_at: String::new(),
-            };
-            Self::execute_task(app_handle, &task).await;
+                // Execute Restart (Basic Mode is Loop Restart)
+                let task = ScheduledTask {
+                    id: 0,
+                    server_id,
+                    task_name: Some("Basic Scheduler Restart".to_string()),
+                    task_type: "Restart".to_string(),
+                    cron_expression: "".to_string(),
+                    command: None,
+                    message: None,
+                    pre_warning_minutes: 0,
+                    enabled: true,
+                    last_run: None,
+                    created_at: String::new(),
+                };
+                Self::execute_task(&app_c, &task).await;
+            });
 
             // Schedule Next (strictly in future)
             Self::update_next_run(app_handle, setting.server_id, setting.interval, now).await;
@@ -2344,14 +2376,19 @@ pub fn parse_time_str(time_str: &str) -> Option<[u32; 2]> {
     let is_pm = s.contains("PM");
     let is_am = s.contains("AM");
     
-    let clean_str = s.replace("AM", "").replace("PM", "").trim().to_string();
+    // Normalize both '.' and ':' delimiters (e.g. 6.00, 6.03, 06:12)
+    let clean_str = s.replace("AM", "").replace("PM", "").replace('.', ":").trim().to_string();
     let parts: Vec<&str> = clean_str.split(':').collect();
-    if parts.len() < 2 {
+    if parts.is_empty() {
         return None;
     }
 
     let mut hour: u32 = parts[0].trim().parse().ok()?;
-    let minute: u32 = parts[1].trim().parse().ok()?;
+    let minute: u32 = if parts.len() >= 2 {
+        parts[1].trim().parse().ok()?
+    } else {
+        0
+    };
 
     if is_pm && hour < 12 {
         hour += 12;

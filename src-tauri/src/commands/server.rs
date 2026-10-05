@@ -1188,6 +1188,197 @@ async fn perform_server_startup(
     result
 }
 
+/// Auto-heals corrupted SQLite world save databases for ARK Survival Ascended (e.g. Astraeos / Atlas saves).
+/// If `PRAGMA quick_check;` indicates corruption or the SQLite database fails to open:
+/// 1. Backs up the corrupted database and WAL/SHM to `<stem>_corrupted_<timestamp>.db`.
+/// 2. Finds the newest healthy `.bak` or timestamped backup file that passes `PRAGMA quick_check;`.
+/// 3. Restores the healthy backup to `<MapName>.db`.
+/// 4. Deletes leftover `.db-wal` and `.db-shm` so stale transactions do not corrupt the restored save.
+/// 5. Emits an informative event log and Discord alert.
+pub fn auto_heal_corrupted_sqlite_save(
+    install_path: &str,
+    map_name: &str,
+    app_handle: &tauri::AppHandle,
+    server_id: i64,
+) -> Result<bool, String> {
+    let install_buf = PathBuf::from(install_path);
+    let saved_arks = install_buf.join("ShooterGame").join("Saved").join("SavedArks");
+    if !saved_arks.exists() {
+        return Ok(false);
+    }
+
+    let raw_map = map_name.trim();
+    let normalized_map = crate::services::config_generator::normalize_map_name(raw_map);
+
+    // Potential primary SQLite database paths
+    let candidate_db_paths = vec![
+        saved_arks.join(&normalized_map).join(format!("{}.db", normalized_map)),
+        saved_arks.join(raw_map).join(format!("{}.db", raw_map)),
+        saved_arks.join(format!("{}.db", normalized_map)),
+        saved_arks.join(format!("{}.db", raw_map)),
+    ];
+
+    let mut active_db: Option<PathBuf> = None;
+    for p in candidate_db_paths {
+        if p.exists() && p.is_file() {
+            active_db = Some(p);
+            break;
+        }
+    }
+
+    // If still not found by direct paths, search saved_arks for any *.db file that isn't a backup
+    if active_db.is_none() {
+        for entry in walkdir::WalkDir::new(&saved_arks).max_depth(2).into_iter().filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if path.is_file() && path.extension().and_then(|s: &std::ffi::OsStr| s.to_str()) == Some("db") {
+                let fname = path.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+                if !fname.contains("corrupted") && !fname.contains("backup") && !fname.contains("bak") && !fname.contains('_') {
+                    active_db = Some(path.to_path_buf());
+                    break;
+                }
+            }
+        }
+    }
+
+    let db_path = match active_db {
+        Some(p) => p,
+        None => return Ok(false),
+    };
+
+    // Test SQLite database integrity
+    let is_corrupted = match rusqlite::Connection::open_with_flags(&db_path, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE) {
+        Ok(conn) => {
+            let _ = conn.busy_timeout(std::time::Duration::from_millis(1500));
+            // Try passive checkpoint first to integrate any valid WAL frames
+            let _ = conn.execute_batch("PRAGMA wal_checkpoint(PASSIVE);");
+            let check: Result<String, _> = conn.query_row("PRAGMA quick_check(1);", [], |r| r.get(0));
+            match check {
+                Ok(status) => status.trim().to_lowercase() != "ok",
+                Err(e) => {
+                    println!("  ⚠️ [SQLite Save Doctor] PRAGMA quick_check failed on {}: {}", db_path.display(), e);
+                    true
+                }
+            }
+        }
+        Err(e) => {
+            println!("  ⚠️ [SQLite Save Doctor] Failed to open SQLite save {}: {}", db_path.display(), e);
+            true
+        }
+    };
+
+    if !is_corrupted {
+        return Ok(false);
+    }
+
+    println!("🚨 [SQLite Save Doctor] Corrupted SQLite save detected at {}", db_path.display());
+
+    let parent_dir = db_path.parent().unwrap_or(&saved_arks);
+    let stem = db_path.file_stem().and_then(|s| s.to_str()).unwrap_or("save");
+    let ts = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
+
+    // 1. Preserve corrupted save
+    let corrupted_dest = parent_dir.join(format!("{}_corrupted_{}.db", stem, ts));
+    if let Err(e) = std::fs::copy(&db_path, &corrupted_dest) {
+        println!("  ⚠️ Could not archive corrupted DB file: {}", e);
+    }
+    let wal_path = db_path.with_extension("db-wal");
+    if wal_path.exists() {
+        let _ = std::fs::copy(&wal_path, parent_dir.join(format!("{}_corrupted_{}.db-wal", stem, ts)));
+    }
+    let shm_path = db_path.with_extension("db-shm");
+    if shm_path.exists() {
+        let _ = std::fs::copy(&shm_path, parent_dir.join(format!("{}_corrupted_{}.db-shm", stem, ts)));
+    }
+
+    // 2. Locate newest healthy backup in parent_dir or SavedArks
+    let mut candidates: Vec<(PathBuf, std::time::SystemTime)> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(parent_dir) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let p = entry.path();
+            if p.is_file() && p != db_path {
+                let name = p.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+                if (name.ends_with(".db") || name.ends_with(".bak") || name.ends_with(".db.bak"))
+                    && !name.contains("corrupted")
+                {
+                    if let Ok(meta) = p.metadata() {
+                        if meta.len() > 1024 {
+                            let mod_time = meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+                            candidates.push((p, mod_time));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort descending (newest first)
+    candidates.sort_by(|a, b| b.1.cmp(&a.1));
+
+    let mut healthy_backup: Option<PathBuf> = None;
+    for (cand_path, _) in candidates {
+        if let Ok(test_conn) = rusqlite::Connection::open_with_flags(&cand_path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY) {
+            let _ = test_conn.busy_timeout(std::time::Duration::from_millis(1500));
+            if let Ok(res) = test_conn.query_row::<String, _, _>("PRAGMA quick_check(1);", [], |r| r.get(0)) {
+                if res.trim().to_lowercase() == "ok" {
+                    healthy_backup = Some(cand_path);
+                    break;
+                }
+            }
+        }
+    }
+
+    if let Some(backup_to_restore) = healthy_backup {
+        println!(
+            "🛡️ [SQLite Save Doctor] Restoring healthy backup '{}' -> '{}'",
+            backup_to_restore.display(),
+            db_path.display()
+        );
+
+        std::fs::copy(&backup_to_restore, &db_path)
+            .map_err(|e| format!("Failed to copy healthy backup to primary DB: {}", e))?;
+
+        // Remove stale WAL and SHM files so the engine doesn't replay corrupted journal transactions
+        let _ = std::fs::remove_file(&wal_path);
+        let _ = std::fs::remove_file(&shm_path);
+
+        let backup_fname = backup_to_restore.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let notice = format!(
+            "🛡️ Auto-Heal: Repaired corrupted SQLite world database for server {} (Map: {}). Restored healthy backup '{}'. Corrupted save preserved as '{}_corrupted_{}.db'.",
+            server_id, map_name, backup_fname, stem, ts
+        );
+        println!("{}", notice);
+
+        let _ = app_handle.emit("server_log", serde_json::json!({
+            "server_id": server_id,
+            "line": notice.clone(),
+            "is_stderr": false,
+        }));
+
+        let app_wh = app_handle.clone();
+        let server_name = crate::services::discord::get_server_name(&app_wh, server_id);
+        tauri::async_runtime::spawn(async move {
+            crate::services::discord::send_discord_webhook(
+                &app_wh,
+                "serverStart",
+                crate::services::discord::DiscordEmbed::scheduled_task(
+                    &server_name,
+                    "Database Auto-Heal Succeeded",
+                    &notice,
+                ),
+            ).await;
+        });
+
+        Ok(true)
+    } else {
+        Err(format!(
+            "Detected corrupted SQLite save at '{}', but no healthy backup (.bak or .db) was found in '{}'. Corrupted save safely backed up to '{}'.",
+            db_path.display(),
+            parent_dir.display(),
+            corrupted_dest.display()
+        ))
+    }
+}
+
 // Extracted logic for readability and better error handling in the async block
 async fn perform_server_startup_inner(
     app_handle: &tauri::AppHandle,
@@ -1209,17 +1400,20 @@ async fn perform_server_startup_inner(
         let conn = db_lock.get_connection().map_err(|e| e.to_string())?;
 
         // Sync from INI first if Beacon or manual Notepad edits happened while offline
-        if let Ok((inst_path, s_type)) = conn.query_row(
-            "SELECT install_path, server_type FROM servers WHERE id = ?1",
+        if let Ok((inst_path, s_type, map_name)) = conn.query_row(
+            "SELECT install_path, server_type, map_name FROM servers WHERE id = ?1",
             [server_id],
-            |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_else(|| "ASA".to_string()))),
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_else(|| "ASA".to_string()), r.get::<_, String>(2)?)),
         ) {
             let _ = crate::services::ini_sync::sync_server_from_ini_if_changed(
                 &conn,
                 server_id,
-                &std::path::PathBuf::from(inst_path),
+                &std::path::PathBuf::from(&inst_path),
                 &s_type,
             );
+
+            // Auto-heal corrupted SQLite save if detected (e.g. FAtlasSaveManager::LoadOperationSql corruption)
+            let _ = auto_heal_corrupted_sqlite_save(&inst_path, &map_name, app_handle, server_id);
         }
 
         println!("  🔍 [Debug] Calling ConfigGenerator::generate_config...");
@@ -1915,7 +2109,7 @@ async fn graceful_stop(state: &State<'_, AppState>, server_id: i64) -> Result<()
             }
 
             // Brief pause to let the save flush to disk
-            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
             // Step 3: DoExit
             println!("  🚪 Sending DoExit command...");
@@ -1928,17 +2122,20 @@ async fn graceful_stop(state: &State<'_, AppState>, server_id: i64) -> Result<()
             state.process_manager.set_pending_stop_reason(server_id, crate::services::process_manager::StopReason::UserAction);
             let _ = rcon.send_command(server_id, "DoExit").await;
 
-            // Step 4: Wait up to 10 seconds for natural exit
+            // Step 4: Wait up to 30 seconds for natural exit and SQLite WAL checkpointing
             let mut wait_count = 0u32;
-            while state.process_manager.is_running(server_id) && wait_count < 10 {
+            while state.process_manager.is_running(server_id) && wait_count < 30 {
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 wait_count += 1;
+                if wait_count % 5 == 0 {
+                    println!("  ⏳ Waiting for server {} to gracefully finish and checkpoint SQLite save ({}s/30s)...", server_id, wait_count);
+                }
             }
 
             if !state.process_manager.is_running(server_id) {
                 println!("  ✅ Server {} exited gracefully after DoExit", server_id);
             } else {
-                println!("  ⚠️ Server {} still running after DoExit — force stopping", server_id);
+                println!("  ⚠️ Server {} still running after 30s DoExit — force stopping", server_id);
             }
         }
     }
@@ -5223,11 +5420,25 @@ pub async fn diagnose_server_crash(
     }
 
     // Check Issue: Fatal Errors in log
+    let has_sqlite_corrupt = log_tail.iter().any(|l| {
+        let low = l.to_lowercase();
+        low.contains("loadoperationsql") || low.contains("sql database is corrupt") || (low.contains("database") && low.contains("corrupt"))
+    });
     let has_assertion_error = fatal_error_lines.iter().any(|l| l.to_lowercase().contains("assertion failed"));
     let has_access_violation = fatal_error_lines.iter().any(|l| l.to_lowercase().contains("exception_access_violation"));
     let has_corrupt_save = fatal_error_lines.iter().any(|l| l.to_lowercase().contains("corrupt") || l.to_lowercase().contains("bad name index"));
 
-    if has_corrupt_save {
+    if has_sqlite_corrupt {
+        issues.push(serde_json::json!({
+            "id": "corrupt_sqlite_save",
+            "severity": "critical",
+            "title": "Corrupted SQLite World Database (FAtlasSaveManager)",
+            "description": "Unreal Engine detected a corrupted SQLite world database (FAtlasSaveManager::LoadOperationSql). The server manager automatically restores the latest healthy backup on startup.",
+            "fix": "Start the server to trigger automated SQLite database auto-healing, or restore an earlier backup."
+        }));
+        primary_cause = "Corrupted SQLite World Database".to_string();
+        recommended_action = "Start the server — Auto-Heal will automatically detect the corruption, archive the damaged file, and restore the latest verified healthy backup.".to_string();
+    } else if has_corrupt_save {
         issues.push(serde_json::json!({
             "id": "corrupt_save_actor",
             "severity": "critical",
