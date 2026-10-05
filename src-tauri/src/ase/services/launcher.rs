@@ -720,7 +720,7 @@ impl AseLauncher {
             
             if start_time.elapsed().as_secs() < 3 {
                 // Process exited almost immediately. Likely missing files or crash.
-                let msg = match status {
+                let msg = match &status {
                     Ok(exit_status) => format!("[ERROR] Server process exited immediately with status: {}", exit_status),
                     Err(e) => format!("[ERROR] Server process failed while running: {}", e),
                 };
@@ -730,17 +730,38 @@ impl AseLauncher {
                 }));
             }
 
-            if let Some(state) = app_clone_wait.try_state::<crate::AppState>() {
-                if let Ok(db) = state.db.lock() {
-                    if let Ok(conn) = db.get_connection() {
-                        let _ = conn.execute("UPDATE ase_servers SET status = 'stopped', process_id = NULL WHERE id = ?1", [server_id]);
+            let app_for_guard = app_clone_wait.clone();
+            let exit_code = match &status {
+                Ok(s) => s.code().unwrap_or(-1),
+                Err(_) => -1,
+            };
+
+            tauri::async_runtime::spawn(async move {
+                let is_stopping = if let Some(guardian) = app_for_guard.try_state::<crate::services::guardian::GuardianState>() {
+                    let guard = guardian.0.lock().await;
+                    guard.is_stopping(server_id).await || guard.is_stopping(-server_id).await
+                } else {
+                    false
+                };
+
+                let status_str = if is_stopping { "stopped" } else { "crashed" };
+                println!("📢 [ASE] Server {} process exited (code {}). Status marked as '{}'.", server_id, exit_code, status_str);
+
+                if let Some(state) = app_for_guard.try_state::<crate::AppState>() {
+                    if let Ok(db) = state.db.lock() {
+                        if let Ok(conn) = db.get_connection() {
+                            let _ = conn.execute(
+                                "UPDATE ase_servers SET status = ?1, process_id = NULL WHERE id = ?2",
+                                rusqlite::params![status_str, server_id],
+                            );
+                        }
                     }
                 }
-            }
-            let _ = app_clone_wait.emit("server-status-change", serde_json::json!({
-                "server_id": server_id,
-                "status": "stopped"
-            }));
+                let _ = app_for_guard.emit("server-status-change", serde_json::json!({
+                    "server_id": server_id,
+                    "status": status_str
+                }));
+            });
         });
 
         // Spawns a thread to watch the log file

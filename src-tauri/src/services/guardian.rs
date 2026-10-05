@@ -82,22 +82,12 @@ impl GuardianService {
             server_id, pid
         );
 
-        // Populate in-memory auto-restart settings cache from SQLite
-        let mut auto_restart = false;
-        if let Some(state) = app_handle.try_state::<crate::AppState>() {
-            if let Ok(db_guard) = state.db.lock() {
-                if let Ok(conn) = db_guard.get_connection() {
-                    auto_restart = conn.query_row(
-                        "SELECT auto_restart FROM servers WHERE id = ?",
-                        [server_id],
-                        |row| row.get::<_, i32>(0)
-                    ).map(|v| v == 1).unwrap_or(false);
-                }
-            }
-        }
+        // Populate in-memory auto-restart settings cache from SQLite (authoritative lookup)
+        let auto_restart = self.is_auto_restart_enabled_authoritative(&app_handle, server_id).await;
 
         let mut settings = self.auto_restart_enabled.lock().await;
         settings.insert(server_id, auto_restart);
+        settings.insert(-server_id, auto_restart);
         println!(
             "🛡️ Guardian: Synced auto-restart setting for server {} as {}",
             server_id, auto_restart
@@ -119,32 +109,68 @@ impl GuardianService {
             server_id, watchdog_key, pid
         );
 
-        // Populate in-memory auto-restart settings cache from SQLite
-        let mut auto_restart = false;
-        if let Some(state) = app_handle.try_state::<crate::AppState>() {
-            if let Ok(db_guard) = state.db.lock() {
-                if let Ok(conn) = db_guard.get_connection() {
-                    auto_restart = conn.query_row(
-                        "SELECT watchdog_enabled FROM ase_scheduler_settings WHERE server_id = ?",
-                        [server_id],
-                        |row| row.get::<_, i32>(0)
-                    ).map(|v| v == 1).unwrap_or(false);
-                }
-            }
-        }
+        // Populate in-memory auto-restart settings cache from SQLite (authoritative lookup)
+        let auto_restart = self.is_auto_restart_enabled_authoritative(&app_handle, watchdog_key).await;
 
         let mut settings = self.auto_restart_enabled.lock().await;
         settings.insert(watchdog_key, auto_restart);
+        settings.insert(server_id, auto_restart);
         println!(
             "🛡️ Guardian: Synced watchdog_enabled setting for ASE server {} as {}",
             server_id, auto_restart
         );
     }
 
+    /// Authoritative check whether auto-restart / watchdog is enabled for a server
+    pub async fn is_auto_restart_enabled_authoritative(&self, app_handle: &AppHandle, server_id: i64) -> bool {
+        // 1. Check in-memory state
+        {
+            let settings = self.auto_restart_enabled.lock().await;
+            if let Some(&enabled) = settings.get(&server_id) {
+                if enabled {
+                    return true;
+                }
+            }
+            if let Some(&enabled) = settings.get(&(-server_id)) {
+                if enabled {
+                    return true;
+                }
+            }
+        }
+
+        // 2. Query SQLite directly (cross-checking both scheduler_settings and servers tables)
+        if let Some(state) = app_handle.try_state::<crate::AppState>() {
+            if let Ok(db_guard) = state.db.lock() {
+                if let Ok(conn) = db_guard.get_connection() {
+                    if server_id < 0 {
+                        let actual_id = -server_id;
+                        return conn.query_row(
+                            "SELECT COALESCE((SELECT watchdog_enabled FROM ase_scheduler_settings WHERE server_id = ?1), 0)",
+                            [actual_id],
+                            |row| row.get::<_, i32>(0)
+                        ).map(|v| v == 1).unwrap_or(false);
+                    } else {
+                        return conn.query_row(
+                            "SELECT CASE 
+                                WHEN (SELECT watchdog_enabled FROM scheduler_settings WHERE server_id = ?1) = 1 THEN 1
+                                WHEN (SELECT auto_restart FROM servers WHERE id = ?1) = 1 THEN 1
+                                ELSE 0
+                            END",
+                            [server_id],
+                            |row| row.get::<_, i32>(0)
+                        ).map(|v| v == 1).unwrap_or(false);
+                    }
+                }
+            }
+        }
+        false
+    }
+
     /// Unregister a server from monitoring
     pub async fn unregister_server(&self, server_id: i64) {
         let mut pids = self.server_pids.lock().await;
         pids.remove(&server_id);
+        pids.remove(&(-server_id));
         println!("🛡️ Guardian: Unregistered server {}", server_id);
     }
 
@@ -152,13 +178,30 @@ impl GuardianService {
     pub async fn mark_as_stopping(&self, server_id: i64) {
         let mut stopping = self.stopping_servers.lock().await;
         stopping.insert(server_id);
+        stopping.insert(-server_id);
         println!("🛡️ Guardian: Marked server {} as intentionally stopping", server_id);
+    }
+
+    /// Check if a server is intentionally stopping
+    pub async fn is_stopping(&self, server_id: i64) -> bool {
+        let stopping = self.stopping_servers.lock().await;
+        stopping.contains(&server_id) || stopping.contains(&(-server_id))
+    }
+
+    /// Clear stopping mark for a server
+    pub async fn clear_stopping(&self, server_id: i64) {
+        let mut stopping = self.stopping_servers.lock().await;
+        stopping.remove(&server_id);
+        stopping.remove(&(-server_id));
     }
 
     /// Enable/disable auto-restart for a server
     pub async fn set_auto_restart(&self, server_id: i64, enabled: bool) {
-        let mut settings = self.auto_restart_enabled.lock().await;
-        settings.insert(server_id, enabled);
+        {
+            let mut settings = self.auto_restart_enabled.lock().await;
+            settings.insert(server_id, enabled);
+            settings.insert(-server_id, enabled);
+        }
         println!(
             "🛡️ Guardian: Auto-restart for server {} set to {}",
             server_id, enabled
@@ -168,7 +211,7 @@ impl GuardianService {
     /// Check if auto-restart is enabled for a server
     pub async fn is_auto_restart_enabled(&self, server_id: i64) -> bool {
         let settings = self.auto_restart_enabled.lock().await;
-        *settings.get(&server_id).unwrap_or(&false)
+        *settings.get(&server_id).or_else(|| settings.get(&(-server_id))).unwrap_or(&false)
     }
 
     /// Get health status for a server
@@ -270,8 +313,6 @@ impl GuardianService {
         *running = true;
 
         let server_pids = self.server_pids.clone();
-        let auto_restart_enabled = self.auto_restart_enabled.clone();
-        let crash_history = self.crash_history.clone();
         let stopping_servers = self.stopping_servers.clone();
         let last_motd_broadcast = self.last_motd_broadcast.clone();
         let self_service = Arc::new(Mutex::new(self.clone_ref()));
@@ -424,7 +465,7 @@ impl GuardianService {
 
                         let is_intentionally_stopping: bool = {
                             let mut stopping = stopping_servers.lock().await;
-                            stopping.remove(&server_id)
+                            stopping.remove(&server_id) || stopping.remove(&(-server_id))
                         };
 
                         let server_name: String = {
@@ -516,202 +557,253 @@ impl GuardianService {
                             continue; // Skip crash logic
                         }
 
-                        let auto_restart = {
-                            let enabled = auto_restart_enabled.lock().await;
-                            *enabled.get(&server_id).unwrap_or(&false)
-                        };
-
-                        if auto_restart {
-                            // Check sliding-window crash limits (Loop Prevention)
-                            let (max_crashes, window_mins) = {
-                                if let Ok(db_guard) = state.db.lock() {
-                                    if let Ok(conn) = db_guard.get_connection() {
-                                        let max_c = conn.query_row(
-                                            "SELECT value FROM settings WHERE key = 'loop_prevention_max_crashes'",
-                                            [],
-                                            |row| row.get::<_, String>(0)
-                                        ).ok().and_then(|v| v.parse::<usize>().ok()).unwrap_or(3);
-
-                                        let win_m = conn.query_row(
-                                            "SELECT value FROM settings WHERE key = 'loop_prevention_time_window_mins'",
-                                            [],
-                                            |row| row.get::<_, String>(0)
-                                        ).ok().and_then(|v| v.parse::<i64>().ok()).unwrap_or(15);
-
-                                        (max_c, win_m)
-                                    } else { (3, 15) }
-                                } else { (3, 15) }
-                            };
-
-                            let mut history = crash_history.lock().await;
-                            let timestamps = history.entry(server_id).or_insert_with(Vec::new);
-                            let now = chrono::Utc::now();
-                            timestamps.push(now);
-
-                            // Keep only entries in the window
-                            let cutoff = now - chrono::Duration::minutes(window_mins);
-                            timestamps.retain(|&t| t > cutoff);
-
-                            if timestamps.len() > max_crashes {
-                                println!("🛡️ Guardian Watchdog: Loop Prevention triggered for server {}! {} crashes in {} mins. Auto-restart disabled.", server_id, timestamps.len(), window_mins);
-
-                                // Disable in-memory state
-                                {
-                                    let mut enabled = auto_restart_enabled.lock().await;
-                                    enabled.insert(server_id, false);
-                                }
-
-                                // Disable in DB & update status
-                                let mut intelligent_mode_enabled = false;
-                                if let Ok(db_guard) = state.db.lock() {
-                                    if let Ok(conn) = db_guard.get_connection() {
-                                        if server_id < 0 {
-                                            let _ = conn.execute(
-                                                "UPDATE ase_servers SET status = 'crashed', process_id = NULL WHERE id = ?",
-                                                [-server_id]
-                                            );
-                                            let _ = conn.execute(
-                                                "UPDATE ase_scheduler_settings SET watchdog_enabled = 0 WHERE server_id = ?",
-                                                [-server_id]
-                                            );
-                                        } else {
-                                            let result: Result<i32, _> = conn.query_row(
-                                                "SELECT intelligent_mode FROM servers WHERE id = ?1",
-                                                [server_id],
-                                                |row| row.get(0),
-                                            );
-                                            if let Ok(im) = result {
-                                                if im != 0 {
-                                                    intelligent_mode_enabled = true;
-                                                }
-                                            }
-                                            
-                                            if !intelligent_mode_enabled {
-                                                let _ = conn.execute(
-                                                    "UPDATE servers SET auto_restart = 0, status = 'crashed' WHERE id = ?",
-                                                    [server_id]
-                                                );
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if intelligent_mode_enabled {
-                                    println!("🛡️ Guardian Watchdog: Escalating server {} to Intelligent Mode (mod cache clear + restart without mods)", server_id);
-                                    
-                                    // Log crash event
-                                    {
-                                        let service = self_service.lock().await;
-                                        service.log_crash(server_id, &server_name, "crash loop prevented (escalating to intelligent repair)", false).await;
-                                    }
-
-                                    // Trigger repair asynchronously
-                                    let app_clone = app_handle.clone();
-                                    tauri::async_runtime::spawn(async move {
-                                        let _ = crate::services::process_manager::trigger_intelligent_repair(app_clone, server_id).await;
-                                    });
-                                    
-                                    // Note: We don't re-enable auto-restart here. If repair fails, it stays off. 
-                                    // If repair succeeds, it stays running without watchdog (until the user manually stops/starts it or toggles watchdog).
-                                } else {
-                                    // Log crash event (not restarted due to loop prevention)
-                                    {
-                                        let service = self_service.lock().await;
-                                        service.log_crash(server_id, &server_name, "crashed (auto-restart aborted: crash loop prevention)", false).await;
-                                    }
-    
-                                    // Emit status change event for frontend
-                                    let _ = app_handle.emit("server-status-change", serde_json::json!({
-                                        "server_id": if server_id < 0 { -server_id } else { server_id },
-                                        "status": "crashed"
-                                    }));
-    
-                                    // Emit alert event to frontend
-                                    let _ = app_handle.emit("server-health-alert", serde_json::json!({
-                                        "server_id": if server_id < 0 { -server_id } else { server_id },
-                                        "serverName": server_name,
-                                        "type": "crash_loop_prevented",
-                                        "message": format!("Crash loop detected! Auto-restart disabled for '{}' to prevent system degradation.", server_name)
-                                    }));
-                                }
-                            } else {
-                                // Safe to restart!
-                                println!("🛡️ Guardian Watchdog: Server '{}' restarting automatically.", server_name);
-
-                                // Log crash event
-                                {
-                                    let service = self_service.lock().await;
-                                    service.log_crash(server_id, &server_name, "unexpected shutdown (auto-restart triggered)", true).await;
-                                }
-
-                                // Update status to restarting in DB
-                                if let Ok(db_guard) = state.db.lock() {
-                                    if let Ok(conn) = db_guard.get_connection() {
-                                        if server_id < 0 {
-                                            let _ = conn.execute(
-                                                "UPDATE ase_servers SET status = 'restarting' WHERE id = ?",
-                                                [-server_id]
-                                            );
-                                        } else {
-                                            let _ = conn.execute(
-                                                "UPDATE servers SET status = 'restarting' WHERE id = ?",
-                                                [server_id]
-                                            );
-                                        }
-                                    }
-                                }
-
-                                // Trigger start_server asynchronously
-                                let h = app_handle.clone();
-                                if server_id < 0 {
-                                    let real_id = -server_id;
-                                    tauri::async_runtime::spawn(async move {
-                                        if let Some(state) = h.try_state::<crate::AppState>() {
-                                            let _ = crate::ase::commands::server::start_ase_server(h.clone(), real_id, state).await;
-                                        }
-                                    });
-                                } else {
-                                    tauri::async_runtime::spawn(async move {
-                                        let _ = crate::commands::server::start_server(h, server_id, false).await;
-                                    });
-                                }
-                            }
-                        } else {
-                            // Auto restart is off, transition to crashed
-                            println!("🛡️ Guardian Watchdog: Server '{}' is down, auto-restart is disabled.", server_name);
-                            
-                            if let Ok(db_guard) = state.db.lock() {
-                                if let Ok(conn) = db_guard.get_connection() {
-                                    if server_id < 0 {
-                                        let _ = conn.execute(
-                                            "UPDATE ase_servers SET status = 'crashed', process_id = NULL WHERE id = ?",
-                                            [-server_id]
-                                        );
-                                    } else {
-                                        let _ = conn.execute(
-                                            "UPDATE servers SET status = 'crashed' WHERE id = ?",
-                                            [server_id]
-                                        );
-                                    }
-                                }
-                            }
-
-                            // Emit status change event for frontend
-                            let _ = app_handle.emit("server-status-change", serde_json::json!({
-                                "server_id": if server_id < 0 { -server_id } else { server_id },
-                                "status": "crashed"
-                            }));
-
-                            // Log crash event
-                            {
-                                let service = self_service.lock().await;
-                                service.log_crash(server_id, &server_name, "unexpected shutdown", false).await;
-                            }
-                        }
+                        // Server crashed or terminated unexpectedly - trigger self-healing auto-restart
+                        let service = self_service.lock().await;
+                        let _ = service.trigger_auto_restart_if_enabled(
+                            app_handle.clone(),
+                            server_id,
+                            "unexpected shutdown (watchdog heartbeat)"
+                        ).await;
                     }
                 }
             }
         });
+    }
+
+    /// Trigger recovery / auto-restart for a crashed server if Watchdog is enabled
+    /// Returns true if a restart was scheduled, false otherwise
+    pub async fn trigger_auto_restart_if_enabled(
+        &self,
+        app_handle: AppHandle,
+        server_id: i64,
+        reason: &str,
+    ) -> bool {
+        // 1. Check if intentionally stopping
+        let is_intentionally_stopping = {
+            let mut stopping = self.stopping_servers.lock().await;
+            stopping.remove(&server_id) || stopping.remove(&(-server_id))
+        };
+        if is_intentionally_stopping {
+            println!("🛡️ Guardian Watchdog: Server {} was intentionally stopped. Skipping auto-restart.", server_id);
+            return false;
+        }
+
+        // 2. Remove from active pids tracking
+        {
+            let mut pids = self.server_pids.lock().await;
+            pids.remove(&server_id);
+            pids.remove(&(-server_id));
+        }
+
+        let state = match app_handle.try_state::<crate::AppState>() {
+            Some(s) => s,
+            None => return false,
+        };
+
+        let server_name = {
+            let mut name = format!("Server {}", server_id);
+            if let Ok(db_guard) = state.db.lock() {
+                if let Ok(conn) = db_guard.get_connection() {
+                    if server_id < 0 {
+                        if let Ok(n) = conn.query_row(
+                            "SELECT name FROM ase_servers WHERE id = ?",
+                            [-server_id],
+                            |row| row.get::<_, String>(0)
+                        ) {
+                            name = n;
+                        }
+                    } else {
+                        if let Ok(n) = conn.query_row(
+                            "SELECT name FROM servers WHERE id = ?",
+                            [server_id],
+                            |row| row.get::<_, String>(0)
+                        ) {
+                            name = n;
+                        }
+                    }
+                }
+            }
+            name
+        };
+
+        // 3. Check if auto restart / watchdog is enabled (authoritative check)
+        let auto_restart = self.is_auto_restart_enabled_authoritative(&app_handle, server_id).await;
+        if !auto_restart {
+            println!("🛡️ Guardian Watchdog: Server '{}' ({}) is down, auto-restart is disabled.", server_name, server_id);
+            
+            if let Ok(db_guard) = state.db.lock() {
+                if let Ok(conn) = db_guard.get_connection() {
+                    if server_id < 0 {
+                        let _ = conn.execute(
+                            "UPDATE ase_servers SET status = 'crashed', process_id = NULL WHERE id = ?",
+                            [-server_id]
+                        );
+                    } else {
+                        let _ = conn.execute(
+                            "UPDATE servers SET status = 'crashed', process_id = NULL WHERE id = ?",
+                            [server_id]
+                        );
+                    }
+                }
+            }
+
+            let _ = app_handle.emit("server-status-change", serde_json::json!({
+                "server_id": if server_id < 0 { -server_id } else { server_id },
+                "status": "crashed"
+            }));
+
+            self.log_crash(server_id, &server_name, reason, false).await;
+            return false;
+        }
+
+        // 4. Check sliding-window crash limits (Loop Prevention)
+        let (max_crashes, window_mins) = {
+            if let Ok(db_guard) = state.db.lock() {
+                if let Ok(conn) = db_guard.get_connection() {
+                    let max_c = conn.query_row(
+                        "SELECT value FROM settings WHERE key = 'loop_prevention_max_crashes'",
+                        [],
+                        |row| row.get::<_, String>(0)
+                    ).ok().and_then(|v| v.parse::<usize>().ok()).unwrap_or(3);
+
+                    let win_m = conn.query_row(
+                        "SELECT value FROM settings WHERE key = 'loop_prevention_time_window_mins'",
+                        [],
+                        |row| row.get::<_, String>(0)
+                    ).ok().and_then(|v| v.parse::<i64>().ok()).unwrap_or(15);
+
+                    (max_c, win_m)
+                } else { (3, 15) }
+            } else { (3, 15) }
+        };
+
+        let mut history = self.crash_history.lock().await;
+        let timestamps = history.entry(server_id).or_insert_with(Vec::new);
+        let now = chrono::Utc::now();
+        timestamps.push(now);
+
+        let cutoff = now - chrono::Duration::minutes(window_mins);
+        timestamps.retain(|&t| t > cutoff);
+
+        if timestamps.len() > max_crashes {
+            println!("🛡️ Guardian Watchdog: Loop Prevention triggered for server {}! {} crashes in {} mins. Auto-restart disabled.", server_id, timestamps.len(), window_mins);
+
+            // Disable in-memory state
+            {
+                let mut enabled = self.auto_restart_enabled.lock().await;
+                enabled.insert(server_id, false);
+                enabled.insert(-server_id, false);
+            }
+
+            // Disable in DB & update status
+            let mut intelligent_mode_enabled = false;
+            if let Ok(db_guard) = state.db.lock() {
+                if let Ok(conn) = db_guard.get_connection() {
+                    if server_id < 0 {
+                        let _ = conn.execute(
+                            "UPDATE ase_servers SET status = 'crashed', process_id = NULL WHERE id = ?",
+                            [-server_id]
+                        );
+                        let _ = conn.execute(
+                            "UPDATE ase_scheduler_settings SET watchdog_enabled = 0 WHERE server_id = ?",
+                            [-server_id]
+                        );
+                    } else {
+                        let result: Result<i32, _> = conn.query_row(
+                            "SELECT intelligent_mode FROM servers WHERE id = ?1",
+                            [server_id],
+                            |row| row.get(0),
+                        );
+                        if let Ok(im) = result {
+                            if im != 0 {
+                                intelligent_mode_enabled = true;
+                            }
+                        }
+                        
+                        if !intelligent_mode_enabled {
+                            let _ = conn.execute(
+                                "UPDATE servers SET auto_restart = 0, status = 'crashed' WHERE id = ?",
+                                [server_id]
+                            );
+                            let _ = conn.execute(
+                                "UPDATE scheduler_settings SET watchdog_enabled = 0 WHERE server_id = ?",
+                                [server_id]
+                            );
+                        }
+                    }
+                }
+            }
+
+            if intelligent_mode_enabled {
+                println!("🛡️ Guardian Watchdog: Escalating server {} to Intelligent Mode", server_id);
+                self.log_crash(server_id, &server_name, "crash loop prevented (escalating to intelligent repair)", false).await;
+                let app_clone = app_handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    let _ = crate::services::process_manager::trigger_intelligent_repair(app_clone, server_id).await;
+                });
+            } else {
+                self.log_crash(server_id, &server_name, "crashed (auto-restart aborted: crash loop prevention)", false).await;
+                let _ = app_handle.emit("server-status-change", serde_json::json!({
+                    "server_id": if server_id < 0 { -server_id } else { server_id },
+                    "status": "crashed"
+                }));
+                let _ = app_handle.emit("server-health-alert", serde_json::json!({
+                    "server_id": if server_id < 0 { -server_id } else { server_id },
+                    "serverName": server_name,
+                    "type": "crash_loop_prevented",
+                    "message": format!("Crash loop detected! Auto-restart disabled for '{}' to prevent system degradation.", server_name)
+                }));
+            }
+            return false;
+        }
+
+        // Safe to restart!
+        println!("🛡️ Guardian Watchdog: Server '{}' (ID: {}) crashed ({})! Restarting automatically...", server_name, server_id, reason);
+        self.log_crash(server_id, &server_name, reason, true).await;
+
+        // Update status to restarting in DB and emit
+        if let Ok(db_guard) = state.db.lock() {
+            if let Ok(conn) = db_guard.get_connection() {
+                if server_id < 0 {
+                    let _ = conn.execute(
+                        "UPDATE ase_servers SET status = 'restarting', process_id = NULL WHERE id = ?",
+                        [-server_id]
+                    );
+                } else {
+                    let _ = conn.execute(
+                        "UPDATE servers SET status = 'restarting', process_id = NULL WHERE id = ?",
+                        [server_id]
+                    );
+                }
+            }
+        }
+
+        let _ = app_handle.emit("server-status-change", serde_json::json!({
+            "server_id": if server_id < 0 { -server_id } else { server_id },
+            "status": "restarting"
+        }));
+
+        let h = app_handle.clone();
+        if server_id < 0 {
+            let real_id = -server_id;
+            tauri::async_runtime::spawn(async move {
+                // Short 3-second cooldown to let sockets deallocate
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                if let Some(state) = h.try_state::<crate::AppState>() {
+                    let fut: std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send>> = Box::pin(crate::ase::commands::server::start_ase_server(h.clone(), real_id, state));
+                    let _ = fut.await;
+                }
+            });
+        } else {
+            tauri::async_runtime::spawn(async move {
+                // Short 3-second cooldown to let sockets deallocate
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                let fut: std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send>> = Box::pin(crate::commands::server::start_server(h, server_id, false));
+                let _ = fut.await;
+            });
+        }
+
+        true
     }
 
     /// Clone reference to fields (for async moving)

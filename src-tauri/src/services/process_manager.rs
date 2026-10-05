@@ -754,7 +754,7 @@ impl ProcessManager {
                                 "server-lifecycle-event",
                                 ServerLifecycleEvent {
                                     server_id: *id,
-                                    event: if status_code == 0 || ((status_code == 1 || status_code == 3 || is_authorized) && (is_authorized || proc.has_been_online)) { "STOP".to_string() } else { "CRASH".to_string() },
+                                    event: if is_authorized { "STOP".to_string() } else { "CRASH".to_string() },
                                     reason: Some(reason_str),
                                     exit_code: Some(status_code),
                                     uptime_seconds: Some(uptime),
@@ -1059,11 +1059,9 @@ impl ProcessManager {
                                 id, exit_code, query_port
                             );
                             "online" // Port is in use, server process still alive
-                        } else if exit_code == 0 || (has_been_online && (exit_code == 1 || exit_code == 3)) {
-                            "stopped" // Clean or standard UE5 shutdown exit
                         } else {
                             println!(
-                                "  💥 Server {} genuinely crashed / failed to start (code {}, port {} free, has_been_online: {}).",
+                                "  💥 Server {} genuinely crashed / exited unexpectedly (code {}, port {} free, has_been_online: {}).",
                                 id, exit_code, query_port, has_been_online
                             );
                             "crashed"
@@ -1075,8 +1073,8 @@ impl ProcessManager {
                         id, status, exit_code
                     );
 
-                    // Send Discord webhook ONLY for genuine unexpected crashes (never for clean exits or UE5 standard stops: 0, 1, 3)
-                    if status == "crashed" && !is_authorized && exit_code != 0 && exit_code != 1 && exit_code != 3 {
+                    // Send Discord webhook ONLY for genuine unexpected crashes
+                    if status == "crashed" && !is_authorized {
                         let wh_handle = monitor_handle.clone();
                         tauri::async_runtime::spawn(async move {
                             let name = get_server_name(&wh_handle, id);
@@ -1151,6 +1149,21 @@ impl ProcessManager {
                             is_stderr: exit_code != 0,
                         },
                     );
+
+                    // If server crashed unexpectedly, immediately trigger Guardian auto-recovery
+                    if status == "crashed" && !is_authorized {
+                        if let Some(guardian_state) = monitor_handle.try_state::<crate::services::guardian::GuardianState>() {
+                            let guardian_inner = guardian_state.0.clone();
+                            let gh = monitor_handle.clone();
+                            let s_id = id;
+                            let r_code = exit_code;
+                            tauri::async_runtime::spawn(async move {
+                                let guard = guardian_inner.lock().await;
+                                let reason = format!("Unexpected exit with code {}", r_code);
+                                guard.trigger_auto_restart_if_enabled(gh, s_id, &reason).await;
+                            });
+                        }
+                    }
 
                 }
 

@@ -441,6 +441,12 @@ pub async fn save_scheduler_settings(
             ],
         )
         .map_err(|e| e.to_string())?;
+
+        conn.execute(
+            "UPDATE servers SET auto_restart = ?1 WHERE id = ?2",
+            rusqlite::params![if settings.watchdog_enabled.unwrap_or(false) { 1 } else { 0 }, settings.server_id],
+        )
+        .ok();
     }
 
     // Sync Guardian watchdog state

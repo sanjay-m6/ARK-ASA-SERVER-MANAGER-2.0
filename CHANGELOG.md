@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Resolved issue where large ASA maps suffered save file corruption (`FAtlasSaveManager::LoadOperationSql: SQL database is corrupt`) after restarts.
   - Extended `graceful_stop` wait from 10s to 30s with progress logging, giving `ArkAscendedServer.exe` sufficient time to flush WAL frames and checkpoint SQLite safely before any fallback kill.
   - Implemented `auto_heal_corrupted_sqlite_save` in `perform_server_startup_inner`: automatically runs `PRAGMA quick_check;` before launch. If corruption is detected, it archives the damaged file as `<Map>_corrupted_<timestamp>.db`, finds and verifies the newest healthy backup (`.bak` or timestamped `.db`), restores it to `<Map>.db`, and clears stale `.db-wal` and `.db-shm` files.
+- **🛡️ Fix Guardian Watchdog Self-Healing & Crash Recovery (Auto-Restart After Crash/Taskkill)**:
+  - Resolved critical issue where Guardian Watchdog was toggled ON in the UI, but killed or crashed server instances (e.g. via `taskkill /F /PID` or unhandled exceptions) stopped and never came back alive.
+  - Fixed database disconnect where `GuardianService::register_server` queried `servers.auto_restart` (defaulting to 0) rather than `scheduler_settings.watchdog_enabled`, causing Guardian to reset its in-memory watchdog state to disabled on every server startup. Added authoritative SQLite queries checking both settings.
+  - Fixed false clean-exit classification in `ProcessManager`: unauthorized exits with exit code 1 (produced by Windows `TerminateProcess` / `taskkill /F`) or 3 were previously misclassified as graceful `"stopped"` instead of `"crashed"`.
+  - Fixed ASE launcher child exit listener unconditionally overriding server state to `"stopped"` on termination. It now verifies if the server was intentionally stopped before setting status, and marks unexpected exits as `"crashed"`.
+  - Implemented instant event-driven recovery: `ProcessManager` and `AseLauncher` now immediately trigger `GuardianService::trigger_auto_restart_if_enabled` upon detecting an unexpected process exit (~3s recovery latency), transitioning the server status to `"restarting"`, enforcing crash-loop protection limits, and automatically restarting the instance.
 
 ---
 
