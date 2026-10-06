@@ -26,10 +26,12 @@ export default function ServerOverviewModal({
 }: ServerOverviewModalProps) {
     const [showAdminPassword, setShowAdminPassword] = useState(false);
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+    const asaVersions = useServerStore((state) => state.serverVersions);
+    const aseVersions = useAseServerStore((state) => state.serverVersions);
 
     if (!isOpen || !server) return null;
 
-    const isASE = server.serverType === 'ASE' || 'mapName' in server && !('config' in server);
+    const isASE = server.serverType === 'ASE' || ('mapName' in server && !('config' in server));
     const gamePort = server.ports?.gamePort ?? server.port ?? 7777;
     const queryPort = server.ports?.queryPort ?? server.queryPort ?? 27015;
     const rconPort = server.ports?.rconPort ?? server.rconPort ?? 27020;
@@ -41,9 +43,6 @@ export default function ServerOverviewModal({
     const installPath = server.installPath || 'N/A';
     const displayIp = publicIp || '127.0.0.1';
     const clusterId = server.config?.clusterId ?? server.clusterId ?? null;
-
-    const asaVersions = useServerStore((state) => state.serverVersions);
-    const aseVersions = useAseServerStore((state) => state.serverVersions);
     const serverVersion = isASE ? aseVersions[server.id] : asaVersions[server.id];
 
     const handleCopy = (text: string, label: string) => {

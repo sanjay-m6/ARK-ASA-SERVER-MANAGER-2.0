@@ -118,7 +118,7 @@ async function withRetry<T>(
 // Build the direct download URL for the latest release installer
 function getInstallerDownloadUrl(version: string): string {
     const tag = version.startsWith('v') ? version : `v${version}`;
-    return `https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases/download/${tag}/ASA.Server.Manager_${version}_x64-setup.exe`;
+    return `https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases/download/${tag}/ARK.Server.Manager_${version}_x64-setup.exe`;
 }
 
 // Build the portable ZIP download URL

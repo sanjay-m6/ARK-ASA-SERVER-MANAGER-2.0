@@ -111,34 +111,32 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Bug Fixes in v4.6.30
-            - **⏰ Fix Staggered Scheduled Restarts Skipping Subsequent Maps (Extinction, Gen1, Valguero)**:
-              - Resolved critical issue where staggered morning/afternoon restarts (e.g. 06:00, 06:03, 06:06, 06:12, 06:18) successfully restarted the first servers (Astraeos and The Island) but completely skipped subsequent maps (Extinction, Gen1, Valguero).
-              - Offloaded all server maintenance execution chains (`process_asa_advanced_mode`, `process_ase_advanced_mode`, `process_tasks`, `process_basic_mode`, and `process_ase_basic_mode`) to asynchronous background tasks via `tauri::async_runtime::spawn`. The scheduler ticker loop now returns in <1ms without blocking on lengthy `SaveWorld`, graceful stop, backup, or SteamCMD operations.
-              - Enhanced `parse_time_str` to support European dot notation (e.g. `6.00`, `6.03`, `06.00`, `06:12`) by normalizing `.` to `:` and parsing 1- or 2-part time strings cleanly.
-              - Added scheduling catch-up tolerance (2-minute window) protected by a 180-second debounce so minor timer drifts or busy ticks never cause scheduled restarts to be missed.
-            - **🛡️ Fix ASE Port 7778 Collision & Instant Exit (Code 0) on The Island & Valguero**:
-              - Resolved issue where ASE servers terminated immediately upon launch or restart with exit code 0 (`STATUS_SUCCESS`).
-              - Added `PeerPort` (`port + 1`, UDP 7778) to `AseLauncher::stop_server` and `AseLauncher::spawn_server` port tracking and socket cleanup routines, ensuring `ShooterGameServer.exe`'s raw/peer UDP port is completely freed before the new instance starts.
-              - Increased restart socket release cooldown from 2s to 4s in `restart_ase_server` and scheduler maintenance chains to allow complete Windows UDP socket deallocation.
-            - **🗺️ Fix Gen1 (Genesis Part 1) Failing to Start & Official Map Normalization**:
-              - Resolved issue where Genesis Part 1 stopped but failed to start due to spaces in the launch command URL (`"Genesis Part 1?listen"`), which Unreal Engine rejected.
-              - Added `normalize_ase_map_name` in `AseLauncher` to format map parameters into canonical ASE engine map names (`Genesis`, `Valguero_P`, `ScorchedEarth_P`, `Aberration_P`, `TheCenter`, `Gen2`, etc.).
-              - Added Genesis Part 1 / Gen1 (`Genesis_WP`) and Genesis Part 2 / Gen2 (`Genesis2_WP`) to `normalize_map_name` in `config_generator.rs` so they are correctly recognized as official maps.
-            - **💾 Fix Astraeos Database Corruption & Automatic SQLite Healing (`FAtlasSaveManager`)**:
-              - Resolved issue where large ASA maps suffered save file corruption (`FAtlasSaveManager::LoadOperationSql: SQL database is corrupt`) after restarts.
-              - Extended `graceful_stop` wait from 10s to 30s with progress logging, giving `ArkAscendedServer.exe` sufficient time to flush WAL frames and checkpoint SQLite safely before any fallback kill.
-              - Implemented `auto_heal_corrupted_sqlite_save` in `perform_server_startup_inner`: automatically runs `PRAGMA quick_check;` before launch. If corruption is detected, it archives the damaged file as `<Map>_corrupted_<timestamp>.db`, finds and verifies the newest healthy backup (`.bak` or timestamped `.db`), restores it to `<Map>.db`, and clears stale `.db-wal` and `.db-shm` files.
-            - **🛡️ Fix Guardian Watchdog Self-Healing & Crash Recovery (Auto-Restart After Crash/Taskkill)**:
-              - Resolved critical issue where Guardian Watchdog was toggled ON in the UI, but killed or crashed server instances (e.g. via `taskkill /F /PID` or unhandled exceptions) stopped and never came back alive.
-              - Fixed database disconnect where `GuardianService::register_server` queried `servers.auto_restart` (defaulting to 0) rather than `scheduler_settings.watchdog_enabled`, causing Guardian to reset its in-memory watchdog state to disabled on every server startup. Added authoritative SQLite queries checking both settings.
-              - Fixed false clean-exit classification in `ProcessManager`: unauthorized exits with exit code 1 (produced by Windows `TerminateProcess` / `taskkill /F`) or 3 were previously misclassified as graceful `"stopped"` instead of `"crashed"`.
-              - Fixed ASE launcher child exit listener unconditionally overriding server state to `"stopped"` on termination. It now verifies if the server was intentionally stopped before setting status, and marks unexpected exits as `"crashed"`.
-              - Implemented instant event-driven recovery: `ProcessManager` and `AseLauncher` now immediately trigger `GuardianService::trigger_auto_restart_if_enabled` upon detecting an unexpected process exit (~3s recovery latency), transitioning the server status to `"restarting"`, enforcing crash-loop protection limits, and automatically restarting the instance.
+            ### 🆕 New Features & Bug Fixes in v4.6.31
+            - **⚛️ Fix React Error #310 in Server Overview Modal**:
+              - Resolved fatal `Minified React error #310` ("Rendered more hooks than during the previous render") when clicking *View Full Server Overview & Details* in Server Manager editing target menu.
+              - Lifted `useServerStore` and `useAseServerStore` hooks to the top level of `ServerOverviewModal` before conditional return checks, ensuring hook execution order remains invariant across render passes.
+            - **🔗 Fix Release Asset Download & Rollback URL Alignment (`ARK.Server.Manager`)**:
+              - Fixed stale download URLs in `UpdateChecker.tsx` and `src-tauri/src/commands/system.rs` pointing to non-existent `ASA.Server.Manager_${version}_x64-setup.exe` (resulting in HTTP 404).
+              - Aligned all manual fallback and rollback links to canonical GitHub release binary naming `ARK.Server.Manager_${version}_x64-setup.exe`.
+            - **🛡️ Guardian Watchdog Crash Auto-Restart Resilience**:
+              - Hardened auto-restart retry loop to gracefully handle transient startup failures following unexpected server exits.
 
             ### 🛠️ Previous Releases
             <details>
-            <summary>v4.6.29 — Fix Multi-Server / Cluster Process Hijacking & Cross-Server Crashes</summary>
+            <summary>v4.6.30 — Fix Staggered Scheduled Restarts, ASE Port Collisions, Gen1 & SQLite Corruption Healing</summary>
+
+            - **⏰ Fix Staggered Scheduled Restarts Skipping Subsequent Maps (Extinction, Gen1, Valguero)**:
+              - Resolved critical issue where staggered morning/afternoon restarts successfully restarted the first servers (Astraeos and The Island) but skipped subsequent maps.
+              - Offloaded all server maintenance execution chains to asynchronous background tasks via `tauri::async_runtime::spawn`.
+            - **🛡️ Fix ASE Port 7778 Collision & Instant Exit (Code 0) on The Island & Valguero**:
+              - Resolved issue where ASE servers terminated immediately upon launch or restart with exit code 0 (`STATUS_SUCCESS`). Added UDP 7778 PeerPort tracking and cleanup.
+            - **🗺️ Fix Gen1 (Genesis Part 1) Failing to Start & Official Map Normalization**:
+              - Normalized map names in `AseLauncher` and `config_generator.rs` (`Genesis_WP` and `Genesis2_WP`).
+            - **💾 Fix Astraeos Database Corruption & Automatic SQLite Healing (`FAtlasSaveManager`)**:
+              - Automated SQLite integrity check and corrupted database recovery before launch.
+            - **🛡️ Fix Guardian Watchdog Self-Healing & Crash Recovery**:
+              - Restored watchdog crash recovery and self-healing for taskkill and unexpected exits.
+            </details>
 
             - **🛡️ Fix Multi-Server / Cluster Process Hijacking & Cross-Server Crashes**:
               - Resolved critical issue where starting a cloned or clustered server (e.g. Scorched Earth sharing install directory or parent paths with The Island) caused Server Manager to falsely adopt the running PID for other servers, displaying both as running and causing one to crash/terminate when the other was stopped.

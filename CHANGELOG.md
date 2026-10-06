@@ -5,6 +5,20 @@ All notable changes to the ARK ASA Server Manager are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.31] — 2026-10-06
+
+### Fixed & Improved
+- **⚛️ Fix React Error #310 in Server Overview Modal ("View Full Server Overview & Details")**:
+  - Resolved fatal `Minified React error #310` ("Rendered more hooks than during the previous render") triggered when opening the Server Overview modal via *Server Manager > Editing Target > View Full Server Overview & Details*.
+  - Declared `useServerStore` and `useAseServerStore` hooks at the top level of `ServerOverviewModal` before conditional return checks, ensuring hook call order is strictly invariant across all render cycles.
+- **🔗 Fix Release Asset Download & Rollback URL Alignment (`ARK.Server.Manager`)**:
+  - Fixed hardcoded fallback and rollback installer URLs in `UpdateChecker.tsx` and `src-tauri/src/commands/system.rs` that erroneously pointed to stale `ASA.Server.Manager_${version}_x64-setup.exe` (resulting in HTTP 404).
+  - Aligned all URLs with the canonical GitHub release artifact naming `ARK.Server.Manager_${version}_x64-setup.exe`.
+- **🛡️ Guardian Watchdog Crash Auto-Restart Resilience**:
+  - Hardened auto-restart retry loop to gracefully handle transient startup failures following unexpected server exits.
+
+---
+
 ## [4.6.30] — 2026-10-05
 
 ### Fixed & Improved

@@ -560,12 +560,12 @@ pub fn get_app_logs_dir(app: tauri::AppHandle) -> Result<String, String> {
 #[tauri::command]
 pub async fn rollback_to_version(version: String) -> Result<(), String> {
     let url = format!(
-        "https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases/download/v{}/ASA.Server.Manager_{}_x64-setup.exe",
+        "https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases/download/v{}/ARK.Server.Manager_{}_x64-setup.exe",
         version, version
     );
     
     let temp_dir = std::env::temp_dir();
-    let file_name = format!("ASA.Server.Manager_{}_setup.exe", version);
+    let file_name = format!("ARK.Server.Manager_{}_setup.exe", version);
     let file_path = temp_dir.join(file_name);
     
     println!("Downloading rollback installer from {} to {:?}", url, file_path);
