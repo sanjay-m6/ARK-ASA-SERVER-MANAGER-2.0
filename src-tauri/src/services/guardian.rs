@@ -9,6 +9,17 @@ use crate::services::process_manager::find_game_server_pid_by_install_path;
 use tokio::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+const AUTO_RESTART_MAX_ATTEMPTS: usize = 3;
+const AUTO_RESTART_RETRY_DELAY_SECS: u64 = 5;
+
+fn is_retryable_restart_error(error: &str) -> bool {
+    let e = error.to_lowercase();
+    e.contains("already in use")
+        || e.contains("address in use")
+        || e.contains("socket")
+        || (e.contains("port") && e.contains("in use"))
+}
+
 /// Server health status
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -789,17 +800,98 @@ impl GuardianService {
             tauri::async_runtime::spawn(async move {
                 // Short 3-second cooldown to let sockets deallocate
                 tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-                if let Some(state) = h.try_state::<crate::AppState>() {
-                    let fut: std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send>> = Box::pin(crate::ase::commands::server::start_ase_server(h.clone(), real_id, state));
-                    let _ = fut.await;
+                let mut last_error: Option<String> = None;
+                for attempt in 1..=AUTO_RESTART_MAX_ATTEMPTS {
+                    if let Some(state) = h.try_state::<crate::AppState>() {
+                        let fut: std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send>> = Box::pin(crate::ase::commands::server::start_ase_server(h.clone(), real_id, state));
+                        match fut.await {
+                            Ok(_) => return,
+                            Err(err) => {
+                                let retryable = is_retryable_restart_error(&err);
+                                println!(
+                                    "🛡️ Guardian Watchdog: ASE auto-restart attempt {}/{} failed for server {}: {}",
+                                    attempt, AUTO_RESTART_MAX_ATTEMPTS, real_id, err
+                                );
+                                last_error = Some(err);
+                                if retryable && attempt < AUTO_RESTART_MAX_ATTEMPTS {
+                                    tokio::time::sleep(std::time::Duration::from_secs(AUTO_RESTART_RETRY_DELAY_SECS)).await;
+                                    continue;
+                                }
+                                break;
+                            }
+                        }
+                    } else {
+                        last_error = Some("AppState unavailable during ASE auto-restart".to_string());
+                        break;
+                    }
+                }
+
+                if let Some(err) = last_error {
+                    if let Some(state) = h.try_state::<crate::AppState>() {
+                        if let Ok(db_guard) = state.db.lock() {
+                            if let Ok(conn) = db_guard.get_connection() {
+                                let _ = conn.execute(
+                                    "UPDATE ase_servers SET status = 'crashed', process_id = NULL WHERE id = ?",
+                                    [real_id]
+                                );
+                            }
+                        }
+                    }
+                    let _ = h.emit("server-status-change", serde_json::json!({
+                        "server_id": real_id,
+                        "status": "crashed"
+                    }));
+                    println!(
+                        "🛡️ Guardian Watchdog: ASE auto-restart failed for server {} after {} attempts: {}",
+                        real_id, AUTO_RESTART_MAX_ATTEMPTS, err
+                    );
                 }
             });
         } else {
             tauri::async_runtime::spawn(async move {
                 // Short 3-second cooldown to let sockets deallocate
                 tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-                let fut: std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send>> = Box::pin(crate::commands::server::start_server(h, server_id, false));
-                let _ = fut.await;
+                let mut last_error: Option<String> = None;
+                for attempt in 1..=AUTO_RESTART_MAX_ATTEMPTS {
+                    let fut: std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send>> = Box::pin(crate::commands::server::start_server(h.clone(), server_id, false));
+                    match fut.await {
+                        Ok(_) => return,
+                        Err(err) => {
+                            let retryable = is_retryable_restart_error(&err);
+                            println!(
+                                "🛡️ Guardian Watchdog: ASA auto-restart attempt {}/{} failed for server {}: {}",
+                                attempt, AUTO_RESTART_MAX_ATTEMPTS, server_id, err
+                            );
+                            last_error = Some(err);
+                            if retryable && attempt < AUTO_RESTART_MAX_ATTEMPTS {
+                                tokio::time::sleep(std::time::Duration::from_secs(AUTO_RESTART_RETRY_DELAY_SECS)).await;
+                                continue;
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                if let Some(err) = last_error {
+                    if let Some(state) = h.try_state::<crate::AppState>() {
+                        if let Ok(db_guard) = state.db.lock() {
+                            if let Ok(conn) = db_guard.get_connection() {
+                                let _ = conn.execute(
+                                    "UPDATE servers SET status = 'crashed', process_id = NULL WHERE id = ?",
+                                    [server_id]
+                                );
+                            }
+                        }
+                    }
+                    let _ = h.emit("server-status-change", serde_json::json!({
+                        "server_id": server_id,
+                        "status": "crashed"
+                    }));
+                    println!(
+                        "🛡️ Guardian Watchdog: ASA auto-restart failed for server {} after {} attempts: {}",
+                        server_id, AUTO_RESTART_MAX_ATTEMPTS, err
+                    );
+                }
             });
         }
 
@@ -873,4 +965,20 @@ pub async fn register_server_pid(
     let service = guardian.0.lock().await;
     service.register_server(app_handle, server_id, pid).await;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_retryable_restart_error;
+
+    #[test]
+    fn retryable_port_error_is_detected() {
+        assert!(is_retryable_restart_error("Port 7777 is already in use"));
+        assert!(is_retryable_restart_error("Only one usage of each socket address is normally permitted"));
+    }
+
+    #[test]
+    fn non_retryable_error_is_not_detected() {
+        assert!(!is_retryable_restart_error("Invalid map name"));
+    }
 }
