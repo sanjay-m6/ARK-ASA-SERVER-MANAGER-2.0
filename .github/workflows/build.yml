@@ -9,6 +9,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  CARGO_BUILD_JOBS: 2
 
 jobs:
   build:
@@ -23,6 +24,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Free Disk Space (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Free up space on C: drive by removing heavy unneeded SDKs
+          Remove-Item -Recurse -Force "C:\Android" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\Java" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\Ruby" -ErrorAction SilentlyContinue
+
+      - name: Configure Windows Pagefile
+        if: runner.os == 'Windows'
+        uses: al-cheb/configure-pagefile-action@v1.5
+        with:
+          minimum-size: 8GB
+          maximum-size: 16GB
+          disk-root: "C:"
 
       - name: Install Linux Dependencies
         if: runner.os == 'Linux'
@@ -76,6 +94,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ env.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          CARGO_BUILD_JOBS: 2
+          NODE_OPTIONS: "--max_old_space_size=4096"
         with:
           tagName: ${{ steps.version.outputs.version }}
           releaseName: 'ARK Server Manager ${{ steps.version.outputs.version }}'
