@@ -64,7 +64,11 @@ pub fn resolve_steamcmd_dir_for_target(
             let is_exe = p
                 .file_name()
                 .and_then(|n| n.to_str())
-                .map(|n| n.eq_ignore_ascii_case("steamcmd.exe"))
+                .map(|n| {
+                    n.eq_ignore_ascii_case("steamcmd.exe")
+                        || n.eq_ignore_ascii_case("steamcmd.sh")
+                        || n.eq_ignore_ascii_case("steamcmd")
+                })
                 .unwrap_or(false);
             if is_exe || p.is_file() {
                 if let Some(parent) = p.parent() {
@@ -85,7 +89,11 @@ pub fn resolve_steamcmd_dir_for_target(
     
     // Self-heal: SteamCMD fails to run/update if its path contains non-ASCII characters (e.g. Cyrillic/Turkish names)
     if has_non_ascii_chars(&default_path.to_string_lossy()) {
-        let safe_fallback = PathBuf::from("C:\\ARKServerManager\\steamcmd");
+        let safe_fallback = if cfg!(target_os = "windows") {
+            PathBuf::from("C:\\ARKServerManager\\steamcmd")
+        } else {
+            PathBuf::from("/opt/steamcmd")
+        };
         println!("[SteamCMD Path Resolver] ⚠️ Default SteamCMD path contains non-ASCII characters! Falling back to safe path: {:?}", safe_fallback);
         return Ok(safe_fallback);
     }

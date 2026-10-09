@@ -294,7 +294,7 @@ impl SchedulerService {
                         tauri::async_runtime::spawn(async move {
                             let state = app.state::<AppState>();
                             if let Ok(app_dir) = app.path().app_data_dir() {
-                                let steamcmd_exe = app_dir.join("steamcmd").join("steamcmd.exe");
+                                let steamcmd_exe = app_dir.join("steamcmd").join(crate::platform::Platform::steamcmd_executable_name());
                                 if steamcmd_exe.exists() {
                                     // Get install path
                                     let install_path: Option<String> = if let Ok(db) = state.db.lock() {

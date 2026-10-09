@@ -187,8 +187,13 @@ pub async fn run_diagnostics(
         .unwrap_or_else(|_| {
             app.path().app_data_dir().unwrap_or_default().join("steamcmd")
         });
-    let steamcmd_path = steamcmd_dir.join("steamcmd.exe");
-    let steamcmd_installed = steamcmd_path.exists();
+    let steamcmd_installed = if cfg!(target_os = "windows") {
+        steamcmd_dir.join("steamcmd.exe").exists()
+    } else {
+        steamcmd_dir.join("steamcmd.sh").exists()
+            || steamcmd_dir.join("steamcmd").exists()
+            || steamcmd_dir.join("steamcmd.exe").exists()
+    };
     if !steamcmd_installed {
         issues.push("SteamCMD is missing. Server installation will fail.".to_string());
     }
@@ -719,6 +724,7 @@ pub struct PlatformInfoResponse {
     pub is_linux: bool,
     pub default_backup_dir: String,
     pub default_cluster_dir: String,
+    pub default_server_dir: String,
     pub steamcmd_executable: &'static str,
 }
 
@@ -733,6 +739,7 @@ pub async fn get_platform_info() -> Result<PlatformInfoResponse, String> {
         is_linux: os.is_linux(),
         default_backup_dir: Platform::default_backup_dir().to_string_lossy().to_string(),
         default_cluster_dir: Platform::default_cluster_dir().to_string_lossy().to_string(),
+        default_server_dir: Platform::default_server_dir().to_string_lossy().to_string(),
         steamcmd_executable: Platform::steamcmd_executable_name(),
     })
 }

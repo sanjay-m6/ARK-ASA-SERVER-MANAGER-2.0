@@ -351,14 +351,16 @@ export default function ServerOverviewModal({
             </div>
 
             {/* In-Game Admin & Cheats Modal */}
-            <InGameAdminModal
-                isOpen={isAdminModalOpen}
-                onClose={() => setIsAdminModalOpen(false)}
-                adminPassword={adminPassword}
-                serverName={server.name}
-                gameType={isASE ? 'ASE' : 'ASA'}
-                installPath={installPath}
-            />
+            {isAdminModalOpen && (
+                <InGameAdminModal
+                    isOpen={isAdminModalOpen}
+                    onClose={() => setIsAdminModalOpen(false)}
+                    adminPassword={adminPassword}
+                    serverName={server.name}
+                    gameType={isASE ? 'ASE' : 'ASA'}
+                    installPath={installPath}
+                />
+            )}
         </div>,
         document.body
     );

@@ -1262,8 +1262,16 @@
         "label": "Отключить стазис криоподов",
         "description": "Отключает перевод существ в стазис внутри криопода"
       },
-      "DisableCryopodStructureRequirement": {
+      "DisableCryopodFridgeRequirement": {
         "label": "Криоподы без криохолодильника",
+        "description": "Разрешает выпуск динозавров без находящегося рядом криохолодильника"
+      },
+      "AllowCryoFridgeOnSaddle": {
+        "label": "Криохолодильники на седлах/плотах",
+        "description": "Разрешает размещение криохолодильников на платформах и плотах"
+      },
+      "DisableCryopodStructureRequirement": {
+        "label": "Криоподы без криохолодильника (устаревшее)",
         "description": "Разрешает выпуск динозавров без находящегося рядом криохолодильника"
       },
       "DisableCryopodEnemyCheck": {

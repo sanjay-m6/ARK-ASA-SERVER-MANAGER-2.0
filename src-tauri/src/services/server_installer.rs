@@ -61,13 +61,18 @@ fn log_to_file(msg: &str) {
 
 impl ServerInstaller {
     pub fn new(app_handle: AppHandle, install_path: String) -> Self {
+        let normalized = if cfg!(target_os = "windows") {
+            install_path.replace('/', "\\")
+        } else {
+            install_path.replace('\\', "/")
+        };
         log_to_file(&format!(
             "New ServerInstaller created with install_path: {}",
-            install_path
+            normalized
         ));
         Self {
             app_handle,
-            install_path,
+            install_path: normalized,
         }
     }
 
@@ -175,7 +180,12 @@ impl ServerInstaller {
         // ---------------------------------------------------------
         // PATH AUDIT & PRE-FLIGHT VALIDATION
         // ---------------------------------------------------------
-        let mut install_path = raw_install_path.clone();
+        let normalized_raw = if cfg!(target_os = "windows") {
+            raw_install_path.to_string_lossy().replace('/', "\\")
+        } else {
+            raw_install_path.to_string_lossy().replace('\\', "/")
+        };
+        let mut install_path = PathBuf::from(&normalized_raw);
         if install_path.file_name() == Some(std::ffi::OsStr::new("ShooterGame")) {
             if let Some(parent) = install_path.parent() {
                 install_path = parent.to_path_buf();
@@ -227,7 +237,8 @@ impl ServerInstaller {
                 "info",
             );
             std::fs::create_dir_all(&install_path).map_err(|e| {
-                let err_msg = format!("Failed to create directory '{}': {}. Please check disk permissions or run as Administrator.", install_path.display(), e);
+                let admin_hint = if cfg!(windows) { "run as Administrator" } else { "check file permissions / ownership" };
+                let err_msg = format!("Failed to create directory '{}': {}. Please check disk permissions or {}.", install_path.display(), e, admin_hint);
                 self.emit_error(&err_msg);
                 err_msg
             })?;
@@ -240,9 +251,14 @@ impl ServerInstaller {
                 let _ = std::fs::remove_file(&test_perm_file);
             }
             Err(e) => {
+                let perm_hint = if cfg!(windows) {
+                    "run ARK Server Manager as Administrator."
+                } else {
+                    "verify write permissions (chmod -R u+rw) or directory ownership (chown)."
+                };
                 let err_msg = format!(
-                    "Permissions Error: Write test failed on '{}': {}. Ensure the folder is not read-only and run ARK Server Manager as Administrator.",
-                    install_path.display(), e
+                    "Permissions Error: Write test failed on '{}': {}. Ensure the folder is not read-only and {}",
+                    install_path.display(), e, perm_hint
                 );
                 self.emit_error(&err_msg);
                 return Err(err_msg.to_string());
@@ -374,7 +390,19 @@ impl ServerInstaller {
                 app_dir.join("steamcmd")
             }
         };
-        let steamcmd_exe = steamcmd_dir.join("steamcmd.exe");
+        let mut steamcmd_exe = if cfg!(target_os = "windows") {
+            steamcmd_dir.join("steamcmd.exe")
+        } else {
+            if steamcmd_dir.join("steamcmd.sh").exists() {
+                steamcmd_dir.join("steamcmd.sh")
+            } else if steamcmd_dir.join("steamcmd").exists() {
+                steamcmd_dir.join("steamcmd")
+            } else if steamcmd_dir.join("steamcmd.exe").exists() {
+                steamcmd_dir.join("steamcmd.exe")
+            } else {
+                steamcmd_dir.join(crate::platform::Platform::steamcmd_executable_name())
+            }
+        };
 
         if !steamcmd_exe.exists() {
             self.emit_console(
@@ -395,14 +423,47 @@ impl ServerInstaller {
                 );
                 return Err(format!("SteamCMD installation failed: {}", e));
             }
+
+            steamcmd_exe = if cfg!(target_os = "windows") {
+                steamcmd_dir.join("steamcmd.exe")
+            } else {
+                if steamcmd_dir.join("steamcmd.sh").exists() {
+                    steamcmd_dir.join("steamcmd.sh")
+                } else if steamcmd_dir.join("steamcmd").exists() {
+                    steamcmd_dir.join("steamcmd")
+                } else if steamcmd_dir.join("steamcmd.exe").exists() {
+                    steamcmd_dir.join("steamcmd.exe")
+                } else {
+                    steamcmd_dir.join(crate::platform::Platform::steamcmd_executable_name())
+                }
+            };
+
             if !steamcmd_exe.exists() {
+                let missing_name = steamcmd_exe.file_name().unwrap_or_default().to_string_lossy();
                 self.emit_console(
-                    "SteamCMD installation completed but steamcmd.exe is still missing.",
+                    &format!(
+                        "SteamCMD installation completed but {} is still missing.",
+                        missing_name
+                    ),
                     "error",
                 );
-                return Err("SteamCMD not installed".to_string());
+                return Err(format!("SteamCMD ({}) not installed", missing_name));
             }
             self.emit_console("SteamCMD installed successfully.", "success");
+        }
+
+        // On Linux/Unix ensure executable permissions on steamcmd and support binaries
+        #[cfg(target_family = "unix")]
+        {
+            let _ = crate::platform::Platform::ensure_executable_permissions(&steamcmd_exe);
+            let linux32_steamcmd = steamcmd_dir.join("linux32").join("steamcmd");
+            if linux32_steamcmd.exists() {
+                let _ = crate::platform::Platform::ensure_executable_permissions(&linux32_steamcmd);
+            }
+            let linux32_reporter = steamcmd_dir.join("linux32").join("steamerrorreporter");
+            if linux32_reporter.exists() {
+                let _ = crate::platform::Platform::ensure_executable_permissions(&linux32_reporter);
+            }
         }
 
         self.emit_console(
@@ -431,8 +492,10 @@ impl ServerInstaller {
             .trim_end_matches('/')
             .to_string();
 
+        let exe_display_name = steamcmd_exe.file_name().unwrap_or_default().to_string_lossy();
         let cmd_preview = format!(
-            "steamcmd.exe +force_install_dir \"{}\" +login anonymous +app_update {}{} +quit",
+            "{} +force_install_dir \"{}\" +login anonymous +app_update {}{} +quit",
+            exe_display_name,
             force_install_dir_val,
             app_id,
             if force_update { " validate" } else { "" }
@@ -526,14 +589,24 @@ impl ServerInstaller {
         }
 
         // Build the SteamCMD command (+force_install_dir MUST precede +login)
-        let mut steamcmd_args = vec![
-            "+force_install_dir".to_string(),
-            force_install_dir_val,
-            "+login".to_string(),
-            "anonymous".to_string(),
-            "+app_update".to_string(),
-            app_id.to_string(),
-        ];
+        let mut steamcmd_args = Vec::new();
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            // On Linux/Unix, ASA is a Windows-only dedicated server.
+            // Without +@sSteamCmdForcePlatformType windows, SteamCMD on Linux will report "Invalid platform" or skip downloading files!
+            if server_type == "ASA" {
+                steamcmd_args.push("+@sSteamCmdForcePlatformType".to_string());
+                steamcmd_args.push("windows".to_string());
+            }
+        }
+
+        steamcmd_args.push("+force_install_dir".to_string());
+        steamcmd_args.push(force_install_dir_val);
+        steamcmd_args.push("+login".to_string());
+        steamcmd_args.push("anonymous".to_string());
+        steamcmd_args.push("+app_update".to_string());
+        steamcmd_args.push(app_id.to_string());
 
         if let Some(b) = &branch {
             let b_trimmed = b.trim();
@@ -614,7 +687,18 @@ impl ServerInstaller {
                 &format!("Starting SteamCMD (Attempt {}/3)...", attempt),
             );
 
-            let mut child = match Command::new(&steamcmd_exe)
+            #[cfg(target_family = "unix")]
+            let mut cmd = if steamcmd_exe.extension().and_then(|e| e.to_str()) == Some("sh") {
+                let mut c = Command::new("bash");
+                c.arg(&steamcmd_exe);
+                c
+            } else {
+                Command::new(&steamcmd_exe)
+            };
+            #[cfg(not(target_family = "unix"))]
+            let mut cmd = Command::new(&steamcmd_exe);
+
+            let mut child = match cmd
                 .current_dir(&steamcmd_dir)
                 .args(&steamcmd_args)
                 .stdout(Stdio::piped())
@@ -624,7 +708,9 @@ impl ServerInstaller {
             {
                 Ok(c) => c,
                 Err(e) => {
-                    last_error_msg = format!("Failed to start SteamCMD: {}", e);
+                    let err_msg = format!("Failed to start SteamCMD: {}", e);
+                    self.emit_console(&err_msg, "error");
+                    last_error_msg = err_msg;
                     continue;
                 }
             };
@@ -640,7 +726,9 @@ impl ServerInstaller {
             self.emit_console("SteamCMD process started", "success");
             self.emit_console("Connecting to Steam servers...", "info");
 
-            // Spawn stderr reader concurrently to prevent pipe buffer deadlock.
+            // Spawn stderr reader concurrently to prevent pipe buffer deadlock and stream errors to UI console
+            let app_handle_for_stderr = self.app_handle.clone();
+            let install_path_for_stderr = self.install_path.clone();
             let stderr_handle = if let Some(stderr) = child.stderr.take() {
                 Some(tokio::spawn(async move {
                     let reader = BufReader::new(stderr);
@@ -650,6 +738,15 @@ impl ServerInstaller {
                         let trimmed = line.trim().to_string();
                         if !trimmed.is_empty() {
                             println!("[SteamCMD ERROR] {}", trimmed);
+                            let _ = app_handle_for_stderr.emit(
+                                "install-console",
+                                ConsoleOutput {
+                                    install_path: install_path_for_stderr.clone(),
+                                    line: trimmed.clone(),
+                                    line_type: "error".to_string(),
+                                    timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
+                                },
+                            );
                             stderr_lines.push(trimmed);
                         }
                     }
@@ -722,11 +819,7 @@ impl ServerInstaller {
             }
 
             if let Some(handle) = stderr_handle {
-                if let Ok(stderr_lines) = handle.await {
-                    for line in &stderr_lines {
-                        self.emit_console(line, "error");
-                    }
-                }
+                let _ = handle.await;
             }
 
             let timeout_duration = std::time::Duration::from_secs(1800); // 30 minutes
@@ -829,7 +922,11 @@ impl ServerInstaller {
         } else {
             fix_steps.push("2. Connection: Check network connection stability and Steam server availability.".to_string());
         }
-        fix_steps.push("3. Permissions: Verify the target directory is writeable and run ARK Server Manager as Administrator.".to_string());
+        if cfg!(windows) {
+            fix_steps.push("3. Permissions: Verify the target directory is writeable and run ARK Server Manager as Administrator.".to_string());
+        } else {
+            fix_steps.push("3. Permissions & Dependencies: Ensure user has write permissions (chown -R $USER:$USER / chmod -R u+rw) and 32-bit glibc libraries are installed (e.g. 'sudo apt install lib32gcc-s1 lib32stdc++6' on Debian/Ubuntu, or 'sudo dnf install glibc.i686 libstdc++.i686' on Fedora/RHEL).".to_string());
+        }
         fix_steps.push("4. Resume: Click 'Try Again' or 'Update' to resume downloading from the saved chunks.".to_string());
 
         let fix_steps_str = fix_steps.join("\n");

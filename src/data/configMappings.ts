@@ -567,19 +567,19 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
             },
             {
                 section: 'ServerSettings',
-                key: 'DisableCryopodStasis',
-                label: 'Disable Cryofridge Stasis Requirement',
+                key: 'DisableCryopodFridgeRequirement',
+                label: 'Disable Cryo Fridge Requirement',
                 type: 'boolean',
                 defaultValue: 'False',
-                description: 'In ASA, setting this to True removes the requirement that cryopods must be charged in a nearby active Cryofridge to be deployed.'
+                description: 'In ASA, setting this to True removes the requirement that a powered Cryofridge must be nearby to deploy cryopods.'
             },
             {
                 section: 'ServerSettings',
-                key: 'DisableCryopodStructureRequirement',
-                label: 'Disable Structure Requirement',
+                key: 'AllowCryoFridgeOnSaddle',
+                label: 'Allow Cryofridge on Saddles / Rafts',
                 type: 'boolean',
                 defaultValue: 'False',
-                description: 'Allows deploying cryopods anywhere without requiring a nearby Cryofridge structure.'
+                description: 'Allows placing Cryofridges on platform saddles and rafts.'
             },
             {
                 section: 'ServerSettings',
@@ -2039,9 +2039,20 @@ export function getCanonicalSectionName(section: string): string {
     return CANONICAL_SECTIONS.get(trimmed.toLowerCase()) || trimmed;
 }
 
+// Known legacy or incorrect key aliases mapped to official ARK keys
+const KEY_ALIASES = new Map<string, string>([
+    ['disablecryopodstructurerequirement', 'DisableCryopodFridgeRequirement'],
+    ['serversettings.disablecryopodstructurerequirement', 'DisableCryopodFridgeRequirement'],
+    ['disablecryopodstasis', 'DisableCryopodFridgeRequirement'],
+    ['serversettings.disablecryopodstasis', 'DisableCryopodFridgeRequirement'],
+]);
+
 export function getCanonicalKeyName(section: string, key: string): string {
     const trimmedKey = key.trim();
     const trimmedSec = section.trim();
+    const alias = KEY_ALIASES.get(`${trimmedSec.toLowerCase()}.${trimmedKey.toLowerCase()}`)
+        || KEY_ALIASES.get(trimmedKey.toLowerCase());
+    if (alias) return alias;
     return CANONICAL_KEYS.get(`${trimmedSec.toLowerCase()}.${trimmedKey.toLowerCase()}`)
         || CANONICAL_KEYS.get(trimmedKey.toLowerCase())
         || trimmedKey;
@@ -2201,6 +2212,11 @@ export function generateIniContent(sections: Map<string, Map<string, string>> | 
         }
         for (const [key, value] of values) {
             if (value === undefined || value === null) continue;
+            // Suppress legacy/misnamed keys that have no effect in ARK
+            const lowerKey = key.toLowerCase();
+            if (lowerKey === 'disablecryopodstructurerequirement' || lowerKey === 'disablecryopodstasis') {
+                continue;
+            }
             if (isTextareaField(key)) {
                 // For textarea fields, escape real newlines to literal \n and write as a single line
                 const escapedValue = value.replace(/\r?\n/g, '\\n');

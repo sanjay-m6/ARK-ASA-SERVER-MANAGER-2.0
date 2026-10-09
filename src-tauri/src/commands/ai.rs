@@ -538,12 +538,18 @@ fn resolve_ai_config(
 
     let provider = get("ai_provider").unwrap_or_else(|| "nvidia".to_string());
 
+    // Normalize deprecated or retired models to active defaults
+    let sanitized_model = match requested_model.as_str() {
+        "meta/llama-3.3-70b-instruct" => "meta/llama-3.1-70b-instruct".to_string(),
+        _ => requested_model,
+    };
+
     match provider.as_str() {
         "lmstudio" => {
             let base = get("lmstudio_base_url")
                 .unwrap_or_else(|| "http://localhost:1234/v1".to_string());
             // Custom loaded model takes precedence; fall back to whatever the UI passed.
-            let model = get("lmstudio_model").unwrap_or(requested_model);
+            let model = get("lmstudio_model").unwrap_or(sanitized_model);
             Ok(AiProviderConfig {
                 endpoint: build_openai_endpoint(&base),
                 api_key: get("lmstudio_api_key"),
@@ -557,7 +563,7 @@ fn resolve_ai_config(
             Ok(AiProviderConfig {
                 endpoint: "https://integrate.api.nvidia.com/v1/chat/completions".to_string(),
                 api_key: Some(api_key),
-                model: requested_model,
+                model: sanitized_model,
             })
         }
     }

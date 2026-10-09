@@ -5,6 +5,23 @@ All notable changes to the ARK ASA Server Manager are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.32] — 2026-10-09
+
+### Fixed & Improved
+- **🐧 Fix Linux Server Installation Under Root User**:
+  - Resolved critical issue where running ARK Server Manager on Linux as `root` (or inside headless / containerized Linux VPS environments) failed to install or update servers via SteamCMD due to SteamCMD's default safety check against running under root.
+  - Added root user detection, automatic user isolation, permission normalization, and SteamCMD invocation flags so server installations complete reliably without manual user switching.
+- **🧊 Fix "Disable Cryo Fridge Requirement" Setting Having No Effect (#41)**:
+  - Resolved issue #41 where toggling "Disable Cryo Fridge Requirement" in Server Settings had no effect in-game.
+  - Corrected config mapping and INI key alignment (`DisableCryopodFridgeRequirement` in `GameUserSettings.ini` under `[ServerSettings]`), ensuring server settings apply correctly across both ASA and ASE servers.
+- **⚛️ Fix React Error #310 in Server Overview Modal ("View Full Server Overview & Details")**:
+  - Resolved fatal `Minified React error #310` ("Rendered more hooks than during the previous render") triggered when opening the Server Overview modal via *Server Manager > Editing Target > View Full Server Overview & Details*.
+  - Declared all hooks (`useState`, `useServerStore`, `useAseServerStore`) unconditionally at the top level of `ServerOverviewModal`, and guarded modal mounting in `TopBar.tsx` and child `InGameAdminModal`.
+- **🧠 AI Assistant & Cross-Platform File Management Hardening**:
+  - Enhanced error resilience, cross-platform path handling, and assistant prompt stability across Linux and Windows environments.
+
+---
+
 ## [4.6.31] — 2026-10-06
 
 ### Fixed & Improved

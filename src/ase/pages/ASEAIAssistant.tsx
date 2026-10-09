@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, Send, Trash2, Loader2, CheckCircle, XCircle, AlertTriangle, Sparkles, Wrench, Zap, Server, Shield, Rocket, Radio, FileText, Database, Users, Calendar, Search, Save, Navigation, Brain, Plus, MessageSquare, Pin, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Bot, Send, Trash2, Loader2, CheckCircle, XCircle, AlertTriangle, Sparkles, ChevronDown, Wrench, Zap, Server, Shield, Rocket, Radio, FileText, Database, Users, Calendar, Search, Save, Navigation, Brain, Plus, MessageSquare, Pin, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { listen } from '@tauri-apps/api/event';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -337,11 +337,13 @@ export default function ASEAIAssistant() {
         switchSession,
         addMessage,
         setStreaming,
+        setModel,
         toggleSidebar,
     } = useAiStore();
 
     // Local states
     const [inputValue, setInputValue] = useState('');
+    const [modelOpen, setModelOpen] = useState(false);
     const [streamContent, setStreamContent] = useState('');
     const [executingTool, setExecutingTool] = useState<ExecutingToolState | null>(null);
     const [pendingToolConfirm, setPendingToolConfirm] = useState<AiToolCall | null>(null);
@@ -764,9 +766,32 @@ export default function ASEAIAssistant() {
 
                     <div className="flex items-center gap-3">
                         <span className="text-xs text-slate-500 font-medium">Model:</span>
-                        <div className="px-3 py-1.5 rounded-xl bg-slate-900 border border-amber-500/10 text-xs text-amber-300 font-bold flex items-center gap-1.5 shadow-inner">
-                            <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
-                            <span>{AI_MODELS[0].name}</span>
+                        <div className="relative">
+                            <button
+                                onClick={() => setModelOpen(!modelOpen)}
+                                className="px-3 py-1.5 rounded-xl bg-slate-900 border border-amber-500/20 text-xs text-amber-300 font-bold flex items-center gap-2 hover:bg-slate-800 transition-all shadow-inner"
+                            >
+                                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
+                                <span>{AI_MODELS.find(m => m.id === model)?.name || AI_MODELS[0].name}</span>
+                                <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform", modelOpen && "rotate-180")} />
+                            </button>
+                            {modelOpen && (
+                                <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-slate-900 border border-amber-500/20 shadow-2xl shadow-black/80 z-50 overflow-hidden">
+                                    {AI_MODELS.map((m) => (
+                                        <button
+                                            key={m.id}
+                                            onClick={() => { setModel(m.id); setModelOpen(false); }}
+                                            className={cn(
+                                                "w-full text-left px-4 py-3 hover:bg-slate-800 transition-colors border-b border-slate-800/50 last:border-0",
+                                                model === m.id && "bg-amber-500/10"
+                                            )}
+                                        >
+                                            <div className="text-sm font-medium text-white">{m.name}</div>
+                                            <div className="text-[11px] text-slate-500">{m.description}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

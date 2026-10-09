@@ -3,6 +3,7 @@ import {
     type AiMessage,
     type AiToolCall,
     DEFAULT_MODEL,
+    sanitizeAiModel,
 } from '../utils/aiAgent';
 import {
     type ChatSession,
@@ -105,15 +106,20 @@ export const useAiStore = create<AiStore>((set, get) => ({
     setPendingToolCall: (tc) => set({ pendingToolCall: tc }),
 
     setModel: (model) => {
-        localStorage.setItem('ai_model', model);
-        set({ model });
+        const sanitized = sanitizeAiModel(model);
+        localStorage.setItem('ai_model', sanitized);
+        set({ model: sanitized });
     },
 
     loadHistory: () => {
         // Migrate old single-chat history if present
         const migratedId = migrateOldHistory();
 
-        const model = localStorage.getItem('ai_model') || DEFAULT_MODEL;
+        const rawModel = localStorage.getItem('ai_model');
+        const model = sanitizeAiModel(rawModel);
+        if (rawModel !== model) {
+            localStorage.setItem('ai_model', model);
+        }
 
         // Determine which session to load
         let sessionId = migratedId || getLastSessionId();

@@ -628,12 +628,14 @@ export default function TopBar() {
             </div>
 
             {/* Server Overview & All Known Specs Modal */}
-            <ServerOverviewModal
-                isOpen={isOverviewOpen}
-                onClose={() => setIsOverviewOpen(false)}
-                server={activeServer}
-                publicIp={publicIp}
-            />
+            {isOverviewOpen && activeServer && (
+                <ServerOverviewModal
+                    isOpen={isOverviewOpen}
+                    onClose={() => setIsOverviewOpen(false)}
+                    server={activeServer}
+                    publicIp={publicIp}
+                />
+            )}
         </div>
     );
 }

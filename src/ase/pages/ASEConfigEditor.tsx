@@ -146,7 +146,7 @@ const defaultConfig: AseGameConfig = {
   // Chat & Voice
   globalVoiceChat: false, proximityVoiceChat: false, alwaysNotifyPlayerJoined: false, alwaysNotifyPlayerLeft: false, serverAdminCommandLogging: false,
   // PvP & PvE Advanced
-  bDisableFriendlyFire: false, allowCryoCooldownOnPvE: false, disableCryopodEnemyCheck: false, enableCryoSicknessPvp: true, pvpZoneStructureDamageMultiplier: 6.0, structureDamageRepairCooldown: 180.0,
+  bDisableFriendlyFire: false, allowCryoCooldownOnPvE: false, disableCryopodFridgeRequirement: false, allowCryoFridgeOnSaddle: false, disableCryopodEnemyCheck: false, enableCryoSicknessPvp: true, pvpZoneStructureDamageMultiplier: 6.0, structureDamageRepairCooldown: 180.0,
   // Player Stats / Diseases / Food / Flyer
   nonPermanentDiseases: false, preventDiseases: false, tamedDinoCharacterFoodDrainMultiplier: 1.0, wildDinoCharacterFoodDrainMultiplier: 1.0, allowFlyingStaminaRecovery: false,
   // Core Rates
@@ -1600,6 +1600,8 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'number', key: 'globalPoweredBatteryDurabilityDecreasePerSecond', label: 'Battery Durability Decrease/Sec', step: 0.1 },
     { file: 'Game.ini', tab: 'general', type: 'toggle', key: 'bDisableFriendlyFire', label: 'Disable Friendly Fire', desc: 'Prevents damaging tribe members and owned tames' },
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'toggle', key: 'allowCryoCooldownOnPvE', label: 'Allow Cryo Cooldown on PvE', desc: 'Enables cryo sickness cooldown on PvE' },
+    { file: 'GameUserSettings.ini', tab: 'pvp', type: 'toggle', key: 'disableCryopodFridgeRequirement', label: 'Disable Cryo Fridge Requirement', desc: 'Allows deploying dinos without requiring a nearby powered Cryofridge' },
+    { file: 'GameUserSettings.ini', tab: 'pvp', type: 'toggle', key: 'allowCryoFridgeOnSaddle', label: 'Allow Cryofridge on Saddles / Rafts', desc: 'Allows placing Cryofridges on platform saddles and rafts' },
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'toggle', key: 'disableCryopodEnemyCheck', label: 'Disable Cryopod Enemy Check', desc: 'Allows deploying cryopods even if enemies are nearby' },
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'toggle', key: 'enableCryoSicknessPvp', label: 'Enable Cryo Sickness (PvP)', desc: 'Enables cryo sickness cooldown effects on PvP' },
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'number', key: 'pvpZoneStructureDamageMultiplier', label: 'PvP Zone Structure Damage', desc: 'Damage multiplier for structures inside PvP zones', step: 0.1 },

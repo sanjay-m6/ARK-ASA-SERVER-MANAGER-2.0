@@ -91,6 +91,19 @@ impl Platform {
         }
     }
 
+    /// Returns the default root server directory for the current OS
+    pub fn default_server_dir() -> PathBuf {
+        if cfg!(target_os = "windows") {
+            PathBuf::from("C:/ARKServers")
+        } else {
+            if let Some(home) = self::home_dir() {
+                home.join("ASA-SERVERS")
+            } else {
+                PathBuf::from("/var/servers/asa")
+            }
+        }
+    }
+
     /// Returns the default root cluster directory for the current OS
     pub fn default_cluster_dir() -> PathBuf {
         if cfg!(target_os = "windows") {

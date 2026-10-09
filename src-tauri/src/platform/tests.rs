@@ -33,13 +33,16 @@ mod tests {
     fn test_default_paths() {
         let backup_dir = Platform::default_backup_dir();
         let cluster_dir = Platform::default_cluster_dir();
+        let server_dir = Platform::default_server_dir();
 
         assert!(!backup_dir.as_os_str().is_empty());
         assert!(!cluster_dir.as_os_str().is_empty());
+        assert!(!server_dir.as_os_str().is_empty());
 
         if cfg!(target_os = "windows") {
             assert_eq!(backup_dir.to_str().unwrap(), "C:/ASA_Backups");
             assert_eq!(cluster_dir.to_str().unwrap(), "C:/ASA_Clusters");
+            assert_eq!(server_dir.to_str().unwrap(), "C:/ARKServers");
         }
     }
 

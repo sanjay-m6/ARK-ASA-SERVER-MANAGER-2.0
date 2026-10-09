@@ -111,39 +111,44 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Bug Fixes in v4.6.31
+            ### 🆕 New Features & Bug Fixes in v4.6.32
+            - **🐧 Fix Linux Server Installation Under Root User**:
+              - Resolved critical issue where running ARK Server Manager on Linux as `root` (or inside headless / containerized Linux VPS environments) failed to install or update servers via SteamCMD due to SteamCMD's default safety check against running under root.
+              - Added root user detection, automatic user isolation, permission normalization, and SteamCMD invocation flags so server installations complete reliably without manual user switching.
+            - **🧊 Fix "Disable Cryo Fridge Requirement" Setting Having No Effect (#41)**:
+              - Resolved issue #41 where toggling "Disable Cryo Fridge Requirement" in Server Settings had no effect in-game.
+              - Corrected config mapping and INI key alignment (`DisableCryopodFridgeRequirement` in `GameUserSettings.ini` under `[ServerSettings]`), ensuring server settings apply correctly across both ASA and ASE servers.
+            - **⚛️ Fix React Error #310 in Server Overview Modal ("View Full Server Overview & Details")**:
+              - Resolved fatal `Minified React error #310` ("Rendered more hooks than during the previous render") triggered when opening the Server Overview modal via *Server Manager > Editing Target > View Full Server Overview & Details*.
+              - Declared all hooks (`useState`, `useServerStore`, `useAseServerStore`) unconditionally at the top level of `ServerOverviewModal`, and guarded modal mounting in `TopBar.tsx` and child `InGameAdminModal`.
+            - **🧠 AI Assistant & Cross-Platform File Management Hardening**:
+              - Enhanced error resilience, cross-platform path handling, and assistant prompt stability across Linux and Windows environments.
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.31 — Fix React Error #310, Release Asset Download URLs & Watchdog Resilience</summary>
+
             - **⚛️ Fix React Error #310 in Server Overview Modal**:
-              - Resolved fatal `Minified React error #310` ("Rendered more hooks than during the previous render") when clicking *View Full Server Overview & Details* in Server Manager editing target menu.
-              - Lifted `useServerStore` and `useAseServerStore` hooks to the top level of `ServerOverviewModal` before conditional return checks, ensuring hook execution order remains invariant across render passes.
+              - Lifted `useServerStore` and `useAseServerStore` hooks to the top level of `ServerOverviewModal`.
             - **🔗 Fix Release Asset Download & Rollback URL Alignment (`ARK.Server.Manager`)**:
-              - Fixed stale download URLs in `UpdateChecker.tsx` and `src-tauri/src/commands/system.rs` pointing to non-existent `ASA.Server.Manager_${version}_x64-setup.exe` (resulting in HTTP 404).
               - Aligned all manual fallback and rollback links to canonical GitHub release binary naming `ARK.Server.Manager_${version}_x64-setup.exe`.
             - **🛡️ Guardian Watchdog Crash Auto-Restart Resilience**:
               - Hardened auto-restart retry loop to gracefully handle transient startup failures following unexpected server exits.
+            </details>
 
-            ### 🛠️ Previous Releases
             <details>
             <summary>v4.6.30 — Fix Staggered Scheduled Restarts, ASE Port Collisions, Gen1 & SQLite Corruption Healing</summary>
 
             - **⏰ Fix Staggered Scheduled Restarts Skipping Subsequent Maps (Extinction, Gen1, Valguero)**:
-              - Resolved critical issue where staggered morning/afternoon restarts successfully restarted the first servers (Astraeos and The Island) but skipped subsequent maps.
-              - Offloaded all server maintenance execution chains to asynchronous background tasks via `tauri::async_runtime::spawn`.
+              - Resolved critical issue where staggered restarts skipped subsequent maps; offloaded maintenance chains to background tasks.
             - **🛡️ Fix ASE Port 7778 Collision & Instant Exit (Code 0) on The Island & Valguero**:
-              - Resolved issue where ASE servers terminated immediately upon launch or restart with exit code 0 (`STATUS_SUCCESS`). Added UDP 7778 PeerPort tracking and cleanup.
-            - **🗺️ Fix Gen1 (Genesis Part 1) Failing to Start & Official Map Normalization**:
-              - Normalized map names in `AseLauncher` and `config_generator.rs` (`Genesis_WP` and `Genesis2_WP`).
+              - Added UDP 7778 PeerPort tracking and socket cleanup routines.
+            - **🗺️ Fix Gen1 Failing to Start & Official Map Normalization**:
+              - Normalized map names in `AseLauncher` and `config_generator.rs`.
             - **💾 Fix Astraeos Database Corruption & Automatic SQLite Healing (`FAtlasSaveManager`)**:
               - Automated SQLite integrity check and corrupted database recovery before launch.
             - **🛡️ Fix Guardian Watchdog Self-Healing & Crash Recovery**:
               - Restored watchdog crash recovery and self-healing for taskkill and unexpected exits.
-            </details>
-
-            - **🛡️ Fix Multi-Server / Cluster Process Hijacking & Cross-Server Crashes**:
-              - Resolved critical issue where starting a cloned or clustered server (e.g. Scorched Earth sharing install directory or parent paths with The Island) caused Server Manager to falsely adopt the running PID for other servers, displaying both as running and causing one to crash/terminate when the other was stopped.
-              - Enforced strict process exclusivity across the process manager: a single OS PID can never be assigned or adopted by more than one server instance in memory.
-              - Rewrote `find_game_server_pid_by_install_path` to strictly match by unique network ports (`query_port` and `game_port` via command line and UDP listening sockets) whenever ports are configured, eliminating fallback to ambiguous install directory matching for multi-instance deployments.
-              - Added `exclude_pids` enforcement across periodic process adoption monitoring, startup recovery, Guardian Watchdog, and status checks so active server PIDs are never claimed by another server profile.
-              - Scoped `show_server_window` strictly to the targeted server PID and its direct child process, removing indiscriminate global window un-hiding that forced other servers' console windows to show.
             </details>
 
             *For full release notes of previous versions, please visit the [Releases Archive](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases) or see [CHANGELOG.md](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/blob/main/CHANGELOG.md).*

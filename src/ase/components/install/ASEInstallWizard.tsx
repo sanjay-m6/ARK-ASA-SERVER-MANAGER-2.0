@@ -16,6 +16,7 @@ import { suggestNextAsePorts } from '../../utils/aseLaunchArgs';
 import { useAseServerStore } from '../../stores/aseServerStore';
 import { selectFolder } from '../../../utils/tauri';
 import { useInstallStore } from '../../../stores/installStore';
+import { joinPlatformPath, isWindowsOS } from '../../../platform/platform';
 import type { AseMapName } from '../../types/ase.types';
 
 interface Props { onClose: () => void; }
@@ -73,7 +74,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
   const [sessionName, setSessionName] = useState(draftSetup?.formData?.sessionName || 'My ASE Server');
   const [installPath, setInstallPath] = useState(draftSetup?.formData?.installPath || '');
   const [maxPlayers, setMaxPlayers] = useState(draftSetup?.formData?.maxPlayers || 70);
-  const [baseDir, setBaseDir] = useState(draftSetup?.baseDir || 'C:\\ARKServerManager\\ase');
+  const [baseDir, setBaseDir] = useState(draftSetup?.baseDir || (isWindowsOS() ? 'C:\\ARKServerManager\\ase' : '~/ARKServerManager/ase'));
 
   useEffect(() => {
     if (!draftSetup?.formData?.name) {
@@ -101,7 +102,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
   useEffect(() => {
     if (name && !draftSetup?.formData?.installPath) {
       const sanitized = name.replace(/\s+/g, '_');
-      const path = `${baseDir}\\${sanitized}`;
+      const path = joinPlatformPath(baseDir, sanitized);
       setInstallPath(path);
     }
   }, [name, baseDir, draftSetup]);
@@ -152,7 +153,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
   };
 
   const handleInstall = async () => {
-    const path = installPath || `${baseDir}\\${name.replace(/\s+/g, '_')}`;
+    const path = installPath || joinPlatformPath(baseDir, name.replace(/\s+/g, '_'));
     setDraftSetup(null); // Clear draft
     startInstall(path, name, mapName, 'ASE');
     setViewingPath(path);
@@ -551,7 +552,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
                       <div>
                         <span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">Installation Directory</span>
                         <div className="flex gap-2">
-                          <input type="text" value={installPath} onChange={e => setInstallPath(e.target.value)} placeholder={`C:\\ARKServerManager\\ase\\${(name || 'server').replace(/\s+/g, '_')}`}
+                          <input type="text" value={installPath} onChange={e => setInstallPath(e.target.value)} placeholder={joinPlatformPath(baseDir, (name || 'server').replace(/\s+/g, '_'))}
                             className="flex-1 px-4 py-3 bg-slate-800/60 border border-white/10 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/40 transition-all font-mono text-xs" />
                           <button onClick={handleBrowse} className="px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-xl transition-all text-slate-400 hover:text-white">
                             <FolderOpen className="w-4 h-4" />
@@ -731,7 +732,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
 
                 {/* Step 6: Confirm & Deploy — Pre-flight Review */}
                 {step === 'confirm' && (() => {
-                  const resolvedPath = installPath || `C:\\ARKServerManager\\ase\\${name.replace(/\s+/g, '_')}`;
+                  const resolvedPath = installPath || joinPlatformPath(baseDir, name.replace(/\s+/g, '_'));
                   const hasDuplicatePorts = gamePort === queryPort || gamePort === rconPort || queryPort === rconPort;
                   const hasPrivilegedPorts = gamePort < 1024 || queryPort < 1024 || rconPort < 1024;
                   const weakPassword = adminPassword.length < 6;

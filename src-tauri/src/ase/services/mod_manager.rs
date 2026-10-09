@@ -417,9 +417,22 @@ impl AseModManager {
     ) -> Result<AseInstalledMod, String> {
         // Resolve SteamCMD path (supports custom path override)
         let steamcmd_base = crate::services::resolve_steamcmd_dir_from_state(_state, _app_handle)?;
-        let steamcmd_exe = steamcmd_base.join("steamcmd.exe");
+        let steamcmd_exe = if cfg!(target_os = "windows") {
+            steamcmd_base.join("steamcmd.exe")
+        } else {
+            if steamcmd_base.join("steamcmd.sh").exists() {
+                steamcmd_base.join("steamcmd.sh")
+            } else if steamcmd_base.join("steamcmd").exists() {
+                steamcmd_base.join("steamcmd")
+            } else if steamcmd_base.join("steamcmd.exe").exists() {
+                steamcmd_base.join("steamcmd.exe")
+            } else {
+                steamcmd_base.join(crate::platform::Platform::steamcmd_executable_name())
+            }
+        };
         if !steamcmd_exe.exists() {
-            let err_msg = "steamcmd.exe not found. Please install SteamCMD in settings.".to_string();
+            let exe_name = steamcmd_exe.file_name().unwrap_or_default().to_string_lossy();
+            let err_msg = format!("{} not found. Please install SteamCMD in settings.", exe_name);
             emit_mod_progress(_app_handle, workshop_id, "failed", 0.0, &err_msg);
             return Err(err_msg);
         }

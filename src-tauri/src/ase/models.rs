@@ -394,6 +394,10 @@ pub struct AseGameConfig {
     pub prevent_diseases: bool,
     #[serde(alias = "allowCryoCooldownOnPvE", alias = "allowCryoCooldownonPve", alias = "AllowCryoCooldownOnPvE", alias = "allowCryoCooldownOnPve")]
     pub allow_cryo_cooldown_on_pve: bool,
+    #[serde(default, alias = "disableCryopodFridgeRequirement", alias = "DisableCryopodFridgeRequirement", alias = "disableCryopodStructureRequirement", alias = "DisableCryopodStructureRequirement")]
+    pub disable_cryopod_fridge_requirement: bool,
+    #[serde(default, alias = "allowCryoFridgeOnSaddle", alias = "AllowCryoFridgeOnSaddle")]
+    pub allow_cryo_fridge_on_saddle: bool,
     pub disable_cryopod_enemy_check: bool,
     #[serde(alias = "enableCryoSicknessPvP", alias = "enableCryoSicknessPvp", alias = "EnableCryoSicknessPVP")]
     pub enable_cryo_sickness_pvp: bool,
@@ -669,6 +673,8 @@ impl Default for AseGameConfig {
             non_permanent_diseases: false,
             prevent_diseases: false,
             allow_cryo_cooldown_on_pve: false,
+            disable_cryopod_fridge_requirement: false,
+            allow_cryo_fridge_on_saddle: false,
             disable_cryopod_enemy_check: false,
             enable_cryo_sickness_pvp: true,
             pvp_zone_structure_damage_multiplier: 6.0,

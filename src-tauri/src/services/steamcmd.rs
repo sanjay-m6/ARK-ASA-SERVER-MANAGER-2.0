@@ -29,8 +29,20 @@ impl SteamCmdService {
     }
 
     pub fn get_steamcmd_exe(&self) -> Result<PathBuf> {
-        let exe_name = crate::platform::Platform::steamcmd_executable_name();
-        Ok(self.get_steamcmd_dir()?.join(exe_name))
+        let dir = self.get_steamcmd_dir()?;
+        if cfg!(target_os = "windows") {
+            Ok(dir.join("steamcmd.exe"))
+        } else {
+            if dir.join("steamcmd.sh").exists() {
+                Ok(dir.join("steamcmd.sh"))
+            } else if dir.join("steamcmd").exists() {
+                Ok(dir.join("steamcmd"))
+            } else if dir.join("steamcmd.exe").exists() {
+                Ok(dir.join("steamcmd.exe"))
+            } else {
+                Ok(dir.join(crate::platform::Platform::steamcmd_executable_name()))
+            }
+        }
     }
 
     pub fn check_installation(&self) -> bool {
@@ -79,6 +91,21 @@ impl SteamCmdService {
         let exe_path = self.get_steamcmd_exe()?;
         let _ = crate::platform::Platform::ensure_executable_permissions(&exe_path);
 
+        #[cfg(target_family = "unix")]
+        {
+            let linux32_dir = install_dir.join("linux32");
+            if linux32_dir.exists() {
+                if let Ok(entries) = std::fs::read_dir(&linux32_dir) {
+                    for entry in entries.flatten() {
+                        let p = entry.path();
+                        if p.is_file() {
+                            let _ = crate::platform::Platform::ensure_executable_permissions(&p);
+                        }
+                    }
+                }
+            }
+        }
+
         println!("SteamCMD installed successfully at {:?}", install_dir);
         Ok(())
     }
@@ -101,6 +128,11 @@ impl SteamCmdService {
         let package_dir = install_dir.join("package");
         if package_dir.exists() {
             let _ = std::fs::remove_dir_all(&package_dir);
+        }
+        // Remove linux32 folder on Unix
+        let linux32_dir = install_dir.join("linux32");
+        if linux32_dir.exists() {
+            let _ = std::fs::remove_dir_all(&linux32_dir);
         }
 
         println!("Repairing SteamCMD - re-downloading...");
@@ -239,7 +271,7 @@ impl SteamCmdService {
         // Check if appcache exists (might be stale)
         let has_stale_cache = install_dir.join("appcache").exists();
 
-        let is_healthy = exe_exists && exe_size > 1000; // steamcmd.exe should be > 1KB
+        let is_healthy = exe_exists && exe_size > 100; // steamcmd executable should be non-empty
 
         Ok(SteamCmdHealth {
             is_healthy,
@@ -307,7 +339,51 @@ pub fn get_available_disk_space(path: &PathBuf) -> f64 {
 
     #[cfg(not(windows))]
     {
-        let _ = path;
+        #[cfg(unix)]
+        {
+            use std::ffi::CString;
+            use std::os::unix::ffi::OsStrExt;
+
+            let mut check_path = path.as_path();
+            while !check_path.exists() {
+                if let Some(parent) = check_path.parent() {
+                    check_path = parent;
+                } else {
+                    break;
+                }
+            }
+
+            if let Ok(c_path) = CString::new(check_path.as_os_str().as_bytes()) {
+                unsafe {
+                    let mut stat: libc::statvfs = std::mem::zeroed();
+                    if libc::statvfs(c_path.as_ptr(), &mut stat) == 0 {
+                        let free_bytes = (stat.f_bavail as u64) * (stat.f_frsize as u64);
+                        return free_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+                    }
+                }
+            }
+        }
+
+        // Fallback using sysinfo Disks
+        let disks = sysinfo::Disks::new_with_refreshed_list();
+        let mut best_len = 0;
+        let mut free_bytes = 0u64;
+        let mut found = false;
+        for disk in disks.list() {
+            let mount = disk.mount_point();
+            if path.starts_with(mount) {
+                let len = mount.to_string_lossy().len();
+                if len >= best_len {
+                    best_len = len;
+                    free_bytes = disk.available_space();
+                    found = true;
+                }
+            }
+        }
+        if found {
+            return free_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+        }
+
         0.0
     }
 }

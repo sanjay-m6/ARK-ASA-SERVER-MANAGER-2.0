@@ -1261,8 +1261,16 @@
         "label": "Disable Cryopod Stasis",
         "description": "Prevents cryopods from placing dinos in stasis"
       },
-      "DisableCryopodStructureRequirement": {
+      "DisableCryopodFridgeRequirement": {
         "label": "Disable Cryo Fridge Requirement",
+        "description": "Allows deploying dinos without requiring a nearby powered Cryofridge"
+      },
+      "AllowCryoFridgeOnSaddle": {
+        "label": "Allow Cryofridge on Saddles / Rafts",
+        "description": "Allows placing Cryofridges on platform saddles and rafts"
+      },
+      "DisableCryopodStructureRequirement": {
+        "label": "Disable Cryo Fridge Requirement (Legacy)",
         "description": "Allows deploying dinos without requiring a nearby powered Cryofridge"
       },
       "DisableCryopodEnemyCheck": {

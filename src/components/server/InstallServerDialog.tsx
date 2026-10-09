@@ -17,6 +17,7 @@ import type { ServerType } from '../../types';
 import { MODDED_MAP_PRESETS, getModdedMapByMapArg, buildLaunchArgs, isOfficialMap } from '../../data/moddedMapRegistry';
 
 import { useTranslation } from 'react-i18next';
+import { getPlatformInfo, getDefaultServerDir, joinPlatformPath, isWindowsOS } from '../../platform/platform';
 
 // Map images
 import mapTheIsland from '../../assets/maps/the_island.png';
@@ -173,8 +174,18 @@ export default function InstallServerDialog({ onClose }: Props) {
         }
     }, [autoServerName, draftSetup?.formData]);
 
-    // Base directory state (default to C:\ARKServers if empty)
-    const [baseDir, setBaseDir] = useState(draftSetup?.baseDir || 'C:\\ARKServers');
+    // Base directory state (platform-aware default)
+    const [baseDir, setBaseDir] = useState(draftSetup?.baseDir || getDefaultServerDir());
+
+    useEffect(() => {
+        if (!draftSetup?.baseDir) {
+            getPlatformInfo().then(info => {
+                if (info?.defaultServerDir) {
+                    setBaseDir(info.defaultServerDir);
+                }
+            }).catch(console.error);
+        }
+    }, [draftSetup?.baseDir]);
 
     const sanitizeFolderName = (name: string) => {
         return name.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -183,8 +194,7 @@ export default function InstallServerDialog({ onClose }: Props) {
     // Effect: Update final install path whenever baseDir or name changes
     useEffect(() => {
         const sanitizedArg = sanitizeFolderName(formData.name);
-        const separator = baseDir.endsWith('\\') ? '' : '\\';
-        const finalPath = `${baseDir}${separator}${sanitizedArg}`;
+        const finalPath = joinPlatformPath(baseDir, sanitizedArg);
 
         setFormData(prev => {
             // Only update if changed to avoid loops
@@ -743,7 +753,7 @@ export default function InstallServerDialog({ onClose }: Props) {
                                                 value={baseDir}
                                                 onChange={(e) => setBaseDir(e.target.value)}
                                                 className="flex-1 px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent transition-all"
-                                                placeholder="C:\ARKServers"
+                                                placeholder={isWindowsOS() ? "C:\\ARKServers" : "~/ASA-SERVERS"}
                                             />
                                             <button
                                                 onClick={handleSelectFolder}

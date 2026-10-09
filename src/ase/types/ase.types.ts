@@ -396,6 +396,8 @@ export interface AseGameConfig {
   nonPermanentDiseases: boolean;
   preventDiseases: boolean;
   allowCryoCooldownOnPvE: boolean;
+  disableCryopodFridgeRequirement?: boolean;
+  allowCryoFridgeOnSaddle?: boolean;
   disableCryopodEnemyCheck: boolean;
   enableCryoSicknessPvp: boolean;
   pvpZoneStructureDamageMultiplier: number;

@@ -6,5 +6,6 @@ export interface PlatformInfo {
   isLinux: boolean;
   defaultBackupDir: string;
   defaultClusterDir: string;
+  defaultServerDir?: string;
   steamcmdExecutable: string;
 }

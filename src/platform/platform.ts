@@ -23,6 +23,7 @@ export async function getPlatformInfo(): Promise<PlatformInfo> {
       isLinux: !isWin,
       defaultBackupDir: isWin ? 'C:/ASA_Backups' : '~/ASA_Backups',
       defaultClusterDir: isWin ? 'C:/ASA_Clusters' : '~/ASA_Clusters',
+      defaultServerDir: isWin ? 'C:\\ARKServers' : '~/ASA-SERVERS',
       steamcmdExecutable: isWin ? 'steamcmd.exe' : 'steamcmd.sh',
     };
     return cachedPlatformInfo;
@@ -37,10 +38,32 @@ export function isLinuxOS(): boolean {
   return cachedPlatformInfo?.isLinux ?? (!isWindowsOS());
 }
 
+export function getDefaultServerDir(): string {
+  if (cachedPlatformInfo?.defaultServerDir) {
+    return cachedPlatformInfo.defaultServerDir;
+  }
+  return isWindowsOS() ? 'C:\\ARKServers' : '~/ASA-SERVERS';
+}
+
 export function formatPlatformPath(pathStr: string): string {
   if (!pathStr) return '';
   if (isWindowsOS()) {
     return pathStr.replace(/\//g, '\\');
   }
   return pathStr.replace(/\\/g, '/');
+}
+
+export function joinPlatformPath(base: string, child: string): string {
+  if (!base) return child;
+  if (!child) return base;
+
+  if (isWindowsOS()) {
+    const cleanBase = base.endsWith('\\') || base.endsWith('/') ? base.slice(0, -1) : base;
+    const cleanChild = child.startsWith('\\') || child.startsWith('/') ? child.slice(1) : child;
+    return `${cleanBase}\\${cleanChild}`.replace(/\//g, '\\');
+  } else {
+    const cleanBase = base.endsWith('/') || base.endsWith('\\') ? base.slice(0, -1) : base;
+    const cleanChild = child.startsWith('/') || child.startsWith('\\') ? child.slice(1) : child;
+    return `${cleanBase}/${cleanChild}`.replace(/\\/g, '/');
+  }
 }
