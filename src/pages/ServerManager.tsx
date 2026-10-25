@@ -41,6 +41,7 @@ import { usePublicIP } from '../hooks/usePublicIP';
 import serverBrowserGuide from '../assets/server_browser_guide.png';
 
 import versionData from '../version.json';
+import { NumberInput } from '../components/ui/NumberInput';
 
 interface ServerLogEvent {
     server_id: number;
@@ -137,9 +138,9 @@ export default function ServerManager() {
                 ...prev,
                 [serverId]: { ...prev[serverId], auto_update: enabled }
             }));
-            toast.success(enabled ? 'Auto-Update enabled! Server will broadcast and update on new release.' : 'Auto-Update disabled');
+            toast.success(enabled ? t('serverManager.toast.autoUpdateEnabled', 'Auto-Update enabled! Server will broadcast and update on new release.') : t('serverManager.toast.autoUpdateDisabled', 'Auto-Update disabled'));
         } catch (err: any) {
-            toast.error(`Failed to update setting: ${err}`);
+            toast.error(t('serverManager.toast.settingUpdateFailed', { error: String(err), defaultValue: `Failed to update setting: ${err}` }));
         }
     };
 
@@ -150,9 +151,9 @@ export default function ServerManager() {
                 ...prev,
                 [serverId]: { ...prev[serverId], update_on_start: enabled }
             }));
-            toast.success(enabled ? 'Update on Start enabled' : 'Update on Start disabled');
+            toast.success(enabled ? t('serverManager.toast.updateOnStartEnabled', 'Update on Start enabled') : t('serverManager.toast.updateOnStartDisabled', 'Update on Start disabled'));
         } catch (err: any) {
-            toast.error(`Failed to update setting: ${err}`);
+            toast.error(t('serverManager.toast.settingUpdateFailed', { error: String(err), defaultValue: `Failed to update setting: ${err}` }));
         }
     };
     const [selectedServers, setSelectedServers] = useState<number[]>([]);
@@ -249,7 +250,7 @@ export default function ServerManager() {
                 await apiUpdateServerCustomization(updatedCustom);
                 updateServerCustomization(updatedCustom);
 
-                toast.success(t('serverManager.nameUpdated', `Profile name updated to "${newName}"`));
+                toast.success(t('serverManager.toast.nameUpdated', { name: newName, defaultValue: `Profile name updated to "${newName}"` }));
             } catch (err) {
                 console.error("Failed to rename server profile:", err);
                 toast.error(t('serverManager.renameFailed', 'Failed to update profile name.'));
@@ -327,7 +328,7 @@ export default function ServerManager() {
             });
 
             toast.success(
-                `Ports reassigned: Game (${newPorts.gamePort}), Query (${newPorts.queryPort}), RCON (${newPorts.rconPort})`
+                t('serverManager.toast.portsReassigned', { game: newPorts.gamePort, query: newPorts.queryPort, rcon: newPorts.rconPort, defaultValue: `Ports reassigned: Game (${newPorts.gamePort}), Query (${newPorts.queryPort}), RCON (${newPorts.rconPort})` })
             );
 
             await refreshServers();
@@ -339,7 +340,7 @@ export default function ServerManager() {
             }
         } catch (err) {
             console.error("Failed to auto-fix ports:", err);
-            toast.error(`Auto-fix ports failed: ${err}`);
+            toast.error(t('serverManager.toast.autoFixPortsFailed', { error: String(err), defaultValue: `Auto-fix ports failed: ${err}` }));
         } finally {
             setShowConflictModal(false);
             setPendingStartParams(null);
@@ -636,15 +637,15 @@ export default function ServerManager() {
 
                         // If we started this server THIS session, record current line count as baseline
                         // so the poll only checks NEW lines. If no baseline exists, the server was
-                        // already running from DB Ã¢â‚¬â€ check ALL lines for startup.
+                        // already running from DB — check ALL lines for startup.
                         if (logBaseline[server.id] !== undefined) {
-                            // Baseline already set by handleStartServer Ã¢â‚¬â€ update to actual line count
+                            // Baseline already set by handleStartServer — update to actual line count
                             setLogBaseline(prev => ({
                                 ...prev,
                                 [server.id]: logLines.length
                             }));
                         } else if (server.status === 'running' || server.status === 'starting') {
-                            // Server loaded as 'running' from DB Ã¢â‚¬â€ check all lines now
+                            // Server loaded as 'running' from DB — check all lines now
                             const hasStartupLine = logLines.some((line: string) =>
                                 line.toLowerCase().includes('advertising for join')
                             );
@@ -717,7 +718,7 @@ export default function ServerManager() {
 
         try {
             updateServerStatus(serverId, 'starting');
-            // Set baseline marker Ã¢â‚¬â€ will be updated to actual line count after initial fetch
+            // Set baseline marker — will be updated to actual line count after initial fetch
             setLogBaseline(prev => ({ ...prev, [serverId]: 0 }));
             setLogsFetched(prev => ({ ...prev, [serverId]: false }));
             setExpandedConsoles(prev => ({ ...prev, [serverId]: true })); // Auto-expand console
@@ -725,7 +726,7 @@ export default function ServerManager() {
 
             await startServer(serverId, updateOnStart);
 
-            // Don't set to 'running' Ã¢â‚¬â€ keep 'starting' until STDERR/STDOUT detection confirms 'online'
+            // Don't set to 'running' — keep 'starting' until STDERR/STDOUT detection confirms 'online'
             toast.success(updateOnStart ? t('serverManager.updatingAndStarting') : t('serverManager.serverStarted'));
             setUpdateOnStart(false); // Reset toggle
         } catch (error: any) {
@@ -734,7 +735,7 @@ export default function ServerManager() {
             const errorMsg = String(error);
             setServerLogs(prev => ({
                 ...prev,
-                [serverId]: [...(prev[serverId] || []), `Ã¢ÂÅ’ STARTUP FAILED: ${errorMsg}`]
+                [serverId]: [...(prev[serverId] || []), `❌ STARTUP FAILED: ${errorMsg}`]
             }));
 
             // Show long-duration toast
@@ -758,7 +759,7 @@ export default function ServerManager() {
             setExpandedConsoles(prev => ({ ...prev, [serverId]: true }));
             setServerLogs(prev => ({ ...prev, [serverId]: [] }));
             await startServerNoMods(serverId);
-            // Don't set to 'running' Ã¢â‚¬â€ keep 'starting' until detection confirms 'online'
+            // Don't set to 'running' — keep 'starting' until detection confirms 'online'
             toast.success(t('serverManager.serverStartedNoMods'));
         } catch (error) {
             updateServerStatus(serverId, 'stopped');
@@ -785,7 +786,7 @@ export default function ServerManager() {
             setLogBaseline(prev => ({ ...prev, [serverId]: 0 }));
             setLogsFetched(prev => ({ ...prev, [serverId]: false }));
             await restartServer(serverId, wipeDinos);
-            // Don't set to 'running' Ã¢â‚¬â€ keep 'starting' until detection confirms 'online'
+            // Don't set to 'running' — keep 'starting' until detection confirms 'online'
             toast.success(wipeDinos ? t('serverManager.serverRestartedWipeDinos', 'Server restart initiated with wild dino wipe') : t('serverManager.serverRestarted'));
         } catch (error) {
             toast.error(t('serverManager.restartFailed', { error }));
@@ -808,7 +809,7 @@ export default function ServerManager() {
         try {
             const serverId = deleteConfirmServer.id;
             const serverName = deleteConfirmServer.name;
-            toast.loading(`Deleting server instance "${serverName}" and removing files on disk...`, { id: 'delete-server' });
+            toast.loading(t('serverManager.toast.deletingServer', { name: serverName, defaultValue: `Deleting server instance "${serverName}" and removing files on disk...` }), { id: 'delete-server' });
 
             // Pass true to trigger complete folder removal on disk & SQL cascade
             await deleteServer(serverId, true);
@@ -817,7 +818,7 @@ export default function ServerManager() {
             try { await clearModCache(serverId); } catch (_) {}
 
             removeServer(serverId);
-            toast.success(`Server instance "${serverName}" deleted. Safety backup preserved if saves existed.`, { id: 'delete-server', icon: '🗑️' });
+            toast.success(t('serverManager.toast.serverDeletedSafety', { name: serverName, defaultValue: `Server instance "${serverName}" deleted. Safety backup preserved if saves existed.` }), { id: 'delete-server', icon: '🗑️' });
             setDeleteConfirmServer(null);
             setDeleteSaveInfo(null);
         } catch (error) {
@@ -839,9 +840,9 @@ export default function ServerManager() {
             const newVer = await fetchServerVersion(serverId, true);
 
             if (wasUpdated === false) {
-                toast.success(t('serverManager.serverUpToDate', `Server up to date! (${newVer.split(' (')[0]})`), { id: `update-status-${serverId}` });
+                toast.success(t('serverManager.toast.serverUpToDateVersion', { version: newVer.split(' (')[0], defaultValue: `Server up to date! (${newVer.split(' (')[0]})` }), { id: `update-status-${serverId}` });
             } else {
-                toast.success(t('serverManager.serverUpdated', `Server updated successfully! (${newVer.split(' (')[0]})`), { id: `update-status-${serverId}` });
+                toast.success(t('serverManager.toast.serverUpdatedVersion', { version: newVer.split(' (')[0], defaultValue: `Server updated successfully! (${newVer.split(' (')[0]})` }), { id: `update-status-${serverId}` });
             }
         } catch (error) {
             updateServerStatus(serverId, 'stopped');
@@ -884,7 +885,7 @@ export default function ServerManager() {
             updateServerStatus(serverId, 'starting');
             setExpandedConsoles(prev => ({ ...prev, [serverId]: true }));
             await hardcoreRetryMods(serverId);
-            // Don't set to 'running' Ã¢â‚¬â€ keep 'starting' until detection confirms 'online'
+            // Don't set to 'running' — keep 'starting' until detection confirms 'online'
             toast.success(t('serverManager.deepRepairStarted'));
         } catch (error) {
             updateServerStatus(serverId, 'stopped');
@@ -895,19 +896,19 @@ export default function ServerManager() {
     const handleSyncFromIni = async (serverId: number, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
         try {
-            toast.loading('Syncing settings from disk / Beacon...', { id: `sync-${serverId}` });
+            toast.loading(t('serverManager.toast.syncing', 'Syncing settings from disk / Beacon...'), { id: `sync-${serverId}` });
             const updated = await syncServerFromIni(serverId);
             await refreshServers();
             if (updated) {
                 toast.success(
-                    `Synced from INI: Max Players: ${updated.config.maxPlayers}, IP: ${updated.ipAddress || 'Default'}, RCON: ${updated.rconConfig?.enabled ? 'Enabled' : 'Disabled'}`,
+                    t('serverManager.toast.syncedFromIni', { maxPlayers: updated.config.maxPlayers, ip: updated.ipAddress || t('common.default', 'Default'), rcon: updated.rconConfig?.enabled ? t('common.enabled', 'Enabled') : t('common.disabled', 'Disabled'), defaultValue: 'Synced from INI: Max Players: {{maxPlayers}}, IP: {{ip}}, RCON: {{rcon}}' }),
                     { id: `sync-${serverId}`, duration: 5000 }
                 );
             } else {
-                toast.success('Settings are already in sync with INI', { id: `sync-${serverId}` });
+                toast.success(t('serverManager.toast.alreadyInSync', 'Settings are already in sync with INI'), { id: `sync-${serverId}` });
             }
         } catch (err: any) {
-            toast.error(`Sync failed: ${err}`, { id: `sync-${serverId}` });
+            toast.error(t('serverManager.toast.syncFailed', { error: String(err), defaultValue: `Sync failed: ${err}` }), { id: `sync-${serverId}` });
         }
     };
 
@@ -1088,7 +1089,7 @@ export default function ServerManager() {
                             {...provided.dragHandleProps}
                             className="flex items-center justify-center w-5 h-5 cursor-grab text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors no-collapse shrink-0"
                             onClick={(e) => e.stopPropagation()}
-                            title="Drag to reorder"
+                            title={t('serverManager.labels.dragToReorder', 'Drag to reorder')}
                         >
                             <GripVertical className="w-4 h-4" />
                         </div>
@@ -1201,14 +1202,14 @@ export default function ServerManager() {
                             <h3 
                                 className="text-lg font-bold text-[var(--text-primary)] group-hover/title:text-sky-500 transition-colors truncate cursor-pointer"
                                 onClick={(e) => handleRenameStart(server, e)}
-                                title="Click to rename"
+                                title={t('serverManager.labels.clickToRename', 'Click to rename')}
                             >
                                 {customizations.get(server.id)?.displayName || server.name}
                             </h3>
                             <button
                                 onClick={(e) => handleRenameStart(server, e)}
                                 className="p-1 text-[var(--text-muted)] hover:text-sky-500 hover:bg-sky-500/10 rounded-md transition-all opacity-0 group-hover:opacity-100 shrink-0 cursor-pointer"
-                                title="Rename Server Profile"
+                                title={t('serverManager.labels.renameProfile', 'Rename Server Profile')}
                             >
                                 <Edit2 className="w-3.5 h-3.5 text-sky-500" />
                             </button>
@@ -1220,10 +1221,10 @@ export default function ServerManager() {
                         <div 
                             onClick={(e) => handleRenameStart(server, e)}
                             className="inline-flex items-center gap-2 px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 hover:border-sky-500/40 rounded-lg text-xs text-sky-600 dark:text-sky-300 font-mono font-semibold cursor-pointer transition-all no-collapse max-w-full truncate"
-                            title={`Click to rename profile | Server Path: ${server.installPath}`}
+                            title={t('serverManager.labels.renameProfilePath', { path: server.installPath, defaultValue: `Click to rename profile | Server Path: ${server.installPath}` })}
                         >
                             <FolderOpen className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-                            <span className="truncate">Profile: {customizations.get(server.id)?.displayName || server.name}</span>
+                            <span className="truncate">{t('serverManager.labels.profile', 'Profile:')} {customizations.get(server.id)?.displayName || server.name}</span>
                             <Edit2 className="w-3 h-3 text-sky-500/70 shrink-0 ml-0.5" />
                         </div>
                         {server.installPath && (
@@ -1232,13 +1233,13 @@ export default function ServerManager() {
                                     e.stopPropagation();
                                     try {
                                         await openInExplorer(server.installPath);
-                                        toast.success("Opened server directory in Explorer");
+                                        toast.success(t('dashboard.openedFolder', 'Opened server directory in Explorer'));
                                     } catch (err) {
-                                        toast.error(`Cannot open folder: ${err}`);
+                                        toast.error(t('dashboard.cannotOpenFolder', { error: String(err), defaultValue: `Cannot open folder: ${err}` }));
                                     }
                                 }}
                                 className="p-1.5 bg-[var(--surface-hover)] hover:bg-sky-500/20 text-[var(--text-muted)] hover:text-sky-500 border border-[var(--border)] hover:border-sky-500/40 rounded-lg transition-all shrink-0 cursor-pointer"
-                                title={`Open real server folder on disk:\n${server.installPath}`}
+                                title={t('serverManager.labels.openFolderOnDisk', { path: server.installPath, defaultValue: `Open real server folder on disk:\n${server.installPath}` })}
                             >
                                 <ExternalLink className="w-3.5 h-3.5 text-sky-500" />
                             </button>
@@ -1248,20 +1249,20 @@ export default function ServerManager() {
 
                 {/* Grid Bento Meta Chips */}
                 <div className="grid grid-cols-2 gap-2.5 mb-3">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-secondary)] truncate" title="Map">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-secondary)] truncate" title={t('serverManager.labels.map', 'Map')}>
                         <Globe className="w-3.5 h-3.5 text-sky-500 shrink-0" />
                         <span className="truncate">{server.config.mapName}</span>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-secondary)] truncate" title="Port">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-secondary)] truncate" title={t('common.port', 'Port')}>
                         <Terminal className="w-3.5 h-3.5 text-violet-500 shrink-0" />
-                        <span className="font-mono text-xs truncate">Port {server.ports.gamePort}</span>
+                        <span className="font-mono text-xs truncate">{t('serverManager.portInfo', { port: server.ports.gamePort, defaultValue: `Port ${server.ports.gamePort}` })}</span>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-secondary)] truncate" title="App Version">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-secondary)] truncate" title={t('serverManager.labels.appVersion', 'App Version')}>
                         <Shield className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                         <span className="font-mono text-xs truncate">v{appVersion}</span>
                     </div>
                     {serverVersions[server.id] && (
-                        <div className="col-span-2 flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-secondary)] truncate" title="Server Build">
+                        <div className="col-span-2 flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-secondary)] truncate" title={t('serverManager.labels.serverBuild', 'Server Build')}>
                             <GitBranch className="w-3.5 h-3.5 text-sky-500 shrink-0" />
                             <span className="font-mono text-xs truncate">{serverVersions[server.id]}</span>
                         </div>
@@ -1292,7 +1293,7 @@ export default function ServerManager() {
                                     handleStartServer(server.id);
                                 }}
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/15 hover:bg-green-500/25 text-green-700 dark:text-green-400 border border-green-500/30 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-green-500/10"
-                                title="Start Server"
+                                title={t('serverManager.tooltips.start', 'Start Server')}
                             >
                                 <Play className="w-3.5 h-3.5 fill-current" />
                                 <span>{t('serverManager.buttons.start', 'Start')}</span>
@@ -1315,7 +1316,7 @@ export default function ServerManager() {
                                         handleStartServerNoMods(server.id);
                                     }}
                                     className="w-full text-left px-3 py-2 text-xs hover:bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)] cursor-pointer font-semibold"
-                                    title="Start server without loading any mods"
+                                    title={t('serverManager.labels.startNoModsTooltip', 'Start server without loading any mods')}
                                 >
                                     <Shield className="w-3.5 h-3.5" />
                                     <span>{t('serverManager.actions.startNoMods', 'Start (No Mods)')}</span>
@@ -1326,7 +1327,7 @@ export default function ServerManager() {
                                         handleOpenCrashDoctor(server, e);
                                     }}
                                     className="w-full text-left px-3 py-2 text-xs hover:bg-rose-500/15 text-rose-700 dark:text-rose-400 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)] cursor-pointer font-semibold"
-                                    title="Diagnose map crash logs and run automated recovery"
+                                    title={t('serverManager.labels.crashDoctorTooltip', 'Diagnose map crash logs and run automated recovery')}
                                 >
                                     <Stethoscope className="w-3.5 h-3.5 text-rose-500" />
                                     <span>{t('serverManager.actions.crashDoctor', 'Crash Doctor & Auto-Fix')}</span>
@@ -1341,7 +1342,7 @@ export default function ServerManager() {
                                     handleOpenCrashDoctor(server, e);
                                 }}
                                 className="flex items-center gap-1.5 px-2.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-600 dark:text-rose-300 border border-rose-500/40 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-rose-500/15 animate-pulse"
-                                title="Diagnose and 1-Click Fix Map Crash"
+                                title={t('serverManager.labels.fixCrashTooltip', 'Diagnose and 1-Click Fix Map Crash')}
                             >
                                 <Stethoscope className="w-3.5 h-3.5 text-rose-500" />
                                 <span>{t('serverManager.actions.fixCrash', 'Fix Crash')}</span>
@@ -1353,10 +1354,10 @@ export default function ServerManager() {
                         <button
                             onClick={() => setTimedShutdownServer(server)}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/15 hover:bg-red-500/25 text-red-700 dark:text-red-400 border border-red-500/30 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-red-500/10"
-                            title="Stop / Shutdown Options"
+                            title={t('dashboard.stopOptions', 'Stop / Shutdown Options')}
                         >
                             <Square className="w-3.5 h-3.5 fill-current" />
-                            <span>Stop</span>
+                            <span>{t('common.stop', 'Stop')}</span>
                             <ChevronDown className="w-3 h-3 opacity-70" />
                         </button>
 
@@ -1386,7 +1387,7 @@ export default function ServerManager() {
                     </div>
                 ) : (
                     <span className="text-xs text-yellow-600 dark:text-yellow-400 font-bold flex items-center gap-1">
-                        <RefreshCw className="w-3 h-3 animate-spin" /> Busy
+                        <RefreshCw className="w-3 h-3 animate-spin" /> {t('serverManager.labels.busy', 'Busy')}
                     </span>
                 )}
 
@@ -1397,7 +1398,7 @@ export default function ServerManager() {
                         <button
                             disabled={server.status === 'stopped'}
                             className="p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15 rounded-lg transition-all disabled:opacity-30 flex items-center justify-center cursor-pointer"
-                            title="Restart Options"
+                            title={t('serverManager.tooltips.restartOptions', 'Restart Options')}
                         >
                             <RotateCw className="w-4 h-4" />
                         </button>
@@ -1438,7 +1439,7 @@ export default function ServerManager() {
                         onClick={() => handleShowConsole(server.id)}
                         disabled={server.status === 'stopped'}
                         className="p-1.5 text-violet-600 dark:text-violet-400 hover:bg-violet-500/15 rounded-lg transition-all disabled:opacity-30 flex items-center justify-center cursor-pointer"
-                        title="Open Console"
+                        title={t('serverManager.labels.openConsole', 'Open Console')}
                     >
                         <AppWindow className="w-4 h-4" />
                     </button>
@@ -1455,7 +1456,7 @@ export default function ServerManager() {
                                         ? "text-green-600 dark:text-green-400 hover:bg-green-500/20 bg-green-500/10" 
                                         : "text-sky-600 dark:text-sky-400 hover:bg-sky-500/15"
                             )}
-                            title={isServerOutdated(server.id) ? t('serverManager.tooltips.updateRequired', 'New update available! Click to install.') : "Update Server"}
+                            title={isServerOutdated(server.id) ? t('serverManager.tooltips.updateRequired', 'New update available! Click to install.') : t('serverManager.tooltips.update', 'Update Server')}
                         >
                             <Download className="w-4 h-4" />
                             {isServerOutdated(server.id) && (
@@ -1501,7 +1502,7 @@ export default function ServerManager() {
                     <div className="relative group/settings">
                         <button
                             className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] rounded-lg transition-all flex items-center justify-center cursor-pointer"
-                            title="More Options"
+                            title={t('serverManager.labels.moreOptions', 'More Options')}
                         >
                             <Settings className="w-4 h-4" />
                         </button>
@@ -1523,7 +1524,7 @@ export default function ServerManager() {
                             <button
                                 onClick={(e) => handleSyncFromIni(server.id, e)}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)] cursor-pointer font-medium"
-                                title="Sync Max Players, Server IP, RCON and Ports from GameUserSettings.ini or Beacon"
+                                title={t('serverManager.labels.syncTooltip', 'Sync Max Players, Server IP, RCON and Ports from GameUserSettings.ini or Beacon')}
                             >
                                 <RotateCw className="w-3.5 h-3.5 text-emerald-500" />
                                 <span>{t('serverManager.actions.syncFromIni', 'Sync from INI / Beacon')}</span>
@@ -1666,14 +1667,13 @@ export default function ServerManager() {
                                 {server.autoStart && (
                                     <div className="flex items-center gap-2 bg-slate-950/40 px-2.5 py-1 rounded-lg border border-white/5 text-[10px] shadow-inner no-collapse">
                                         <div className="flex items-center gap-1 text-slate-400">
-                                            <span className="font-semibold text-slate-500 uppercase tracking-wider">Delay:</span>
-                                            <input
-                                                type="number"
-                                                min="0"
+                                            <span className="font-semibold text-slate-500 uppercase tracking-wider">{t('serverManager.labels.delay', 'Delay:')}</span>
+                                            <NumberInput
+                                                integer
+                                                min={0}
                                                 placeholder="0"
-                                                value={server.startupDelay !== undefined ? server.startupDelay : ''}
-                                                onChange={async (e) => {
-                                                    const delay = parseInt(e.target.value) || 0;
+                                                value={server.startupDelay}
+                                                onValueChange={async (delay) => {
                                                     try {
                                                         await setServerStartupConfig(server.id, delay, server.startupPriority || 0);
                                                         const updated = servers.map(s => s.id === server.id ? { ...s, startupDelay: delay } : s);
@@ -1688,14 +1688,13 @@ export default function ServerManager() {
                                         </div>
                                         <div className="w-px h-3 bg-white/10"></div>
                                         <div className="flex items-center gap-1 text-slate-400">
-                                            <span className="font-semibold text-slate-500 uppercase tracking-wider">Priority:</span>
-                                            <input
-                                                type="number"
-                                                min="0"
+                                            <span className="font-semibold text-slate-500 uppercase tracking-wider">{t('serverManager.labels.priority', 'Priority:')}</span>
+                                            <NumberInput
+                                                integer
+                                                min={0}
                                                 placeholder="0"
-                                                value={server.startupPriority !== undefined ? server.startupPriority : ''}
-                                                onChange={async (e) => {
-                                                    const priority = parseInt(e.target.value) || 0;
+                                                value={server.startupPriority}
+                                                onValueChange={async (priority) => {
                                                     try {
                                                         await setServerStartupConfig(server.id, server.startupDelay || 0, priority);
                                                         const updated = servers.map(s => s.id === server.id ? { ...s, startupPriority: priority } : s);
@@ -1754,7 +1753,7 @@ export default function ServerManager() {
                                     <div className="flex items-center gap-2">
                                         <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin" />
                                         <span className="text-xs font-bold text-white uppercase tracking-wider">
-                                            {t('serverManager.statusBar.updateMode', 'SteamCMD Update Mode')}: {activeInstall?.stage || 'Connecting'}
+                                            {t('serverManager.statusBar.updateMode', 'SteamCMD Update Mode')}: {activeInstall?.stage || t('serverManager.labels.connecting', 'Connecting')}
                                         </span>
                                     </div>
                                     <span className="text-[10px] font-mono font-bold text-blue-400">
@@ -1778,7 +1777,7 @@ export default function ServerManager() {
                                     <div className="mt-3 p-3 bg-red-950/20 border border-red-500/20 rounded-lg space-y-3">
                                         <p className="text-xs text-red-400 font-semibold flex items-center gap-1.5">
                                             <AlertTriangle className="w-3.5 h-3.5" />
-                                            <span>Update Failed: {activeInstall.message || 'Unknown error'}</span>
+                                            <span>{t('serverManager.labels.updateFailed', 'Update Failed:')} {activeInstall.message || t('serverManager.labels.unknownError', 'Unknown error')}</span>
                                         </p>
                                         <div className="flex flex-wrap gap-2">
                                             <button
@@ -1794,11 +1793,11 @@ export default function ServerManager() {
                                                 onClick={async () => {
                                                     try {
                                                         const { repairSteamcmd } = await import('../utils/tauri');
-                                                        toast.loading('Repairing SteamCMD...', { id: 'repair' });
+                                                        toast.loading(t('serverManager.toast.repairingSteamcmd', 'Repairing SteamCMD...'), { id: 'repair' });
                                                         await repairSteamcmd();
-                                                        toast.success('SteamCMD repaired! Try updating again.', { id: 'repair' });
+                                                        toast.success(t('serverManager.toast.steamcmdRepaired', 'SteamCMD repaired! Try updating again.'), { id: 'repair' });
                                                     } catch (e) {
-                                                        toast.error(`Repair failed: ${e}`, { id: 'repair' });
+                                                        toast.error(t('serverManager.toast.repairFailed', { error: String(e), defaultValue: `Repair failed: ${e}` }), { id: 'repair' });
                                                     }
                                                 }}
                                                 className="px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-[10px] font-semibold transition-all"
@@ -1824,7 +1823,7 @@ export default function ServerManager() {
                                         <Terminal className="w-3 h-3" />
                                         <span>{showUpdateConsole[server.id] ? t('serverManager.statusBar.hideLogs', 'Hide Console Logs') : t('serverManager.statusBar.showLogs', 'Show Console Logs')}</span>
                                         <span className="text-[9px] bg-slate-850 border border-slate-800/80 px-1 py-0.5 rounded text-slate-400 font-mono">
-                                            {activeInstall?.logs?.length || 0} lines
+                                            {activeInstall?.logs?.length || 0} {t('common.lines', 'lines')}
                                         </span>
                                     </button>
 
@@ -1954,7 +1953,7 @@ export default function ServerManager() {
                         {t('serverManager.subtitle')}
                         {latestPublicVersion && (
                             <span className="ml-3 inline-flex items-center gap-1.5 px-3 py-0.5 bg-sky-500/10 border border-sky-500/20 text-sky-400 rounded-full text-xs font-bold font-mono">
-                                Latest Public Build: {latestPublicVersion}
+                                {t('serverManager.labels.latestPublicBuild', 'Latest Public Build:')} {latestPublicVersion}
                             </span>
                         )}
                     </p>
@@ -1970,10 +1969,10 @@ export default function ServerManager() {
                                     ? "bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/40 shadow-sm shadow-sky-500/20"
                                     : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-active)] border border-transparent"
                             )}
-                            title="Grid View (Bento Box Cards)"
+                            title={t('serverManager.labels.gridViewTooltip', 'Grid View (Bento Box Cards)')}
                         >
                             <LayoutGrid className="w-4 h-4" />
-                            <span>Grid</span>
+                            <span>{t('serverManager.labels.grid', 'Grid')}</span>
                         </button>
                         <button
                             onClick={() => toggleViewMode('list')}
@@ -1983,10 +1982,10 @@ export default function ServerManager() {
                                     ? "bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/40 shadow-sm shadow-sky-500/20"
                                     : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-active)] border border-transparent"
                             )}
-                            title="List View"
+                            title={t('serverManager.labels.listViewTooltip', 'List View')}
                         >
                             <LayoutList className="w-4 h-4" />
-                            <span>List</span>
+                            <span>{t('serverManager.labels.list', 'List')}</span>
                         </button>
                     </div>
 
@@ -2007,10 +2006,10 @@ export default function ServerManager() {
                     <button
                         onClick={() => handleOpenPresetModal('library')}
                         className="flex items-center gap-2 h-11 px-4 bg-gradient-to-r from-violet-500/15 to-purple-500/15 hover:from-violet-500/25 hover:to-purple-500/25 text-violet-600 dark:text-violet-300 border border-violet-500/30 rounded-xl transition-all text-xs font-semibold whitespace-nowrap shadow-md shadow-violet-500/10 active:scale-95 cursor-pointer"
-                        title="Server Templates & Presets: export, import, and 1-click apply server rates, INIs, and modpacks"
+                        title={t('serverManager.labels.templatesTooltip', 'Server Templates & Presets: export, import, and 1-click apply server rates, INIs, and modpacks')}
                     >
                         <Sparkles className="w-4 h-4 text-violet-400 shrink-0" />
-                        <span>Templates & Presets</span>
+                        <span>{t('serverManager.labels.templates', 'Templates & Presets')}</span>
                     </button>
                     <button
                         onClick={() => setDraftOpen(true)}
@@ -2041,46 +2040,46 @@ export default function ServerManager() {
                                 <p className="flex items-start gap-3">
                                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--surface-hover)] text-[11px] font-bold text-[var(--text-primary)] shrink-0 mt-0.5 border border-[var(--border)]">1</span>
                                     <span>
-                                        To find the server in the server list, you first need to enter <code className="bg-[var(--surface-active)] border border-[var(--border)] px-2 py-1 rounded font-mono text-cyan-600 dark:text-cyan-300 select-text">Ark.UseServerList 0</code> in the in-game console.
+                                        {t('serverManager.guide.step1a', 'To find the server in the server list, you first need to enter')} <code className="bg-[var(--surface-active)] border border-[var(--border)] px-2 py-1 rounded font-mono text-cyan-600 dark:text-cyan-300 select-text">Ark.UseServerList 0</code> {t('serverManager.guide.step1b', 'in the in-game console.')}
                                     </span>
                                 </p>
                                 <p className="flex items-start gap-3">
                                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--surface-hover)] text-[11px] font-bold text-[var(--text-primary)] shrink-0 mt-0.5 border border-[var(--border)]">2</span>
                                     <span>
-                                        Then, under the <strong className="text-[var(--text-primary)]">Unofficial</strong> tab, enable the checkboxes at the bottom:
+                                        {t('serverManager.guide.step2a', 'Then, under the')} <strong className="text-[var(--text-primary)]">Unofficial</strong> {t('serverManager.guide.step2b', 'tab, enable the checkboxes at the bottom:')}
                                         <ul className="list-disc pl-5 mt-2 space-y-1 text-[var(--text-secondary)]">
-                                            <li>Enable <strong className="text-[var(--text-primary)]">Show Password Protected Servers</strong> (if your server has a password).</li>
-                                            <li>Enable <strong className="text-[var(--text-primary)]">Show Player Servers</strong>.</li>
-                                            <li>If the server is set to crossplay, enable the crossplay-related checkboxes. If it is <strong className="text-amber-500">not</strong> a crossplay server, make sure to enable the <strong className="text-[var(--text-primary)]">PC-Only Online Multiplayer</strong> checkbox.</li>
+                                            <li>{t('serverManager.guide.enable', 'Enable')} <strong className="text-[var(--text-primary)]">Show Password Protected Servers</strong> {t('serverManager.guide.ifPassword', '(if your server has a password).')}</li>
+                                            <li>{t('serverManager.guide.enable', 'Enable')} <strong className="text-[var(--text-primary)]">Show Player Servers</strong>.</li>
+                                            <li>{t('serverManager.guide.crossplayA', 'If the server is set to crossplay, enable the crossplay-related checkboxes. If it is')} <strong className="text-amber-500">{t('serverManager.guide.not', 'not')}</strong> {t('serverManager.guide.crossplayB', 'a crossplay server, make sure to enable the')} <strong className="text-[var(--text-primary)]">PC-Only Online Multiplayer</strong> {t('serverManager.guide.checkbox', 'checkbox.')}</li>
                                         </ul>
                                     </span>
                                 </p>
                                 <p className="flex items-start gap-3">
                                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--surface-hover)] text-[11px] font-bold text-[var(--text-primary)] shrink-0 mt-0.5 border border-[var(--border)]">3</span>
                                     <span>
-                                        After that, you can search for your server name in the top right search bar.
+                                        {t('serverManager.guide.step3', 'After that, you can search for your server name in the top right search bar.')}
                                     </span>
                                 </p>
                                 <div className="mt-5 border border-[var(--border)] rounded-xl overflow-hidden shadow-2xl bg-[var(--surface-active)] max-w-4xl hover:border-sky-500/40 transition-all duration-300">
                                     <img 
                                         src={serverBrowserGuide} 
-                                        alt="ARK: Survival Ascended Server List Browser Settings Guide" 
+                                        alt={t('serverManager.guide.imageAlt', 'ARK: Survival Ascended Server List Browser Settings Guide')} 
                                         className="w-full h-auto object-cover opacity-90 hover:opacity-100 transition-opacity duration-300"
                                     />
                                 </div>
                                 <div className="bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl p-4 mt-4 text-xs text-[var(--text-muted)]">
-                                    <strong className="text-[var(--text-primary)] font-bold block mb-1">Additional Filters & Mods Checklist:</strong>
-                                    Make sure that the server filters for <strong className="text-[var(--text-primary)]">Maps</strong> and <strong className="text-[var(--text-primary)]">PvP/PvE</strong> are either set to <strong className="text-[var(--text-primary)]">All</strong> or match your server's current settings exactly, and that the list is not being filtered by any active mods.
+                                    <strong className="text-[var(--text-primary)] font-bold block mb-1">{t('serverManager.guide.filtersTitle', 'Additional Filters & Mods Checklist:')}</strong>
+                                    {t('serverManager.guide.filtersA', 'Make sure that the server filters for')} <strong className="text-[var(--text-primary)]">Maps</strong> {t('serverManager.guide.and', 'and')} <strong className="text-[var(--text-primary)]">PvP/PvE</strong> {t('serverManager.guide.filtersB', 'are either set to')} <strong className="text-[var(--text-primary)]">All</strong> {t('serverManager.guide.filtersC', "or match your server's current settings exactly, and that the list is not being filtered by any active mods.")}
                                 </div>
                                 <div className="bg-purple-500/10 border border-purple-500/25 rounded-xl p-4 mt-3 text-xs text-[var(--text-secondary)] leading-relaxed">
                                     <strong className="text-purple-600 dark:text-purple-300 font-bold flex items-center gap-1.5 mb-1">
-                                        🎮 Console (PS5 / Xbox) & Local LAN Direct Connect:
+                                        🎮 {t('serverManager.guide.consoleTitle', 'Console (PS5 / Xbox) & Local LAN Direct Connect:')}
                                     </strong>
-                                    If console or LAN players receive <span className="text-amber-600 dark:text-amber-300 font-mono">"Login Failed, Connection Lost"</span> when clicking the server from the browser (caused by router NAT loopback), they can direct-connect in seconds:
+                                    {t('serverManager.guide.consoleA', 'If console or LAN players receive')} <span className="text-amber-600 dark:text-amber-300 font-mono">"Login Failed, Connection Lost"</span> {t('serverManager.guide.consoleB', 'when clicking the server from the browser (caused by router NAT loopback), they can direct-connect in seconds:')}
                                     <ol className="list-decimal pl-5 mt-1.5 space-y-1 text-[var(--text-secondary)]">
-                                        <li>On console, go to <strong className="text-[var(--text-primary)]">Settings</strong> → <strong className="text-[var(--text-primary)]">Advanced</strong> and toggle <strong className="text-purple-600 dark:text-purple-300">Console Access: ON</strong>.</li>
-                                        <li>Press <kbd className="bg-[var(--surface-active)] px-1.5 py-0.5 rounded border border-[var(--border)] text-[11px] font-mono text-purple-600 dark:text-purple-300">L1 + R1 + Square + Triangle</kbd> (or Options → console icon) in the main menu.</li>
-                                        <li>Type <code className="bg-[var(--surface-active)] px-2 py-0.5 rounded text-cyan-600 dark:text-cyan-300 font-mono">open &lt;Host_Local_IP&gt;:7777</code> (e.g. <code className="text-emerald-600 dark:text-emerald-300 font-mono">open 192.168.1.50:7777</code>) and press enter to connect directly across your home network.</li>
+                                        <li>{t('serverManager.guide.consoleStep1a', 'On console, go to')} <strong className="text-[var(--text-primary)]">Settings</strong> → <strong className="text-[var(--text-primary)]">Advanced</strong> {t('serverManager.guide.consoleStep1b', 'and toggle')} <strong className="text-purple-600 dark:text-purple-300">Console Access: ON</strong>.</li>
+                                        <li>{t('serverManager.guide.press', 'Press')} <kbd className="bg-[var(--surface-active)] px-1.5 py-0.5 rounded border border-[var(--border)] text-[11px] font-mono text-purple-600 dark:text-purple-300">L1 + R1 + Square + Triangle</kbd> {t('serverManager.guide.consoleStep2', '(or Options → console icon) in the main menu.')}</li>
+                                        <li>{t('serverManager.guide.type', 'Type')} <code className="bg-[var(--surface-active)] px-2 py-0.5 rounded text-cyan-600 dark:text-cyan-300 font-mono">open &lt;Host_Local_IP&gt;:7777</code> {t('serverManager.guide.eg', '(e.g.')} <code className="text-emerald-600 dark:text-emerald-300 font-mono">open 192.168.1.50:7777</code>) {t('serverManager.guide.consoleStep3', 'and press enter to connect directly across your home network.')}</li>
                                     </ol>
                                 </div>
                             </div>
@@ -2154,7 +2153,7 @@ export default function ServerManager() {
                             onClick={handleBulkUpdateSelected}
                             disabled={selectedServers.length === 0}
                             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 hover:border-amber-500/40 rounded-full transition-all text-xs font-bold disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                            title="Update selected servers concurrently in parallel"
+                            title={t('serverManager.labels.updateSelectedTooltip', 'Update selected servers concurrently in parallel')}
                         >
                             <Download className="w-3.5 h-3.5" />
                             <span>{t('serverManager.buttons.updateSelected', 'Update Selected')}</span>
@@ -2163,7 +2162,7 @@ export default function ServerManager() {
                             <button
                                 onClick={handleUpdateAllOutdated}
                                 className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-500/25 text-amber-800 dark:text-amber-300 border border-amber-500/40 hover:bg-amber-500/35 rounded-full transition-all text-xs font-black animate-pulse cursor-pointer"
-                                title="Update all outdated servers simultaneously in parallel"
+                                title={t('serverManager.labels.updateOutdatedTooltip', 'Update all outdated servers simultaneously in parallel')}
                             >
                                 <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                                 <span>{t('serverManager.buttons.updateOutdated', 'Update Outdated')}</span>
@@ -2204,10 +2203,10 @@ export default function ServerManager() {
                             onClick={(e) => handleExportProfile(undefined, e)}
                             disabled={selectedServers.length === 0 && servers.length === 0}
                             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-violet-500/15 text-violet-700 dark:text-violet-400 border border-violet-500/30 hover:bg-violet-500/25 hover:border-violet-500/40 rounded-full transition-all text-xs font-bold disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                            title="Export selected server configuration profile to JSON"
+                            title={t('serverManager.labels.exportProfileTooltip', 'Export selected server configuration profile to JSON')}
                         >
                             <Download className="w-3.5 h-3.5" />
-                            <span>Export Profile</span>
+                            <span>{t('serverManager.labels.exportProfile', 'Export Profile')}</span>
                         </button>
                     </div>
                 </div>
@@ -2353,14 +2352,14 @@ export default function ServerManager() {
                                                                                  className="text-xl font-bold text-[var(--text-primary)] group-hover/title:text-sky-500 transition-colors truncate cursor-pointer"
                                                                                  onClick={(e) => handleRenameStart(server, e)}
                                                                                  onDoubleClick={(e) => handleRenameStart(server, e)}
-                                                                                 title="Click to rename profile"
+                                                                                 title={t('dashboard.clickToRename', 'Click to rename profile')}
                                                                              >
                                                                                  {customizations.get(server.id)?.displayName || server.name}
                                                                              </h3>
                                                                              <button
                                                                                  onClick={(e) => handleRenameStart(server, e)}
                                                                                  className="p-1 text-[var(--text-muted)] hover:text-sky-500 hover:bg-sky-500/10 rounded-md transition-all opacity-80 group-hover/title:opacity-100 shrink-0 cursor-pointer"
-                                                                                 title="Rename Server Profile"
+                                                                                 title={t('serverManager.labels.renameProfile', 'Rename Server Profile')}
                                                                              >
                                                                                  <Edit2 className="w-4 h-4 text-sky-500" />
                                                                              </button>
@@ -2372,10 +2371,10 @@ export default function ServerManager() {
                                                                           <div 
                                                                               onClick={(e) => handleRenameStart(server, e)}
                                                                               className="inline-flex items-center gap-2 px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 hover:border-sky-500/40 rounded-lg text-xs text-sky-600 dark:text-sky-300 font-mono font-semibold cursor-pointer transition-all no-collapse max-w-full truncate"
-                                                                              title={`Click to rename profile | Server Path: ${server.installPath}`}
+                                                                              title={t('serverManager.labels.renameProfilePath', { path: server.installPath, defaultValue: `Click to rename profile | Server Path: ${server.installPath}` })}
                                                                           >
                                                                               <FolderOpen className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-                                                                              <span className="truncate">Profile: {customizations.get(server.id)?.displayName || server.name}</span>
+                                                                              <span className="truncate">{t('serverManager.labels.profile', 'Profile:')} {customizations.get(server.id)?.displayName || server.name}</span>
                                                                               <Edit2 className="w-3 h-3 text-sky-500/70 shrink-0 ml-0.5" />
                                                                           </div>
                                                                           {server.installPath && (
@@ -2384,13 +2383,13 @@ export default function ServerManager() {
                                                                                       e.stopPropagation();
                                                                                       try {
                                                                                           await openInExplorer(server.installPath);
-                                                                                          toast.success("Opened server directory in Explorer");
+                                                                                          toast.success(t('dashboard.openedFolder', 'Opened server directory in Explorer'));
                                                                                       } catch (err) {
-                                                                                          toast.error(`Cannot open folder: ${err}`);
+                                                                                          toast.error(t('dashboard.cannotOpenFolder', { error: String(err), defaultValue: `Cannot open folder: ${err}` }));
                                                                                       }
                                                                                   }}
                                                                                   className="p-1.5 bg-[var(--surface-hover)] hover:bg-sky-500/20 text-[var(--text-muted)] hover:text-sky-500 border border-[var(--border)] hover:border-sky-500/40 rounded-lg transition-all shrink-0 cursor-pointer"
-                                                                                  title={`Open real server folder on disk:\n${server.installPath}`}
+                                                                                  title={t('serverManager.labels.openFolderOnDisk', { path: server.installPath, defaultValue: `Open real server folder on disk:\n${server.installPath}` })}
                                                                               >
                                                                                   <ExternalLink className="w-3.5 h-3.5 text-sky-500" />
                                                                               </button>
@@ -2519,13 +2518,13 @@ export default function ServerManager() {
                                                                           <button
                                                                               onClick={() => handleOpenCrashDoctor(server)}
                                                                               className="w-full text-left px-3 py-2.5 hover:bg-rose-500/15 text-[var(--text-secondary)] hover:text-rose-600 dark:hover:text-rose-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-semibold group/item cursor-pointer border-t border-[var(--border)] pt-2"
-                                                                              title="Diagnose crash logs and run 1-click map recovery"
+                                                                              title={t('serverManager.labels.crashDoctorTooltip2', 'Diagnose crash logs and run 1-click map recovery')}
                                                                           >
                                                                               <div className="w-7 h-7 rounded-lg bg-rose-500/15 flex items-center justify-center text-rose-500 group-hover/item:scale-110 transition-transform">
                                                                                   <Stethoscope className="w-3.5 h-3.5" />
                                                                               </div>
                                                                               <div className="flex flex-col">
-                                                                                  <span>Crash Doctor & Auto-Fix</span>
+                                                                                  <span>{t('serverManager.actions.crashDoctor', 'Crash Doctor & Auto-Fix')}</span>
                                                                                   <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.autoHealMods', 'Auto-heal DLLs & mod cache')}</span>
                                                                               </div>
                                                                           </button>
@@ -2536,7 +2535,7 @@ export default function ServerManager() {
                                                                       <button
                                                                           onClick={() => setTimedShutdownServer(server)}
                                                                           className="relative flex items-center justify-center w-11 h-11 rounded-full bg-rose-500/15 hover:bg-rose-500/30 text-rose-600 dark:text-rose-300 border border-rose-500/35 hover:border-rose-400/70 shadow-[0_0_14px_rgba(244,63,94,0.3)] hover:shadow-[0_0_24px_rgba(244,63,94,0.55)] transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer group/btn"
-                                                                          title="Stop / Shutdown Options"
+                                                                          title={t('dashboard.stopOptions', 'Stop / Shutdown Options')}
                                                                       >
                                                                           <Square className="w-4 h-4 fill-current" />
                                                                       </button>
@@ -2552,8 +2551,8 @@ export default function ServerManager() {
                                                                                   <Timer className="w-3.5 h-3.5" />
                                                                               </div>
                                                                               <div className="flex flex-col">
-                                                                                  <span className="font-bold">Timed Shutdown</span>
-                                                                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Countdown with broadcasts</span>
+                                                                                  <span className="font-bold">{t('serverManager.actions.timedShutdown', 'Timed Shutdown')}</span>
+                                                                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.timedShutdownDesc', 'Countdown with broadcasts')}</span>
                                                                               </div>
                                                                           </button>
                                                                           <button
@@ -2564,14 +2563,14 @@ export default function ServerManager() {
                                                                                   <Square className="w-3.5 h-3.5 fill-current" />
                                                                               </div>
                                                                               <div className="flex flex-col">
-                                                                                  <span className="font-bold">Immediate Stop</span>
+                                                                                  <span className="font-bold">{t('serverManager.actions.immediateStop', 'Immediate Stop')}</span>
                                                                                   <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.haltProcessImmediately', 'Halt process immediately')}</span>
                                                                               </div>
                                                                           </button>
                                                                       </div>
                                                                   </div>
                                                               ) : (
-                                                                  <div className="relative flex items-center justify-center w-11 h-11 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.25)]" title={server.status === 'updating' ? 'Updating...' : 'Starting...'}>
+                                                                  <div className="relative flex items-center justify-center w-11 h-11 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.25)]" title={server.status === 'updating' ? t('dashboard.updating', 'Updating...') : t('dashboard.starting', 'Starting...')}>
                                                                       <RefreshCw className="w-5 h-5 animate-spin" />
                                                                   </div>
                                                               )}
@@ -2603,7 +2602,7 @@ export default function ServerManager() {
                                                                       <button
                                                                           onClick={() => handleRestartServer(server.id, true)}
                                                                           className="w-full text-left px-3 py-2.5 hover:bg-amber-500/15 text-[var(--text-secondary)] hover:text-amber-600 dark:hover:text-amber-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer border-t border-[var(--border)] pt-2"
-                                                                          title="Gracefully restart the server and wipe all wild dinosaurs"
+                                                                          title={t('dashboard.restartWipeDinosTooltip', 'Gracefully restart the server and wipe all wild dinosaurs')}
                                                                       >
                                                                           <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-500 group-hover/item:scale-110 transition-transform">
                                                                               <RefreshCw className="w-3.5 h-3.5" />
@@ -2629,13 +2628,13 @@ export default function ServerManager() {
                                                                       <button
                                                                           onClick={() => handleOpenCrashDoctor(server)}
                                                                           className="w-full text-left px-3 py-2.5 hover:bg-rose-500/15 text-[var(--text-secondary)] hover:text-rose-600 dark:hover:text-rose-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer border-t border-[var(--border)] pt-2"
-                                                                          title="Diagnose crash logs and run 1-click map recovery"
+                                                                          title={t('serverManager.labels.crashDoctorTooltip2', 'Diagnose crash logs and run 1-click map recovery')}
                                                                       >
                                                                           <div className="w-7 h-7 rounded-lg bg-rose-500/15 flex items-center justify-center text-rose-500 group-hover/item:scale-110 transition-transform">
                                                                               <Stethoscope className="w-3.5 h-3.5" />
                                                                           </div>
                                                                           <div className="flex flex-col">
-                                                                              <span>Crash Doctor & Auto-Fix</span>
+                                                                              <span>{t('serverManager.actions.crashDoctor', 'Crash Doctor & Auto-Fix')}</span>
                                                                               <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.oneClickRecovery', '1-Click Map Recovery')}</span>
                                                                           </div>
                                                                       </button>
@@ -2716,7 +2715,7 @@ export default function ServerManager() {
                                                                                   <Sparkles className="w-3.5 h-3.5 animate-pulse" />
                                                                               </div>
                                                                               <div className="flex flex-col">
-                                                                                  <span className="text-xs font-semibold">Auto-Update on Release</span>
+                                                                                  <span className="text-xs font-semibold">{t('serverManager.actions.autoUpdateRelease', 'Auto-Update on Release')}</span>
                                                                                   <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.installPatchesAuto', 'Install Steam patches automatically')}</span>
                                                                               </div>
                                                                           </div>
@@ -2764,7 +2763,7 @@ export default function ServerManager() {
                                                                       <button
                                                                           onClick={(e) => handleSyncFromIni(server.id, e)}
                                                                           className="w-full text-left px-3 py-2 hover:bg-emerald-500/15 text-[var(--text-secondary)] hover:text-emerald-600 dark:hover:text-emerald-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer border-t border-[var(--border)]"
-                                                                          title="Sync Max Players, Server IP, RCON and Ports from GameUserSettings.ini or Beacon"
+                                                                          title={t('serverManager.labels.syncTooltip', 'Sync Max Players, Server IP, RCON and Ports from GameUserSettings.ini or Beacon')}
                                                                       >
                                                                           <div className="w-6 h-6 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-500 group-hover/item:scale-110 transition-transform">
                                                                               <RotateCw className="w-3.5 h-3.5" />
@@ -2927,14 +2926,13 @@ export default function ServerManager() {
                                 {server.autoStart && (
                                     <div className="flex items-center gap-3 bg-[var(--surface)] px-3 py-1.5 rounded-xl border border-[var(--border)] animate-in fade-in duration-200 text-xs shadow-inner">
                                         <div className="flex items-center gap-1.5 text-[var(--text-muted)]">
-                                            <span className="font-semibold text-[var(--text-muted)] uppercase tracking-wider text-[10px]">Delay:</span>
-                                            <input
-                                                type="number"
-                                                min="0"
+                                            <span className="font-semibold text-[var(--text-muted)] uppercase tracking-wider text-[10px]">{t('serverManager.labels.delay', 'Delay:')}</span>
+                                            <NumberInput
+                                                integer
+                                                min={0}
                                                 placeholder="0"
-                                                value={server.startupDelay !== undefined ? server.startupDelay : ''}
-                                                onChange={async (e) => {
-                                                    const delay = parseInt(e.target.value) || 0;
+                                                value={server.startupDelay}
+                                                onValueChange={async (delay) => {
                                                     try {
                                                         await setServerStartupConfig(server.id, delay, server.startupPriority || 0);
                                                         // Update state
@@ -2950,14 +2948,13 @@ export default function ServerManager() {
                                         </div>
                                         <div className="w-px h-3.5 bg-[var(--border)]"></div>
                                         <div className="flex items-center gap-1.5 text-[var(--text-muted)]">
-                                            <span className="font-semibold text-[var(--text-muted)] uppercase tracking-wider text-[10px]">Priority:</span>
-                                            <input
-                                                type="number"
-                                                min="0"
+                                            <span className="font-semibold text-[var(--text-muted)] uppercase tracking-wider text-[10px]">{t('serverManager.labels.priority', 'Priority:')}</span>
+                                            <NumberInput
+                                                integer
+                                                min={0}
                                                 placeholder="0"
-                                                value={server.startupPriority !== undefined ? server.startupPriority : ''}
-                                                onChange={async (e) => {
-                                                    const priority = parseInt(e.target.value) || 0;
+                                                value={server.startupPriority}
+                                                onValueChange={async (priority) => {
                                                     try {
                                                         await setServerStartupConfig(server.id, server.startupDelay || 0, priority);
                                                         // Update state
@@ -3002,9 +2999,9 @@ export default function ServerManager() {
                                     <div className="flex flex-col">
                                         <div className="flex items-center gap-1.5">
                                             <Sparkles className={cn("w-4 h-4 transition-colors", serverUpdateSettings[server.id]?.auto_update ? "text-amber-400 animate-pulse" : "text-slate-500")} />
-                                            <span className={cn("text-sm font-bold transition-colors", serverUpdateSettings[server.id]?.auto_update ? "text-amber-400" : "text-slate-400")}>Auto-Update</span>
+                                            <span className={cn("text-sm font-bold transition-colors", serverUpdateSettings[server.id]?.auto_update ? "text-amber-400" : "text-slate-400")}>{t('serverManager.labels.autoUpdate', 'Auto-Update')}</span>
                                         </div>
-                                        <span className="text-[10px] text-slate-500">Steam Web API Release</span>
+                                        <span className="text-[10px] text-slate-500">{t('serverManager.labels.steamWebApiRelease', 'Steam Web API Release')}</span>
                                     </div>
                                 </label>
 
@@ -3043,7 +3040,7 @@ export default function ServerManager() {
                                             <div className="flex items-center gap-2">
                                                 <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
                                                 <span className="text-sm font-bold text-white uppercase tracking-wider">
-                                                    {t('serverManager.statusBar.updateMode', 'SteamCMD Update Mode')}: {activeInstall?.stage || 'Connecting'}
+                                                    {t('serverManager.statusBar.updateMode', 'SteamCMD Update Mode')}: {activeInstall?.stage || t('serverManager.labels.connecting', 'Connecting')}
                                                 </span>
                                             </div>
                                             <span className="text-xs font-mono font-bold text-blue-400">
@@ -3068,7 +3065,7 @@ export default function ServerManager() {
                                             <div className="mt-4 p-4 bg-red-950/20 border border-red-500/20 rounded-xl space-y-4">
                                                 <p className="text-sm text-red-400 font-semibold flex items-center gap-2">
                                                     <AlertTriangle className="w-4 h-4" />
-                                                    <span>Update Failed: {activeInstall.message || 'Unknown error'}</span>
+                                                    <span>{t('serverManager.labels.updateFailed', 'Update Failed:')} {activeInstall.message || t('serverManager.labels.unknownError', 'Unknown error')}</span>
                                                 </p>
                                                 <div className="flex flex-wrap gap-3">
                                                     <button
@@ -3084,11 +3081,11 @@ export default function ServerManager() {
                                                         onClick={async () => {
                                                             try {
                                                                 const { repairSteamcmd } = await import('../utils/tauri');
-                                                                toast.loading('Repairing SteamCMD...', { id: 'repair' });
+                                                                toast.loading(t('serverManager.toast.repairingSteamcmd', 'Repairing SteamCMD...'), { id: 'repair' });
                                                                 await repairSteamcmd();
-                                                                toast.success('SteamCMD repaired! Try updating again.', { id: 'repair' });
+                                                                toast.success(t('serverManager.toast.steamcmdRepaired', 'SteamCMD repaired! Try updating again.'), { id: 'repair' });
                                                             } catch (e) {
-                                                                toast.error(`Repair failed: ${e}`, { id: 'repair' });
+                                                                toast.error(t('serverManager.toast.repairFailed', { error: String(e), defaultValue: `Repair failed: ${e}` }), { id: 'repair' });
                                                             }
                                                         }}
                                                         className="px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-xl text-xs font-semibold transition-all hover:scale-105 active:scale-95"
@@ -3114,7 +3111,7 @@ export default function ServerManager() {
                                                 <Terminal className="w-3.5 h-3.5" />
                                                 <span>{showUpdateConsole[server.id] ? t('serverManager.statusBar.hideLogs', 'Hide Console Logs') : t('serverManager.statusBar.showLogs', 'Show Console Logs')}</span>
                                                 <span className="text-[10px] bg-slate-850 border border-slate-800/80 px-1.5 py-0.5 rounded text-slate-400 font-mono">
-                                                    {activeInstall?.logs?.length || 0} lines
+                                                    {activeInstall?.logs?.length || 0} {t('common.lines', 'lines')}
                                                 </span>
                                             </button>
 
@@ -3331,7 +3328,7 @@ export default function ServerManager() {
                 message={
                     deleteConfirmServer ? (
                         deleteSaveInfo?.has_saves ? (
-                            `${t('serverManager.confirmDeleteMsg', { name: deleteConfirmServer.name })}\n\n⚠️ WARNING: Active save data detected (${deleteSaveInfo.player_count} players, ${deleteSaveInfo.tribe_count} tribes)! An emergency safety backup will be created in C:\\ASA_Backups\\safety_net\\ before disk removal.`
+                            `${t('serverManager.confirmDeleteMsg', { name: deleteConfirmServer.name })}\n\n⚠️ ${t('serverManager.labels.deleteSaveWarning', { players: deleteSaveInfo.player_count, tribes: deleteSaveInfo.tribe_count, defaultValue: 'WARNING: Active save data detected ({{players}} players, {{tribes}} tribes)! An emergency safety backup will be created in C:\\ASA_Backups\\safety_net\\ before disk removal.' })}`
                         ) : (
                             t('serverManager.confirmDeleteMsg', { name: deleteConfirmServer.name })
                         )

@@ -16,6 +16,7 @@ pub mod player;
 pub mod plugin;
 pub mod rcon;
 pub mod scheduler;
+pub mod routines;
 pub mod server;
 pub mod system;
 pub mod tribe_log;

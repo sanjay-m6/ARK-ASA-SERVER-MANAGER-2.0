@@ -3,6 +3,7 @@ import { MessageSquare, Bell, Send, CheckCircle, XCircle, Loader2, AlertTriangle
 import { cn } from '../../utils/helpers';
 import { getSetting, setSetting } from '../../utils/tauri';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface AlertConfig {
     key: string;
@@ -25,6 +26,7 @@ const DEFAULT_ALERTS: AlertConfig[] = [
 ];
 
 export default function DiscordIntegration() {
+    const { t } = useTranslation();
     const [webhookUrl, setWebhookUrl] = useState('');
     const [savedWebhookUrl, setSavedWebhookUrl] = useState('');
     const [isLoading, setIsLoading] = useState(true);
@@ -77,7 +79,7 @@ export default function DiscordIntegration() {
                 // Verify persistence
                 const persisted = await getSetting('discord_webhook_url');
                 if (persisted !== trimmed) {
-                    toast.error('Webhook failed to persist');
+                    toast.error(t('discordIntegration.persistFailed', 'Webhook failed to persist'));
                     setIsSaving(false);
                     return;
                 }
@@ -91,10 +93,10 @@ export default function DiscordIntegration() {
             }, {} as Record<string, boolean>);
             await setSetting('discord_alerts_config', JSON.stringify(alertConfig));
 
-            toast.success('Discord settings saved!');
+            toast.success(t('discordIntegration.saved', 'Discord settings saved!'));
         } catch (error) {
             console.error('Failed to save Discord settings:', error);
-            toast.error('Failed to save settings');
+            toast.error(t('common.failedSaveSettings', 'Failed to save settings'));
         } finally {
             setIsSaving(false);
         }
@@ -108,14 +110,14 @@ export default function DiscordIntegration() {
 
     const testWebhook = async () => {
         if (!webhookUrl) {
-            toast.error('Please enter a webhook URL first');
+            toast.error(t('discordIntegration.enterUrlFirst', 'Please enter a webhook URL first'));
             return;
         }
 
         // Validate webhook URL format
         if (!webhookUrl.startsWith('https://discord.com/api/webhooks/') &&
             !webhookUrl.startsWith('https://discordapp.com/api/webhooks/')) {
-            toast.error('Invalid Discord webhook URL format');
+            toast.error(t('discordIntegration.invalidUrl', 'Invalid Discord webhook URL format'));
             return;
         }
 
@@ -155,15 +157,15 @@ export default function DiscordIntegration() {
 
             if (response.ok) {
                 setTestResult('success');
-                toast.success('Test message sent successfully!');
+                toast.success(t('discordIntegration.testSent', 'Test message sent successfully!'));
             } else {
                 setTestResult('error');
-                toast.error(`Webhook failed: ${response.status} ${response.statusText}`);
+                toast.error(t('discordIntegration.webhookFailed', { defaultValue: 'Webhook failed: {{status}}', status: `${response.status} ${response.statusText}` }));
             }
         } catch (error) {
             setTestResult('error');
             console.error('Webhook test failed:', error);
-            toast.error('Failed to send test message');
+            toast.error(t('discordIntegration.testFailed', 'Failed to send test message'));
         } finally {
             setIsTesting(false);
         }
@@ -186,10 +188,10 @@ export default function DiscordIntegration() {
                 <div>
                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                         <MessageSquare className="w-5 h-5 text-indigo-400" />
-                        Discord Webhook Integration
+                        {t('discordIntegration.title', 'Discord Webhook Integration')}
                     </h3>
                     <p className="text-sm text-slate-400 mt-1">
-                        Receive server notifications in your Discord channel
+                        {t('discordIntegration.subtitle', 'Receive server notifications in your Discord channel')}
                     </p>
                 </div>
                 {hasUnsavedChanges && (
@@ -199,7 +201,7 @@ export default function DiscordIntegration() {
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors disabled:opacity-50"
                     >
                         {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                        Save Changes
+                        {t('common.saveChanges', 'Save Changes')}
                     </button>
                 )}
             </div>
@@ -207,7 +209,7 @@ export default function DiscordIntegration() {
             {/* Webhook URL */}
             <div className="glass-panel rounded-2xl p-6 space-y-4">
                 <label className="block text-sm font-medium text-slate-300">
-                    Webhook URL
+                    {t('discordIntegration.webhookUrl', 'Webhook URL')}
                 </label>
                 <div className="flex gap-3">
                     <input
@@ -237,11 +239,11 @@ export default function DiscordIntegration() {
                         ) : (
                             <Send className="w-4 h-4" />
                         )}
-                        {isTesting ? 'Testing...' : testResult === 'success' ? 'Success!' : testResult === 'error' ? 'Failed' : 'Test Webhook'}
+                        {isTesting ? t('discordIntegration.testing', 'Testing...') : testResult === 'success' ? t('discordIntegration.success', 'Success!') : testResult === 'error' ? t('discordIntegration.failed', 'Failed') : t('discordIntegration.testWebhook', 'Test Webhook')}
                     </button>
                 </div>
                 <p className="text-xs text-slate-500">
-                    Create a webhook in your Discord server: Server Settings → Integrations → Webhooks → New Webhook
+                    {t('discordIntegration.createHint', 'Create a webhook in your Discord server: Server Settings → Integrations → Webhooks → New Webhook')}
                 </p>
             </div>
 
@@ -250,10 +252,10 @@ export default function DiscordIntegration() {
                 <div className="flex items-center justify-between">
                     <h4 className="font-medium text-white flex items-center gap-2">
                         <Bell className="w-4 h-4 text-amber-400" />
-                        Notification Types
+                        {t('discordIntegration.notificationTypes', 'Notification Types')}
                     </h4>
                     <span className="text-sm text-slate-500">
-                        {alerts.filter(a => a.enabled).length} of {alerts.length} enabled
+                        {t('discordIntegration.enabledCount', { defaultValue: '{{enabled}} of {{total}} enabled', enabled: alerts.filter(a => a.enabled).length, total: alerts.length })}
                     </span>
                 </div>
 
@@ -290,10 +292,10 @@ export default function DiscordIntegration() {
                                             "font-bold text-sm tracking-wide mb-1 transition-colors",
                                             alert.enabled ? "text-white" : "text-slate-300 group-hover:text-slate-200"
                                         )}>
-                                            {alert.label}
+                                            {t(`discordIntegration.alerts.${alert.key}.label`, alert.label)}
                                         </div>
                                         <div className="text-xs text-slate-500 leading-relaxed pr-2">
-                                            {alert.description}
+                                            {t(`discordIntegration.alerts.${alert.key}.description`, alert.description)}
                                         </div>
                                     </div>
                                 </div>
@@ -317,33 +319,33 @@ export default function DiscordIntegration() {
             {/* Embed Preview */}
             <div className="glass-panel rounded-2xl p-6 space-y-4">
                 <h4 className="font-bold text-white flex items-center gap-2">
-                    <span className="text-xl">📬</span> Embed Preview
+                    <span className="text-xl">📬</span> {t('discordIntegration.embedPreview', 'Embed Preview')}
                 </h4>
                 <div className="bg-[#36393f] rounded-xl overflow-hidden shadow-lg border border-[#202225] relative">
                     <div className="absolute top-0 right-0 p-12 bg-emerald-500/5 rounded-full blur-2xl -z-0"></div>
                     <div className="flex">
                         <div className="w-1 bg-emerald-500" />
                         <div className="p-4 space-y-2">
-                            <div className="font-semibold text-white">🖥️ Server Started</div>
+                            <div className="font-semibold text-white">🖥️ {t('discordIntegration.preview.started', 'Server Started')}</div>
                             <div className="text-sm text-gray-300">
-                                <strong>My ARK Server</strong> is now online and accepting players.
+                                <strong>{t('discordIntegration.preview.serverName', 'My ARK Server')}</strong> {t('discordIntegration.preview.onlineText', 'is now online and accepting players.')}
                             </div>
                             <div className="flex gap-6 text-xs">
                                 <div>
-                                    <span className="text-gray-400">Map</span>
+                                    <span className="text-gray-400">{t('discordIntegration.preview.map', 'Map')}</span>
                                     <div className="text-white">The Island</div>
                                 </div>
                                 <div>
-                                    <span className="text-gray-400">Players</span>
+                                    <span className="text-gray-400">{t('common.players', 'Players')}</span>
                                     <div className="text-white">0/70</div>
                                 </div>
                                 <div>
-                                    <span className="text-gray-400">Status</span>
-                                    <div className="text-emerald-400">Online</div>
+                                    <span className="text-gray-400">{t('common.statusLabel', 'Status')}</span>
+                                    <div className="text-emerald-400">{t('common.online', 'Online')}</div>
                                 </div>
                             </div>
                             <div className="text-xs text-gray-500 pt-2 border-t border-gray-600">
-                                ASA Server Manager • Today at 12:00 PM
+                                ASA Server Manager • {t('discordIntegration.preview.today', 'Today at 12:00 PM')}
                             </div>
                         </div>
                     </div>
@@ -353,12 +355,12 @@ export default function DiscordIntegration() {
             {/* Info */}
             <div className="glass-panel rounded-2xl p-6 border-l-4 border-l-indigo-500">
                 <h4 className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2">
-                    <span className="text-lg">💡</span> How it works
+                    <span className="text-lg">💡</span> {t('discordIntegration.howItWorks', 'How it works')}
                 </h4>
                 <ul className="text-sm text-slate-400 space-y-2 font-medium">
-                    <li>• Notifications are sent automatically when enabled events occur</li>
-                    <li>• Player join/leave notifications require RCON to be enabled</li>
-                    <li>• Each notification includes relevant server details in a rich embed</li>
+                    <li>• {t('discordIntegration.info1', 'Notifications are sent automatically when enabled events occur')}</li>
+                    <li>• {t('discordIntegration.info2', 'Player join/leave notifications require RCON to be enabled')}</li>
+                    <li>• {t('discordIntegration.info3', 'Each notification includes relevant server details in a rich embed')}</li>
                 </ul>
             </div>
         </div>

@@ -123,6 +123,7 @@ export default function Settings() {
     const [updateHistory, setUpdateHistoryState] = useState<UpdateHistoryEntry[]>([]);
     const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
     const [updateCheckResult, setUpdateCheckResult] = useState<string | null>(null);
+    const [updateCheckKind, setUpdateCheckKind] = useState<'available' | 'latest' | 'error'>('error');
 
     // Log Viewer state
     const [isViewLogOpen, setIsViewLogOpen] = useState(false);
@@ -228,7 +229,7 @@ export default function Settings() {
             setUpdateHistoryState(getUpdateHistory());
         } catch (error) {
             console.error('Failed to load settings:', error);
-            toast.error('Failed to load settings');
+            toast.error(t('common.failedLoadSettings', 'Failed to load settings'));
         } finally {
             setIsLoading(false);
         }
@@ -324,7 +325,7 @@ export default function Settings() {
             await invoke('plugin:opener|open_url', { url });
         } catch (error) {
             console.error('Failed to open URL:', error);
-            toast.error('Failed to open link');
+            toast.error(t('common.failedOpenLink', 'Failed to open link'));
         }
     };
 
@@ -334,17 +335,21 @@ export default function Settings() {
         try {
             const result = await manualCheckForUpdates();
             if (result.available && result.update) {
-                setUpdateCheckResult(`Update available: v${result.update.version}`);
-                toast.success(`Update v${result.update.version} is available!`);
+                setUpdateCheckKind('available');
+                setUpdateCheckResult(t('settings.integrations.updateAvailableResult', { version: result.update.version, defaultValue: `Update available: v${result.update.version}` }));
+                toast.success(t('settings.integrations.updateAvailableToast', { version: result.update.version, defaultValue: `Update v${result.update.version} is available!` }));
             } else if (result.error) {
+                setUpdateCheckKind('error');
                 setUpdateCheckResult(result.error);
                 toast.error(result.error);
             } else {
+                setUpdateCheckKind('latest');
                 setUpdateCheckResult(t('settings.updatesTab.latestVersion', 'You are on the latest version'));
                 toast.success(t('settings.updatesTab.latestVersion', 'You are on the latest version'));
             }
         } catch (err) {
             console.error('Failed to check for updates:', err);
+            setUpdateCheckKind('error');
             setUpdateCheckResult(t('settings.updatesTab.checkFailed', 'Failed to check for updates'));
             toast.error(t('settings.updatesTab.checkFailed', 'Failed to check for updates'));
         } finally {
@@ -394,21 +399,21 @@ export default function Settings() {
     };
 
     const handleRollback = async (version: string) => {
-        if (!window.confirm(`Are you sure you want to roll back to v${version}? This will restart the application.`)) {
+        if (!window.confirm(t('settings.integrations.confirmRollback', { version, defaultValue: `Are you sure you want to roll back to v${version}? This will restart the application.` }))) {
             return;
         }
         
-        const rollbackToast = toast.loading(`Initiating rollback to v${version}... Downloading installer.`);
+        const rollbackToast = toast.loading(t('settings.integrations.rollbackStarting', { version, defaultValue: `Initiating rollback to v${version}... Downloading installer.` }));
         try {
             await invoke('rollback_to_version', { version });
         } catch (error) {
             console.error('Rollback failed:', error);
-            toast.error(`Rollback failed: ${error}`, { id: rollbackToast });
+            toast.error(t('settings.integrations.rollbackFailed', { error: String(error), defaultValue: `Rollback failed: ${error}` }), { id: rollbackToast });
         }
     };
 
     const handleUninstall = async () => {
-        if (!window.confirm("Are you sure you want to uninstall the application? This will terminate the Server Manager and run the uninstaller.")) {
+        if (!window.confirm(t('settings.integrations.confirmUninstall', 'Are you sure you want to uninstall the application? This will terminate the Server Manager and run the uninstaller.'))) {
             return;
         }
         
@@ -416,14 +421,14 @@ export default function Settings() {
             await invoke('uninstall_application');
         } catch (error) {
             console.error('Uninstallation failed:', error);
-            toast.error(`Uninstallation failed: ${error}`);
+            toast.error(t('settings.integrations.uninstallFailed', { error: String(error), defaultValue: `Uninstallation failed: ${error}` }));
         }
     };
 
     const handleRemoveHistoryEntry = (id: string) => {
         removeHistoryEntry(id);
         setUpdateHistoryState(getUpdateHistory());
-        toast.success('Version entry removed from history');
+        toast.success(t('settings.integrations.historyEntryRemoved', 'Version entry removed from history'));
     };
 
     /**
@@ -437,7 +442,7 @@ export default function Settings() {
             await setSetting('ai_provider', provider);
         } catch (err) {
             console.error('Failed to persist AI provider:', err);
-            toast.error('Failed to switch provider');
+            toast.error(t('settings.integrations.switchProviderFailed', 'Failed to switch provider'));
         }
     };
 
@@ -458,9 +463,9 @@ export default function Settings() {
             await setSetting('lmstudio_base_url', lmStudioBaseUrl);
             await setSetting('ai_provider', 'lmstudio');
             if (models.length === 0) {
-                toast('Connected, but no model is loaded in LM Studio.', { icon: '⚠️' });
+                toast(t('settings.integrations.lmNoModel', 'Connected, but no model is loaded in LM Studio.'), { icon: '⚠️' });
             } else {
-                toast.success(`Found ${models.length} model(s)`);
+                toast.success(t('settings.integrations.modelsFound', { count: models.length, defaultValue: `Found ${models.length} model(s)` }));
                 // Auto-select and persist the loaded model if none chosen yet
                 if (!lmStudioModel) {
                     setLmStudioModel(models[0]);
@@ -468,7 +473,7 @@ export default function Settings() {
                 }
             }
         } catch (err) {
-            toast.error(typeof err === 'string' ? err : 'Failed to reach LM Studio');
+            toast.error(typeof err === 'string' ? err : t('settings.integrations.lmUnreachable', 'Failed to reach LM Studio'));
             setLmStudioModels([]);
         } finally {
             setLmStudioProbing(false);
@@ -583,7 +588,7 @@ export default function Settings() {
                                         <span>{t('settings.autoSaved', 'Saved')}</span>
                                     </span>
                                 ) : (
-                                    <span className="text-[var(--text-secondary)]">Ready</span>
+                                    <span className="text-[var(--text-secondary)]">{t('settings.integrations.ready', 'Ready')}</span>
                                 )}
                             </div>
                         )}
@@ -728,7 +733,7 @@ export default function Settings() {
                     <div className="space-y-6">
                         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
                             <FolderOpen className="w-4 h-4 text-cyan-400" />
-                            <span>System & Storage Directories</span>
+                            <span>{t('settings.integrations.systemDirs', 'System & Storage Directories')}</span>
                         </div>
 
                         {/* Game Support Options */}
@@ -738,16 +743,16 @@ export default function Settings() {
                                     <Cpu className="w-6 h-6 text-cyan-400" />
                                 </div>
                                 <div className="flex-1">
-                                    <h2 className="text-xl font-bold text-white mb-1">Game Support Options</h2>
+                                    <h2 className="text-xl font-bold text-white mb-1">{t('settings.integrations.gameSupport', 'Game Support Options')}</h2>
                                     <p className="text-sm text-slate-400 leading-relaxed">
-                                        Toggle Evolved (ASE) support to display both ARK: Survival Evolved and ARK: Survival Ascended configuration sections. If disabled, Evolved features are hidden to keep the manager streamlined for Ascended.
+                                        {t('settings.integrations.gameSupportDesc', 'Toggle Evolved (ASE) support to display both ARK: Survival Evolved and ARK: Survival Ascended configuration sections. If disabled, Evolved features are hidden to keep the manager streamlined for Ascended.')}
                                     </p>
                                 </div>
                             </div>
                             <div className="flex items-center justify-between p-4 bg-slate-950/60 border border-white/5 rounded-2xl">
                                 <div>
-                                    <h3 className="text-sm font-semibold text-white">Enable Evolved (ASE) Support</h3>
-                                    <p className="text-xs text-slate-400 mt-1">Show both Evolved and Ascended server configurations across the manager</p>
+                                    <h3 className="text-sm font-semibold text-white">{t('settings.integrations.enableAse', 'Enable Evolved (ASE) Support')}</h3>
+                                    <p className="text-xs text-slate-400 mt-1">{t('settings.integrations.enableAseDesc', 'Show both Evolved and Ascended server configurations across the manager')}</p>
                                 </div>
                                 <button
                                     type="button"
@@ -801,7 +806,7 @@ export default function Settings() {
                                     type="button"
                                     onClick={async () => {
                                         try {
-                                            const path = await invoke<string | null>('select_folder', { title: 'Select User Config Folder' });
+                                            const path = await invoke<string | null>('select_folder', { title: t('settings.integrations.selectUserConfigFolder', 'Select User Config Folder') });
                                             if (path) setUserConfigFolder(path);
                                         } catch (error) {
                                             console.error('Failed to select folder:', error);
@@ -812,7 +817,7 @@ export default function Settings() {
                                     title={t('common.browse', 'Browse')}
                                 >
                                     <FolderOpen className="w-4 h-4 text-amber-400" />
-                                    <span>Browse</span>
+                                    <span>{t('common.browse', 'Browse')}</span>
                                 </button>
                                 {userConfigFolder && (
                                     <button
@@ -861,7 +866,7 @@ export default function Settings() {
                                     type="button"
                                     onClick={async () => {
                                         try {
-                                            const path = await invoke<string | null>('select_folder', { title: 'Select Custom SteamCMD Folder' });
+                                            const path = await invoke<string | null>('select_folder', { title: t('settings.integrations.selectSteamcmdFolder', 'Select Custom SteamCMD Folder') });
                                             if (path) setCustomSteamcmdPath(path);
                                         } catch (error) {
                                             console.error('Failed to select folder:', error);
@@ -872,7 +877,7 @@ export default function Settings() {
                                     title={t('common.browse', 'Browse')}
                                 >
                                     <FolderOpen className="w-4 h-4 text-sky-400" />
-                                    <span>Browse</span>
+                                    <span>{t('common.browse', 'Browse')}</span>
                                 </button>
                                 {customSteamcmdPath && (
                                     <button
@@ -895,14 +900,14 @@ export default function Settings() {
                                 <div className="mt-4 p-3.5 bg-slate-950/80 rounded-2xl border border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs">
                                     <div className="flex items-center gap-2 text-slate-300">
                                         <CheckCircle className="w-4 h-4 text-sky-400 shrink-0" />
-                                        <span className="font-medium text-slate-400">Active SteamCMD Location:</span>
+                                        <span className="font-medium text-slate-400">{t('settings.integrations.activeSteamcmd', 'Active SteamCMD Location:')}</span>
                                         <code className="px-2.5 py-1 bg-slate-900 rounded-lg text-sky-300 font-mono text-[11px] select-all border border-white/10">
                                             {resolvedSteamcmdPath}
                                         </code>
                                     </div>
                                     {resolvedSteamcmdPath.includes('ARKServerManager') && !customSteamcmdPath && (
                                         <span className="text-[11px] text-amber-300 font-medium bg-amber-500/15 px-3 py-1 rounded-full border border-amber-500/30 flex items-center gap-1.5">
-                                            🛡️ Auto-Fallback Active
+                                            🛡️ {t('settings.integrations.autoFallback', 'Auto-Fallback Active')}
                                         </span>
                                     )}
                                 </div>
@@ -914,7 +919,7 @@ export default function Settings() {
                     <div className="space-y-6 pt-4">
                         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
                             <Key className="w-4 h-4 text-sky-400" />
-                            <span>Steam & Modding Integration Keys</span>
+                            <span>{t('settings.integrations.keysSection', 'Steam & Modding Integration Keys')}</span>
                         </div>
 
                         {/* Steam Web API Key */}
@@ -929,16 +934,16 @@ export default function Settings() {
                                             <h2 className="text-xl font-bold text-white">Steam Web API Key</h2>
                                             {steamApiKey ? (
                                                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold flex items-center gap-1">
-                                                    <CheckCircle className="w-3 h-3" /> Configured
+                                                    <CheckCircle className="w-3 h-3" /> {t('settings.integrations.configured', 'Configured')}
                                                 </span>
                                             ) : (
                                                 <span className="px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-[11px] font-bold">
-                                                    Optional
+                                                    {t('common.optional', 'Optional')}
                                                 </span>
                                             )}
                                         </div>
                                         <p className="text-sm text-slate-400 mt-1">
-                                            Used for checking software updates and querying Steam Workshop metadata.
+                                            {t('settings.integrations.steamKeyDesc', 'Used for checking software updates and querying Steam Workshop metadata.')}
                                         </p>
                                     </div>
                                 </div>
@@ -947,7 +952,7 @@ export default function Settings() {
                                     className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-sky-500/20 shrink-0"
                                 >
                                     <ExternalLink className="w-3.5 h-3.5" />
-                                    <span>Get Steam Key</span>
+                                    <span>{t('settings.integrations.getSteamKey', 'Get Steam Key')}</span>
                                 </button>
                             </div>
 
@@ -962,7 +967,7 @@ export default function Settings() {
                                             type={showSteamKey ? 'text' : 'password'}
                                             value={steamApiKey}
                                             onChange={(e) => setSteamApiKey(e.target.value)}
-                                            placeholder="Enter your 32-character Steam Web API key"
+                                            placeholder={t('settings.integrations.steamKeyPlaceholder', 'Enter your 32-character Steam Web API key')}
                                             className="w-full pl-11 pr-24 py-3 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/20 placeholder-slate-500 transition-all"
                                         />
                                         <div className="absolute right-2 flex items-center gap-1">
@@ -971,7 +976,7 @@ export default function Settings() {
                                                     type="button"
                                                     onClick={() => handleCopyText(steamApiKey, 'steam')}
                                                     className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-                                                    title="Copy key"
+                                                    title={t('settings.integrations.copyKey', 'Copy key')}
                                                 >
                                                     {copiedField === 'steam' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                                                 </button>
@@ -1001,20 +1006,20 @@ export default function Settings() {
                                             <h2 className="text-xl font-bold text-white">CurseForge API Key</h2>
                                             {keyStatus === 'valid' ? (
                                                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold flex items-center gap-1">
-                                                    <CheckCircle className="w-3 h-3" /> Verified
+                                                    <CheckCircle className="w-3 h-3" /> {t('settings.integrations.verified', 'Verified')}
                                                 </span>
                                             ) : curseforgeApiKey ? (
                                                 <span className="px-2.5 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[11px] font-bold flex items-center gap-1">
-                                                    <CheckCircle className="w-3 h-3" /> Configured
+                                                    <CheckCircle className="w-3 h-3" /> {t('settings.integrations.configured', 'Configured')}
                                                 </span>
                                             ) : (
                                                 <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[11px] font-bold flex items-center gap-1">
-                                                    <AlertCircle className="w-3 h-3" /> Required for Mod Search
+                                                    <AlertCircle className="w-3 h-3" /> {t('settings.integrations.requiredForModSearch', 'Required for Mod Search')}
                                                 </span>
                                             )}
                                         </div>
                                         <p className="text-sm text-slate-400 mt-1">
-                                            Required for searching and installing ARK: Survival Ascended mods via CurseForge API.
+                                            {t('settings.integrations.curseforgeKeyDesc', 'Required for searching and installing ARK: Survival Ascended mods via CurseForge API.')}
                                         </p>
                                     </div>
                                 </div>
@@ -1023,7 +1028,7 @@ export default function Settings() {
                                     className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-amber-500/20 shrink-0"
                                 >
                                     <ExternalLink className="w-3.5 h-3.5" />
-                                    <span>Get CurseForge Key</span>
+                                    <span>{t('settings.integrations.getCurseforgeKey', 'Get CurseForge Key')}</span>
                                 </button>
                             </div>
 
@@ -1041,7 +1046,7 @@ export default function Settings() {
                                                 setCurseforgeApiKey(e.target.value);
                                                 setKeyStatus('idle');
                                             }}
-                                            placeholder="Enter your CurseForge API key ($2a$10...)"
+                                            placeholder={t('settings.integrations.curseforgeKeyPlaceholder', 'Enter your CurseForge API key ($2a$10...)')}
                                             className="w-full pl-11 pr-24 py-3 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 placeholder-slate-500 transition-all"
                                         />
                                         <div className="absolute right-2 flex items-center gap-1">
@@ -1050,7 +1055,7 @@ export default function Settings() {
                                                     type="button"
                                                     onClick={() => handleCopyText(curseforgeApiKey, 'curseforge')}
                                                     className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-                                                    title="Copy key"
+                                                    title={t('settings.integrations.copyKey', 'Copy key')}
                                                 >
                                                     {copiedField === 'curseforge' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                                                 </button>
@@ -1082,22 +1087,22 @@ export default function Settings() {
                                         {isVerifying ? (
                                             <>
                                                 <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
-                                                <span>Verifying API Key with CurseForge servers...</span>
+                                                <span>{t('settings.integrations.verifyingKey', 'Verifying API Key with CurseForge servers...')}</span>
                                             </>
                                         ) : keyStatus === 'valid' ? (
                                             <>
                                                 <CheckCircle className="w-4 h-4 text-emerald-400" />
-                                                <span>Key Verified & Active!</span>
+                                                <span>{t('settings.integrations.keyVerified', 'Key Verified & Active!')}</span>
                                             </>
                                         ) : keyStatus === 'invalid' ? (
                                             <>
                                                 <AlertCircle className="w-4 h-4 text-red-400" />
-                                                <span>Invalid API Key — Check & Retry</span>
+                                                <span>{t('settings.integrations.keyInvalid', 'Invalid API Key — Check & Retry')}</span>
                                             </>
                                         ) : (
                                             <>
                                                 <RefreshCw className="w-4 h-4 text-amber-400" />
-                                                <span>Test & Verify CurseForge Key</span>
+                                                <span>{t('settings.integrations.testKey', 'Test & Verify CurseForge Key')}</span>
                                             </>
                                         )}
                                     </button>
@@ -1110,7 +1115,7 @@ export default function Settings() {
                     <div className="space-y-6 pt-4">
                         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
                             <Bot className="w-4 h-4 text-emerald-400" />
-                            <span>Infinity AI Assistant Engine</span>
+                            <span>{t('settings.integrations.aiSection', 'Infinity AI Assistant Engine')}</span>
                         </div>
 
                         {/* AI Provider Selection Cards */}
@@ -1120,9 +1125,9 @@ export default function Settings() {
                                     <Bot className="w-6 h-6 text-emerald-400" />
                                 </div>
                                 <div className="flex-1">
-                                    <h2 className="text-xl font-bold text-white mb-1">AI Engine Provider</h2>
+                                    <h2 className="text-xl font-bold text-white mb-1">{t('settings.integrations.aiProvider', 'AI Engine Provider')}</h2>
                                     <p className="text-sm text-slate-400">
-                                        Choose between NVIDIA cloud models or a local LM Studio server for autonomous server management.
+                                        {t('settings.integrations.aiProviderDesc', 'Choose between NVIDIA cloud models or a local LM Studio server for autonomous server management.')}
                                     </p>
                                 </div>
                             </div>
@@ -1146,12 +1151,12 @@ export default function Settings() {
                                         </div>
                                         {aiProvider === 'nvidia' && (
                                             <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30">
-                                                Active
+                                                {t('common.active', 'Active')}
                                             </span>
                                         )}
                                     </div>
                                     <p className="text-xs text-slate-400 leading-relaxed">
-                                        High-performance Llama 3.1 & Nemotron models powered by NVIDIA NIM cloud architecture.
+                                        {t('settings.integrations.nvidiaDesc', 'High-performance Llama 3.1 & Nemotron models powered by NVIDIA NIM cloud architecture.')}
                                     </p>
                                 </button>
 
@@ -1169,16 +1174,16 @@ export default function Settings() {
                                             <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
                                                 <Cpu className="w-4 h-4" />
                                             </div>
-                                            <span className="font-bold text-white">Local LM Studio</span>
+                                            <span className="font-bold text-white">{t('settings.integrations.localLmStudio', 'Local LM Studio')}</span>
                                         </div>
                                         {aiProvider === 'lmstudio' && (
                                             <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-bold border border-cyan-500/30">
-                                                Active
+                                                {t('common.active', 'Active')}
                                             </span>
                                         )}
                                     </div>
                                     <p className="text-xs text-slate-400 leading-relaxed">
-                                        100% offline, private, self-hosted LLM running directly on your own GPU/CPU hardware.
+                                        {t('settings.integrations.lmStudioDesc', '100% offline, private, self-hosted LLM running directly on your own GPU/CPU hardware.')}
                                     </p>
                                 </button>
                             </div>
@@ -1197,16 +1202,16 @@ export default function Settings() {
                                                 <h2 className="text-xl font-bold text-white">NVIDIA NIM API Key</h2>
                                                 {nvidiaApiKey ? (
                                                     <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold flex items-center gap-1">
-                                                        <CheckCircle className="w-3 h-3" /> Configured
+                                                        <CheckCircle className="w-3 h-3" /> {t('settings.integrations.configured', 'Configured')}
                                                     </span>
                                                 ) : (
                                                     <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[11px] font-bold flex items-center gap-1">
-                                                        <AlertCircle className="w-3 h-3" /> Key Needed
+                                                        <AlertCircle className="w-3 h-3" /> {t('settings.integrations.keyNeeded', 'Key Needed')}
                                                     </span>
                                                 )}
                                             </div>
                                             <p className="text-sm text-slate-400 mt-1">
-                                                Required for Infinity AI to assist with server optimizations and logs.
+                                                {t('settings.integrations.nvidiaKeyDesc', 'Required for Infinity AI to assist with server optimizations and logs.')}
                                             </p>
                                         </div>
                                     </div>
@@ -1215,7 +1220,7 @@ export default function Settings() {
                                         className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 shrink-0"
                                     >
                                         <ExternalLink className="w-3.5 h-3.5" />
-                                        <span>Get Free NVIDIA Key</span>
+                                        <span>{t('settings.integrations.getNvidiaKey', 'Get Free NVIDIA Key')}</span>
                                     </button>
                                 </div>
 
@@ -1239,7 +1244,7 @@ export default function Settings() {
                                                         type="button"
                                                         onClick={() => handleCopyText(nvidiaApiKey, 'nvidia')}
                                                         className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-                                                        title="Copy key"
+                                                        title={t('settings.integrations.copyKey', 'Copy key')}
                                                     >
                                                         {copiedField === 'nvidia' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                                                     </button>
@@ -1266,9 +1271,9 @@ export default function Settings() {
                                         <Terminal className="w-6 h-6 text-cyan-400" />
                                     </div>
                                     <div>
-                                        <h2 className="text-xl font-bold text-white">LM Studio Local Server Endpoint</h2>
+                                        <h2 className="text-xl font-bold text-white">{t('settings.integrations.lmEndpoint', 'LM Studio Local Server Endpoint')}</h2>
                                         <p className="text-sm text-slate-400 mt-1">
-                                            Connect to your locally running LM Studio HTTP server (`http://localhost:1234/v1`).
+                                            {t('settings.integrations.lmEndpointDesc', 'Connect to your locally running LM Studio HTTP server (`http://localhost:1234/v1`).')}
                                         </p>
                                     </div>
                                 </div>
@@ -1276,7 +1281,7 @@ export default function Settings() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                                            Server Base URL
+                                            {t('settings.integrations.baseUrl', 'Server Base URL')}
                                         </label>
                                         <div className="relative flex items-center">
                                             <Globe className="absolute left-4 w-4 h-4 text-slate-500" />
@@ -1293,7 +1298,7 @@ export default function Settings() {
 
                                     <div>
                                         <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                                            API Token (Optional)
+                                            {t('settings.integrations.apiToken', 'API Token (Optional)')}
                                         </label>
                                         <div className="relative flex items-center">
                                             <Lock className="absolute left-4 w-4 h-4 text-slate-500" />
@@ -1302,7 +1307,7 @@ export default function Settings() {
                                                 value={lmStudioApiKey}
                                                 onChange={(e) => setLmStudioApiKey(e.target.value)}
                                                 onBlur={() => setSetting('lmstudio_api_key', lmStudioApiKey).catch(() => {})}
-                                                placeholder="Leave blank for local server"
+                                                placeholder={t('settings.integrations.apiTokenPlaceholder', 'Leave blank for local server')}
                                                 className="w-full pl-11 pr-12 py-3 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all"
                                             />
                                             <button
@@ -1318,7 +1323,7 @@ export default function Settings() {
 
                                 <div>
                                     <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                                        Loaded Model Name
+                                        {t('settings.integrations.modelName', 'Loaded Model Name')}
                                     </label>
                                     <div className="flex gap-2">
                                         <input
@@ -1326,7 +1331,7 @@ export default function Settings() {
                                             value={lmStudioModel}
                                             onChange={(e) => setLmStudioModel(e.target.value)}
                                             onBlur={() => setSetting('lmstudio_model', lmStudioModel).catch(() => {})}
-                                            placeholder="Auto-detect or type model id"
+                                            placeholder={t('settings.integrations.modelPlaceholder', 'Auto-detect or type model id')}
                                             list="lmstudio-models"
                                             className="flex-1 px-4 py-3 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all"
                                         />
@@ -1339,7 +1344,7 @@ export default function Settings() {
                                             className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50"
                                         >
                                             <RefreshCw className={cn("w-4 h-4", lmStudioProbing && "animate-spin")} />
-                                            <span>Detect Models</span>
+                                            <span>{t('settings.integrations.detectModels', 'Detect Models')}</span>
                                         </button>
                                     </div>
                                 </div>
@@ -1347,7 +1352,7 @@ export default function Settings() {
                                 {lmStudioModels.length > 0 && (
                                     <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-2xl p-4 flex items-center gap-3 text-xs text-cyan-300 font-medium">
                                         <CheckCircle className="w-4 h-4 text-cyan-400 shrink-0" />
-                                        <span>Connected to LM Studio — {lmStudioModels.length} active model(s) detected.</span>
+                                        <span>{t('settings.integrations.lmConnected', { count: lmStudioModels.length, defaultValue: `Connected to LM Studio — ${lmStudioModels.length} active model(s) detected.` })}</span>
                                     </div>
                                 )}
                             </div>
@@ -1395,15 +1400,15 @@ export default function Settings() {
                             {updateCheckResult && (
                                 <div className={cn(
                                     "flex items-center gap-3 px-5 py-3.5 rounded-xl border w-full sm:w-auto animate-in slide-in-from-left-4",
-                                    updateCheckResult.includes('available')
+                                    updateCheckKind === 'available'
                                         ? "bg-sky-500/10 border-sky-500/30 text-sky-400"
-                                        : updateCheckResult.includes('latest')
+                                        : updateCheckKind === 'latest'
                                             ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                                             : "bg-red-500/10 border-red-500/30 text-red-400"
                                 )}>
-                                    {updateCheckResult.includes('available') ? (
+                                    {updateCheckKind === 'available' ? (
                                         <div className="p-1 bg-sky-500/20 rounded-lg"><Download className="w-4 h-4" /></div>
-                                    ) : updateCheckResult.includes('latest') ? (
+                                    ) : updateCheckKind === 'latest' ? (
                                         <div className="p-1 bg-emerald-500/20 rounded-lg"><CheckCircle className="w-4 h-4" /></div>
                                     ) : (
                                         <div className="p-1 bg-red-500/20 rounded-lg"><AlertCircle className="w-4 h-4" /></div>
@@ -1530,7 +1535,7 @@ export default function Settings() {
                                 <div className="p-2.5 bg-blue-500/10 border border-blue-500/20 rounded-xl">
                                     <History className="w-6 h-6 text-blue-400" />
                                 </div>
-                                Update History
+                                {t('settings.integrations.updateHistory', 'Update History')}
                             </h2>
                             {updateHistory.length > 0 && (
                                 <div className="flex items-center gap-2">
@@ -1557,7 +1562,7 @@ export default function Settings() {
                                     <History className="w-8 h-8 opacity-50 text-slate-400" />
                                 </div>
                                 <p className="font-medium text-slate-400">{t('settings.updatesTab.noHistory', 'No update history yet')}</p>
-                                <p className="text-sm mt-1">Updates will appear here once installed or skipped.</p>
+                                <p className="text-sm mt-1">{t('settings.integrations.updateHistoryEmpty', 'Updates will appear here once installed or skipped.')}</p>
                             </div>
                         ) : (
                             <div className="space-y-4 max-h-[28rem] overflow-y-auto custom-scrollbar pr-2">
@@ -1587,7 +1592,7 @@ export default function Settings() {
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-bold text-white text-lg tracking-wide">v{entry.version}</span>
                                                     {i === 0 && entry.action === 'installed' && (
-                                                        <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/20">Current</span>
+                                                        <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/20">{t('settings.integrations.current', 'Current')}</span>
                                                     )}
                                                 </div>
                                                 <div className="text-sm text-slate-400 font-medium capitalize mt-0.5 flex items-center gap-1.5">
@@ -1596,7 +1601,7 @@ export default function Settings() {
                                                         entry.action === 'installed' ? "bg-emerald-500" :
                                                             entry.action === 'skipped' ? "bg-yellow-500" : "bg-red-500"
                                                     )}></span>
-                                                    {entry.action}
+                                                    {t(`settings.integrations.historyAction.${entry.action}`, entry.action)}
                                                 </div>
                                             </div>
                                         </div>
@@ -1614,16 +1619,16 @@ export default function Settings() {
                                                     <button
                                                         onClick={() => handleRollback(entry.version)}
                                                         className="px-2.5 py-1.5 bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-white border border-orange-500/20 rounded-lg transition-all text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 shadow-sm"
-                                                        title={`Rollback to v${entry.version}`}
+                                                        title={t('settings.integrations.rollbackTo', { version: entry.version, defaultValue: `Rollback to v${entry.version}` })}
                                                     >
                                                         <Undo2 className="w-3.5 h-3.5" />
-                                                        Rollback
+                                                        {t('settings.integrations.rollback', 'Rollback')}
                                                     </button>
                                                 )}
                                                 <button
                                                     onClick={() => handleRemoveHistoryEntry(entry.id)}
                                                     className="p-1.5 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/20 rounded-lg transition-all"
-                                                    title="Remove from history"
+                                                    title={t('settings.integrations.removeFromHistory', 'Remove from history')}
                                                 >
                                                     <Trash2 className="w-3.5 h-3.5" />
                                                 </button>
@@ -1659,7 +1664,7 @@ export default function Settings() {
                                 className="flex items-center gap-2 px-6 py-3 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/20 hover:border-red-500 rounded-xl transition-all shadow-lg font-semibold"
                             >
                                 <Trash2 className="w-5 h-5" />
-                                Uninstall Server Manager
+                                {t('settings.integrations.uninstallManager', 'Uninstall Server Manager')}
                             </button>
                         </div>
                     </div>
@@ -1940,7 +1945,7 @@ export default function Settings() {
                                 {t('settings.diagnosticsTab.logLocation', 'Log path:')} <span className="font-mono text-slate-400 select-all">%APPDATA%\asa-manager\startup.log</span>
                             </span>
                             <span>
-                                {logContent ? `${logContent.split('\n').length} lines total` : '0 lines'}
+                                {t('settings.integrations.linesTotal', { count: logContent ? logContent.split('\n').length : 0, defaultValue: `${logContent ? logContent.split('\n').length : 0} lines total` })}
                             </span>
                         </div>
                     </div>

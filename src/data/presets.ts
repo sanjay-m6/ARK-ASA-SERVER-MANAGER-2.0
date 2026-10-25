@@ -1,3 +1,4 @@
+import i18n from 'i18next';
 import { GAME_USER_SETTINGS_SCHEMA, GAME_INI_SCHEMA, ConfigGroup } from './configMappings';
 
 // Preset configurations for quick server setup
@@ -401,11 +402,11 @@ export function importPresetFromJson(jsonString: string): ConfigPreset {
 
     // Validate structure
     if (!data.preset || !data.preset.id || !data.preset.name || !data.preset.settings) {
-        throw new Error('Invalid preset file: missing required fields (id, name, settings)');
+        throw new Error(i18n.t('presetSelector.errors.missingFields', 'Invalid preset file: missing required fields (id, name, settings)'));
     }
 
     if (!data.preset.settings.GameUserSettings || !data.preset.settings.Game) {
-        throw new Error('Invalid preset file: missing GameUserSettings or Game settings');
+        throw new Error(i18n.t('presetSelector.errors.missingSections', 'Invalid preset file: missing GameUserSettings or Game settings'));
     }
 
     // Sanitize any identity keys

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Timer, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useTimedShutdownStore } from '../../stores/timedShutdownStore';
 
 interface ServerTimedShutdownBannerProps {
@@ -8,6 +9,7 @@ interface ServerTimedShutdownBannerProps {
 }
 
 export const ServerTimedShutdownBanner: React.FC<ServerTimedShutdownBannerProps> = ({ serverId, className = '' }) => {
+    const { t } = useTranslation();
     const shutdownState = useTimedShutdownStore((state) => state.activeShutdowns[serverId]);
     const cancelShutdown = useTimedShutdownStore((state) => state.cancelShutdown);
 
@@ -27,7 +29,7 @@ export const ServerTimedShutdownBanner: React.FC<ServerTimedShutdownBannerProps>
             <div className="flex items-center gap-2">
                 <Timer className="w-4 h-4 text-amber-400 shrink-0" />
                 <div className="flex items-center gap-1.5 text-xs">
-                    <span className="font-bold text-amber-300">Graceful Shutdown in Progress:</span>
+                    <span className="font-bold text-amber-300">{t('timedShutdown.inProgress', 'Graceful Shutdown in Progress:')}</span>
                     <span className="font-mono font-extrabold text-amber-400 text-sm">
                         {formatRemaining(shutdownState.remainingSeconds)}
                     </span>
@@ -37,10 +39,10 @@ export const ServerTimedShutdownBanner: React.FC<ServerTimedShutdownBannerProps>
                 type="button"
                 onClick={() => cancelShutdown(serverId)}
                 className="px-2.5 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95 shrink-0"
-                title="Cancel Timed Shutdown"
+                title={t('timedShutdown.cancelTitle', 'Cancel Timed Shutdown')}
             >
                 <XCircle className="w-3.5 h-3.5 text-red-400" />
-                <span>Cancel Shutdown</span>
+                <span>{t('timedShutdown.cancelShutdown', 'Cancel Shutdown')}</span>
             </button>
         </div>
     );

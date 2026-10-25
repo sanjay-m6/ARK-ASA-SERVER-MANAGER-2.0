@@ -37,6 +37,8 @@ pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, 
             "updating" => ServerStatus::Updating,
             "restarting" => ServerStatus::Restarting,
             "online" => ServerStatus::Online,
+            "startup_timeout" => ServerStatus::StartupTimeout,
+            "repairing" => ServerStatus::Repairing,
             _ => ServerStatus::Stopped,
         };
 
@@ -143,6 +145,8 @@ pub async fn get_server_by_id(
             "updating" => ServerStatus::Updating,
             "restarting" => ServerStatus::Restarting,
             "online" => ServerStatus::Online,
+            "startup_timeout" => ServerStatus::StartupTimeout,
+            "repairing" => ServerStatus::Repairing,
             _ => ServerStatus::Stopped,
         };
 
@@ -1127,6 +1131,17 @@ async fn perform_server_startup(
 ) -> Result<(), String> {
     let state = app_handle.state::<AppState>();
 
+    // Persist the transitional status BEFORE emitting it: the UI reacts to the event by re-reading
+    // the server list from the DB, which still said 'stopped' and made the badge flicker back
+    if let Ok(db) = state.db.lock() {
+        if let Ok(conn) = db.get_connection() {
+            let _ = conn.execute(
+                "UPDATE servers SET status = ?1 WHERE id = ?2",
+                rusqlite::params![if update_on_start { "updating" } else { "starting" }, server_id],
+            );
+        }
+    }
+
     // Emit initial status change so UI updates immediately
     if update_on_start {
         let _ = app_handle.emit("server-status-change", serde_json::json!({ "server_id": server_id, "status": "updating" }));
@@ -1405,6 +1420,9 @@ async fn perform_server_startup_inner(
             [server_id],
             |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_else(|| "ASA".to_string()), r.get::<_, String>(2)?)),
         ) {
+            // Restore INI edits saved while the server was running (ARK overwrote them on shutdown)
+            crate::commands::config::apply_pending_config_saves(&inst_path, &s_type);
+
             let _ = crate::services::ini_sync::sync_server_from_ini_if_changed(
                 &conn,
                 server_id,
@@ -2146,7 +2164,14 @@ async fn graceful_stop(state: &State<'_, AppState>, server_id: i64) -> Result<()
         .stop_server(server_id)
         .map_err(|e: AnyhowError| e.to_string())?;
 
-    // Step 6: Shutdown Guard — Restore pre-shutdown on-disk config if Unreal Engine overwrote it
+    // Step 6: Shutdown Guard — Restore pre-shutdown on-disk config if Unreal Engine overwrote it.
+    // ARK may write GameUserSettings.ini *after* this point (seen ~1-2 min later, even after the next
+    // start), so also queue the snapshot to be re-applied right before the next start.
+    for (path, saved) in [(&gus_path_opt, &pre_exit_gus), (&game_path_opt, &pre_exit_game)] {
+        if let (Some(path), Some(saved)) = (path, saved) {
+            crate::commands::config::queue_pending_config_restore(path, saved);
+        }
+    }
     if let (Some(ref path), Some(ref saved)) = (gus_path_opt, pre_exit_gus) {
         if let Ok(current_on_disk) = std::fs::read_to_string(path) {
             if current_on_disk != *saved {
@@ -2623,6 +2648,28 @@ pub async fn update_server_settings(
             }
         };
 
+        // Ports currently stored, so the (slow, netsh-based) firewall check below only runs when a
+        // port really changed — the config editor sends the ports on every save
+        let current_ports: Option<(i64, i64, i64)> = conn
+            .query_row(
+                if is_ase {
+                    "SELECT port, query_port, rcon_port FROM ase_servers WHERE id = ?1"
+                } else {
+                    "SELECT game_port, query_port, rcon_port FROM servers WHERE id = ?1"
+                },
+                [server_id],
+                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?)),
+            )
+            .ok();
+        let port_differs = |new: Option<u16>, current: Option<i64>| match (new, current) {
+            (Some(n), Some(c)) => n as i64 != c,
+            (Some(_), None) => true,
+            (None, _) => false,
+        };
+        let ports_changed = port_differs(game_port, current_ports.map(|p| p.0))
+            || port_differs(query_port, current_ports.map(|p| p.1))
+            || port_differs(rcon_port, current_ports.map(|p| p.2));
+
         // Build dynamic update query
         let mut updates = Vec::new();
         let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
@@ -2712,7 +2759,7 @@ pub async fn update_server_settings(
             }
         }
 
-        (is_ase, game_port.is_some() || query_port.is_some() || rcon_port.is_some())
+        (is_ase, ports_changed)
     };
 
     // Configure firewall outside of the DB lock scope (prevents reentrant Mutex deadlock)
@@ -2733,12 +2780,8 @@ pub async fn update_server(
     state: State<'_, AppState>,
     server_id: i64,
 ) -> Result<bool, String> {
-    let log_path = "C:\\Users\\sanja\\AppData\\Roaming\\com.ark.asaservermanager\\rust_debug.log";
     let log_msg = |msg: &str| {
-        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-            use std::io::Write;
-            let _ = writeln!(file, "[{}] [update_server_cmd] {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"), msg);
-        }
+        log::info!("[update_server_cmd] {}", msg);
     };
 
     log_msg(&format!("📥 update_server called for server_id {}", server_id));

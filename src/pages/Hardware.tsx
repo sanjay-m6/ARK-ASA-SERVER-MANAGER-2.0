@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useTranslation, Trans } from 'react-i18next';
 import { useHardwareStore } from '../stores/hardwareStore';
 import { useServerStore } from '../stores/serverStore';
 import {
@@ -20,6 +21,7 @@ import {
 import { toast } from 'react-hot-toast';
 
 const Hardware: React.FC = () => {
+  const { t } = useTranslation();
   const { servers, refreshServers } = useServerStore();
   const { cpuTopology, allocations, fetchTopology, fetchAllocation, saveAllocation, loading, error } = useHardwareStore();
 
@@ -104,7 +106,7 @@ const Hardware: React.FC = () => {
         use_all_cores: true,
         cpu_affinity: Array.from({ length: totalCores }, (_, i) => i),
       }));
-      toast.success('Assigned all logical CPU cores');
+      toast.success(t('hardware.assignedAllCores', 'Assigned all logical CPU cores'));
       return;
     }
 
@@ -201,7 +203,7 @@ const Hardware: React.FC = () => {
 
   const handleSave = async () => {
     if (!selectedServerId) {
-      toast.error('Please select a server first');
+      toast.error(t('hardware.selectServerFirst', 'Please select a server first'));
       return;
     }
 
@@ -226,7 +228,7 @@ const Hardware: React.FC = () => {
         cpuAffinity: JSON.stringify(finalAffinity),
         processPriority: localAllocation.process_priority,
       });
-      toast.success('Hardware allocation settings saved successfully!', {
+      toast.success(t('hardware.savedSuccess', 'Hardware allocation settings saved successfully!'), {
         icon: '⚡',
         style: {
           background: '#1e293b',
@@ -235,52 +237,52 @@ const Hardware: React.FC = () => {
         },
       });
     } catch (e) {
-      toast.error(`Failed to save: ${String(e)}`);
+      toast.error(t('hardware.saveFailed', { error: String(e), defaultValue: `Failed to save: ${String(e)}` }));
     }
   };
 
   const copyMaskToClipboard = () => {
     navigator.clipboard.writeText(affinityMaskHex);
     setCopiedMask(true);
-    toast.success(`Copied Affinity Mask (${affinityMaskHex}) to clipboard`);
+    toast.success(t('hardware.maskCopied', { mask: affinityMaskHex, defaultValue: `Copied Affinity Mask (${affinityMaskHex}) to clipboard` }));
     setTimeout(() => setCopiedMask(false), 2000);
   };
 
   const priorities = [
     {
       value: 'Idle',
-      label: 'Idle',
-      desc: 'Lowest priority. Only receives CPU time when system is idle.',
+      label: t('hardware.priorityIdle', 'Idle'),
+      desc: t('hardware.priorityIdleDesc', 'Lowest priority. Only receives CPU time when system is idle.'),
       badgeBg: 'bg-gray-800 text-gray-400 border-gray-700',
     },
     {
       value: 'BelowNormal',
-      label: 'Below Normal',
-      desc: 'Slightly reduced priority for background support services.',
+      label: t('hardware.priorityBelowNormal', 'Below Normal'),
+      desc: t('hardware.priorityBelowNormalDesc', 'Slightly reduced priority for background support services.'),
       badgeBg: 'bg-slate-800 text-slate-300 border-slate-600',
     },
     {
       value: 'Normal',
-      label: 'Normal',
-      desc: 'Standard Windows process priority balance.',
+      label: t('hardware.priorityNormal', 'Normal'),
+      desc: t('hardware.priorityNormalDesc', 'Standard Windows process priority balance.'),
       badgeBg: 'bg-blue-900/40 text-blue-300 border-blue-600/40',
     },
     {
       value: 'AboveNormal',
-      label: 'Above Normal',
-      desc: 'Ensures process priority over standard desktop applications.',
+      label: t('hardware.priorityAboveNormal', 'Above Normal'),
+      desc: t('hardware.priorityAboveNormalDesc', 'Ensures process priority over standard desktop applications.'),
       badgeBg: 'bg-cyan-900/40 text-cyan-300 border-cyan-500/40',
     },
     {
       value: 'High',
-      label: 'High (Recommended)',
-      desc: 'Top priority for dedicated game servers. Prevents frame stutter.',
+      label: t('hardware.priorityHigh', 'High (Recommended)'),
+      desc: t('hardware.priorityHighDesc', 'Top priority for dedicated game servers. Prevents frame stutter.'),
       badgeBg: 'bg-indigo-900/50 text-indigo-200 border-indigo-500/50',
     },
     {
       value: 'RealTime',
-      label: 'RealTime ⚠️',
-      desc: 'Highest possible execution priority. May lock host OS if overloaded.',
+      label: t('hardware.priorityRealTime', 'RealTime ⚠️'),
+      desc: t('hardware.priorityRealTimeDesc', 'Highest possible execution priority. May lock host OS if overloaded.'),
       badgeBg: 'bg-rose-950/60 text-rose-300 border-rose-600/60',
     },
   ];
@@ -304,14 +306,14 @@ const Hardware: React.FC = () => {
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[var(--text-primary)]">
-                  Hardware & CPU Allocation
+                  {t('hardware.title', 'Hardware & CPU Allocation')}
                 </h1>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                  <Sparkles className="w-3.5 h-3.5" /> High Performance Engine
+                  <Sparkles className="w-3.5 h-3.5" /> {t('hardware.highPerfEngine', 'High Performance Engine')}
                 </span>
               </div>
               <p className="text-sm text-[var(--text-secondary)] mt-1 max-w-2xl">
-                Optimize process priorities and isolate specific physical/logical CPU cores per ARK server instance to eliminate micro-stuttering and core contention.
+                {t('hardware.subtitle', 'Optimize process priorities and isolate specific physical/logical CPU cores per ARK server instance to eliminate micro-stuttering and core contention.')}
               </p>
             </div>
           </div>
@@ -323,8 +325,8 @@ const Hardware: React.FC = () => {
                 <Layers className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-xs text-[var(--text-muted)] font-medium">Logical Cores</div>
-                <div className="text-lg font-bold text-[var(--text-primary)]">{totalCores} Threads</div>
+                <div className="text-xs text-[var(--text-muted)] font-medium">{t('hardware.logicalCores', 'Logical Cores')}</div>
+                <div className="text-lg font-bold text-[var(--text-primary)]">{t('hardware.threadsCount', { count: totalCores, defaultValue: `${totalCores} Threads` })}</div>
               </div>
             </div>
 
@@ -333,8 +335,8 @@ const Hardware: React.FC = () => {
                 <Zap className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-xs text-[var(--text-muted)] font-medium">Physical Cores</div>
-                <div className="text-lg font-bold text-emerald-400">{physicalCores} Cores</div>
+                <div className="text-xs text-[var(--text-muted)] font-medium">{t('hardware.physicalCores', 'Physical Cores')}</div>
+                <div className="text-lg font-bold text-emerald-400">{t('hardware.coresCount', { count: physicalCores, defaultValue: `${physicalCores} Cores` })}</div>
               </div>
             </div>
 
@@ -343,10 +345,10 @@ const Hardware: React.FC = () => {
                 refreshServers();
                 fetchTopology();
                 if (selectedServerId) fetchAllocation(selectedServerId);
-                toast.success('Refreshed hardware status');
+                toast.success(t('hardware.refreshed', 'Refreshed hardware status'));
               }}
               className="p-3 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
-              title="Refresh Telemetry"
+              title={t('hardware.refreshTelemetry', 'Refresh Telemetry')}
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
@@ -369,10 +371,10 @@ const Hardware: React.FC = () => {
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[var(--border)]">
               <div className="flex items-center gap-2.5">
                 <Server className="w-5 h-5 text-cyan-400" />
-                <h2 className="text-base font-bold text-[var(--text-primary)] tracking-wide">Cluster Instances</h2>
+                <h2 className="text-base font-bold text-[var(--text-primary)] tracking-wide">{t('hardware.clusterInstances', 'Cluster Instances')}</h2>
               </div>
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[var(--surface-hover)] text-[var(--text-secondary)] border border-[var(--border)]">
-                {servers.length} Servers
+                {t('hardware.serversCount', { count: servers.length, defaultValue: `${servers.length} Servers` })}
               </span>
             </div>
 
@@ -380,7 +382,7 @@ const Hardware: React.FC = () => {
               {servers.length === 0 ? (
                 <div className="text-center py-12 px-4 border border-dashed border-[var(--border)] rounded-xl">
                   <Server className="w-10 h-10 text-[var(--text-muted)] mx-auto mb-2 opacity-50" />
-                  <p className="text-sm text-[var(--text-muted)]">No servers configured in ARK Manager.</p>
+                  <p className="text-sm text-[var(--text-muted)]">{t('hardware.noServers', 'No servers configured in ARK Manager.')}</p>
                 </div>
               ) : (
                 servers.map((server) => {
@@ -422,18 +424,18 @@ const Hardware: React.FC = () => {
                             }`}
                           />
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                            {server.status || 'Offline'}
+                            {server.status ? t(`logs.serverStatus.${server.status}`, { defaultValue: server.status }) : t('common.offline', 'Offline')}
                           </span>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between text-xs text-[var(--text-secondary)] mt-2 pt-2 border-t border-[var(--border)]">
                         <span className="truncate max-w-[140px] text-[var(--text-muted)]">
-                          {server.config?.mapName || 'ASA Server'}
+                          {server.config?.mapName || t('hardware.asaServer', 'ASA Server')}
                         </span>
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--surface-hover)] border border-[var(--border)] text-cyan-400 text-[11px] font-mono font-semibold">
                           <Cpu className="w-3 h-3 text-cyan-400" />
-                          {alloc?.useAllCores ? 'All Cores' : `${serverCoresCount} Cores`}
+                          {alloc?.useAllCores ? t('hardware.presetAll', 'All Cores') : t('hardware.coresCount', { count: serverCoresCount, defaultValue: `${serverCoresCount} Cores` })}
                         </span>
                       </div>
                     </button>
@@ -451,9 +453,9 @@ const Hardware: React.FC = () => {
               <div className="p-4 rounded-2xl bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-muted)] mb-4">
                 <Sliders className="w-10 h-10" />
               </div>
-              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">No Instance Selected</h3>
+              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">{t('hardware.noInstanceSelected', 'No Instance Selected')}</h3>
               <p className="text-[var(--text-secondary)] text-sm max-w-sm">
-                Select an ARK server instance from the cluster list on the left to configure CPU core affinity and process priority settings.
+                {t('hardware.noInstanceSelectedDesc', 'Select an ARK server instance from the cluster list on the left to configure CPU core affinity and process priority settings.')}
               </p>
             </div>
           ) : (
@@ -462,12 +464,12 @@ const Hardware: React.FC = () => {
               <div className="glass-panel rounded-2xl border border-[var(--border)] p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-cyan-400 mb-1">
-                    <Radio className="w-3.5 h-3.5" /> Instance Hardware Profile
+                    <Radio className="w-3.5 h-3.5" /> {t('hardware.instanceProfile', 'Instance Hardware Profile')}
                   </div>
                   <h2 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
                     {selectedServer?.name}
                     <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-[var(--surface-hover)] text-[var(--text-secondary)] border border-[var(--border)]">
-                      ID: {selectedServerId}
+                      {t('hardware.idLabel', { id: selectedServerId, defaultValue: `ID: ${selectedServerId}` })}
                     </span>
                   </h2>
                 </div>
@@ -479,7 +481,7 @@ const Hardware: React.FC = () => {
                     className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
-                    {loading ? 'Saving...' : 'Apply & Save Settings'}
+                    {loading ? t('hardware.saving', 'Saving...') : t('hardware.applySave', 'Apply & Save Settings')}
                   </button>
                 </div>
               </div>
@@ -491,10 +493,10 @@ const Hardware: React.FC = () => {
                     <div>
                       <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <Cpu className="w-5 h-5 text-cyan-400" />
-                        CPU Core Affinity Matrix
+                        {t('hardware.affinityMatrix', 'CPU Core Affinity Matrix')}
                       </h3>
                       <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                        Select which logical processors this server process can execute on.
+                        {t('hardware.affinityMatrixDesc', 'Select which logical processors this server process can execute on.')}
                       </p>
                     </div>
 
@@ -521,62 +523,62 @@ const Hardware: React.FC = () => {
                         }
                         className="w-4 h-4 text-cyan-500 rounded border-[var(--border)] bg-[var(--surface)] focus:ring-cyan-500"
                       />
-                      <div className="text-xs font-bold text-[var(--text-primary)]">Use All Cores (Default)</div>
+                      <div className="text-xs font-bold text-[var(--text-primary)]">{t('hardware.useAllCoresDefault', 'Use All Cores (Default)')}</div>
                     </label>
                   </div>
 
                   {/* Affinity Presets Toolbar */}
                   <div className="bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl p-3 mb-6 flex flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold text-[var(--text-muted)] mr-1 flex items-center gap-1">
-                      <Sliders className="w-3.5 h-3.5 text-cyan-400" /> Presets:
+                      <Sliders className="w-3.5 h-3.5 text-cyan-400" /> {t('hardware.presetsLabel', 'Presets:')}
                     </span>
                     <button
                       onClick={() => applyPreset('all')}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] border border-[var(--border)] transition-all hover:text-[var(--text-primary)] cursor-pointer"
                     >
-                      ⚡ All Cores
+                      ⚡ {t('hardware.presetAll', 'All Cores')}
                     </button>
                     <button
                       onClick={() => applyPreset('even')}
                       disabled={localAllocation.use_all_cores}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] border border-[var(--border)] transition-all hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
                     >
-                      🎯 Physical Cores (Even)
+                      🎯 {t('hardware.presetPhysicalEven', 'Physical Cores (Even)')}
                     </button>
                     <button
                       onClick={() => applyPreset('odd')}
                       disabled={localAllocation.use_all_cores}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] border border-[var(--border)] transition-all hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
                     >
-                      🔀 Hyperthreads (Odd)
+                      🔀 {t('hardware.presetHyperthreads', 'Hyperthreads (Odd)')}
                     </button>
                     <button
                       onClick={() => applyPreset('skip_os')}
                       disabled={localAllocation.use_all_cores}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] border border-[var(--border)] transition-all hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
                     >
-                      🛡️ Reserve Cores 0-1 for OS
+                      🛡️ {t('hardware.presetReserveOs', 'Reserve Cores 0-1 for OS')}
                     </button>
                     <button
                       onClick={() => applyPreset('first_half')}
                       disabled={localAllocation.use_all_cores}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] border border-[var(--border)] transition-all hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
                     >
-                      🌓 First Half (0-{Math.ceil(totalCores / 2) - 1})
+                      🌓 {t('hardware.presetFirstHalfRange', { end: Math.ceil(totalCores / 2) - 1, defaultValue: `First Half (0-${Math.ceil(totalCores / 2) - 1})` })}
                     </button>
                     <button
                       onClick={() => applyPreset('second_half')}
                       disabled={localAllocation.use_all_cores}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] border border-[var(--border)] transition-all hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
                     >
-                      🌗 Second Half ({Math.ceil(totalCores / 2)}-{totalCores - 1})
+                      🌗 {t('hardware.presetSecondHalfRange', { start: Math.ceil(totalCores / 2), end: totalCores - 1, defaultValue: `Second Half (${Math.ceil(totalCores / 2)}-${totalCores - 1})` })}
                     </button>
                     <button
                       onClick={() => applyPreset('none')}
                       disabled={localAllocation.use_all_cores}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface)] hover:bg-rose-500/20 text-[var(--text-muted)] hover:text-rose-400 border border-[var(--border)] hover:border-rose-500/40 transition-all disabled:opacity-40 ml-auto cursor-pointer"
                     >
-                      Clear Selection
+                      {t('hardware.clearSelection', 'Clear Selection')}
                     </button>
                   </div>
 
@@ -622,16 +624,16 @@ const Hardware: React.FC = () => {
                           </div>
 
                           <div className="text-xs font-bold tracking-wider mt-1 whitespace-nowrap">
-                            Core {i}
+                            {t('hardware.coreN', { n: i, defaultValue: `Core ${i}` })}
                           </div>
 
                           {/* Conflict / Cluster Usage Badge */}
                           {activeOtherServers.length > 0 && (
                             <div
                               className="mt-1.5 w-full text-[10px] font-medium whitespace-nowrap text-center px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 font-mono tracking-tight"
-                              title={`Used by: ${activeOtherServers.join(', ')}`}
+                              title={t('hardware.usedBy', { servers: activeOtherServers.join(', '), defaultValue: `Used by: ${activeOtherServers.join(', ')}` })}
                             >
-                              Shared ({activeOtherServers.length})
+                              {t('hardware.shared', { count: activeOtherServers.length, defaultValue: `Shared (${activeOtherServers.length})` })}
                             </div>
                           )}
                         </button>
@@ -647,11 +649,11 @@ const Hardware: React.FC = () => {
                       <Activity className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="text-xs font-semibold text-[var(--text-muted)]">Selected Allocation Capacity</div>
+                      <div className="text-xs font-semibold text-[var(--text-muted)]">{t('hardware.selectedCapacity', 'Selected Allocation Capacity')}</div>
                       <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                        {activeCoresCount} of {totalCores} Logical Cores Assigned
+                        {t('hardware.coresAssigned', { active: activeCoresCount, total: totalCores, defaultValue: `${activeCoresCount} of ${totalCores} Logical Cores Assigned` })}
                         <span className="text-xs font-normal text-[var(--text-secondary)] font-mono">
-                          ({Math.round((activeCoresCount / totalCores) * 100)}% CPU Capacity)
+                          {t('hardware.cpuCapacity', { percent: Math.round((activeCoresCount / totalCores) * 100), defaultValue: `(${Math.round((activeCoresCount / totalCores) * 100)}% CPU Capacity)` })}
                         </span>
                       </div>
                     </div>
@@ -659,14 +661,14 @@ const Hardware: React.FC = () => {
 
                   {/* Hex Mask Display */}
                   <div className="flex items-center gap-3 bg-[var(--surface-hover)] border border-[var(--border)] px-4 py-2 rounded-xl">
-                    <div className="text-xs font-semibold text-[var(--text-secondary)] font-mono">Affinity Mask:</div>
+                    <div className="text-xs font-semibold text-[var(--text-secondary)] font-mono">{t('hardware.affinityMaskLabel', 'Affinity Mask:')}</div>
                     <code className="text-sm font-bold text-cyan-400 font-mono tracking-wider">
                       {affinityMaskHex}
                     </code>
                     <button
                       onClick={copyMaskToClipboard}
                       className="p-1.5 bg-[var(--surface)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg transition-colors border border-[var(--border)] cursor-pointer"
-                      title="Copy Hex Mask"
+                      title={t('hardware.copyHexMask', 'Copy Hex Mask')}
                     >
                       {copiedMask ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                     </button>
@@ -679,10 +681,10 @@ const Hardware: React.FC = () => {
                 <div>
                   <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                     <Shield className="w-5 h-5 text-indigo-400" />
-                    Process Priority Level
+                    {t('hardware.priorityLevel', 'Process Priority Level')}
                   </h3>
                   <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                    Configure process scheduling priority in Windows Task Scheduler for this server binary.
+                    {t('hardware.priorityLevelDesc', 'Configure process scheduling priority in Windows Task Scheduler for this server binary.')}
                   </p>
                 </div>
 
@@ -726,13 +728,17 @@ const Hardware: React.FC = () => {
               <div className="p-3 bg-rose-950/60 border border-rose-600/40 rounded-xl">
                 <AlertTriangle className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold text-white">Caution: RealTime Priority</h3>
+              <h3 className="text-lg font-bold text-white">{t('hardware.rtCautionTitle', 'Caution: RealTime Priority')}</h3>
             </div>
             <p className="text-sm text-slate-300 leading-relaxed">
-              Setting a process priority to <strong className="text-rose-400">RealTime</strong> forces Windows to execute server threads ahead of system drivers, keyboard/mouse input, and operating system kernels.
+              <Trans
+                i18nKey="hardware.rtCautionDesc"
+                defaults="Setting a process priority to <0>RealTime</0> forces Windows to execute server threads ahead of system drivers, keyboard/mouse input, and operating system kernels."
+                components={[<strong className="text-rose-400" />]}
+              />
             </p>
             <p className="text-xs text-slate-400 bg-slate-950 p-3 rounded-lg border border-slate-800">
-              If the ARK server experiences heavy CPU load, your operating system may freeze or stop responding to remote desktop input. High priority is usually recommended instead.
+              {t('hardware.rtCautionNote', 'If the ARK server experiences heavy CPU load, your operating system may freeze or stop responding to remote desktop input. High priority is usually recommended instead.')}
             </p>
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
@@ -742,13 +748,13 @@ const Hardware: React.FC = () => {
                 }}
                 className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold transition-colors"
               >
-                Cancel
+                {t('hardware.cancel', 'Cancel')}
               </button>
               <button
                 onClick={confirmRealTimePriority}
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-bold transition-colors shadow-lg shadow-rose-600/30"
               >
-                I Understand, Enable RealTime
+                {t('hardware.enableRealTime', 'I Understand, Enable RealTime')}
               </button>
             </div>
           </div>

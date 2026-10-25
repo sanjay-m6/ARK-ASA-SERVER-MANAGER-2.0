@@ -5,6 +5,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
 import { 
@@ -20,6 +21,7 @@ import type { AseScheduledTask, AseSchedulerSettings } from '../types/ase.types'
 import { cn } from '../../utils/helpers';
 
 export default function ASEScheduler() {
+  const { t } = useTranslation();
   const { servers, refreshServers, activeServer } = useAseServerStore();
   const [selectedServer, setSelectedServer] = useState<number | null>(() => activeServer?.id || null);
   const [settings, setSettings] = useState<AseSchedulerSettings | null>(null);
@@ -98,7 +100,7 @@ export default function ASEScheduler() {
           const secs = Math.floor((diff % (1000 * 60)) / 1000);
           setCountdown(`${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`);
         } else {
-          setCountdown('Executing...');
+          setCountdown(t('ase.scheduler.executing', 'Executing...'));
         }
       } else if (settings.mode === 'advanced' && settings.advancedTime) {
         const [h, m] = settings.advancedTime.split(':').map(Number);
@@ -151,14 +153,14 @@ export default function ASEScheduler() {
       setSettings(s);
       setIsDirty(false);
     } catch (e) {
-      toast.error(`Failed to load settings: ${e}`);
+      toast.error(t('ase.scheduler.loadFailed', { defaultValue: 'Failed to load settings: {{error}}', error: String(e) }));
     }
   };
 
   const loadTasks = async (id: number) => {
     try {
-      const t = await getAseScheduledTasks(id);
-      setTasks(t);
+      const task = await getAseScheduledTasks(id);
+      setTasks(task);
     } catch {
       setTasks([]);
     }
@@ -175,10 +177,10 @@ export default function ASEScheduler() {
     try {
       await saveAseSchedulerSettings(settings);
       setIsDirty(false);
-      toast.success('Automation settings saved');
+      toast.success(t('ase.scheduler.settingsSaved', 'Automation settings saved'));
       loadSettings(settings.serverId);
     } catch (e) {
-      toast.error(`Failed to save settings: ${e}`);
+      toast.error(t('ase.scheduler.saveFailed', { defaultValue: 'Failed to save settings: {{error}}', error: String(e) }));
     }
   };
 
@@ -203,8 +205,8 @@ export default function ASEScheduler() {
   };
 
   const getFormattedDays = (daysStr?: string) => {
-    if (!daysStr) return 'No days selected';
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    if (!daysStr) return t('ase.scheduler.noDays', 'No days selected');
+    const dayNames = [0, 1, 2, 3, 4, 5, 6].map(d => t(`ase.scheduler.days.${d}`));
     return daysStr.split(',')
       .filter(Boolean)
       .map(Number)
@@ -216,10 +218,10 @@ export default function ASEScheduler() {
   const handleCreateTask = async () => {
     if (!selectedServer) return;
     try {
-      const t = await createAseScheduledTask({ serverId: selectedServer, taskType: newType, cronExpr: newCron, enabled: true });
-      setTasks(prev => [...prev, t]);
+      const task = await createAseScheduledTask({ serverId: selectedServer, taskType: newType, cronExpr: newCron, enabled: true });
+      setTasks(prev => [...prev, task]);
       setShowCreate(false);
-      toast.success('Custom cron task created');
+      toast.success(t('ase.scheduler.customCreated', 'Custom cron task created'));
     } catch (e) {
       toast.error(`${e}`);
     }
@@ -228,8 +230,8 @@ export default function ASEScheduler() {
   const handleToggleTask = async (id: number, enabled: boolean) => {
     try {
       await toggleAseScheduledTask(id, !enabled);
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, enabled: !enabled } : t));
-      toast.success(enabled ? 'Task disabled' : 'Task enabled');
+      setTasks(prev => prev.map(tk => tk.id === id ? { ...tk, enabled: !enabled } : tk));
+      toast.success(enabled ? t('ase.scheduler.taskDisabled', 'Task disabled') : t('ase.scheduler.taskEnabled', 'Task enabled'));
     } catch (e) {
       toast.error(`${e}`);
     }
@@ -238,8 +240,8 @@ export default function ASEScheduler() {
   const handleDeleteTask = async (id: number) => {
     try {
       await deleteAseScheduledTask(id);
-      setTasks(prev => prev.filter(t => t.id !== id));
-      toast.success('Task deleted');
+      setTasks(prev => prev.filter(tk => tk.id !== id));
+      toast.success(t('ase.scheduler.taskDeleted', 'Task deleted'));
     } catch (e) {
       toast.error(`${e}`);
     }
@@ -263,19 +265,14 @@ export default function ASEScheduler() {
     { key: 'advancedDinoWipe', label: '5. Post-Boot Dino Wipe', desc: 'Cleans up wild dinosaur populations 3 minutes after bootup for performance.' },
   ];
 
-  const typeLabels: Record<string, string> = { restart: '🔄 Restart', update: '📥 Update', backup: '💾 Backup', wipe_dinos: '🦕 Wipe Dinos' };
+  const typeLabels: Record<string, string> = { restart: `🔄 ${t('ase.scheduler.types.restart', 'Restart')}`, update: `📥 ${t('ase.scheduler.types.update', 'Update')}`, backup: `💾 ${t('ase.scheduler.types.backup', 'Backup')}`, wipe_dinos: `🦕 ${t('ase.scheduler.types.wipeDinos', 'Wipe Dinos')}` };
 
   const getRestartFrequencyText = (hours: number) => {
-    if (hours === 1) return 'Restarting 24 times a day (Hourly restart cycle)';
-    if (hours === 2) return 'Restarting 12 times a day (Bi-hourly restart cycle)';
-    if (hours === 3) return 'Restarting 8 times a day (Every 3 hours)';
-    if (hours === 4) return 'Restarting 6 times a day (Every 4 hours)';
-    if (hours === 6) return 'Restarting 4 times a day (Every 6 hours)';
-    if (hours === 8) return 'Restarting 3 times a day (Every 8 hours)';
-    if (hours === 12) return 'Restarting 2 times a day (Every 12 hours)';
-    if (hours === 24) return 'Restarting once a day (24-hour cycle)';
-    const frequency = (24 / hours).toFixed(1);
-    return `Restarting approximately ${frequency} times a day (Every ${hours} hours)`;
+    if (hours === 1) return t('ase.scheduler.freq1', 'Restarting 24 times a day (Hourly restart cycle)');
+    if (hours === 2) return t('ase.scheduler.freq2', 'Restarting 12 times a day (Bi-hourly restart cycle)');
+    if (hours === 24) return t('ase.scheduler.freq24', 'Restarting once a day (24-hour cycle)');
+    const frequency = Number.isInteger(24 / hours) ? String(24 / hours) : (24 / hours).toFixed(1);
+    return t('ase.scheduler.freqN', { defaultValue: 'Restarting {{times}} times a day (Every {{hours}} hours)', times: frequency, hours });
   };
 
   const parseWarningMinutes = (minutesStr?: string) => {
@@ -289,11 +286,11 @@ export default function ASEScheduler() {
   };
 
   const cronPresets = [
-    { label: 'Every 6 Hours', cron: '0 */6 * * *', desc: '4x daily' },
-    { label: 'Every 12 Hours', cron: '0 */12 * * *', desc: '2x daily' },
-    { label: 'Daily 3 AM', cron: '0 3 * * *', desc: 'Offpeak maintenance' },
-    { label: 'Weekly backup', cron: '0 0 * * 0', desc: 'Sunday midnight' },
-    { label: 'Every Hour', cron: '0 * * * *', desc: 'Hourly test' },
+    { label: t('ase.scheduler.every6h', 'Every 6 Hours'), cron: '0 */6 * * *', desc: t('ase.scheduler.every6hDesc', '4x daily') },
+    { label: t('ase.scheduler.every12h', 'Every 12 Hours'), cron: '0 */12 * * *', desc: t('ase.scheduler.every12hDesc', '2x daily') },
+    { label: t('ase.scheduler.daily3am', 'Daily 3 AM'), cron: '0 3 * * *', desc: t('ase.scheduler.daily3amDesc', 'Offpeak maintenance') },
+    { label: t('ase.scheduler.weeklyBackup', 'Weekly backup'), cron: '0 0 * * 0', desc: t('ase.scheduler.weeklyBackupDesc', 'Sunday midnight') },
+    { label: t('ase.scheduler.everyHour', 'Every Hour'), cron: '0 * * * *', desc: t('ase.scheduler.everyHourDesc', 'Hourly test') },
   ];
 
   return (
@@ -333,10 +330,10 @@ export default function ASEScheduler() {
           </div>
           <div>
             <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-amber-400 flex items-center gap-3">
-              Server Lifecycle Automation
+              {t('ase.scheduler.title', 'Server Lifecycle Automation')}
             </h1>
             <p className="text-xs text-slate-400 mt-1 max-w-xl font-medium leading-relaxed">
-              Experience zero-overhead server management. Configure auto-starters, automated SteamCMD pipelines, backup retention structures, and crash recovery watchdogs.
+              {t('ase.scheduler.subtitle', 'Experience zero-overhead server management. Configure auto-starters, automated SteamCMD pipelines, backup retention structures, and crash recovery watchdogs.')}
             </p>
           </div>
         </div>
@@ -346,7 +343,7 @@ export default function ASEScheduler() {
             <Clock className="w-4 h-4 text-amber-400" />
             <div>
               <div className="text-xs font-bold text-white">{activeServer.name}</div>
-              <div className="text-[10px] text-slate-400 font-mono">ASE ID #{activeServer.id} • Port {activeServer.port}</div>
+              <div className="text-[10px] text-slate-400 font-mono">ASE ID #{activeServer.id} • {t('ase.scheduler.port', 'Port')} {activeServer.port}</div>
             </div>
           </div>
         )}
@@ -356,9 +353,9 @@ export default function ASEScheduler() {
       <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
-            <Settings2 className="w-4 h-4 text-amber-400" /> Quick Automation Recipes
+            <Settings2 className="w-4 h-4 text-amber-400" /> {t('ase.scheduler.recipes', 'Quick Automation Recipes')}
           </h2>
-          <span className="text-[10px] text-slate-500 font-mono">Click to load pre-configured automation templates</span>
+          <span className="text-[10px] text-slate-500 font-mono">{t('ase.scheduler.recipesHint', 'Click to load pre-configured automation templates')}</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <button
@@ -367,15 +364,15 @@ export default function ASEScheduler() {
               const newS = { ...settings, mode: 'basic' as const, basicIntervalHours: 6, basicWarningMinutes: '15,10,5,1' };
               await saveAseSchedulerSettings(newS);
               await loadSettings(selectedServer);
-              toast.success('Applied 6-Hour Loop Preset');
+              toast.success(t('ase.scheduler.applied6h', 'Applied 6-Hour Loop Preset'));
             }}
             className="flex flex-col text-left p-3.5 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl transition-all group"
           >
             <div className="flex items-center gap-2 text-xs font-bold text-amber-400 mb-1">
               <Clock className="w-4 h-4 text-amber-400 group-hover:rotate-180 transition-transform duration-500" />
-              6-Hour Auto Loop
+              {t('ase.scheduler.loop6h', '6-Hour Auto Loop')}
             </div>
-            <p className="text-[11px] text-slate-400 leading-tight">Restarts server every 6h with 15m, 10m, 5m, 1m warnings & RCON SaveWorld.</p>
+            <p className="text-[11px] text-slate-400 leading-tight">{t('ase.scheduler.loop6hDesc', 'Restarts server every 6h with 15m, 10m, 5m, 1m warnings & RCON SaveWorld.')}</p>
           </button>
 
           <button
@@ -395,55 +392,55 @@ export default function ASEScheduler() {
               };
               await saveAseSchedulerSettings(newS);
               await loadSettings(selectedServer);
-              toast.success('Applied Daily 3:00 AM Maintenance Preset');
+              toast.success(t('ase.scheduler.appliedDaily', 'Applied Daily 3:00 AM Maintenance Preset'));
             }}
             className="flex flex-col text-left p-3.5 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-purple-500/50 rounded-xl transition-all group"
           >
             <div className="flex items-center gap-2 text-xs font-bold text-purple-400 mb-1">
               <Shield className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
-              Daily 3 AM Pipeline
+              {t('ase.scheduler.dailyPipeline', 'Daily 3 AM Pipeline')}
             </div>
-            <p className="text-[11px] text-slate-400 leading-tight">SaveWorld → Graceful Stop → Pre-Backup → SteamCMD Update → Dino Wipe.</p>
+            <p className="text-[11px] text-slate-400 leading-tight">{t('ase.scheduler.dailyPipelineDesc', 'SaveWorld → Graceful Stop → Pre-Backup → SteamCMD Update → Dino Wipe.')}</p>
           </button>
 
           <button
             onClick={async () => {
               if (!selectedServer) return;
               try {
-                const t = await createAseScheduledTask({ serverId: selectedServer, taskType: 'wipe_dinos', cronExpr: '0 * * * *', enabled: true });
-                setTasks(prev => [...prev, t]);
-                toast.success('Created Hourly Dino Wipe Task');
+                const task = await createAseScheduledTask({ serverId: selectedServer, taskType: 'wipe_dinos', cronExpr: '0 * * * *', enabled: true });
+                setTasks(prev => [...prev, task]);
+                toast.success(t('ase.scheduler.createdWipe', 'Created Hourly Dino Wipe Task'));
               } catch (e) {
-                toast.error('Failed to create task');
+                toast.error(t('ase.scheduler.createFailed', 'Failed to create task'));
               }
             }}
             className="flex flex-col text-left p-3.5 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-red-500/50 rounded-xl transition-all group"
           >
             <div className="flex items-center gap-2 text-xs font-bold text-red-400 mb-1">
               <Sliders className="w-4 h-4 text-red-400 group-hover:scale-110 transition-transform" />
-              Hourly Wild Dino Wipe
+              {t('ase.scheduler.hourlyWipe', 'Hourly Wild Dino Wipe')}
             </div>
-            <p className="text-[11px] text-slate-400 leading-tight">Runs DestroyWildDinos RCON command every hour on minute 0.</p>
+            <p className="text-[11px] text-slate-400 leading-tight">{t('ase.scheduler.hourlyWipeDesc', 'Runs DestroyWildDinos RCON command every hour on minute 0.')}</p>
           </button>
 
           <button
             onClick={async () => {
               if (!selectedServer) return;
               try {
-                const t = await createAseScheduledTask({ serverId: selectedServer, taskType: 'backup', cronExpr: '0 */3 * * *', enabled: true });
-                setTasks(prev => [...prev, t]);
-                toast.success('Created 3-Hour Backup Task');
+                const task = await createAseScheduledTask({ serverId: selectedServer, taskType: 'backup', cronExpr: '0 */3 * * *', enabled: true });
+                setTasks(prev => [...prev, task]);
+                toast.success(t('ase.scheduler.createdBackup', 'Created 3-Hour Backup Task'));
               } catch (e) {
-                toast.error('Failed to create task');
+                toast.error(t('ase.scheduler.createFailed', 'Failed to create task'));
               }
             }}
             className="flex flex-col text-left p-3.5 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-xl transition-all group"
           >
             <div className="flex items-center gap-2 text-xs font-bold text-blue-400 mb-1">
               <Database className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
-              3-Hour Save Snapshot
+              {t('ase.scheduler.snapshot3h', '3-Hour Save Snapshot')}
             </div>
-            <p className="text-[11px] text-slate-400 leading-tight">Issues RCON SaveWorld every 3 hours to prevent data loss.</p>
+            <p className="text-[11px] text-slate-400 leading-tight">{t('ase.scheduler.snapshot3hDesc', 'Issues RCON SaveWorld every 3 hours to prevent data loss.')}</p>
           </button>
         </div>
       </div>
@@ -460,7 +457,7 @@ export default function ASEScheduler() {
               <div className="flex items-center gap-2">
                 <Settings2 className="w-5 h-5 text-amber-400" />
                 <h3 className="text-md font-bold text-white tracking-wide">
-                  Automation Orchestrator Mode
+                  {t('ase.scheduler.orchestratorMode', 'Automation Orchestrator Mode')}
                 </h3>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -482,14 +479,14 @@ export default function ASEScheduler() {
                       </>
                     )}
                     <span className="font-extrabold text-xs uppercase tracking-widest text-amber-400">
-                      {mode === 'disabled' && '🚫 Inactive'}
-                      {mode === 'basic' && '🔄 Basic Loop'}
-                      {mode === 'advanced' && '⚙️ Advanced Chain'}
+                      {mode === 'disabled' && `🚫 ${t('ase.scheduler.modeDisabled', 'Inactive')}`}
+                      {mode === 'basic' && `🔄 ${t('ase.scheduler.modeBasic', 'Basic Loop')}`}
+                      {mode === 'advanced' && `⚙️ ${t('ase.scheduler.modeAdvanced', 'Advanced Chain')}`}
                     </span>
                     <span className="text-[11px] text-slate-400 leading-relaxed font-medium">
-                      {mode === 'disabled' && 'All scheduled reboots and pipeline sequences are fully suspended.'}
-                      {mode === 'basic' && 'Graceful server reboots at simple recurring hourly timelines.'}
-                      {mode === 'advanced' && 'Execute multi-step daily or weekly pipeline sequences seamlessly.'}
+                      {mode === 'disabled' && t('ase.scheduler.modeDisabledDesc', 'All scheduled reboots and pipeline sequences are fully suspended.')}
+                      {mode === 'basic' && t('ase.scheduler.modeBasicDesc', 'Graceful server reboots at simple recurring hourly timelines.')}
+                      {mode === 'advanced' && t('ase.scheduler.modeAdvancedDesc', 'Execute multi-step daily or weekly pipeline sequences seamlessly.')}
                     </span>
                   </button>
                 ))}
@@ -514,20 +511,20 @@ export default function ASEScheduler() {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-white flex items-center gap-2">
-                        Next Lifecycle Event
+                        {t('ase.scheduler.nextEvent', 'Next Lifecycle Event')}
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                       </p>
                       <p className="text-xs text-slate-400 mt-1 font-medium max-w-sm">
                         {settings.mode === 'basic' 
-                          ? `Graceful Restart Loop scheduled at a repeating ${settings.basicIntervalHours}h interval.`
-                          : `Maintenance Sequence executes on ${getFormattedDays(settings.advancedDays)} at ${settings.advancedTime || '--:--'}.`
+                          ? t('ase.scheduler.nextBasic', { defaultValue: 'Graceful Restart Loop scheduled at a repeating {{hours}}h interval.', hours: settings.basicIntervalHours })
+                          : t('ase.scheduler.nextAdvanced', { defaultValue: 'Maintenance Sequence executes on {{days}} at {{time}}.', days: getFormattedDays(settings.advancedDays), time: settings.advancedTime || '--:--' })
                         }
                       </p>
                     </div>
                   </div>
 
                   <div className="text-center md:text-right shrink-0 relative z-10">
-                    <p className="text-[10px] text-amber-400 font-extrabold uppercase tracking-widest">T-MINUS COUNTDOWN</p>
+                    <p className="text-[10px] text-amber-400 font-extrabold uppercase tracking-widest">{t('ase.scheduler.countdown', 'T-MINUS COUNTDOWN')}</p>
                     <p className="text-4xl font-black font-mono text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-400 to-orange-500 tracking-widest mt-1 drop-shadow-[0_0_15px_rgba(245,158,11,0.25)]">
                       {countdown}
                     </p>
@@ -546,17 +543,17 @@ export default function ASEScheduler() {
                 <div className="border-b border-white/5 pb-4">
                   <h3 className="text-md font-bold text-white flex items-center gap-2">
                     <Sliders className="w-4 h-4 text-amber-400" />
-                    Basic Restart Settings
+                    {t('ase.scheduler.basicSettings', 'Basic Restart Settings')}
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Configure simple, automated recurring restart timelines.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{t('ase.scheduler.basicSettingsDesc', 'Configure simple, automated recurring restart timelines.')}</p>
                 </div>
 
                 {/* Slider widget */}
                 <div className="space-y-4 bg-slate-950/30 p-5 rounded-2xl border border-white/5 relative overflow-hidden">
                   <div className="flex justify-between items-center text-sm font-semibold">
-                    <span className="text-slate-300">Restart Frequency Interval</span>
+                    <span className="text-slate-300">{t('ase.scheduler.frequency', 'Restart Frequency Interval')}</span>
                     <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 font-extrabold font-mono text-sm rounded-lg shadow-[0_0_10px_rgba(245,158,11,0.05)]">
-                      {settings.basicIntervalHours} Hours
+                      {t('ase.scheduler.hours', { defaultValue: '{{count}} Hours', count: settings.basicIntervalHours })}
                     </span>
                   </div>
                   <input
@@ -584,7 +581,7 @@ export default function ASEScheduler() {
 
                 {/* Pre warning design */}
                 <div className="space-y-3">
-                  <label className="block text-sm font-semibold text-slate-300">RCON Broadcast Warnings Alerts</label>
+                  <label className="block text-sm font-semibold text-slate-300">{t('ase.scheduler.warnings', 'RCON Broadcast Warnings Alerts')}</label>
                   <input
                     type="text"
                     value={settings.basicWarningMinutes}
@@ -598,13 +595,13 @@ export default function ASEScheduler() {
                     {parseWarningMinutes(settings.basicWarningMinutes).map((mins) => (
                       <span key={mins} className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/5 border border-amber-500/20 rounded-xl text-amber-400 text-xs font-extrabold shadow-sm animate-pulse-subtle">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                        🔔 Alert at {mins}m
+                        🔔 {t('ase.scheduler.alertAt', { defaultValue: 'Alert at {{mins}}m', mins })}
                       </span>
                     ))}
                     {parseWarningMinutes(settings.basicWarningMinutes).length === 0 && (
                       <span className="text-xs text-rose-400 font-semibold flex items-center gap-1.5">
                         <AlertTriangle className="w-3.5 h-3.5" />
-                        No warnings configured. Reboots will execute immediately without player notice!
+                        {t('ase.scheduler.noWarnings', 'No warnings configured. Reboots will execute immediately without player notice!')}
                       </span>
                     )}
                   </div>
@@ -622,9 +619,9 @@ export default function ASEScheduler() {
                 <div className="border-b border-white/5 pb-4">
                   <h3 className="text-md font-bold text-white flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-amber-400" />
-                    Advanced Scheduler Configuration
+                    {t('ase.scheduler.advancedConfig', 'Advanced Scheduler Configuration')}
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Staged multi-step execution schedules mapped over a weekly day grid.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{t('ase.scheduler.advancedConfigDesc', 'Staged multi-step execution schedules mapped over a weekly day grid.')}</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -632,7 +629,7 @@ export default function ASEScheduler() {
                   <div className="space-y-2 bg-slate-950/20 p-4 border border-white/5 rounded-2xl">
                     <label className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5 text-amber-400" />
-                      Execution Time
+                      {t('ase.scheduler.execTime', 'Execution Time')}
                     </label>
                     <input
                       type="time"
@@ -646,7 +643,7 @@ export default function ASEScheduler() {
                   <div className="space-y-2 bg-slate-950/20 p-4 border border-white/5 rounded-2xl">
                     <label className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                       <Info className="w-3.5 h-3.5 text-amber-400" />
-                      Alert Warning Interval
+                      {t('ase.scheduler.alertInterval', 'Alert Warning Interval')}
                     </label>
                     <input
                       type="text"
@@ -662,7 +659,7 @@ export default function ASEScheduler() {
                 <div className="space-y-3 bg-slate-950/20 p-4 border border-white/5 rounded-2xl">
                   <label className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                    Scheduled Weekly Execution Days
+                    {t('ase.scheduler.weeklyDays', 'Scheduled Weekly Execution Days')}
                   </label>
                   <div className="grid grid-cols-7 gap-2">
                     {daysOfWeek.map(d => {
@@ -679,8 +676,8 @@ export default function ASEScheduler() {
                               : "bg-slate-900/30 border-white/5 text-slate-400 hover:border-white/10 hover:text-white"
                           )}
                         >
-                          <span className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">{d.label.slice(0,1)}</span>
-                          {d.label}
+                          <span className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">{t(`ase.scheduler.days.${d.value}`, d.label).slice(0,1)}</span>
+                          {t(`ase.scheduler.days.${d.value}`, d.label)}
                         </button>
                       );
                     })}
@@ -691,7 +688,7 @@ export default function ASEScheduler() {
                 <div className="space-y-5 bg-slate-950/20 p-6 border border-white/5 rounded-2xl">
                   <div className="flex items-center gap-2 border-b border-white/5 pb-3">
                     <Layers className="w-4 h-4 text-amber-500 animate-pulse" />
-                    <label className="text-sm font-bold text-white">Advanced Execution Staged Pipeline</label>
+                    <label className="text-sm font-bold text-white">{t('ase.scheduler.pipeline', 'Advanced Execution Staged Pipeline')}</label>
                   </div>
 
                   {/* Horizontal Flow layout for large screens, stacked for mobile */}
@@ -715,7 +712,7 @@ export default function ASEScheduler() {
                           >
                             <div className="flex items-center justify-between w-full mb-1">
                               <span className={cn("text-xs font-extrabold uppercase tracking-widest", isStepEnabled ? "text-amber-400" : "text-slate-500")}>
-                                {step.label.split(':')[0]}
+                                {t(`ase.scheduler.chain.${step.key}.label`, step.label).split(':')[0]}
                               </span>
                               <div className={cn(
                                 "w-4 h-4 rounded-full border flex items-center justify-center transition-colors shrink-0",
@@ -725,10 +722,10 @@ export default function ASEScheduler() {
                               </div>
                             </div>
                             <span className={cn("text-xs font-bold leading-tight my-1 block", isStepEnabled ? "text-white" : "text-slate-400")}>
-                              {step.label.split(':')[1]?.trim() || step.label}
+                              {t(`ase.scheduler.chain.${step.key}.label`, step.label).split(':')[1]?.trim() || t(`ase.scheduler.chain.${step.key}.label`, step.label)}
                             </span>
                             <span className="text-[10px] text-slate-500 mt-1 leading-relaxed block font-medium">
-                              {step.desc}
+                              {t(`ase.scheduler.chain.${step.key}.desc`, step.desc)}
                             </span>
                           </button>
 
@@ -769,7 +766,7 @@ export default function ASEScheduler() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Shield className="w-5 h-5 text-amber-400 shrink-0" />
-                  <h3 className="text-md font-bold text-white">Guardian Watchdog</h3>
+                  <h3 className="text-md font-bold text-white">{t('ase.scheduler.watchdog', 'Guardian Watchdog')}</h3>
                 </div>
                 <button
                   onClick={() => handleUpdateSettings({ watchdogEnabled: !settings.watchdogEnabled })}
@@ -810,24 +807,24 @@ export default function ASEScheduler() {
                 </div>
 
                 <div className="text-center relative z-10">
-                  <p className="text-xs font-bold text-white">Watchdog Monitoring Service</p>
+                  <p className="text-xs font-bold text-white">{t('ase.scheduler.watchdogService', 'Watchdog Monitoring Service')}</p>
                   <p className="text-[10px] text-slate-500 mt-0.5 tracking-wider uppercase font-extrabold flex items-center gap-1.5 justify-center">
                     <span className={cn("w-1.5 h-1.5 rounded-full inline-block shrink-0", settings.watchdogEnabled ? "bg-emerald-400 animate-ping" : "bg-slate-700")} />
-                    {settings.watchdogEnabled ? 'ACTIVE • Heartbeat Ticking' : 'INACTIVE • Standby'}
+                    {settings.watchdogEnabled ? t('ase.scheduler.wdActive', 'ACTIVE • Heartbeat Ticking') : t('ase.scheduler.wdInactive', 'INACTIVE • Standby')}
                   </p>
                 </div>
               </div>
 
               {/* Diagnostic data specs */}
               <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-slate-500 bg-slate-950/30 p-4 border border-white/5 rounded-xl">
-                <div>CHECK SPEED: <span className="text-white font-bold">15 SECONDS</span></div>
-                <div>SAFE-GUARDS: <span className="text-emerald-400 font-bold">ENABLED</span></div>
-                <div>AUTORESTART: <span className={settings.watchdogEnabled ? "text-amber-400 font-bold" : "text-slate-600 font-bold"}>{settings.watchdogEnabled ? 'ON' : 'OFF'}</span></div>
-                <div>LAST BEAT: <span className="text-white font-bold">JUST NOW</span></div>
+                <div>{t('ase.scheduler.checkSpeed', 'CHECK SPEED:')} <span className="text-white font-bold">{t('ase.scheduler.fifteenSeconds', '15 SECONDS')}</span></div>
+                <div>{t('ase.scheduler.safeguards', 'SAFE-GUARDS:')} <span className="text-emerald-400 font-bold">{t('ase.scheduler.enabledCaps', 'ENABLED')}</span></div>
+                <div>{t('ase.scheduler.autorestart', 'AUTORESTART:')} <span className={settings.watchdogEnabled ? "text-amber-400 font-bold" : "text-slate-600 font-bold"}>{settings.watchdogEnabled ? t('ase.scheduler.on', 'ON') : t('ase.scheduler.off', 'OFF')}</span></div>
+                <div>{t('ase.scheduler.lastBeat', 'LAST BEAT:')} <span className="text-white font-bold">{t('ase.scheduler.justNow', 'JUST NOW')}</span></div>
               </div>
 
               <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                The **Watchdog Heartbeat** scans server connectivity and PID groups. If the server process crashes or terminates unexpectedly, it initiates a secure start sequence automatically.
+                {t('ase.scheduler.watchdogDesc', 'The **Watchdog Heartbeat** scans server connectivity and PID groups. If the server process crashes or terminates unexpectedly, it initiates a secure start sequence automatically.')}
               </p>
             </div>
 
@@ -835,15 +832,15 @@ export default function ASEScheduler() {
             <div className="glass-panel p-6 rounded-3xl border border-white/5 space-y-6 bg-slate-900/40 relative group">
               <h3 className="text-md font-bold text-white flex items-center gap-2 border-b border-white/5 pb-4">
                 <Database className="w-5 h-5 text-amber-400" />
-                Cyclic Backups System
+                {t('ase.scheduler.cyclicBackups', 'Cyclic Backups System')}
               </h3>
 
               <div className="space-y-4">
                 {/* Restart Backup toggle */}
                 <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/20 border border-white/5 hover:border-amber-500/10 transition-colors cursor-pointer" onClick={() => handleUpdateSettings({ backupOnRestart: !settings.backupOnRestart })}>
                   <div>
-                    <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Backup on Restart</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Zip database files prior to reboot.</p>
+                    <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">{t('ase.scheduler.backupOnRestart', 'Backup on Restart')}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">{t('ase.scheduler.backupOnRestartDesc', 'Zip database files prior to reboot.')}</p>
                   </div>
                   <button
                     className={cn(
@@ -858,8 +855,8 @@ export default function ASEScheduler() {
                 {/* Update Backup toggle */}
                 <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/20 border border-white/5 hover:border-amber-500/10 transition-colors cursor-pointer" onClick={() => handleUpdateSettings({ backupOnUpdate: !settings.backupOnUpdate })}>
                   <div>
-                    <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Backup on Update</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Ensure rollbacks prior to SteamCMD updates.</p>
+                    <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">{t('ase.scheduler.backupOnUpdate', 'Backup on Update')}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">{t('ase.scheduler.backupOnUpdateDesc', 'Ensure rollbacks prior to SteamCMD updates.')}</p>
                   </div>
                   <button
                     className={cn(
@@ -874,8 +871,8 @@ export default function ASEScheduler() {
                 {/* Cluster backup */}
                 <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/20 border border-white/5 hover:border-amber-500/10 transition-colors cursor-pointer" onClick={() => handleUpdateSettings({ includeClusterBackup: !settings.includeClusterBackup })}>
                   <div>
-                    <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Include Cluster Dir</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Zip shared player transfer archives.</p>
+                    <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">{t('ase.scheduler.includeCluster', 'Include Cluster Dir')}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">{t('ase.scheduler.includeClusterDesc', 'Zip shared player transfer archives.')}</p>
                   </div>
                   <button
                     className={cn(
@@ -908,8 +905,8 @@ export default function ASEScheduler() {
                 <AlertTriangle className="w-5 h-5 animate-bounce" style={{ animationDuration: '2s' }} />
               </div>
               <div>
-                <p className="text-sm font-black text-white">Unsaved Orchestrator Config</p>
-                <p className="text-xs text-slate-400 font-medium mt-0.5">Synchronize these parameters to activate server boot and watchdog rules.</p>
+                <p className="text-sm font-black text-white">{t('ase.scheduler.unsaved', 'Unsaved Orchestrator Config')}</p>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">{t('ase.scheduler.unsavedDesc', 'Synchronize these parameters to activate server boot and watchdog rules.')}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-end">
@@ -917,14 +914,14 @@ export default function ASEScheduler() {
                 onClick={() => selectedServer && loadSettings(selectedServer)}
                 className="px-4 py-2 border border-white/10 text-slate-300 hover:text-white rounded-xl text-xs font-extrabold uppercase tracking-wider transition-colors focus:outline-none"
               >
-                Revert
+                {t('ase.scheduler.revert', 'Revert')}
               </button>
               <button 
                 onClick={handleSaveSettings} 
                 className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-[0_4px_20px_rgba(245,158,11,0.3)] focus:outline-none"
               >
                 <Save className="w-4 h-4" />
-                Commit Rules
+                {t('ase.scheduler.commit', 'Commit Rules')}
               </button>
             </div>
           </motion.div>
@@ -937,15 +934,15 @@ export default function ASEScheduler() {
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2.5">
               <Calendar className="w-5 h-5 text-amber-400" />
-              Advanced Custom Cron Tasks
+              {t('ase.scheduler.cronTasks', 'Advanced Custom Cron Tasks')}
             </h2>
-            <p className="text-xs text-slate-400 mt-1 font-medium">Coordinate custom micro-actions using standard cron scheduling expressions.</p>
+            <p className="text-xs text-slate-400 mt-1 font-medium">{t('ase.scheduler.cronTasksDesc', 'Coordinate custom micro-actions using standard cron scheduling expressions.')}</p>
           </div>
           <button 
             onClick={() => setShowCreate(prev => !prev)} 
             className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 transition-all focus:outline-none hover:scale-105"
           >
-            {showCreate ? 'Close Form' : 'Add Custom Task'}
+            {showCreate ? t('ase.scheduler.closeForm', 'Close Form') : t('ase.scheduler.addTask', 'Add Custom Task')}
           </button>
         </div>
 
@@ -960,12 +957,12 @@ export default function ASEScheduler() {
             >
               <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
                 <Plus className="w-4 h-4 text-amber-400" />
-                Create Custom Scheduled Micro-Task
+                {t('ase.scheduler.createTitle', 'Create Custom Scheduled Micro-Task')}
               </h3>
               
               {/* Preset Quick pills */}
               <div className="space-y-2">
-                <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">Express Cron Presets</span>
+                <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">{t('ase.scheduler.cronPresets', 'Express Cron Presets')}</span>
                 <div className="flex flex-wrap gap-2">
                   {cronPresets.map(preset => (
                     <button
@@ -973,7 +970,7 @@ export default function ASEScheduler() {
                       type="button"
                       onClick={() => {
                         setNewCron(preset.cron);
-                        toast.success(`Preset "${preset.label}" loaded`);
+                        toast.success(t('ase.scheduler.presetLoaded', { defaultValue: 'Preset "{{name}}" loaded', name: preset.label }));
                       }}
                       className={cn(
                         "px-3 py-1.5 rounded-xl border text-[11px] font-bold text-left transition-all focus:outline-none hover:scale-105",
@@ -991,7 +988,7 @@ export default function ASEScheduler() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="block relative" ref={typeDropdownRef}>
-                  <span className="text-xs text-slate-400 mb-1.5 block">Task Action</span>
+                  <span className="text-xs text-slate-400 mb-1.5 block">{t('ase.scheduler.taskAction', 'Task Action')}</span>
                   <button
                     type="button"
                     onClick={() => setIsTypeDropdownOpen(prev => !prev)}
@@ -1037,8 +1034,8 @@ export default function ASEScheduler() {
                 </div>
                 <label className="block">
                   <span className="text-xs text-slate-400 mb-1.5 block font-semibold flex justify-between">
-                    Cron Expression
-                    <a href="https://crontab.cronhub.io" target="_blank" rel="noreferrer" className="text-amber-500 font-bold hover:underline flex items-center gap-0.5">Help <HelpCircle className="w-3 h-3" /></a>
+                    {t('ase.scheduler.cronExpr', 'Cron Expression')}
+                    <a href="https://crontab.cronhub.io" target="_blank" rel="noreferrer" className="text-amber-500 font-bold hover:underline flex items-center gap-0.5">{t('ase.scheduler.help', 'Help')} <HelpCircle className="w-3 h-3" /></a>
                   </span>
                   <input 
                     type="text" 
@@ -1052,10 +1049,10 @@ export default function ASEScheduler() {
               
               <div className="flex gap-2.5 pt-2">
                 <button onClick={handleCreateTask} className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-white rounded-2xl text-xs font-extrabold uppercase tracking-wider transition-all focus:outline-none hover:scale-105">
-                  Create Task
+                  {t('ase.scheduler.createTask', 'Create Task')}
                 </button>
                 <button onClick={() => setShowCreate(false)} className="px-5 py-2.5 text-slate-400 hover:text-white border border-white/10 rounded-2xl text-xs font-bold transition-colors focus:outline-none">
-                  Cancel
+                  {t('common.cancel', 'Cancel')}
                 </button>
               </div>
             </motion.div>
@@ -1065,40 +1062,40 @@ export default function ASEScheduler() {
         {tasks.length === 0 ? (
           <div className="text-center py-12 border border-dashed border-white/5 rounded-3xl bg-slate-900/10">
             <Clock className="w-12 h-12 text-slate-700 mx-auto mb-3 animate-pulse-subtle" />
-            <h3 className="text-sm font-semibold text-slate-400">No Custom Scheduled Tasks</h3>
-            <p className="text-slate-500 text-xs mt-1">Deploy custom cron rules above to coordinate custom wipes, backups or restarts.</p>
+            <h3 className="text-sm font-semibold text-slate-400">{t('ase.scheduler.noTasks', 'No Custom Scheduled Tasks')}</h3>
+            <p className="text-slate-500 text-xs mt-1">{t('ase.scheduler.noTasksDesc', 'Deploy custom cron rules above to coordinate custom wipes, backups or restarts.')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {tasks.map(t => (
-              <div key={t.id} className="glass-panel rounded-2xl p-4.5 flex items-center justify-between border border-white/5 hover:border-amber-500/10 transition-all hover:scale-[1.01]">
+            {tasks.map(task => (
+              <div key={task.id} className="glass-panel rounded-2xl p-4.5 flex items-center justify-between border border-white/5 hover:border-amber-500/10 transition-all hover:scale-[1.01]">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-slate-950/60 rounded-xl text-lg shrink-0 shadow-inner">
-                    {typeLabels[t.taskType]?.split(' ')[0] || '⏰'}
+                    {typeLabels[task.taskType]?.split(' ')[0] || '⏰'}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-white">{typeLabels[t.taskType]?.split(' ').slice(1).join(' ') || t.taskType}</p>
+                    <p className="text-sm font-bold text-white">{typeLabels[task.taskType]?.split(' ').slice(1).join(' ') || task.taskType}</p>
                     <p className="text-xs text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
                       <Terminal className="w-3.5 h-3.5 text-amber-500/70" />
-                      {t.cronExpr} 
-                      {t.lastRun && (
-                        <span className="text-[10px] text-slate-600 bg-white/5 px-2 py-0.5 rounded">Last: {new Date(t.lastRun).toLocaleString()}</span>
+                      {task.cronExpr} 
+                      {task.lastRun && (
+                        <span className="text-[10px] text-slate-600 bg-white/5 px-2 py-0.5 rounded">{t('ase.scheduler.last', 'Last:')} {new Date(task.lastRun).toLocaleString()}</span>
                       )}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button 
-                    onClick={() => handleToggleTask(t.id, t.enabled)} 
+                    onClick={() => handleToggleTask(task.id, task.enabled)} 
                     className={cn(
                       "p-2 rounded-xl transition-colors focus:outline-none hover:scale-105",
-                      t.enabled ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-slate-500 hover:bg-slate-800'
+                      task.enabled ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-slate-500 hover:bg-slate-800'
                     )}
                   >
-                    {t.enabled ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
+                    {task.enabled ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
                   </button>
                   <button 
-                    onClick={() => handleDeleteTask(t.id)} 
+                    onClick={() => handleDeleteTask(task.id)} 
                     className="p-2 text-slate-500 hover:text-rose-400 rounded-xl hover:bg-rose-500/5 transition-colors focus:outline-none"
                   >
                     <Trash2 className="w-4 h-4" />

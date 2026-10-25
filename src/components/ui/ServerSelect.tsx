@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ChevronDown, Check } from 'lucide-react';
 import { useServerStore } from '../../stores/serverStore';
 import { cn } from '../../utils/helpers';
+import { useTranslation } from 'react-i18next';
 
 interface ServerSelectProps {
     value: number | null;
@@ -19,6 +20,7 @@ export default function ServerSelect({
     accentColor = 'amber',
     className
 }: ServerSelectProps) {
+    const { t } = useTranslation();
     const { servers: storeServers } = useServerStore();
     const displayServers = customServers || storeServers;
     const [isOpen, setIsOpen] = useState(false);
@@ -182,7 +184,7 @@ export default function ServerSelect({
                     activeTheme.border
                 )}
             >
-                <span className="truncate">{currentServer ? currentServer.name : 'Select Server'}</span>
+                <span className="truncate">{currentServer ? currentServer.name : t('serverSelect.placeholder', 'Select Server')}</span>
                 <ChevronDown className={cn("w-3.5 h-3.5 text-[var(--text-muted)] transition-transform duration-300 flex-shrink-0", isOpen && "rotate-180")} />
             </button>
 

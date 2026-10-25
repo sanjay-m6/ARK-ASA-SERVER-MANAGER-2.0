@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useIdleAnimations } from '../../hooks/useIdleAnimations';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
@@ -35,15 +35,29 @@ export default function AppLayout() {
     const currentModeServers = isASE ? aseServers : asaServers;
     const hasInstalledServers = currentModeServers.length > 0;
 
+    // Stores start empty; wait for the first load before deciding there are no servers.
+    const [serversLoaded, setServersLoaded] = useState(false);
+
     useEffect(() => {
-        if (!hasInstalledServers) {
+        let cancelled = false;
+        Promise.allSettled([
+            useServerStore.getState().refreshServers(),
+            useAseServerStore.getState().refreshServers(),
+        ]).then(() => {
+            if (!cancelled) setServersLoaded(true);
+        });
+        return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
+        if (serversLoaded && !hasInstalledServers) {
             const path = location.pathname;
             const isAllowed = path === '/servers' || path === '/ase/servers' || path === '/settings' || path === '/ase/settings' || path === '/wiki';
             if (!isAllowed) {
                 navigate(isASE ? '/ase/servers' : '/servers', { replace: true });
             }
         }
-    }, [hasInstalledServers, isASE, location.pathname, navigate]);
+    }, [serversLoaded, hasInstalledServers, isASE, location.pathname, navigate]);
 
     useEffect(() => {
         // Memory optimization: Trim working set periodically without page-fault churn

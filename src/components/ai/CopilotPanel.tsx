@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Send, Trash2, Loader2, Maximize2, History } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useCrashNotificationStore } from '../../stores/crashNotificationStore';
 import { cn } from '../../utils/helpers';
 import { useCopilotStore } from '../../stores/copilotStore';
@@ -19,6 +20,7 @@ import CopilotSuggestions from './CopilotSuggestions';
 
 export default function CopilotPanel() {
     const navigate = useNavigate();
+    const { t } = useTranslation();
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const [input, setInput] = useState('');
@@ -38,6 +40,8 @@ export default function CopilotPanel() {
     } = useCopilotStore();
 
     const pageConfig = getPageConfig(currentRoute);
+    const pageName = t(`copilot.pages.${pageConfig.id}.name`, pageConfig.name);
+    const pageSuggestions = pageConfig.suggestions.map((s, i) => t(`copilot.pages.${pageConfig.id}.suggestions.s${i}`, s));
 
     // Load history on mount
     useEffect(() => {
@@ -107,7 +111,7 @@ export default function CopilotPanel() {
                     addMessage({
                         id: generateMessageId(),
                         role: 'assistant',
-                        content: `⚠️ **${tool.label}** requires confirmation. Please use the full AI Assistant for actions that need approval.\n\n👉 [Open AI Assistant](/tools/ai)`,
+                        content: t('copilot.requiresConfirmation', { defaultValue: '⚠️ **{{tool}}** requires confirmation. Please use the full AI Assistant for actions that need approval.\n\n👉 [Open AI Assistant](/tools/ai)', tool: tool.label, interpolation: { escapeValue: false } }),
                         timestamp: Date.now(),
                     });
                 } else {
@@ -124,14 +128,16 @@ export default function CopilotPanel() {
                         addMessage({
                             id: generateMessageId(),
                             role: 'assistant',
-                            content: followUp.content || (result.success ? '✅ Done.' : '❌ Failed.'),
+                            content: followUp.content || (result.success ? t('copilot.toolDone', '✅ Done.') : t('copilot.toolFailed', '❌ Failed.')),
                             timestamp: Date.now(),
                         });
                     } catch {
                         addMessage({
                             id: generateMessageId(),
                             role: 'assistant',
-                            content: result.success ? `✅ **${tool?.label}** completed.` : `❌ **${tool?.label}** failed.`,
+                            content: result.success
+                                ? t('copilot.toolCompleted', { defaultValue: '✅ **{{tool}}** completed.', tool: tool?.label, interpolation: { escapeValue: false } })
+                                : t('copilot.toolFailedNamed', { defaultValue: '❌ **{{tool}}** failed.', tool: tool?.label, interpolation: { escapeValue: false } }),
                             timestamp: Date.now(),
                         });
                     }
@@ -140,7 +146,7 @@ export default function CopilotPanel() {
                 addMessage({
                     id: generateMessageId(),
                     role: 'assistant',
-                    content: response.content || 'No response.',
+                    content: response.content || t('copilot.noResponse', 'No response.'),
                     timestamp: Date.now(),
                 });
             }
@@ -156,7 +162,7 @@ export default function CopilotPanel() {
             setStreaming(false);
             setStreamingContent('');
         }
-    }, [input, isStreaming, currentRoute, pageConfig, addMessage, setStreaming, setStreamingContent]);
+    }, [input, isStreaming, currentRoute, pageConfig, addMessage, setStreaming, setStreamingContent, t]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -179,40 +185,40 @@ export default function CopilotPanel() {
                 <div className="flex items-center gap-2 min-w-0">
                     <span className="text-base flex-shrink-0">{pageConfig.icon}</span>
                     <div className="min-w-0">
-                        <h3 className="text-[13px] font-bold text-white truncate">{pageConfig.name}</h3>
-                        <p className="text-[9px] text-slate-500 truncate">Infinity AI • Context-aware</p>
+                        <h3 className="text-[13px] font-bold text-white truncate">{pageName}</h3>
+                        <p className="text-[9px] text-slate-500 truncate">{t('copilot.subtitle', 'Infinity AI • Context-aware')}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                         onClick={() => useCrashNotificationStore.getState().setArchiveOpen(true)}
                         className="p-1.5 rounded-lg text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all"
-                        title="View Crash Archive"
-                        aria-label="View Crash Archive"
+                        title={t('copilot.viewCrashArchive', 'View Crash Archive')}
+                        aria-label={t('copilot.viewCrashArchive', 'View Crash Archive')}
                     >
                         <History className="w-3.5 h-3.5" />
                     </button>
                     <button
                         onClick={() => navigate('/tools/ai')}
                         className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-all"
-                        title="Open full AI Assistant"
-                        aria-label="Open full AI Assistant"
+                        title={t('copilot.openFull', 'Open full AI Assistant')}
+                        aria-label={t('copilot.openFull', 'Open full AI Assistant')}
                     >
                         <Maximize2 className="w-3.5 h-3.5" />
                     </button>
                     <button
                         onClick={clearMessages}
                         className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                        title="Clear chat"
-                        aria-label="Clear chat"
+                        title={t('copilot.clearChat', 'Clear chat')}
+                        aria-label={t('copilot.clearChat', 'Clear chat')}
                     >
                         <Trash2 className="w-3.5 h-3.5" />
                     </button>
                     <button
                         onClick={close}
                         className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-all"
-                        title="Close"
-                        aria-label="Close copilot"
+                        title={t('common.close', 'Close')}
+                        aria-label={t('copilot.closeCopilot', 'Close copilot')}
                     >
                         <X className="w-3.5 h-3.5" />
                     </button>
@@ -222,7 +228,7 @@ export default function CopilotPanel() {
             {/* Suggestions */}
             {messages.length === 0 && (
                 <CopilotSuggestions
-                    suggestions={pageConfig.suggestions}
+                    suggestions={pageSuggestions}
                     onSelect={handleSuggestionClick}
                     disabled={isStreaming}
                 />
@@ -234,7 +240,7 @@ export default function CopilotPanel() {
                     <div className="flex flex-col items-center justify-center h-full text-center px-6">
                         <span className="text-3xl mb-3">{pageConfig.icon}</span>
                         <p className="text-[12px] text-slate-400 max-w-[200px]">
-                            Ask me anything about this page or use a suggestion above.
+                            {t('copilot.emptyHint', 'Ask me anything about this page or use a suggestion above.')}
                         </p>
                     </div>
                 )}
@@ -256,7 +262,7 @@ export default function CopilotPanel() {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder={`Ask ${pageConfig.name}...`}
+                        placeholder={t('copilot.placeholder', { defaultValue: 'Ask {{name}}...', name: pageName })}
                         rows={1}
                         className="flex-1 bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-2 text-[13px] text-white placeholder-slate-500 resize-none focus:outline-none focus:border-cyan-500/30 transition-all"
                         style={{ minHeight: '36px', maxHeight: '72px' }}
@@ -271,13 +277,13 @@ export default function CopilotPanel() {
                                 ? "bg-cyan-500/90 text-white hover:bg-cyan-400/90"
                                 : "bg-slate-800/50 text-slate-600 cursor-not-allowed"
                         )}
-                        aria-label="Send message"
+                        aria-label={t('copilot.send', 'Send message')}
                     >
                         {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                     </button>
                 </div>
                 <p className="text-[9px] text-slate-600 mt-1.5 text-center">
-                    Enter to send • Shift+Enter for newline
+                    {t('copilot.enterHint', 'Enter to send • Shift+Enter for newline')}
                 </p>
             </div>
         </div>

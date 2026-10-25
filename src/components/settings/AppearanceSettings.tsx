@@ -120,29 +120,29 @@ const QUICK_INSPIRATION_PRESETS: Array<{
 ];
 
 const ACCENT_COLOR_SWATCHES = [
-    { label: 'Cyan', hex: '#00f0ff' },
-    { label: 'Sky Blue', hex: '#0ea5e9' },
-    { label: 'Royal Blue', hex: '#2563eb' },
-    { label: 'Indigo', hex: '#6366f1' },
-    { label: 'Purple', hex: '#a855f7' },
-    { label: 'Pink', hex: '#ec4899' },
-    { label: 'Rose', hex: '#f43f5e' },
-    { label: 'Red', hex: '#ef4444' },
-    { label: 'Orange', hex: '#f97316' },
-    { label: 'Amber', hex: '#f59e0b' },
-    { label: 'Lime', hex: '#84cc16' },
-    { label: 'Emerald', hex: '#10b981' },
+    { id: 'cyan', label: 'Cyan', hex: '#00f0ff' },
+    { id: 'skyBlue', label: 'Sky Blue', hex: '#0ea5e9' },
+    { id: 'royalBlue', label: 'Royal Blue', hex: '#2563eb' },
+    { id: 'indigo', label: 'Indigo', hex: '#6366f1' },
+    { id: 'purple', label: 'Purple', hex: '#a855f7' },
+    { id: 'pink', label: 'Pink', hex: '#ec4899' },
+    { id: 'rose', label: 'Rose', hex: '#f43f5e' },
+    { id: 'red', label: 'Red', hex: '#ef4444' },
+    { id: 'orange', label: 'Orange', hex: '#f97316' },
+    { id: 'amber', label: 'Amber', hex: '#f59e0b' },
+    { id: 'lime', label: 'Lime', hex: '#84cc16' },
+    { id: 'emerald', label: 'Emerald', hex: '#10b981' },
 ];
 
 const BACKGROUND_SWATCHES = [
-    { label: 'Charcoal Slate', hex: '#0a0d14' },
-    { label: 'Midnight Navy', hex: '#070d1d' },
-    { label: 'OLED Pitch Black', hex: '#000000' },
-    { label: 'Deep Amethyst', hex: '#0d0818' },
-    { label: 'Volcanic Dark', hex: '#120707' },
-    { label: 'Forest Pine', hex: '#05130b' },
-    { label: 'Dark Mocha', hex: '#140e0a' },
-    { label: 'Deep Ocean', hex: '#061224' },
+    { id: 'charcoalSlate', label: 'Charcoal Slate', hex: '#0a0d14' },
+    { id: 'midnightNavy', label: 'Midnight Navy', hex: '#070d1d' },
+    { id: 'oledPitchBlack', label: 'OLED Pitch Black', hex: '#000000' },
+    { id: 'deepAmethyst', label: 'Deep Amethyst', hex: '#0d0818' },
+    { id: 'volcanicDark', label: 'Volcanic Dark', hex: '#120707' },
+    { id: 'forestPine', label: 'Forest Pine', hex: '#05130b' },
+    { id: 'darkMocha', label: 'Dark Mocha', hex: '#140e0a' },
+    { id: 'deepOcean', label: 'Deep Ocean', hex: '#061224' },
 ];
 
 export default function AppearanceSettings() {
@@ -165,18 +165,18 @@ export default function AppearanceSettings() {
 
     const handleApplyCustomTheme = () => {
         setTheme('custom');
-        toast.success('Applied your Custom Theme configuration!', { id: 'theme-switch-toast' });
+        toast.success(t('settings.appearance.customApplied', 'Applied your Custom Theme configuration!'), { id: 'theme-switch-toast' });
     };
 
     const handleCopyConfig = () => {
         navigator.clipboard.writeText(JSON.stringify(customConfig, null, 2));
         setCopiedJson(true);
-        toast.success('Custom theme config copied to clipboard!');
+        toast.success(t('settings.appearance.configCopied', 'Custom theme config copied to clipboard!'));
         setTimeout(() => setCopiedJson(false), 2000);
     };
 
     const handleImportConfig = () => {
-        const input = prompt('Paste your theme configuration JSON here:');
+        const input = prompt(t('settings.appearance.pasteConfigPrompt', 'Paste your theme configuration JSON here:'));
         if (!input) return;
         try {
             const parsed = JSON.parse(input);
@@ -184,9 +184,9 @@ export default function AppearanceSettings() {
             if (activeTheme !== 'custom') {
                 setTheme('custom');
             }
-            toast.success('Successfully imported custom theme config!');
+            toast.success(t('settings.appearance.configImported', 'Successfully imported custom theme config!'));
         } catch {
-            toast.error('Invalid theme configuration JSON format.');
+            toast.error(t('settings.appearance.invalidConfig', 'Invalid theme configuration JSON format.'));
         }
     };
 
@@ -213,7 +213,7 @@ export default function AppearanceSettings() {
                                     {t('settings.appearance.title', 'Application Theme & Visual Style')}
                                 </h2>
                                 <span className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-sky-500/20 text-sky-400 border border-sky-500/30">
-                                    10 Styles + Custom
+                                    {t('settings.appearance.stylesBadge', '10 Styles + Custom')}
                                 </span>
                             </div>
                             <p className="text-sm text-[var(--text-secondary)] mt-1 leading-relaxed">
@@ -235,7 +235,7 @@ export default function AppearanceSettings() {
                             )}
                         >
                             <Compass className="w-4 h-4 text-sky-400" />
-                            <span>Presets ({AVAILABLE_THEMES.length})</span>
+                            <span>{t('settings.appearance.presetsTab', { defaultValue: 'Presets ({{count}})', count: AVAILABLE_THEMES.length })}</span>
                         </button>
                         <button
                             type="button"
@@ -248,7 +248,7 @@ export default function AppearanceSettings() {
                             )}
                         >
                             <Sparkles className="w-4 h-4 text-amber-300" />
-                            <span>Custom UI Studio</span>
+                            <span>{t('settings.appearance.studioTab', 'Custom UI Studio')}</span>
                             {isCustomActive && (
                                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                             )}
@@ -263,10 +263,10 @@ export default function AppearanceSettings() {
                     {/* Category Filter Pills */}
                     <div className="flex items-center gap-2 flex-wrap pb-1">
                         {[
-                            { id: 'all', label: 'All Themes', count: AVAILABLE_THEMES.length },
-                            { id: 'dark', label: 'Dark Charcoal', count: AVAILABLE_THEMES.filter(t => t.category === 'dark').length },
-                            { id: 'special', label: 'Cyberpunk & Vibrant', count: AVAILABLE_THEMES.filter(t => t.category === 'special').length },
-                            { id: 'light', label: 'Light Mode', count: AVAILABLE_THEMES.filter(t => t.category === 'light').length },
+                            { id: 'all', label: t('settings.appearance.categories.all', 'All Themes'), count: AVAILABLE_THEMES.length },
+                            { id: 'dark', label: t('settings.appearance.categories.dark', 'Dark Charcoal'), count: AVAILABLE_THEMES.filter(t => t.category === 'dark').length },
+                            { id: 'special', label: t('settings.appearance.categories.special', 'Cyberpunk & Vibrant'), count: AVAILABLE_THEMES.filter(t => t.category === 'special').length },
+                            { id: 'light', label: t('settings.appearance.categories.light', 'Light Mode'), count: AVAILABLE_THEMES.filter(t => t.category === 'light').length },
                         ].map((cat) => (
                             <button
                                 key={cat.id}
@@ -371,7 +371,7 @@ export default function AppearanceSettings() {
                                                         category === 'special' ? "bg-purple-500/20 text-purple-300 border border-purple-500/40" :
                                                         "bg-blue-500/20 text-blue-400 border border-blue-500/40"
                                                     )}>
-                                                        {badge}
+                                                        {t(`settings.appearance.themes.${id}.badge`, badge)}
                                                     </span>
                                                 )}
                                             </div>
@@ -395,7 +395,7 @@ export default function AppearanceSettings() {
                                         </div>
 
                                         <p className="text-xs text-[var(--text-secondary)] leading-relaxed min-h-[36px]">
-                                            {description}
+                                            {t(`settings.appearance.themes.${id}.description`, description)}
                                         </p>
 
                                         {/* Color Swatches */}
@@ -430,15 +430,15 @@ export default function AppearanceSettings() {
                             </div>
                             <div>
                                 <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
-                                    <span>Personalize Your Own ARK Server Manager UI</span>
+                                    <span>{t('settings.appearance.studioTitle', 'Personalize Your Own ARK Server Manager UI')}</span>
                                     {isCustomActive && (
                                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                            Currently Active
+                                            {t('settings.appearance.currentlyActive', 'Currently Active')}
                                         </span>
                                     )}
                                 </h3>
                                 <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                                    Pick custom accents, background tones, and glass aesthetics. Changes preview instantly and apply globally.
+                                    {t('settings.appearance.studioDescription', 'Pick custom accents, background tones, and glass aesthetics. Changes preview instantly and apply globally.')}
                                 </p>
                             </div>
                         </div>
@@ -451,14 +451,14 @@ export default function AppearanceSettings() {
                                     className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-purple-950/30 transition-all cursor-pointer"
                                 >
                                     <Sparkles className="w-4 h-4" />
-                                    <span>Activate Custom Theme</span>
+                                    <span>{t('settings.appearance.activateCustom', 'Activate Custom Theme')}</span>
                                 </button>
                             )}
                             <button
                                 type="button"
                                 onClick={handleCopyConfig}
                                 className="p-2.5 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl border border-[var(--border)] transition-all cursor-pointer"
-                                title="Copy Theme JSON"
+                                title={t('settings.appearance.copyJson', 'Copy Theme JSON')}
                             >
                                 {copiedJson ? <CheckCheck className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                             </button>
@@ -466,7 +466,7 @@ export default function AppearanceSettings() {
                                 type="button"
                                 onClick={handleImportConfig}
                                 className="p-2.5 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl border border-[var(--border)] transition-all cursor-pointer"
-                                title="Import Theme JSON"
+                                title={t('settings.appearance.importJson', 'Import Theme JSON')}
                             >
                                 <Upload className="w-4 h-4" />
                             </button>
@@ -474,7 +474,7 @@ export default function AppearanceSettings() {
                                 type="button"
                                 onClick={resetCustomTheme}
                                 className="p-2.5 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-muted)] hover:text-red-400 rounded-xl border border-[var(--border)] transition-all cursor-pointer"
-                                title="Reset to Defaults"
+                                title={t('settings.appearance.resetDefaults', 'Reset to Defaults')}
                             >
                                 <RefreshCw className="w-4 h-4" />
                             </button>
@@ -485,9 +485,9 @@ export default function AppearanceSettings() {
                     <div className="bg-[var(--surface)] p-6 rounded-3xl border border-[var(--border)] shadow-xl space-y-3">
                         <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                                Quick Palette Inspiration
+                                {t('settings.appearance.quickInspiration', 'Quick Palette Inspiration')}
                             </span>
-                            <span className="text-[11px] text-[var(--text-muted)]">Click any card to load values into studio</span>
+                            <span className="text-[11px] text-[var(--text-muted)]">{t('settings.appearance.clickCardHint', 'Click any card to load values into studio')}</span>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             {QUICK_INSPIRATION_PRESETS.map((preset) => (
@@ -496,7 +496,7 @@ export default function AppearanceSettings() {
                                     type="button"
                                     onClick={() => {
                                         setCustomConfig(preset.config);
-                                        toast.success(`Loaded "${preset.name}" preset`);
+                                        toast.success(t('settings.appearance.presetLoaded', { defaultValue: 'Loaded "{{name}}" preset', name: preset.name }));
                                     }}
                                     className="flex items-center gap-2.5 p-3 rounded-2xl bg-[var(--bg-primary)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-purple-500/40 text-left transition-all group cursor-pointer"
                                 >
@@ -524,13 +524,13 @@ export default function AppearanceSettings() {
                             <div className="bg-[var(--surface)] p-6 rounded-3xl border border-[var(--border)] shadow-xl space-y-4">
                                 <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
                                     <Sun className="w-4 h-4 text-amber-400" />
-                                    <span>1. Base Theme Mode</span>
+                                    <span>{t('settings.appearance.baseMode', '1. Base Theme Mode')}</span>
                                 </h4>
                                 <div className="grid grid-cols-3 gap-3">
                                     {[
-                                        { id: 'dark', label: 'Dark Charcoal', desc: 'Balanced dark surfaces', icon: Moon },
-                                        { id: 'oled', label: 'Pitch Black (OLED)', desc: 'True pure #000000 black', icon: Zap },
-                                        { id: 'light', label: 'Clean Light', desc: 'Crisp high-contrast light', icon: Sun },
+                                        { id: 'dark', label: t('settings.appearance.modes.dark', 'Dark Charcoal'), desc: t('settings.appearance.modes.darkDesc', 'Balanced dark surfaces'), icon: Moon },
+                                        { id: 'oled', label: t('settings.appearance.modes.oled', 'Pitch Black (OLED)'), desc: t('settings.appearance.modes.oledDesc', 'True pure #000000 black'), icon: Zap },
+                                        { id: 'light', label: t('settings.appearance.modes.light', 'Clean Light'), desc: t('settings.appearance.modes.lightDesc', 'Crisp high-contrast light'), icon: Sun },
                                     ].map((mode) => {
                                         const Icon = mode.icon;
                                         const isSelected = customConfig.baseMode === mode.id;
@@ -565,7 +565,7 @@ export default function AppearanceSettings() {
                                 <div className="flex items-center justify-between">
                                     <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
                                         <Flame className="w-4 h-4 text-rose-400" />
-                                        <span>2. Primary Accent Color</span>
+                                        <span>{t('settings.appearance.primaryAccent', '2. Primary Accent Color')}</span>
                                     </h4>
                                     <div className="flex items-center gap-2">
                                         <input
@@ -573,7 +573,7 @@ export default function AppearanceSettings() {
                                             value={customConfig.primaryAccent}
                                             onChange={(e) => setCustomConfig({ primaryAccent: e.target.value })}
                                             className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0"
-                                            title="Pick exact color"
+                                            title={t('settings.appearance.pickColor', 'Pick exact color')}
                                         />
                                         <input
                                             type="text"
@@ -600,7 +600,7 @@ export default function AppearanceSettings() {
                                                 )}
                                             >
                                                 <span className="w-4 h-4 rounded-full border border-black/20 shrink-0" style={{ backgroundColor: swatch.hex }} />
-                                                <span className="text-[11px] font-semibold text-[var(--text-secondary)] truncate">{swatch.label}</span>
+                                                <span className="text-[11px] font-semibold text-[var(--text-secondary)] truncate">{t(`settings.appearance.colors.${swatch.id}`, swatch.label)}</span>
                                             </button>
                                         );
                                     })}
@@ -613,7 +613,7 @@ export default function AppearanceSettings() {
                                 <div className="bg-[var(--surface)] p-6 rounded-3xl border border-[var(--border)] shadow-xl space-y-4">
                                     <div className="flex items-center justify-between">
                                         <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">
-                                            Secondary Accent
+                                            {t('settings.appearance.secondaryAccent', 'Secondary Accent')}
                                         </h4>
                                         <div className="flex items-center gap-2">
                                             <input
@@ -643,7 +643,7 @@ export default function AppearanceSettings() {
                                                         : "border-black/20 hover:scale-105"
                                                 )}
                                                 style={{ backgroundColor: swatch.hex }}
-                                                title={swatch.label}
+                                                title={t(`settings.appearance.colors.${swatch.id}`, swatch.label)}
                                             />
                                         ))}
                                     </div>
@@ -653,7 +653,7 @@ export default function AppearanceSettings() {
                                 <div className="bg-[var(--surface)] p-6 rounded-3xl border border-[var(--border)] shadow-xl space-y-4">
                                     <div className="flex items-center justify-between">
                                         <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">
-                                            Background Tone
+                                            {t('settings.appearance.backgroundTone', 'Background Tone')}
                                         </h4>
                                         <div className="flex items-center gap-2">
                                             <input
@@ -683,7 +683,7 @@ export default function AppearanceSettings() {
                                                         : "border-white/20 hover:scale-105"
                                                 )}
                                                 style={{ backgroundColor: swatch.hex }}
-                                                title={swatch.label}
+                                                title={t(`settings.appearance.colors.${swatch.id}`, swatch.label)}
                                             />
                                         ))}
                                     </div>
@@ -696,13 +696,13 @@ export default function AppearanceSettings() {
                                 <div className="bg-[var(--surface)] p-6 rounded-3xl border border-[var(--border)] shadow-xl space-y-3">
                                     <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
                                         <Layers className="w-4 h-4 text-blue-400" />
-                                        <span>Surface & Glass Style</span>
+                                        <span>{t('settings.appearance.surfaceStyle', 'Surface & Glass Style')}</span>
                                     </h4>
                                     <div className="grid grid-cols-3 gap-2">
                                         {[
-                                            { id: 'glass', label: 'Glass' },
-                                            { id: 'frosted', label: 'Frosted' },
-                                            { id: 'solid', label: 'Solid' },
+                                            { id: 'glass', label: t('settings.appearance.surface.glass', 'Glass') },
+                                            { id: 'frosted', label: t('settings.appearance.surface.frosted', 'Frosted') },
+                                            { id: 'solid', label: t('settings.appearance.surface.solid', 'Solid') },
                                         ].map((item) => (
                                             <button
                                                 key={item.id}
@@ -725,13 +725,13 @@ export default function AppearanceSettings() {
                                 <div className="bg-[var(--surface)] p-6 rounded-3xl border border-[var(--border)] shadow-xl space-y-3">
                                     <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
                                         <Zap className="w-4 h-4 text-amber-400" />
-                                        <span>Border Glow Intensity</span>
+                                        <span>{t('settings.appearance.glowIntensity', 'Border Glow Intensity')}</span>
                                     </h4>
                                     <div className="grid grid-cols-3 gap-2">
                                         {[
-                                            { id: 'none', label: 'None' },
-                                            { id: 'subtle', label: 'Subtle' },
-                                            { id: 'vibrant', label: 'Vibrant' },
+                                            { id: 'none', label: t('common.none', 'None') },
+                                            { id: 'subtle', label: t('settings.appearance.glow.subtle', 'Subtle') },
+                                            { id: 'vibrant', label: t('settings.appearance.glow.vibrant', 'Vibrant') },
                                         ].map((item) => (
                                             <button
                                                 key={item.id}
@@ -758,10 +758,10 @@ export default function AppearanceSettings() {
                                 <div className="flex items-center justify-between">
                                     <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
                                         <Eye className="w-4 h-4 text-emerald-400" />
-                                        <span>Live UI Preview</span>
+                                        <span>{t('settings.appearance.livePreview', 'Live UI Preview')}</span>
                                     </h4>
                                     <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                                        Realtime
+                                        {t('settings.appearance.realtime', 'Realtime')}
                                     </span>
                                 </div>
 
@@ -805,21 +805,21 @@ export default function AppearanceSettings() {
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                                                 <span className="text-xs font-bold" style={{ color: customConfig.baseMode === 'light' ? '#0f172a' : '#ffffff' }}>
-                                                    The Island PvP Server
+                                                    {t('settings.appearance.mockServerName', 'The Island PvP Server')}
                                                 </span>
                                             </div>
                                             <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: '#10b98120', color: '#10b981' }}>
-                                                ONLINE
+                                                {t('common.online', 'Online').toUpperCase()}
                                             </span>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-2 text-[11px] pt-2 border-t" style={{ borderColor: customConfig.primaryAccent + '20' }}>
                                             <div>
-                                                <span className="block opacity-60 text-[9px] uppercase tracking-wider" style={{ color: customConfig.baseMode === 'light' ? '#64748b' : '#94a3b8' }}>Players</span>
+                                                <span className="block opacity-60 text-[9px] uppercase tracking-wider" style={{ color: customConfig.baseMode === 'light' ? '#64748b' : '#94a3b8' }}>{t('common.players', 'Players')}</span>
                                                 <span className="font-bold" style={{ color: customConfig.baseMode === 'light' ? '#0f172a' : '#ffffff' }}>24 / 70</span>
                                             </div>
                                             <div>
-                                                <span className="block opacity-60 text-[9px] uppercase tracking-wider" style={{ color: customConfig.baseMode === 'light' ? '#64748b' : '#94a3b8' }}>Memory</span>
+                                                <span className="block opacity-60 text-[9px] uppercase tracking-wider" style={{ color: customConfig.baseMode === 'light' ? '#64748b' : '#94a3b8' }}>{t('settings.appearance.memory', 'Memory')}</span>
                                                 <span className="font-bold" style={{ color: customConfig.baseMode === 'light' ? '#0f172a' : '#ffffff' }}>4.8 GB</span>
                                             </div>
                                         </div>
@@ -831,7 +831,7 @@ export default function AppearanceSettings() {
                                                 className="flex-1 py-1.5 rounded-lg text-white font-bold text-[11px] shadow-sm"
                                                 style={{ backgroundColor: customConfig.primaryAccent }}
                                             >
-                                                Start Server
+                                                {t('settings.appearance.startServer', 'Start Server')}
                                             </button>
                                             <button 
                                                 type="button" 
@@ -858,11 +858,11 @@ export default function AppearanceSettings() {
                                     >
                                         <div className="flex items-center gap-1.5">
                                             <span className="opacity-50">[12:45:00]</span>
-                                            <span>[RCON] Server auto-save complete.</span>
+                                            <span>{t('settings.appearance.mockLog1', '[RCON] Server auto-save complete.')}</span>
                                         </div>
                                         <div className="flex items-center gap-1.5 opacity-80" style={{ color: customConfig.secondaryAccent }}>
                                             <span className="opacity-50">[12:45:05]</span>
-                                            <span>[Watchdog] Heartbeat OK. Ping: 24ms</span>
+                                            <span>{t('settings.appearance.mockLog2', '[Watchdog] Heartbeat OK. Ping: 24ms')}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -874,7 +874,7 @@ export default function AppearanceSettings() {
                                     className="w-full py-3.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl font-bold text-sm shadow-xl shadow-purple-950/40 transition-all flex items-center justify-center gap-2 cursor-pointer"
                                 >
                                     <Sparkles className="w-5 h-5 text-amber-300" />
-                                    <span>Apply Custom Theme Now</span>
+                                    <span>{t('settings.appearance.applyCustomNow', 'Apply Custom Theme Now')}</span>
                                 </button>
                             </div>
                         </div>

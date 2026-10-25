@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, Trash2, RotateCcw, Copy, Check, Eye, List, Sparkles, Layers, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
+import { NumberInput } from '../ui/NumberInput';
 
 interface EngramPointsPerLevelEditorProps {
     value: string;
@@ -63,6 +65,7 @@ export function serializeEngramPoints(levels: number[]): string {
 }
 
 export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerLevelEditorProps) {
+    const { t } = useTranslation();
     const [levels, setLevels] = useState<number[]>([]);
     const [defaultPoints, setDefaultPoints] = useState<number>(2400);
     const [targetLevelCount, setTargetLevelCount] = useState<number>(105);
@@ -91,7 +94,7 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
     const handleAddLevel = () => {
         const next = [...levels, defaultPoints];
         updateLevels(next);
-        toast.success(`Level ${next.length} added (${defaultPoints} points)`);
+        toast.success(t('engramPointsEditor.toasts.levelAdded', { defaultValue: 'Level {{level}} added ({{points}} points)', level: next.length, points: defaultPoints }));
     };
 
     const handleDeleteLevel = (index: number) => {
@@ -101,12 +104,12 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
 
     const handleApplyToAll = () => {
         if (levels.length === 0) {
-            toast.error('Add at least one level first or generate levels');
+            toast.error(t('engramPointsEditor.toasts.addLevelFirst', 'Add at least one level first or generate levels'));
             return;
         }
         const next = levels.map(() => defaultPoints);
         updateLevels(next);
-        toast.success(`Applied ${defaultPoints} engram points to all ${levels.length} levels`);
+        toast.success(t('engramPointsEditor.toasts.appliedToAll', { defaultValue: 'Applied {{points}} engram points to all {{count}} levels', points: defaultPoints, count: levels.length }));
     };
 
     const handleGenerateLevels = (count: number) => {
@@ -116,31 +119,31 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
             next.push(i === 0 ? 0 : defaultPoints);
         }
         updateLevels(next);
-        toast.success(`Generated ${count} levels (${defaultPoints} pts/level)`);
+        toast.success(t('engramPointsEditor.toasts.generated', { defaultValue: 'Generated {{count}} levels ({{points}} pts/level)', count, points: defaultPoints }));
     };
 
     const handleReset = () => {
         updateLevels([]);
-        toast.success('Cleared all level overrides');
+        toast.success(t('engramPointsEditor.toasts.cleared', 'Cleared all level overrides'));
     };
 
     // Raw INI preview text matching exact Game.ini output
     const rawIniPreview = useMemo(() => {
         if (levels.length === 0) {
-            return '; No Engram Points Overrides Configured\n; Default ARK server progression will be used.';
+            return `; ${t('engramPointsEditor.rawEmptyLine1', 'No Engram Points Overrides Configured')}\n; ${t('engramPointsEditor.rawEmptyLine2', 'Default ARK server progression will be used.')}`;
         }
         let ini = '[/Script/ShooterGame.ShooterGameMode]\n';
         for (const pts of levels) {
             ini += `OverridePlayerLevelEngramPoints=${pts}\n`;
         }
         return ini.trim();
-    }, [levels]);
+    }, [levels, t]);
 
     const copyRawPreview = () => {
         navigator.clipboard.writeText(rawIniPreview);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-        toast.success('Raw INI configuration copied to clipboard');
+        toast.success(t('engramPointsEditor.toasts.copied', 'Raw INI configuration copied to clipboard'));
     };
 
     return (
@@ -154,13 +157,13 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
                         </div>
                         <div>
                             <h4 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                                Engram Points Per Level Editor
+                                {t('engramPointsEditor.title', 'Engram Points Per Level Editor')}
                                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 font-mono border border-orange-500/30">
-                                    {levels.length} Levels Configured
+                                    {t('engramPointsEditor.levelsConfigured', { defaultValue: '{{count}} Levels Configured', count: levels.length })}
                                 </span>
                             </h4>
                             <p className="text-xs text-slate-400 mt-0.5">
-                                Set custom Engram Points awarded to players upon each level up in ARK: Survival Ascended.
+                                {t('engramPointsEditor.subtitle', 'Set custom Engram Points awarded to players upon each level up in ARK: Survival Ascended.')}
                             </p>
                         </div>
                     </div>
@@ -174,7 +177,7 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
                         className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#1a1a32] hover:bg-[#252545] border border-[#3d3d60] text-xs font-semibold text-slate-300 transition-all"
                     >
                         {viewMode === 'grid' ? <Eye className="w-4 h-4 text-cyan-400" /> : <List className="w-4 h-4 text-orange-400" />}
-                        {viewMode === 'grid' ? 'Show Raw INI Preview' : 'Show Level Grid'}
+                        {viewMode === 'grid' ? t('engramPointsEditor.showRaw', 'Show Raw INI Preview') : t('engramPointsEditor.showGrid', 'Show Level Grid')}
                     </button>
                     <button
                         type="button"
@@ -182,7 +185,7 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-xs font-semibold text-red-400 transition-all"
                     >
                         <RotateCcw className="w-3.5 h-3.5" />
-                        Reset
+                        {t('common.reset', 'Reset')}
                     </button>
                 </div>
             </div>
@@ -192,14 +195,14 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
                 {/* Default Points Input */}
                 <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                        Points Per Level
+                        {t('engramPointsEditor.pointsPerLevel', 'Points Per Level')}
                     </label>
-                    <input
-                        type="number"
-                        min="0"
-                        max="100000"
+                    <NumberInput
+                        integer
+                        min={0}
+                        max={100000}
                         value={defaultPoints}
-                        onChange={(e) => setDefaultPoints(Math.max(0, parseInt(e.target.value) || 0))}
+                        onValueChange={setDefaultPoints}
                         className="w-full bg-[#111122] border border-[#2d2d48] rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-orange-500"
                     />
                 </div>
@@ -207,14 +210,14 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
                 {/* Max Level Target Input */}
                 <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                        Target Level Count
+                        {t('engramPointsEditor.targetLevelCount', 'Target Level Count')}
                     </label>
-                    <input
-                        type="number"
-                        min="1"
-                        max="500"
+                    <NumberInput
+                        integer
+                        min={1}
+                        max={500}
                         value={targetLevelCount}
-                        onChange={(e) => setTargetLevelCount(Math.max(1, parseInt(e.target.value) || 105))}
+                        onValueChange={setTargetLevelCount}
                         className="w-full bg-[#111122] border border-[#2d2d48] rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-orange-500"
                     />
                 </div>
@@ -227,7 +230,7 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
                         className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-lg text-xs font-bold shadow-md transition-all"
                     >
                         <Sparkles className="w-4 h-4" />
-                        Generate {targetLevelCount} Levels
+                        {t('engramPointsEditor.generateLevels', { defaultValue: 'Generate {{count}} Levels', count: targetLevelCount })}
                     </button>
                 </div>
 
@@ -239,7 +242,7 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
                         className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[#252545] hover:bg-[#32325c] border border-orange-500/30 text-orange-300 rounded-lg text-xs font-bold transition-all"
                     >
                         <ArrowRight className="w-4 h-4" />
-                        Apply {defaultPoints} to All
+                        {t('engramPointsEditor.applyToAll', { defaultValue: 'Apply {{points}} to All', points: defaultPoints })}
                     </button>
                 </div>
             </div>
@@ -250,9 +253,9 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
                     {levels.length === 0 ? (
                         <div className="text-center py-10 bg-[#16162a] rounded-xl border border-dashed border-slate-700 p-6 space-y-3">
                             <Layers className="w-10 h-10 text-slate-500 mx-auto opacity-50" />
-                            <p className="text-sm font-semibold text-slate-300">No Custom Engram Points Configured</p>
+                            <p className="text-sm font-semibold text-slate-300">{t('engramPointsEditor.emptyTitle', 'No Custom Engram Points Configured')}</p>
                             <p className="text-xs text-slate-500 max-w-md mx-auto">
-                                Click below to generate standard level progression or add levels manually.
+                                {t('engramPointsEditor.emptyDescription', 'Click below to generate standard level progression or add levels manually.')}
                             </p>
                             <div className="flex justify-center gap-3 pt-2">
                                 <button
@@ -260,14 +263,14 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
                                     onClick={() => handleGenerateLevels(105)}
                                     className="px-4 py-2 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-600 transition-all shadow-lg"
                                 >
-                                    Generate 105 Levels (2400 pts)
+                                    {t('engramPointsEditor.generateDefault', 'Generate 105 Levels (2400 pts)')}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={handleAddLevel}
                                     className="px-4 py-2 bg-[#252545] text-slate-200 border border-slate-600 rounded-lg text-xs font-semibold hover:bg-[#303058] transition-all"
                                 >
-                                    + Add Level 1
+                                    {t('engramPointsEditor.addFirstLevel', '+ Add Level 1')}
                                 </button>
                             </div>
                         </div>
@@ -278,29 +281,29 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
                                 <table className="w-full text-left border-collapse">
                                     <thead className="bg-[#1b1b36] sticky top-0 z-10 text-[11px] font-bold text-slate-400 uppercase border-b border-[#2d2d48]">
                                         <tr>
-                                            <th className="py-2.5 px-4 w-28">Player Level</th>
-                                            <th className="py-2.5 px-4">Engram Points Granted</th>
-                                            <th className="py-2.5 px-4 w-24 text-right">Actions</th>
+                                            <th className="py-2.5 px-4 w-28">{t('engramPointsEditor.playerLevel', 'Player Level')}</th>
+                                            <th className="py-2.5 px-4">{t('engramPointsEditor.pointsGranted', 'Engram Points Granted')}</th>
+                                            <th className="py-2.5 px-4 w-24 text-right">{t('common.actions', 'Actions')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5 font-mono text-xs text-slate-200">
                                         {levels.map((pts, idx) => (
                                             <tr key={idx} className="hover:bg-white/[0.02] transition-colors">
                                                 <td className="py-2 px-4 font-bold text-orange-400">
-                                                    Level {idx + 1}
+                                                    {t('engramPointsEditor.level', { defaultValue: 'Level {{level}}', level: idx + 1 })}
                                                 </td>
                                                 <td className="py-2 px-4">
                                                     <div className="flex items-center gap-3">
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max="100000"
+                                                        <NumberInput
+                                                            integer
+                                                            min={0}
+                                                            max={100000}
                                                             value={pts}
-                                                            onChange={(e) => handleLevelChange(idx, e.target.value)}
+                                                            onValueChange={(n) => handleLevelChange(idx, String(n))}
                                                             className="w-36 bg-[#0c0c1a] border border-[#2d2d48] rounded-md px-3 py-1 text-white font-mono text-xs focus:outline-none focus:border-orange-500"
                                                         />
                                                         <span className="text-[11px] text-slate-500 font-sans">
-                                                            {pts === 0 ? '(0 points - starter)' : `+${pts.toLocaleString()} pts`}
+                                                            {pts === 0 ? t('engramPointsEditor.starter', '(0 points - starter)') : t('engramPointsEditor.plusPoints', { defaultValue: '+{{points}} pts', points: pts.toLocaleString() })}
                                                         </span>
                                                     </div>
                                                 </td>
@@ -309,7 +312,7 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
                                                         type="button"
                                                         onClick={() => handleDeleteLevel(idx)}
                                                         className="p-1.5 rounded-md text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                                                        title="Delete Level"
+                                                        title={t('engramPointsEditor.deleteLevel', 'Delete Level')}
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
@@ -328,10 +331,10 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
                                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-orange-400 text-xs font-bold transition-all"
                                 >
                                     <Plus className="w-4 h-4" />
-                                    Add Level {levels.length + 1} ({defaultPoints} pts)
+                                    {t('engramPointsEditor.addLevel', { defaultValue: 'Add Level {{level}} ({{points}} pts)', level: levels.length + 1, points: defaultPoints })}
                                 </button>
                                 <span className="text-xs text-slate-500 font-mono">
-                                    Total Engram Points across all levels: <strong className="text-orange-400">{levels.reduce((a, b) => a + b, 0).toLocaleString()}</strong>
+                                    {t('engramPointsEditor.total', 'Total Engram Points across all levels:')} <strong className="text-orange-400">{levels.reduce((a, b) => a + b, 0).toLocaleString()}</strong>
                                 </span>
                             </div>
                         </>
@@ -343,7 +346,7 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
                     <div className="flex items-center justify-between bg-[#181830] px-4 py-2 rounded-t-xl border border-white/5">
                         <span className="text-xs font-bold text-slate-300 font-mono flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                            Generated Game.ini Output Preview (ShooterGame/Saved/Config/WindowsServer/Game.ini)
+                            {t('engramPointsEditor.rawPreviewTitle', 'Generated Game.ini Output Preview')} (ShooterGame/Saved/Config/WindowsServer/Game.ini)
                         </span>
                         <button
                             type="button"
@@ -351,7 +354,7 @@ export function EngramPointsPerLevelEditor({ value, onChange }: EngramPointsPerL
                             className="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white bg-[#252545] px-2.5 py-1 rounded-md border border-white/10 transition-all"
                         >
                             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                            {copied ? 'Copied!' : 'Copy INI Snippet'}
+                            {copied ? t('engramPointsEditor.copied', 'Copied!') : t('engramPointsEditor.copySnippet', 'Copy INI Snippet')}
                         </button>
                     </div>
                     <pre className="w-full bg-[#0a0a14] border border-[#2d2d48] rounded-b-xl p-4 text-xs font-mono text-emerald-400 overflow-x-auto max-h-[300px] leading-relaxed scrollbar-thin scrollbar-thumb-emerald-500/30">

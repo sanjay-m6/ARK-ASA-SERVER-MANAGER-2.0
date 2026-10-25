@@ -4,6 +4,8 @@ import { VANILLA_CREATURES, CreatureData } from '../../data/creatures';
 import { AseGameConfig } from '../../types/ase.types';
 import { cn } from '../../../utils/helpers';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
+import { NumberInput } from '../../../components/ui/NumberInput';
 
 interface ASEDinoSpawnControlProps {
   config: AseGameConfig;
@@ -179,6 +181,7 @@ function useVirtualList<T>({
 }
 
 export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: ASEDinoSpawnControlProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>('spawn');
 
   // Spawn Container Form States
@@ -278,7 +281,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
         npcReplacements: replacements
       });
       if (changed) {
-        toast.success(`Migrated ${config.excludeDinoClasses.length} excluded creatures to NPCReplacements format`);
+        toast.success(t('ase.dinoSpawnControl.migrated', { defaultValue: 'Migrated {{count}} excluded creatures to NPCReplacements format', count: config.excludeDinoClasses.length }));
       }
     }
   }, [config.excludeDinoClasses]);
@@ -615,7 +618,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
       ...config,
       npcReplacements: replacements
     });
-    toast.success(`Updated spawn settings for ${targets.length} creatures`);
+    toast.success(t('ase.dinoSpawnControl.updatedSpawn', { defaultValue: 'Updated spawn settings for {{count}} creatures', count: targets.length }));
   };
 
   const handleBulkToggleTame = (enable: boolean) => {
@@ -637,17 +640,17 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
       ...config,
       preventDinoTameClassNames: nextArr.map(wrapInQuotes)
     });
-    toast.success(`Updated taming settings for ${targets.length} creatures`);
+    toast.success(t('ase.dinoSpawnControl.updatedTaming', { defaultValue: 'Updated taming settings for {{count}} creatures', count: targets.length }));
   };
 
   const handleSaveSpawnContainer = () => {
     if (!containerDinoClass) {
-      toast.error('Please select a dino class');
+      toast.error(t('ase.dinoSpawnControl.selectDino', 'Please select a dino class'));
       return;
     }
     const finalContainer = containerClass === 'Custom' ? customContainerClass.trim() : containerClass;
     if (!finalContainer) {
-      toast.error('Please enter a container class name');
+      toast.error(t('ase.dinoSpawnControl.enterContainer', 'Please enter a container class name'));
       return;
     }
     const cleanEntryName = containerEntryName.trim() || 'CustomEntry';
@@ -685,7 +688,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
           [configKey]: [...currentList, newString]
         });
         resetSpawnContainerForm();
-        toast.success('Spawn container entry updated');
+        toast.success(t('ase.dinoSpawnControl.entryUpdated', 'Spawn container entry updated'));
         return;
       } else {
         currentList.push(newString);
@@ -698,7 +701,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
     });
 
     resetSpawnContainerForm();
-    toast.success('Spawn container entry saved');
+    toast.success(t('ase.dinoSpawnControl.entrySaved', 'Spawn container entry saved'));
   };
 
   const handleDeleteSpawnContainer = (action: 'add' | 'override', index: number) => {
@@ -710,7 +713,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
       ...config,
       [configKey]: list
     });
-    toast.success('Spawn container entry deleted');
+    toast.success(t('ase.dinoSpawnControl.entryDeleted', 'Spawn container entry deleted'));
   };
 
   const handleEditSpawnContainer = (action: 'add' | 'override', index: number, data: SpawnContainerParsed) => {
@@ -748,13 +751,13 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
     setTypeFilter('All');
     setAggressionFilter('All');
     setDietFilter('All');
-    toast.success('Filters and selections reset');
+    toast.success(t('ase.dinoSpawnControl.filtersReset', 'Filters and selections reset'));
   };
 
   // Add a Custom Mod Creature
   const handleAddCustomCreature = () => {
     if (!newCustomName || !newCustomClass) {
-      toast.error('Please enter Name and Class Name');
+      toast.error(t('ase.dinoSpawnControl.enterNameClass', 'Please enter Name and Class Name'));
       return;
     }
     const cleanClass = newCustomClass.trim();
@@ -763,7 +766,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
 
     // Check duplicate
     if (allCreatures.some(c => c.className === cleanClass)) {
-      toast.error('Creature with this Class Name already exists');
+      toast.error(t('ase.dinoSpawnControl.classExists', 'Creature with this Class Name already exists'));
       return;
     }
 
@@ -781,7 +784,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
     setNewCustomName('');
     setNewCustomClass('');
     setNewCustomTag('');
-    toast.success(`Custom creature "${cleanName}" added`);
+    toast.success(t('ase.dinoSpawnControl.customAdded', { defaultValue: 'Custom creature "{{name}}" added', name: cleanName }));
   };
 
   // Export / Import logic
@@ -797,7 +800,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
       tamedDinoClassResistanceMultipliers: config.tamedDinoClassResistanceMultipliers || []
     };
     navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-    toast.success('Creature configuration exported (JSON copied to clipboard)');
+    toast.success(t('ase.dinoSpawnControl.exported', 'Creature configuration exported (JSON copied to clipboard)'));
   };
 
   const handleImportConfig = () => {
@@ -816,9 +819,9 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
       });
       setIsImportModalOpen(false);
       setImportString('');
-      toast.success('Configurations imported successfully!');
+      toast.success(t('ase.dinoSpawnControl.imported', 'Configurations imported successfully!'));
     } catch {
-      toast.error('Invalid JSON structure. Please check and try again.');
+      toast.error(t('ase.dinoSpawnControl.invalidJson', 'Invalid JSON structure. Please check and try again.'));
     }
   };
 
@@ -858,18 +861,18 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
             🦖 Creature Spawn Control
           </h2>
           <p className="text-xs text-slate-400 mt-1.5 max-w-xl leading-relaxed">
-            Manage every ARK creature from one place. Configure spawning, taming, breeding, damage multipliers, resistance, and NPC replacements.
+            {t('ase.dinoSpawnControl.intro', 'Manage every ARK creature from one place. Configure spawning, taming, breeding, damage multipliers, resistance, and NPC replacements.')}
           </p>
         </div>
         
         {/* Statistics Cards Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 w-full lg:w-auto shrink-0">
           {[
-            { label: 'Total', count: stats.total, color: 'text-slate-200 border-slate-800 bg-slate-900/10' },
-            { label: 'Spawnable', count: stats.spawnable, color: 'text-emerald-400 border-emerald-500/10 bg-emerald-500/5' },
-            { label: 'Tameable', count: stats.tameable, color: 'text-sky-400 border-sky-500/10 bg-sky-500/5' },
-            { label: 'Breedable', count: stats.breedable, color: 'text-rose-400 border-rose-500/10 bg-rose-500/5' },
-            { label: 'Replacements', count: stats.replacements, color: 'text-purple-400 border-purple-500/10 bg-purple-500/5' },
+            { label: t('ase.dinoSpawnControl.flags.total', 'Total'), count: stats.total, color: 'text-slate-200 border-slate-800 bg-slate-900/10' },
+            { label: t('ase.dinoSpawnControl.flags.spawnable', 'Spawnable'), count: stats.spawnable, color: 'text-emerald-400 border-emerald-500/10 bg-emerald-500/5' },
+            { label: t('ase.dinoSpawnControl.flags.tameable', 'Tameable'), count: stats.tameable, color: 'text-sky-400 border-sky-500/10 bg-sky-500/5' },
+            { label: t('ase.dinoSpawnControl.flags.breedable', 'Breedable'), count: stats.breedable, color: 'text-rose-400 border-rose-500/10 bg-rose-500/5' },
+            { label: t('ase.dinoSpawnControl.flags.replacements', 'Replacements'), count: stats.replacements, color: 'text-purple-400 border-purple-500/10 bg-purple-500/5' },
           ].map(stat => (
             <div key={stat.label} className={cn("px-4 py-3 rounded-2xl border flex flex-col items-center justify-center min-w-[90px] shadow-sm", stat.color)}>
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">{stat.label}</span>
@@ -882,14 +885,14 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
       {/* Modern Tabs Navigation */}
       <div className="flex flex-wrap gap-1.5 bg-slate-950/60 p-1.5 rounded-2xl border border-slate-900">
         {[
-          { id: 'spawn', label: 'Creature List' },
-          { id: 'multipliers', label: 'Spawn Multipliers' },
-          { id: 'spawn_containers', label: 'Spawn Containers' },
-          { id: 'tamed_damage', label: 'Tamed Damage' },
-          { id: 'tamed_resistance', label: 'Tamed Resistance' },
-          { id: 'wild_damage', label: 'Wild Damage' },
-          { id: 'wild_resistance', label: 'Wild Resistance' },
-          { id: 'replacements', label: 'NPC Replacements' }
+          { id: 'spawn', label: t('ase.dinoSpawnControl.tabSpawn', 'Creature List') },
+          { id: 'multipliers', label: t('ase.dinoSpawnControl.tabMultipliers', 'Spawn Multipliers') },
+          { id: 'spawn_containers', label: t('ase.dinoSpawnControl.tabContainers', 'Spawn Containers') },
+          { id: 'tamed_damage', label: t('ase.dinoSpawnControl.tabTamedDamage', 'Tamed Damage') },
+          { id: 'tamed_resistance', label: t('ase.dinoSpawnControl.tabTamedResistance', 'Tamed Resistance') },
+          { id: 'wild_damage', label: t('ase.dinoSpawnControl.tabWildDamage', 'Wild Damage') },
+          { id: 'wild_resistance', label: t('ase.dinoSpawnControl.tabWildResistance', 'Wild Resistance') },
+          { id: 'replacements', label: t('ase.dinoSpawnControl.tabReplacements', 'NPC Replacements') }
         ].map(tab => (
           <button
             key={tab.id}
@@ -912,7 +915,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
           <div className="relative flex-1 max-w-md">
             <input
               type="text"
-              placeholder="Search creature name, class name, expansion..."
+              placeholder={t('ase.dinoSpawnControl.searchPlaceholder', 'Search creature name, class name, expansion...')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-xs font-semibold text-slate-200 focus:outline-none focus:border-amber-500/50 transition-all shadow-inner"
@@ -926,10 +929,10 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
               onChange={e => setModFilter(e.target.value)}
               className="appearance-none bg-slate-950/80 border border-slate-800 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-300 focus:outline-none focus:border-amber-500/50"
             >
-              <option value="All">All Mods/DLCs</option>
-              <option value="Vanilla">Vanilla (The Island)</option>
-              <option value="DLC">DLC Expansions</option>
-              <option value="Mods">Custom Mods</option>
+              <option value="All">{t('ase.dinoSpawnControl.allMods', 'All Mods/DLCs')}</option>
+              <option value="Vanilla">{t('ase.dinoSpawnControl.vanilla', 'Vanilla (The Island)')}</option>
+              <option value="DLC">{t('ase.dinoSpawnControl.dlcExpansions', 'DLC Expansions')}</option>
+              <option value="Mods">{t('ase.dinoSpawnControl.customMods', 'Custom Mods')}</option>
             </select>
 
             <select
@@ -937,15 +940,15 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
               onChange={e => setTypeFilter(e.target.value)}
               className="appearance-none bg-slate-950/80 border border-slate-800 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-300 focus:outline-none focus:border-amber-500/50"
             >
-              <option value="All">All Types</option>
-              <option value="Flyer">Flyers</option>
-              <option value="Water">Water Creatures</option>
-              <option value="Boss">Bosses</option>
-              <option value="Tek">Tek Variants</option>
-              <option value="Aberrant">Aberrant Variants</option>
-              <option value="Corrupted">Corrupted Variants</option>
-              <option value="X">X Variants</option>
-              <option value="R">R Variants</option>
+              <option value="All">{t('ase.dinoSpawnControl.allTypes', 'All Types')}</option>
+              <option value="Flyer">{t('ase.dinoSpawnControl.flyers', 'Flyers')}</option>
+              <option value="Water">{t('ase.dinoSpawnControl.waterCreatures', 'Water Creatures')}</option>
+              <option value="Boss">{t('ase.dinoSpawnControl.bosses', 'Bosses')}</option>
+              <option value="Tek">{t('ase.dinoSpawnControl.tekVariants', 'Tek Variants')}</option>
+              <option value="Aberrant">{t('ase.dinoSpawnControl.aberrantVariants', 'Aberrant Variants')}</option>
+              <option value="Corrupted">{t('ase.dinoSpawnControl.corruptedVariants', 'Corrupted Variants')}</option>
+              <option value="X">{t('ase.dinoSpawnControl.xVariants', 'X Variants')}</option>
+              <option value="R">{t('ase.dinoSpawnControl.rVariants', 'R Variants')}</option>
             </select>
 
             <button
@@ -958,7 +961,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
             <button
               onClick={handleExportConfig}
               className="px-3 py-2 bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-bold transition-all"
-              title="Export settings"
+              title={t('ase.dinoSpawnControl.exportSettings', 'Export settings')}
             >
               <Download className="w-4 h-4" />
             </button>
@@ -966,7 +969,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
             <button
               onClick={() => setIsImportModalOpen(true)}
               className="px-3 py-2 bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-bold transition-all"
-              title="Import settings"
+              title={t('ase.dinoSpawnControl.importSettings', 'Import settings')}
             >
               <Upload className="w-4 h-4" />
             </button>
@@ -975,7 +978,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
               onClick={handleResetFiltersAndSelections}
               className="px-3.5 py-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 rounded-xl text-xs font-bold transition-all"
             >
-              Reset
+              {t('ase.dinoSpawnControl.reset', 'Reset')}
             </button>
           </div>
         </div>
@@ -986,9 +989,9 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
         <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-950 border border-slate-800 px-6 py-3.5 rounded-2xl shadow-xl animate-slideIn">
           <div className="text-xs font-semibold text-slate-400">
             {selectedClasses.size > 0 ? (
-              <span>Selected <strong className="text-white">{selectedClasses.size}</strong> creatures</span>
+              <span>{t('ase.dinoSpawnControl.selectedPrefix', 'Selected')} <strong className="text-white">{selectedClasses.size}</strong> {t('ase.dinoSpawnControl.creaturesSuffix', 'creatures')}</span>
             ) : (
-              <span>All <strong className="text-white">{filteredCreatures.length}</strong> filtered creatures</span>
+              <span>{t('ase.dinoSpawnControl.allPrefix', 'All')} <strong className="text-white">{filteredCreatures.length}</strong> {t('ase.dinoSpawnControl.filteredSuffix', 'filtered creatures')}</span>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -996,31 +999,31 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
               onClick={() => handleBulkToggleSpawn(true)}
               className="px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded-lg transition-all"
             >
-              Enable Spawn
+              {t('ase.dinoSpawnControl.enableSpawn', 'Enable Spawn')}
             </button>
             <button
               onClick={() => handleBulkToggleSpawn(false)}
               className="px-3 py-1.5 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-lg transition-all"
             >
-              Disable Spawn
+              {t('ase.dinoSpawnControl.disableSpawn', 'Disable Spawn')}
             </button>
             <button
               onClick={() => handleBulkToggleTame(true)}
               className="px-3 py-1.5 bg-sky-500/10 border border-sky-500/20 hover:bg-sky-500/20 text-sky-400 text-xs font-bold rounded-lg transition-all"
             >
-              Enable Tame
+              {t('ase.dinoSpawnControl.enableTame', 'Enable Tame')}
             </button>
             <button
               onClick={() => handleBulkToggleTame(false)}
               className="px-3 py-1.5 bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/20 text-orange-400 text-xs font-bold rounded-lg transition-all"
             >
-              Disable Tame
+              {t('ase.dinoSpawnControl.disableTame', 'Disable Tame')}
             </button>
             <button
               onClick={() => setSelectedClasses(new Set())}
               className="px-3 py-1.5 bg-slate-900 border border-slate-800 text-slate-400 hover:text-white text-xs font-bold rounded-lg transition-all"
             >
-              Clear Selected
+              {t('ase.dinoSpawnControl.clearSelected', 'Clear Selected')}
             </button>
           </div>
         </div>
@@ -1034,20 +1037,20 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
             <div className="p-6 flex flex-col gap-6 text-left animate-fadeIn">
               <div className="bg-slate-900/40 rounded-2xl border border-slate-800/80 p-5 flex flex-col gap-4 shadow-inner">
                 <h3 className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                  {editingContainerIndex !== null ? 'Edit Spawn Entry' : 'Add Custom Spawn Entry'}
+                  {editingContainerIndex !== null ? t('ase.dinoSpawnControl.editEntry', 'Edit Spawn Entry') : t('ase.dinoSpawnControl.addEntryTitle', 'Add Custom Spawn Entry')}
                 </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Spawn Container Dropdown */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-black uppercase text-slate-500">Spawn Container</label>
+                    <label className="text-[10px] font-black uppercase text-slate-500">{t('ase.dinoSpawnControl.spawnContainer', 'Spawn Container')}</label>
                     <select
                       value={containerClass}
                       onChange={e => setContainerClass(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 text-xs font-bold rounded-xl px-3 py-2 text-slate-355 focus:outline-none focus:border-amber-500/50"
                     >
                       {SPAWN_CONTAINERS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        <option key={opt.value} value={opt.value}>{t(`ase.dinoSpawnControl.containers.${opt.value}`, opt.label)}</option>
                       ))}
                     </select>
                   </div>
@@ -1055,10 +1058,10 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                   {/* Custom Container Class input if Custom selected */}
                   {containerClass === 'Custom' && (
                     <div className="flex flex-col gap-1.5 animate-slideIn">
-                      <label className="text-[10px] font-black uppercase text-slate-500">Custom Container Class String</label>
+                      <label className="text-[10px] font-black uppercase text-slate-500">{t('ase.dinoSpawnControl.customContainer', 'Custom Container Class String')}</label>
                       <input
                         type="text"
-                        placeholder="e.g. DinoSpawnEntriesGrassland_C"
+                        placeholder={t('ase.dinoSpawnControl.containerPlaceholder', 'e.g. DinoSpawnEntriesGrassland_C')}
                         value={customContainerClass}
                         onChange={e => setCustomContainerClass(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500/50"
@@ -1068,20 +1071,20 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
 
                   {/* Config Action Add vs Override */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-black uppercase text-slate-500">Action Type</label>
+                    <label className="text-[10px] font-black uppercase text-slate-500">{t('ase.dinoSpawnControl.actionType', 'Action Type')}</label>
                     <select
                       value={containerAction}
                       onChange={e => setContainerAction(e.target.value as 'add' | 'override')}
                       className="w-full bg-slate-950 border border-slate-800 text-xs font-bold rounded-xl px-3 py-2 text-slate-355 focus:outline-none focus:border-amber-500/50"
                     >
-                      <option value="add">Add Spawns (Append to existing)</option>
-                      <option value="override">Override Spawns (Replace container contents)</option>
+                      <option value="add">{t('ase.dinoSpawnControl.addSpawns', 'Add Spawns (Append to existing)')}</option>
+                      <option value="override">{t('ase.dinoSpawnControl.overrideSpawns', 'Override Spawns (Replace container contents)')}</option>
                     </select>
                   </div>
 
                   {/* Creature Select */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-black uppercase text-slate-500">Target Creature</label>
+                    <label className="text-[10px] font-black uppercase text-slate-500">{t('ase.dinoSpawnControl.targetCreature', 'Target Creature')}</label>
                     <select
                       value={containerDinoClass}
                       onChange={e => {
@@ -1101,10 +1104,10 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
 
                   {/* Unique Entry Name */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-black uppercase text-slate-500">Unique Entry Name</label>
+                    <label className="text-[10px] font-black uppercase text-slate-500">{t('ase.dinoSpawnControl.uniqueEntryName', 'Unique Entry Name')}</label>
                     <input
                       type="text"
-                      placeholder="e.g. RaptorCustom"
+                      placeholder={t('ase.dinoSpawnControl.entryPlaceholder', 'e.g. RaptorCustom')}
                       value={containerEntryName}
                       onChange={e => setContainerEntryName(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500/50"
@@ -1124,12 +1127,10 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                         onChange={e => setContainerEntryWeight(parseFloat(e.target.value))}
                         className="flex-1 accent-amber-500 bg-slate-800 rounded-lg h-1.5 cursor-pointer"
                       />
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0.01"
+                      <NumberInput
+                        min={0.01}
                         value={containerEntryWeight}
-                        onChange={e => setContainerEntryWeight(parseFloat(e.target.value) || 1.0)}
+                        onValueChange={setContainerEntryWeight}
                         className="w-16 bg-slate-950 border border-slate-800 text-center text-xs font-bold text-slate-355 rounded-lg py-1 focus:border-amber-500/50 focus:outline-none"
                       />
                     </div>
@@ -1148,13 +1149,11 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                         onChange={e => setContainerMaxLimit(parseFloat(e.target.value))}
                         className="flex-1 accent-amber-500 bg-slate-800 rounded-lg h-1.5 cursor-pointer"
                       />
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0.00"
-                        max="1.0"
+                      <NumberInput
+                        min={0}
+                        max={1}
                         value={containerMaxLimit}
-                        onChange={e => setContainerMaxLimit(parseFloat(e.target.value) || 0.0)}
+                        onValueChange={setContainerMaxLimit}
                         className="w-16 bg-slate-950 border border-slate-800 text-center text-xs font-bold text-slate-355 rounded-lg py-1 focus:border-amber-500/50 focus:outline-none"
                       />
                     </div>
@@ -1167,14 +1166,14 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                       onClick={resetSpawnContainerForm}
                       className="px-4 py-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 rounded-xl text-slate-400 hover:text-white text-xs font-bold transition-all"
                     >
-                      Cancel Edit
+                      {t('ase.dinoSpawnControl.cancelEdit', 'Cancel Edit')}
                     </button>
                   )}
                   <button
                     onClick={handleSaveSpawnContainer}
                     className="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 hover:from-amber-400 hover:to-orange-400 rounded-xl text-xs font-extrabold transition-all"
                   >
-                    {editingContainerIndex !== null ? 'Update Entry' : 'Add Entry'}
+                    {editingContainerIndex !== null ? t('ase.dinoSpawnControl.updateEntry', 'Update Entry') : t('ase.dinoSpawnControl.addEntry', 'Add Entry')}
                   </button>
                 </div>
               </div>
@@ -1182,12 +1181,12 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
               {/* List of active entries */}
               <div className="flex flex-col gap-3">
                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Active Spawn Container Rules ({addSpawnContainersList.length + overrideSpawnContainersList.length})
+                  {t('ase.dinoSpawnControl.activeRules', 'Active Spawn Container Rules')} ({addSpawnContainersList.length + overrideSpawnContainersList.length})
                 </h4>
                 
                 {(addSpawnContainersList.length === 0 && overrideSpawnContainersList.length === 0) ? (
                   <div className="text-slate-500 text-xs italic py-10 text-center bg-slate-900/10 rounded-2xl border border-dashed border-slate-800">
-                    No custom spawn container overrides configured. Use the form above to add one.
+                    {t('ase.dinoSpawnControl.noRules', 'No custom spawn container overrides configured. Use the form above to add one.')}
                   </div>
                 ) : (
                   <div className="space-y-2.5 max-h-[450px] overflow-y-auto pr-1 custom-scrollbar">
@@ -1198,7 +1197,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                         <div key={`add-${item.index}`} className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-950/60 border border-slate-850 hover:border-slate-800 transition-all duration-300">
                           <div className="flex flex-col min-w-0 gap-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="px-2 py-0.5 rounded-md text-[8px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">ADD</span>
+                              <span className="px-2 py-0.5 rounded-md text-[8px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">{t('ase.dinoSpawnControl.add', 'ADD')}</span>
                               <span className="text-xs font-bold text-amber-500 truncate max-w-[180px]" title={item.containerClass}>
                                 {item.containerClass.replace(/_C$/i, '')}
                               </span>
@@ -1208,9 +1207,9 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                               </span>
                             </div>
                             <div className="flex items-center gap-3 text-[10px] font-medium text-slate-500">
-                              <span>Entry Name: <strong className="text-slate-350">{item.entryName}</strong></span>
-                              <span>Weight: <strong className="text-slate-350">{item.entryWeight.toFixed(2)}</strong></span>
-                              <span>Limit: <strong className="text-slate-350">{(item.maxLimit * 100).toFixed(0)}%</strong></span>
+                              <span>{t('ase.dinoSpawnControl.entryName', 'Entry Name')}: <strong className="text-slate-350">{item.entryName}</strong></span>
+                              <span>{t('ase.dinoSpawnControl.weight', 'Weight')}: <strong className="text-slate-350">{item.entryWeight.toFixed(2)}</strong></span>
+                              <span>{t('ase.dinoSpawnControl.limit', 'Limit')}: <strong className="text-slate-350">{(item.maxLimit * 100).toFixed(0)}%</strong></span>
                             </div>
                           </div>
                           
@@ -1218,14 +1217,14 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                             <button
                               onClick={() => handleEditSpawnContainer('add', item.index, item)}
                               className="p-2 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-white transition-all"
-                              title="Edit spawn entry"
+                              title={t('ase.dinoSpawnControl.editSpawnEntry', 'Edit spawn entry')}
                             >
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                             </button>
                             <button
                               onClick={() => handleDeleteSpawnContainer('add', item.index)}
                               className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/10 hover:border-rose-500/30 text-rose-400 transition-all"
-                              title="Delete entry"
+                              title={t('ase.dinoSpawnControl.deleteEntry', 'Delete entry')}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1241,7 +1240,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                         <div key={`override-${item.index}`} className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-950/60 border border-slate-850 hover:border-slate-800 transition-all duration-300">
                           <div className="flex flex-col min-w-0 gap-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="px-2 py-0.5 rounded-md text-[8px] font-black bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase tracking-wider">OVERRIDE</span>
+                              <span className="px-2 py-0.5 rounded-md text-[8px] font-black bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase tracking-wider">{t('ase.dinoSpawnControl.override', 'OVERRIDE')}</span>
                               <span className="text-xs font-bold text-amber-500 truncate max-w-[180px]" title={item.containerClass}>
                                 {item.containerClass.replace(/_C$/i, '')}
                               </span>
@@ -1251,9 +1250,9 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                               </span>
                             </div>
                             <div className="flex items-center gap-3 text-[10px] font-medium text-slate-500">
-                              <span>Entry Name: <strong className="text-slate-350">{item.entryName}</strong></span>
-                              <span>Weight: <strong className="text-slate-350">{item.entryWeight.toFixed(2)}</strong></span>
-                              <span>Limit: <strong className="text-slate-350">{(item.maxLimit * 100).toFixed(0)}%</strong></span>
+                              <span>{t('ase.dinoSpawnControl.entryName', 'Entry Name')}: <strong className="text-slate-350">{item.entryName}</strong></span>
+                              <span>{t('ase.dinoSpawnControl.weight', 'Weight')}: <strong className="text-slate-350">{item.entryWeight.toFixed(2)}</strong></span>
+                              <span>{t('ase.dinoSpawnControl.limit', 'Limit')}: <strong className="text-slate-350">{(item.maxLimit * 100).toFixed(0)}%</strong></span>
                             </div>
                           </div>
                           
@@ -1261,14 +1260,14 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                             <button
                               onClick={() => handleEditSpawnContainer('override', item.index, item)}
                               className="p-2 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-white transition-all"
-                              title="Edit spawn entry"
+                              title={t('ase.dinoSpawnControl.editSpawnEntry', 'Edit spawn entry')}
                             >
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                             </button>
                             <button
                               onClick={() => handleDeleteSpawnContainer('override', item.index)}
                               className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/10 hover:border-rose-500/30 text-rose-400 transition-all"
-                              title="Delete entry"
+                              title={t('ase.dinoSpawnControl.deleteEntry', 'Delete entry')}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1300,26 +1299,26 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                 activeTab === 'spawn' ? "col-span-3" :
                 activeTab === 'multipliers' ? "col-span-4" :
                 "col-span-3"
-              )}>Creature Name</div>
-              <div className="col-span-2">Expansion / Mod</div>
+              )}>{t('ase.dinoSpawnControl.creatureName', 'Creature Name')}</div>
+              <div className="col-span-2">{t('ase.dinoSpawnControl.expansionMod', 'Expansion / Mod')}</div>
               
               {activeTab === 'spawn' && (
                 <>
-                  <div className="col-span-1 text-center">Spawn</div>
-                  <div className="col-span-1 text-center">Tame</div>
-                  <div className="col-span-1 text-center">Breed</div>
-                  <div className="col-span-3">Replace With</div>
+                  <div className="col-span-1 text-center">{t('ase.dinoSpawnControl.colSpawn', 'Spawn')}</div>
+                  <div className="col-span-1 text-center">{t('ase.dinoSpawnControl.colTame', 'Tame')}</div>
+                  <div className="col-span-1 text-center">{t('ase.dinoSpawnControl.colBreed', 'Breed')}</div>
+                  <div className="col-span-3">{t('ase.dinoSpawnControl.replaceWith', 'Replace With')}</div>
                 </>
               )}
               {activeTab === 'multipliers' && (
                 <>
-                  <div className="col-span-2 text-center">Spawn Weight</div>
-                  <div className="col-span-2 text-center">Spawn Limit %</div>
-                  <div className="col-span-2 text-center">Override</div>
+                  <div className="col-span-2 text-center">{t('ase.dinoSpawnControl.spawnWeight', 'Spawn Weight')}</div>
+                  <div className="col-span-2 text-center">{t('ase.dinoSpawnControl.spawnLimitPct', 'Spawn Limit %')}</div>
+                  <div className="col-span-2 text-center">{t('ase.dinoSpawnControl.colOverride', 'Override')}</div>
                 </>
               )}
               {['tamed_damage', 'tamed_resistance', 'wild_damage', 'wild_resistance'].includes(activeTab) && (
-                <div className="col-span-7 text-right pr-6">Multiplier Value</div>
+                <div className="col-span-7 text-right pr-6">{t('ase.dinoSpawnControl.multiplierValue', 'Multiplier Value')}</div>
               )}
             </div>
 
@@ -1332,8 +1331,8 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
               {filteredCreatures.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full min-h-[350px] text-slate-500 gap-2">
                   <Info className="w-8 h-8 text-slate-750" />
-                  <span className="text-xs font-bold">No creatures found</span>
-                  <span className="text-[10px] text-slate-650">Try adjusting your filters or search query</span>
+                  <span className="text-xs font-bold">{t('ase.dinoSpawnControl.noCreatures', 'No creatures found')}</span>
+                  <span className="text-[10px] text-slate-650">{t('ase.dinoSpawnControl.adjustFilters', 'Try adjusting your filters or search query')}</span>
                 </div>
               ) : (
                 <div style={{ height: totalHeight, width: '100%', position: 'relative' }}>
@@ -1427,8 +1426,8 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                                 onChange={e => setReplacement(c.className, e.target.value)}
                                 className="w-full bg-slate-950 border border-slate-900 rounded-lg py-1 px-2 text-[10px] font-bold text-slate-350 focus:outline-none focus:border-amber-500/50"
                               >
-                                <option value="__none__">No Replacement</option>
-                                <option value="__disabled__">Disabled (Remove Spawns)</option>
+                                <option value="__none__">{t('ase.dinoSpawnControl.noReplacement', 'No Replacement')}</option>
+                                <option value="__disabled__">{t('ase.dinoSpawnControl.disabledRemove', 'Disabled (Remove Spawns)')}</option>
                                 {allCreatures
                                   .filter(other => other.className !== c.className)
                                   .map(other => (
@@ -1443,12 +1442,9 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                       {activeTab === 'multipliers' && (
                         <>
                           <div className="col-span-2 flex items-center gap-1.5 px-1 justify-center">
-                            <input
-                              type="number"
-                              step="0.01"
+                            <NumberInput
                               value={spawnMultipliersMap.get(c.tag)?.weight ?? 1.0}
-                              onChange={e => {
-                                const weightVal = parseFloat(e.target.value) || 0;
+                              onValueChange={weightVal => {
                                 const parsedObj = spawnMultipliersMap.get(c.tag) || { tag: c.tag, weight: 1.0, limit: 1.0, override: false };
                                 setSpawnWeightOverride(c.tag, weightVal, parsedObj.limit, parsedObj.override);
                               }}
@@ -1457,12 +1453,9 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                           </div>
 
                           <div className="col-span-2 flex items-center gap-1.5 px-1 justify-center">
-                            <input
-                              type="number"
-                              step="0.01"
+                            <NumberInput
                               value={spawnMultipliersMap.get(c.tag)?.limit ?? 1.0}
-                              onChange={e => {
-                                const limitVal = parseFloat(e.target.value) || 0;
+                              onValueChange={limitVal => {
                                 const parsedObj = spawnMultipliersMap.get(c.tag) || { tag: c.tag, weight: 1.0, limit: 1.0, override: false };
                                 setSpawnWeightOverride(c.tag, parsedObj.weight, limitVal, parsedObj.override);
                               }}
@@ -1513,12 +1506,10 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                                 onChange={e => setClassMultiplierValue(c.className, parseFloat(e.target.value), configKey)}
                                 className="w-28 accent-amber-500 bg-slate-800 rounded-lg h-1.5 cursor-pointer"
                               />
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0.0"
+                              <NumberInput
+                                min={0}
                                 value={val}
-                                onChange={e => setClassMultiplierValue(c.className, parseFloat(e.target.value) || 0, configKey)}
+                                onValueChange={n => setClassMultiplierValue(c.className, n, configKey)}
                                 className="w-16 bg-slate-950 border border-slate-800 text-center text-xs font-bold text-slate-350 rounded-lg py-0.5 focus:border-amber-500/50 focus:outline-none"
                               />
                               <button
@@ -1527,7 +1518,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                                 onClick={() => setClassMultiplierValue(c.className, 1.0, configKey)}
                                 className="text-[10px] text-slate-500 hover:text-rose-400 font-black disabled:opacity-30 disabled:hover:text-slate-500 px-1 uppercase"
                               >
-                                Reset
+                                {t('ase.dinoSpawnControl.reset', 'Reset')}
                               </button>
                             </div>
                           );
@@ -1544,11 +1535,11 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
           {/* Footer of Table */}
           <div className="px-6 py-3 bg-slate-950 border-t border-slate-900 flex justify-between items-center text-[10px] font-bold text-slate-500 select-none uppercase">
             <div>
-              Showing {filteredCreatures.length} of {allCreatures.length} Creatures
+              {t('ase.dinoSpawnControl.showingOf', { defaultValue: 'Showing {{shown}} of {{total}} Creatures', shown: filteredCreatures.length, total: allCreatures.length })}
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 border border-emerald-500/40" />
-              <span>Dino Configs Active</span>
+              <span>{t('ase.dinoSpawnControl.dinoConfigsActive', 'Dino Configs Active')}</span>
             </div>
           </div>
         </div>
@@ -1560,21 +1551,21 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
           {activeTab === 'spawn_containers' ? (
             <div className="bg-slate-950/40 rounded-3xl border border-slate-800/80 p-5 shadow-lg flex flex-col gap-4 text-left animate-fadeIn">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center justify-between pb-2.5 border-b border-white/5">
-                <span>Spawn Containers Help</span>
-                <span className="text-[9px] bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20 px-2 py-0.5 rounded-full">Guides</span>
+                <span>{t('ase.dinoSpawnControl.containersHelp', 'Spawn Containers Help')}</span>
+                <span className="text-[9px] bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20 px-2 py-0.5 rounded-full">{t('ase.dinoSpawnControl.guides', 'Guides')}</span>
               </h3>
               <div className="text-xs font-medium text-slate-450 space-y-3.5 leading-relaxed">
                 <p>
-                  <strong className="text-slate-200">ConfigAddNPCSpawnEntriesContainer</strong> appends new dinosaur spawn rules to the existing entries of a spawn container.
+                  <strong className="text-slate-200">ConfigAddNPCSpawnEntriesContainer</strong> {t('ase.dinoSpawnControl.helpAdd', 'appends new dinosaur spawn rules to the existing entries of a spawn container.')}
                 </p>
                 <p>
-                  <strong className="text-slate-200">ConfigOverrideNPCSpawnEntriesContainer</strong> completely clears the spawn container and sets only your custom entries as the spawning creatures.
+                  <strong className="text-slate-200">ConfigOverrideNPCSpawnEntriesContainer</strong> {t('ase.dinoSpawnControl.helpOverride', 'completely clears the spawn container and sets only your custom entries as the spawning creatures.')}
                 </p>
                 <p>
-                  <strong className="text-slate-200">Entry Weight</strong>: Higher values make this creature spawn more frequently relative to other creatures in the same container.
+                  <strong className="text-slate-200">{t('ase.dinoSpawnControl.entryWeight', 'Entry Weight')}</strong>: {t('ase.dinoSpawnControl.helpWeight', 'Higher values make this creature spawn more frequently relative to other creatures in the same container.')}
                 </p>
                 <p>
-                  <strong className="text-slate-200 font-bold">Spawn Limit</strong>: The maximum percentage of the total spawns in the container that can be of this creature class (e.g. 0.10 means max 10% of the area's spawns will be this dino).
+                  <strong className="text-slate-200 font-bold">{t('ase.dinoSpawnControl.spawnLimit', 'Spawn Limit')}</strong>: {t('ase.dinoSpawnControl.helpLimit', "The maximum percentage of the total spawns in the container that can be of this creature class (e.g. 0.10 means max 10% of the area's spawns will be this dino).")}
                 </p>
               </div>
             </div>
@@ -1589,7 +1580,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
             
             {activeReplacementsMap.size === 0 ? (
               <div className="text-slate-500 text-xs italic py-6 text-center">
-                No active replacements or overrides configured.
+                {t('ase.dinoSpawnControl.noActiveReplacements', 'No active replacements or overrides configured.')}
               </div>
             ) : (
               <div className="space-y-3.5 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar">
@@ -1604,7 +1595,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                           <span className="truncate max-w-[100px] text-amber-500">{fromDino?.name || fromClass.replace(/_Character_BP_C$/i, '')}</span>
                           <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                           <span className="truncate max-w-[100px] text-sky-400">
-                            {(toClass === 'Disabled' || toClass === '') ? <strong className="text-rose-500">Disabled</strong> : (toDino?.name || toClass.replace(/_Character_BP_C$/i, ''))}
+                            {(toClass === 'Disabled' || toClass === '') ? <strong className="text-rose-500">{t('ase.dinoSpawnControl.disabled', 'Disabled')}</strong> : (toDino?.name || toClass.replace(/_Character_BP_C$/i, ''))}
                           </span>
                         </div>
                         <span className="text-[8px] font-mono text-slate-650 truncate mt-0.5">{fromClass}</span>
@@ -1612,7 +1603,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                       <button
                         onClick={() => setReplacement(fromClass, '')}
                         className="p-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/10 hover:border-rose-500/30 text-rose-400 transition-all"
-                        title="Remove replacement override"
+                        title={t('ase.dinoSpawnControl.removeReplacement', 'Remove replacement override')}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1644,35 +1635,35 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
               {/* Stats & Properties */}
               <div className="grid grid-cols-2 gap-2.5 text-[10px] font-semibold text-slate-400">
                 <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-900/80">
-                  <span className="text-[9px] uppercase tracking-wider text-slate-550 block mb-0.5">Expansion</span>
+                  <span className="text-[9px] uppercase tracking-wider text-slate-550 block mb-0.5">{t('ase.dinoSpawnControl.expansion', 'Expansion')}</span>
                   <strong className="text-slate-200">{selectedCreature.expansion}</strong>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-900/80">
-                  <span className="text-[9px] uppercase tracking-wider text-slate-550 block mb-0.5">Dino Tag</span>
+                  <span className="text-[9px] uppercase tracking-wider text-slate-550 block mb-0.5">{t('ase.dinoSpawnControl.dinoTag', 'Dino Tag')}</span>
                   <strong className="text-slate-200 font-mono">{selectedCreature.tag}</strong>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-900/80">
-                  <span className="text-[9px] uppercase tracking-wider text-slate-550 block mb-0.5">Diet</span>
-                  <strong className="text-slate-200">{selectedCreature.diet || 'Omnivore'}</strong>
+                  <span className="text-[9px] uppercase tracking-wider text-slate-550 block mb-0.5">{t('ase.dinoSpawnControl.dietLabel', 'Diet')}</span>
+                  <strong className="text-slate-200">{t(`ase.dinoSpawnControl.diet.${selectedCreature.diet || 'Omnivore'}`, selectedCreature.diet || 'Omnivore')}</strong>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-900/80">
-                  <span className="text-[9px] uppercase tracking-wider text-slate-550 block mb-0.5">Aggression</span>
-                  <strong className="text-slate-200">{selectedCreature.aggression || 'Neutral'}</strong>
+                  <span className="text-[9px] uppercase tracking-wider text-slate-550 block mb-0.5">{t('ase.dinoSpawnControl.aggressionLabel', 'Aggression')}</span>
+                  <strong className="text-slate-200">{t(`ase.dinoSpawnControl.aggression.${selectedCreature.aggression || 'Neutral'}`, selectedCreature.aggression || 'Neutral')}</strong>
                 </div>
               </div>
 
               {/* Behavior Flags List */}
               <div className="flex flex-wrap gap-1.5">
                 {[
-                  { label: 'Flyer', active: selectedCreature.isFlyer },
-                  { label: 'Water', active: selectedCreature.isWater },
-                  { label: 'Boss', active: selectedCreature.isBoss },
-                  { label: 'Tek Variant', active: selectedCreature.isTek },
-                  { label: 'Aberrant', active: selectedCreature.isAberrant },
-                  { label: 'Corrupted', active: selectedCreature.isCorrupted },
-                  { label: 'X-Variant', active: selectedCreature.isXVariant },
-                  { label: 'R-Variant', active: selectedCreature.isRVariant },
-                  { label: 'Breedable', active: selectedCreature.breedable }
+                  { label: t('ase.dinoSpawnControl.flags.flyer', 'Flyer'), active: selectedCreature.isFlyer },
+                  { label: t('ase.dinoSpawnControl.flags.water', 'Water'), active: selectedCreature.isWater },
+                  { label: t('ase.dinoSpawnControl.flags.boss', 'Boss'), active: selectedCreature.isBoss },
+                  { label: t('ase.dinoSpawnControl.flags.tek', 'Tek Variant'), active: selectedCreature.isTek },
+                  { label: t('ase.dinoSpawnControl.flags.aberrant', 'Aberrant'), active: selectedCreature.isAberrant },
+                  { label: t('ase.dinoSpawnControl.flags.corrupted', 'Corrupted'), active: selectedCreature.isCorrupted },
+                  { label: t('ase.dinoSpawnControl.flags.xVariant', 'X-Variant'), active: selectedCreature.isXVariant },
+                  { label: t('ase.dinoSpawnControl.flags.rVariant', 'R-Variant'), active: selectedCreature.isRVariant },
+                  { label: t('ase.dinoSpawnControl.flags.breedable', 'Breedable'), active: selectedCreature.breedable }
                 ]
                   .filter(f => f.active)
                   .map(f => (
@@ -1684,23 +1675,23 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
 
               {/* Spawn Multiplier Override Status */}
               <div className="text-xs text-slate-400 bg-slate-950/30 p-3 rounded-2xl border border-slate-900 flex flex-col gap-1">
-                <span className="text-[9px] font-black text-slate-550 uppercase tracking-widest">Active Overrides</span>
+                <span className="text-[9px] font-black text-slate-550 uppercase tracking-widest">{t('ase.dinoSpawnControl.activeOverrides', 'Active Overrides')}</span>
                 <div className="flex justify-between items-center text-[10px] mt-1">
-                  <span>Excluded From Spawning:</span>
+                  <span>{t('ase.dinoSpawnControl.excludedFromSpawning', 'Excluded From Spawning:')}</span>
                   <strong className={excludedSpawns.has(selectedCreature.className) ? "text-rose-400" : "text-emerald-400"}>
-                    {excludedSpawns.has(selectedCreature.className) ? "Yes" : "No"}
+                    {excludedSpawns.has(selectedCreature.className) ? t('ase.dinoSpawnControl.yes', 'Yes') : t('ase.dinoSpawnControl.no', 'No')}
                   </strong>
                 </div>
                 <div className="flex justify-between items-center text-[10px]">
-                  <span>Taming Disabled:</span>
+                  <span>{t('ase.dinoSpawnControl.tamingDisabled', 'Taming Disabled:')}</span>
                   <strong className={preventedTaming.has(selectedCreature.className) ? "text-rose-400" : "text-emerald-400"}>
-                    {preventedTaming.has(selectedCreature.className) ? "Yes" : "No"}
+                    {preventedTaming.has(selectedCreature.className) ? t('ase.dinoSpawnControl.yes', 'Yes') : t('ase.dinoSpawnControl.no', 'No')}
                   </strong>
                 </div>
                 <div className="flex justify-between items-center text-[10px]">
-                  <span>Custom Spawn Multiplier:</span>
+                  <span>{t('ase.dinoSpawnControl.customSpawnMult', 'Custom Spawn Multiplier:')}</span>
                   <strong className={spawnMultipliersMap.has(selectedCreature.tag) ? "text-amber-400" : "text-slate-500"}>
-                    {spawnMultipliersMap.has(selectedCreature.tag) ? "Yes" : "No (Default)"}
+                    {spawnMultipliersMap.has(selectedCreature.tag) ? t('ase.dinoSpawnControl.yes', 'Yes') : t('ase.dinoSpawnControl.noDefault', 'No (Default)')}
                   </strong>
                 </div>
               </div>
@@ -1708,9 +1699,9 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
           ) : (
             <div className="bg-slate-950/20 rounded-3xl border border-slate-850 p-6 flex flex-col items-center justify-center text-center gap-2.5 h-[230px] border-dashed">
               <Info className="w-7 h-7 text-slate-600" />
-              <div className="text-xs font-bold text-slate-400">Select a creature</div>
+              <div className="text-xs font-bold text-slate-400">{t('ase.dinoSpawnControl.selectCreature', 'Select a creature')}</div>
               <p className="text-[10px] text-slate-500 max-w-[200px] leading-relaxed">
-                Click any creature row to view detailed class properties, variants, biomes, and override status.
+                {t('ase.dinoSpawnControl.selectCreatureDesc', 'Click any creature row to view detailed class properties, variants, biomes, and override status.')}
               </p>
             </div>
           )}
@@ -1725,7 +1716,7 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
           <div className="bg-[#0f172a] border border-slate-800 rounded-3xl w-full max-w-md p-6 flex flex-col gap-4 text-left shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Add Custom Modded Creature</h3>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">{t('ase.dinoSpawnControl.addModded', 'Add Custom Modded Creature')}</h3>
               <button onClick={() => setIsCustomModalOpen(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
@@ -1733,10 +1724,10 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
             
             <div className="flex flex-col gap-3.5">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black uppercase text-slate-500">Creature Name</label>
+                <label className="text-[10px] font-black uppercase text-slate-500">{t('ase.dinoSpawnControl.creatureName', 'Creature Name')}</label>
                 <input
                   type="text"
-                  placeholder="e.g. Modded Raptor"
+                  placeholder={t('ase.dinoSpawnControl.namePlaceholder', 'e.g. Modded Raptor')}
                   value={newCustomName}
                   onChange={e => setNewCustomName(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500/50"
@@ -1744,10 +1735,10 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black uppercase text-slate-500">Blueprint Class Name</label>
+                <label className="text-[10px] font-black uppercase text-slate-500">{t('ase.dinoSpawnControl.blueprintClass', 'Blueprint Class Name')}</label>
                 <input
                   type="text"
-                  placeholder="e.g. CustomRaptor_Character_BP_C"
+                  placeholder={t('ase.dinoSpawnControl.classPlaceholder', 'e.g. CustomRaptor_Character_BP_C')}
                   value={newCustomClass}
                   onChange={e => setNewCustomClass(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500/50"
@@ -1755,10 +1746,10 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black uppercase text-slate-500">Dino Name Tag (Optional)</label>
+                <label className="text-[10px] font-black uppercase text-slate-500">{t('ase.dinoSpawnControl.dinoNameTag', 'Dino Name Tag (Optional)')}</label>
                 <input
                   type="text"
-                  placeholder="e.g. CustomRaptor"
+                  placeholder={t('ase.dinoSpawnControl.tagPlaceholder', 'e.g. CustomRaptor')}
                   value={newCustomTag}
                   onChange={e => setNewCustomTag(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500/50"
@@ -1766,10 +1757,10 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black uppercase text-slate-500">Mod Source Name</label>
+                <label className="text-[10px] font-black uppercase text-slate-500">{t('ase.dinoSpawnControl.modSource', 'Mod Source Name')}</label>
                 <input
                   type="text"
-                  placeholder="e.g. Primal Fear"
+                  placeholder={t('ase.dinoSpawnControl.modPlaceholder', 'e.g. Primal Fear')}
                   value={newCustomMod}
                   onChange={e => setNewCustomMod(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500/50"
@@ -1782,13 +1773,13 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                 onClick={() => setIsCustomModalOpen(false)}
                 className="px-4 py-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 rounded-xl text-slate-400 hover:text-white text-xs font-bold transition-all"
               >
-                Cancel
+                {t('common.cancel', 'Cancel')}
               </button>
               <button
                 onClick={handleAddCustomCreature}
                 className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 hover:from-amber-400 hover:to-orange-400 rounded-xl text-xs font-extrabold transition-all"
               >
-                Add Creature
+                {t('ase.dinoSpawnControl.addCreature', 'Add Creature')}
               </button>
             </div>
           </div>
@@ -1800,14 +1791,14 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
           <div className="bg-[#0f172a] border border-slate-800 rounded-3xl w-full max-w-lg p-6 flex flex-col gap-4 text-left shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Import Creature Configs</h3>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">{t('ase.dinoSpawnControl.importTitle', 'Import Creature Configs')}</h3>
               <button onClick={() => setIsImportModalOpen(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
             <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-black uppercase text-slate-500">Paste JSON Configuration String</label>
+              <label className="text-[10px] font-black uppercase text-slate-500">{t('ase.dinoSpawnControl.pasteJson', 'Paste JSON Configuration String')}</label>
               <textarea
                 rows={10}
                 placeholder='{ "excludeDinoClasses": [...], "preventDinoTameClassNames": [...] }'
@@ -1822,13 +1813,13 @@ export function ASEDinoSpawnControl({ config, onChange, externalSearchQuery }: A
                 onClick={() => setIsImportModalOpen(false)}
                 className="px-4 py-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 rounded-xl text-slate-400 hover:text-white text-xs font-bold transition-all"
               >
-                Cancel
+                {t('common.cancel', 'Cancel')}
               </button>
               <button
                 onClick={handleImportConfig}
                 className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 hover:from-amber-400 hover:to-orange-400 rounded-xl text-xs font-extrabold transition-all"
               >
-                Import
+                {t('ase.dinoSpawnControl.import', 'Import')}
               </button>
             </div>
           </div>

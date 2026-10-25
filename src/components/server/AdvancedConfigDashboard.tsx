@@ -3,6 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { Save, Calendar, Layers, Power, Loader2, Shield, ArrowRightLeft, Plus, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { NumberInput } from '../ui/NumberInput';
+import { useTranslation } from 'react-i18next';
 
 interface EventProfile {
     id?: number;
@@ -48,9 +50,9 @@ function MultiplierSlider({ label, value, onChange, min, max, step, description,
             <div className="flex justify-between text-sm mb-3">
                 <span className="text-slate-300 font-medium">{label}</span>
                 <div className="flex items-center gap-2">
-                    <input
-                        type="number" min={min} max={max} step={step} value={value}
-                        onChange={e => onChange(parseFloat(e.target.value) || min)}
+                    <NumberInput
+                        min={min} max={max} value={value}
+                        onValueChange={onChange}
                         className={`w-20 bg-slate-900/80 border border-slate-700 rounded-lg px-2 py-1 text-right font-mono text-sm ${c.text} focus:outline-none focus:border-indigo-500`}
                     />
                     <span className={`${c.text} font-mono font-bold text-xs`}>{suffix}</span>
@@ -70,13 +72,14 @@ function MultiplierSlider({ label, value, onChange, min, max, step, description,
 }
 
 export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDashboardProps) {
+    const { t } = useTranslation();
     const [profiles, setProfiles] = useState<EventProfile[]>([]);
     const [activeTab, setActiveTab] = useState<'event' | 'structure' | 'transfer'>('event');
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [transferPolicy, setTransferPolicy] = useState<TransferPolicy | null>(null);
     const [currentProfile, setCurrentProfile] = useState<EventProfile>({
-        server_id: serverId || 0, profile_name: 'New Event Profile',
+        server_id: serverId || 0, profile_name: t('advancedConfig.newProfileName', 'New Event Profile'),
         harvest_multiplier: 1.0, stack_size_multiplier: 1.0,
         structure_resistance: 1.0, structure_damage: 1.0, is_active: false
     });
@@ -97,7 +100,7 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
             setTransferPolicy(policy || { server_id: serverId, item_whitelist: '', dino_whitelist: '', max_quantity: 100, enabled: false });
         } catch (error) {
             console.error("Failed to load advanced config:", error);
-            toast.error('Failed to load configuration');
+            toast.error(t('advancedConfig.toasts.loadFailed', 'Failed to load configuration'));
         } finally { setIsLoading(false); }
     };
 
@@ -106,10 +109,10 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
         setIsSaving(true);
         try {
             await invoke('save_transfer_policy', { policy: transferPolicy });
-            toast.success('Transfer policy saved');
+            toast.success(t('advancedConfig.toasts.policySaved', 'Transfer policy saved'));
         } catch (error) {
             console.error("Failed to save policy:", error);
-            toast.error('Failed to save policy');
+            toast.error(t('advancedConfig.toasts.policySaveFailed', 'Failed to save policy'));
         } finally { setIsSaving(false); }
     };
 
@@ -122,10 +125,10 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
             setCurrentProfile({ ...currentProfile, id });
             const profs: EventProfile[] = await invoke('get_event_profiles', { serverId });
             setProfiles(profs);
-            toast.success('Profile saved');
+            toast.success(t('advancedConfig.toasts.profileSaved', 'Profile saved'));
         } catch (error) {
             console.error('Failed to save profile:', error);
-            toast.error('Failed to save profile');
+            toast.error(t('advancedConfig.toasts.profileSaveFailed', 'Failed to save profile'));
         } finally { setIsSaving(false); }
     };
 
@@ -143,17 +146,17 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
             } else {
                 await invoke('activate_event_profile', { serverId, profileId: null });
             }
-            toast.success(enable ? 'Event mode activated' : 'Event mode deactivated');
+            toast.success(enable ? t('advancedConfig.toasts.eventActivated', 'Event mode activated') : t('advancedConfig.toasts.eventDeactivated', 'Event mode deactivated'));
             loadData();
         } catch (error) {
             console.error('Failed to toggle event mode:', error);
-            toast.error('Failed to toggle event mode');
+            toast.error(t('advancedConfig.toasts.eventToggleFailed', 'Failed to toggle event mode'));
         } finally { setIsLoading(false); }
     };
 
     const createNewProfile = () => {
         setCurrentProfile({
-            server_id: serverId || 0, profile_name: `Event Profile ${profiles.length + 1}`,
+            server_id: serverId || 0, profile_name: t('advancedConfig.profileNameN', { defaultValue: 'Event Profile {{n}}', n: profiles.length + 1 }),
             harvest_multiplier: 2.0, stack_size_multiplier: 1.0,
             structure_resistance: 1.0, structure_damage: 1.0, is_active: false
         });
@@ -162,16 +165,16 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
     if (!serverId) return (
         <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-3">
             <AlertTriangle className="w-10 h-10 opacity-40" />
-            <p className="text-lg font-medium">Select a server to configure advanced settings</p>
+            <p className="text-lg font-medium">{t('advancedConfig.selectServer', 'Select a server to configure advanced settings')}</p>
         </div>
     );
 
     const isActive = profiles.some(p => p.id === currentProfile.id && p.is_active);
 
     const tabs = [
-        { id: 'event' as const, label: 'Event Profiles', icon: Calendar, color: 'from-indigo-600 to-violet-600' },
-        { id: 'structure' as const, label: 'Structure Overrides', icon: Shield, color: 'from-emerald-600 to-teal-600' },
-        { id: 'transfer' as const, label: 'Transfer Policy', icon: ArrowRightLeft, color: 'from-amber-600 to-orange-600' },
+        { id: 'event' as const, label: t('advancedConfig.tabs.event', 'Event Profiles'), icon: Calendar, color: 'from-indigo-600 to-violet-600' },
+        { id: 'structure' as const, label: t('advancedConfig.tabs.structure', 'Structure Overrides'), icon: Shield, color: 'from-emerald-600 to-teal-600' },
+        { id: 'transfer' as const, label: t('advancedConfig.tabs.transfer', 'Transfer Policy'), icon: ArrowRightLeft, color: 'from-amber-600 to-orange-600' },
     ];
 
     return (
@@ -180,14 +183,14 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
-                        Advanced Configuration
+                        {t('advancedConfig.title', 'Advanced Configuration')}
                     </h2>
-                    <p className="text-slate-400 text-sm mt-1">Configure event multipliers, structure limits, and transfer policies</p>
+                    <p className="text-slate-400 text-sm mt-1">{t('advancedConfig.subtitle', 'Configure event multipliers, structure limits, and transfer policies')}</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="bg-[#1a1a2e] px-4 py-2 rounded-xl border border-slate-700/50 flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-violet-400" />
-                        <span className="text-sm font-medium">Server ID: {serverId}</span>
+                        <span className="text-sm font-medium">{t('advancedConfig.serverId', { defaultValue: 'Server ID: {{id}}', id: serverId })}</span>
                     </div>
                 </div>
             </div>
@@ -227,7 +230,7 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className="text-base font-bold text-white flex items-center gap-2">
                                             <Power className={`w-5 h-5 ${isActive ? 'text-indigo-400' : 'text-slate-500'}`} />
-                                            Event Mode
+                                            {t('advancedConfig.eventMode', 'Event Mode')}
                                         </h3>
                                         <label className="relative inline-flex items-center cursor-pointer">
                                             <input type="checkbox" checked={isActive} onChange={e => toggleEventMode(e.target.checked)}
@@ -237,27 +240,27 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
                                     </div>
                                     <div className={`flex items-center gap-2 text-xs font-semibold mb-3 ${isActive ? 'text-indigo-300' : 'text-slate-500'}`}>
                                         {isActive ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
-                                        {isActive ? 'ACTIVE • Live on Server' : 'INACTIVE • Standard Config'}
+                                        {isActive ? t('advancedConfig.activeLive', 'ACTIVE • Live on Server') : t('advancedConfig.inactiveStandard', 'INACTIVE • Standard Config')}
                                     </div>
                                     <p className="text-xs text-slate-400 bg-slate-900/50 p-3 rounded-lg border border-slate-800">
-                                        When active, these settings <strong>OVERRIDE</strong> your base server configuration. Disabling reverts to standard settings.
+                                        {t('advancedConfig.overrideNote', 'When active, these settings OVERRIDE your base server configuration. Disabling reverts to standard settings.')}
                                     </p>
                                 </div>
 
                                 {/* Profile List */}
                                 <div className="bg-slate-800/30 border border-slate-700/50 rounded-2xl overflow-hidden">
                                     <div className="p-4 border-b border-slate-700/50 flex items-center justify-between">
-                                        <h4 className="text-sm font-bold text-slate-300">Saved Profiles</h4>
+                                        <h4 className="text-sm font-bold text-slate-300">{t('advancedConfig.savedProfiles', 'Saved Profiles')}</h4>
                                         <button onClick={createNewProfile}
                                             className="p-1.5 rounded-lg hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-400 transition-colors"
-                                            title="New Profile"
+                                            title={t('advancedConfig.newProfile', 'New Profile')}
                                         >
                                             <Plus className="w-4 h-4" />
                                         </button>
                                     </div>
                                     <div className="max-h-40 overflow-y-auto">
                                         {profiles.length === 0 ? (
-                                            <p className="p-4 text-xs text-slate-500 text-center">No profiles yet. Create one below.</p>
+                                            <p className="p-4 text-xs text-slate-500 text-center">{t('advancedConfig.noProfiles', 'No profiles yet. Create one below.')}</p>
                                         ) : profiles.map(p => (
                                             <button key={p.id} onClick={() => setCurrentProfile(p)}
                                                 className={`w-full text-left px-4 py-3 text-sm transition-colors border-b border-slate-800/50 last:border-0 flex items-center justify-between ${
@@ -265,7 +268,7 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
                                                 }`}
                                             >
                                                 <span className="truncate">{p.profile_name}</span>
-                                                {p.is_active && <span className="text-[10px] px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded-full font-bold">LIVE</span>}
+                                                {p.is_active && <span className="text-[10px] px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded-full font-bold">{t('advancedConfig.live', 'LIVE')}</span>}
                                             </button>
                                         ))}
                                     </div>
@@ -273,7 +276,7 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
 
                                 {/* Profile Name Editor */}
                                 <div className="bg-slate-800/30 border border-slate-700/50 p-4 rounded-2xl space-y-3">
-                                    <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider">Profile Name</label>
+                                    <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider">{t('advancedConfig.profileName', 'Profile Name')}</label>
                                     <input type="text" value={currentProfile.profile_name}
                                         onChange={e => setCurrentProfile({ ...currentProfile, profile_name: e.target.value })}
                                         className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:border-indigo-500 outline-none transition-colors"
@@ -282,7 +285,7 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
                                         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-sm font-medium rounded-lg transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/20"
                                     >
                                         {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                        Save Profile
+                                        {t('advancedConfig.saveProfile', 'Save Profile')}
                                     </button>
                                 </div>
                             </div>
@@ -292,21 +295,21 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
                                 <div className="bg-slate-800/30 border border-slate-700/50 p-6 rounded-2xl space-y-6">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
                                         <Layers className="w-5 h-5 text-indigo-400" />
-                                        Economic & Structure Multipliers
+                                        {t('advancedConfig.multipliersTitle', 'Economic & Structure Multipliers')}
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                                        <MultiplierSlider label="Harvest Amount" value={currentProfile.harvest_multiplier}
+                                        <MultiplierSlider label={t('advancedConfig.harvestAmount', 'Harvest Amount')} value={currentProfile.harvest_multiplier}
                                             onChange={v => setCurrentProfile({ ...currentProfile, harvest_multiplier: v })}
-                                            min={1} max={100} step={0.5} color="indigo" description="Multiplies resource yield from harvesting" />
-                                        <MultiplierSlider label="Inventory Stack Size" value={currentProfile.stack_size_multiplier}
+                                            min={1} max={100} step={0.5} color="indigo" description={t('advancedConfig.harvestAmountDesc', 'Multiplies resource yield from harvesting')} />
+                                        <MultiplierSlider label={t('advancedConfig.stackSize', 'Inventory Stack Size')} value={currentProfile.stack_size_multiplier}
                                             onChange={v => setCurrentProfile({ ...currentProfile, stack_size_multiplier: v })}
-                                            min={1} max={50} step={0.5} color="amber" description="Global multiplier for item stack sizes" />
-                                        <MultiplierSlider label="Structure Resistance" value={currentProfile.structure_resistance}
+                                            min={1} max={50} step={0.5} color="amber" description={t('advancedConfig.stackSizeDesc', 'Global multiplier for item stack sizes')} />
+                                        <MultiplierSlider label={t('advancedConfig.structureResistance', 'Structure Resistance')} value={currentProfile.structure_resistance}
                                             onChange={v => setCurrentProfile({ ...currentProfile, structure_resistance: v })}
-                                            min={0.01} max={5} step={0.1} color="emerald" description="Lower = Stronger (0.5 = 2x Health)" />
-                                        <MultiplierSlider label="Structure Damage" value={currentProfile.structure_damage}
+                                            min={0.01} max={5} step={0.1} color="emerald" description={t('advancedConfig.structureResistanceDesc', 'Lower = Stronger (0.5 = 2x Health)')} />
+                                        <MultiplierSlider label={t('advancedConfig.structureDamage', 'Structure Damage')} value={currentProfile.structure_damage}
                                             onChange={v => setCurrentProfile({ ...currentProfile, structure_damage: v })}
-                                            min={0.1} max={10} step={0.1} color="red" description="Damage dealt by Spikes/Turrets" />
+                                            min={0.1} max={10} step={0.1} color="red" description={t('advancedConfig.structureDamageDesc', 'Damage dealt by Spikes/Turrets')} />
                                     </div>
                                 </div>
                             </div>
@@ -322,14 +325,14 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
                                 <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
                                     <Shield className="w-8 h-8 text-emerald-400 opacity-60" />
                                 </div>
-                                <h3 className="text-lg font-bold text-white mb-2">Structure Overrides</h3>
+                                <h3 className="text-lg font-bold text-white mb-2">{t('advancedConfig.tabs.structure', 'Structure Overrides')}</h3>
                                 <p className="text-slate-400 text-sm max-w-md mx-auto mb-4">
-                                    Per-structure resistance overrides are not yet implemented due to ARK INI limitations.
+                                    {t('advancedConfig.structureNotImplemented', 'Per-structure resistance overrides are not yet implemented due to ARK INI limitations.')}
                                 </p>
                                 <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 max-w-md mx-auto">
                                     <p className="text-xs text-emerald-300/80 flex items-center justify-center gap-2">
                                         <AlertTriangle className="w-3.5 h-3.5" />
-                                        Use <strong>Global Structure Resistance</strong> in the Event Profiles tab for general balancing.
+                                        {t('advancedConfig.structureHint', 'Use Global Structure Resistance in the Event Profiles tab for general balancing.')}
                                     </p>
                                 </div>
                             </div>
@@ -344,8 +347,8 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
                             {/* Enable Toggle */}
                             <div className="bg-slate-800/30 p-5 rounded-2xl border border-slate-700/50 flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-base font-semibold text-white">Enable Custom Transfer Policy</h3>
-                                    <p className="text-slate-400 text-sm mt-0.5">Enforce whitelists and limits for item/dino transfers</p>
+                                    <h3 className="text-base font-semibold text-white">{t('advancedConfig.enableTransferPolicy', 'Enable Custom Transfer Policy')}</h3>
+                                    <p className="text-slate-400 text-sm mt-0.5">{t('advancedConfig.enableTransferPolicyDesc', 'Enforce whitelists and limits for item/dino transfers')}</p>
                                 </div>
                                 <button onClick={() => transferPolicy && setTransferPolicy({ ...transferPolicy, enabled: !transferPolicy.enabled })}
                                     className={`relative w-14 h-8 rounded-full transition-colors ${transferPolicy?.enabled ? 'bg-amber-600' : 'bg-slate-700'}`}
@@ -362,9 +365,9 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
                                     transferPolicy?.enabled ? 'border-amber-500/30' : 'border-slate-700/50 opacity-60'
                                 }`}>
                                     <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
-                                        <Layers className="w-4 h-4 text-amber-400" /> Item Whitelist
+                                        <Layers className="w-4 h-4 text-amber-400" /> {t('advancedConfig.itemWhitelist', 'Item Whitelist')}
                                     </h3>
-                                    <p className="text-xs text-slate-500 mb-3">Comma-separated Blueprint Paths or Item Names</p>
+                                    <p className="text-xs text-slate-500 mb-3">{t('advancedConfig.itemWhitelistDesc', 'Comma-separated Blueprint Paths or Item Names')}</p>
                                     <textarea value={transferPolicy?.item_whitelist || ''}
                                         onChange={e => transferPolicy && setTransferPolicy({ ...transferPolicy, item_whitelist: e.target.value })}
                                         className="w-full h-48 bg-[#0d0d1a] border border-slate-700 rounded-xl p-4 text-sm text-slate-200 focus:border-amber-500 focus:outline-none resize-none font-mono"
@@ -376,9 +379,9 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
                                     transferPolicy?.enabled ? 'border-amber-500/30' : 'border-slate-700/50 opacity-60'
                                 }`}>
                                     <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
-                                        <Shield className="w-4 h-4 text-amber-400" /> Dino Whitelist
+                                        <Shield className="w-4 h-4 text-amber-400" /> {t('advancedConfig.dinoWhitelist', 'Dino Whitelist')}
                                     </h3>
-                                    <p className="text-xs text-slate-500 mb-3">Comma-separated Dino Character BPs</p>
+                                    <p className="text-xs text-slate-500 mb-3">{t('advancedConfig.dinoWhitelistDesc', 'Comma-separated Dino Character BPs')}</p>
                                     <textarea value={transferPolicy?.dino_whitelist || ''}
                                         onChange={e => transferPolicy && setTransferPolicy({ ...transferPolicy, dino_whitelist: e.target.value })}
                                         className="w-full h-48 bg-[#0d0d1a] border border-slate-700 rounded-xl p-4 text-sm text-slate-200 focus:border-amber-500 focus:outline-none resize-none font-mono"
@@ -392,9 +395,9 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
                             <div className={`bg-slate-800/30 p-5 rounded-2xl border transition-all ${
                                 transferPolicy?.enabled ? 'border-amber-500/30' : 'border-slate-700/50 opacity-60'
                             }`}>
-                                <MultiplierSlider label="Max Item Quantity per Transfer" value={transferPolicy?.max_quantity || 100}
+                                <MultiplierSlider label={t('advancedConfig.maxQuantity', 'Max Item Quantity per Transfer')} value={transferPolicy?.max_quantity || 100}
                                     onChange={v => transferPolicy && setTransferPolicy({ ...transferPolicy, max_quantity: Math.round(v) })}
-                                    min={1} max={1000} step={1} color="amber" suffix="" description="Maximum number of items allowed per transfer action"
+                                    min={1} max={1000} step={1} color="amber" suffix="" description={t('advancedConfig.maxQuantityDesc', 'Maximum number of items allowed per transfer action')}
                                 />
                             </div>
 
@@ -403,7 +406,7 @@ export default function AdvancedConfigDashboard({ serverId }: AdvancedConfigDash
                                     className="px-6 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center gap-2 disabled:opacity-50"
                                 >
                                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                    Save Policy
+                                    {t('advancedConfig.savePolicy', 'Save Policy')}
                                 </button>
                             </div>
                         </motion.div>

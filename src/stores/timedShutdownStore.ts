@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { toast } from 'react-hot-toast';
+import i18n from '../i18n';
 import { rconBroadcast, rconCommand, stopServer } from '../utils/tauri';
 import { aseRconBroadcast, aseRconCommand, stopAseServer } from '../ase/utils/aseCommands';
 
@@ -78,9 +79,9 @@ export const useTimedShutdownStore = create<TimedShutdownStore>((set, get) => ({
                 } else {
                     await stopServer(serverId);
                 }
-                toast.success(`Server "${serverName}" has shut down safely.`);
+                toast.success(i18n.t('timedShutdown.toast.stopped', { defaultValue: 'Server "{{name}}" has shut down safely.', name: serverName }));
             } catch (err) {
-                toast.error(`Failed to stop server "${serverName}": ${err}`);
+                toast.error(i18n.t('timedShutdown.toast.stopFailed', { defaultValue: 'Failed to stop server "{{name}}": {{error}}', name: serverName, error: String(err) }));
             }
         };
 
@@ -89,13 +90,13 @@ export const useTimedShutdownStore = create<TimedShutdownStore>((set, get) => ({
             if (messageTemplate.includes('{time}')) {
                 return messageTemplate.replace(/\{time\}/g, formattedTime);
             }
-            return `${messageTemplate} (${formattedTime} remaining)`;
+            return i18n.t('timedShutdown.broadcastRemaining', { defaultValue: '{{message}} ({{time}} remaining)', message: messageTemplate, time: formattedTime });
         };
 
         // Initial broadcast announcement
         const initialMsg = formatMessage(durationSeconds);
         sendBroadcast(initialMsg);
-        toast.success(`Timed shutdown started for "${serverName}" (${get().formatTime(durationSeconds)})`);
+        toast.success(i18n.t('timedShutdown.toast.started', { defaultValue: 'Timed shutdown started for "{{name}}" ({{time}})', name: serverName, time: get().formatTime(durationSeconds) }));
 
         let currentRemaining = durationSeconds;
 
@@ -176,14 +177,14 @@ export const useTimedShutdownStore = create<TimedShutdownStore>((set, get) => ({
                 clearInterval(existing.intervalId);
             }
             // Send cancellation broadcast
-            const cancelMsg = 'ℹ️ Scheduled server shutdown has been CANCELLED by server administrator.';
+            const cancelMsg = 'ℹ️ ' + i18n.t('timedShutdown.broadcastCancelled', 'Scheduled server shutdown has been CANCELLED by server administrator.');
             if (existing.serverType === 'ASE') {
                 aseRconBroadcast(serverId, cancelMsg).catch(() => {});
             } else {
                 rconBroadcast(serverId, cancelMsg).catch(() => {});
             }
 
-            toast.success(`Shutdown cancelled for "${existing.serverName}"`);
+            toast.success(i18n.t('timedShutdown.toast.cancelled', { defaultValue: 'Shutdown cancelled for "{{name}}"', name: existing.serverName }));
 
             set((state) => {
                 const next = { ...state.activeShutdowns };

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Copy, Settings, Database, X, Server, ArrowRight, Loader2 } from 'lucide-react';
 import { cn } from '../../../utils/helpers';
 import { AseServer } from '../../types/ase.types';
+import { useTranslation } from 'react-i18next';
 
 interface ASECloneOptionsModalProps {
     isOpen: boolean;
@@ -24,6 +25,7 @@ export default function ASECloneOptionsModal({
     onTransferSettings,
     onExtractData,
 }: ASECloneOptionsModalProps) {
+    const { t } = useTranslation();
     const [selectedAction, setSelectedAction] = useState<ActionType>(null);
     const [targetServerId, setTargetServerId] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -67,8 +69,8 @@ export default function ASECloneOptionsModal({
                             <Copy className="w-5 h-5 text-amber-400" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold text-white">Server Actions (ASE)</h2>
-                            <p className="text-sm text-slate-400">Source: {sourceServer.name}</p>
+                            <h2 className="text-lg font-bold text-white">{t('ase.cloneOptions.title', 'Server Actions (ASE)')}</h2>
+                            <p className="text-sm text-slate-400">{t('ase.cloneOptions.source', { defaultValue: 'Source: {{name}}', name: sourceServer.name })}</p>
                         </div>
                     </div>
                     <button
@@ -102,8 +104,8 @@ export default function ASECloneOptionsModal({
                                 )} />
                             </div>
                             <div>
-                                <h3 className="font-semibold text-white">Clone Server</h3>
-                                <p className="text-sm text-slate-400">Create a duplicate with offset ports (+10)</p>
+                                <h3 className="font-semibold text-white">{t('ase.cloneOptions.clone', 'Clone Server')}</h3>
+                                <p className="text-sm text-slate-400">{t('ase.cloneOptions.cloneDesc', 'Create a duplicate with offset ports (+10)')}</p>
                             </div>
                         </div>
                     </button>
@@ -129,8 +131,8 @@ export default function ASECloneOptionsModal({
                                 )} />
                             </div>
                             <div>
-                                <h3 className="font-semibold text-white">Transfer Settings</h3>
-                                <p className="text-sm text-slate-400">Copy INI config to another server</p>
+                                <h3 className="font-semibold text-white">{t('ase.cloneOptions.transfer', 'Transfer Settings')}</h3>
+                                <p className="text-sm text-slate-400">{t('ase.cloneOptions.transferDesc', 'Copy INI config to another server')}</p>
                             </div>
                         </div>
                     </button>
@@ -156,8 +158,8 @@ export default function ASECloneOptionsModal({
                                 )} />
                             </div>
                             <div>
-                                <h3 className="font-semibold text-white">Extract Save Data</h3>
-                                <p className="text-sm text-slate-400">Copy world/player data to another server</p>
+                                <h3 className="font-semibold text-white">{t('ase.cloneOptions.extract', 'Extract Save Data')}</h3>
+                                <p className="text-sm text-slate-400">{t('ase.cloneOptions.extractDesc', 'Copy world/player data to another server')}</p>
                             </div>
                         </div>
                     </button>
@@ -167,11 +169,11 @@ export default function ASECloneOptionsModal({
                         <div className="mt-4 p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 animate-in slide-in-from-top-2 duration-200">
                             <div className="flex items-center gap-2 mb-3">
                                 <ArrowRight className="w-4 h-4 text-slate-400" />
-                                <span className="text-sm font-medium text-slate-300">Select Target Server</span>
+                                <span className="text-sm font-medium text-slate-300">{t('ase.cloneOptions.selectTarget', 'Select Target Server')}</span>
                             </div>
 
                             {targetServers.length === 0 ? (
-                                <p className="text-sm text-slate-500 italic">No other servers available</p>
+                                <p className="text-sm text-slate-500 italic">{t('ase.cloneOptions.noOtherServers', 'No other servers available')}</p>
                             ) : (
                                 <div className="space-y-2 max-h-40 overflow-y-auto">
                                     {targetServers.map(server => (
@@ -202,7 +204,7 @@ export default function ASECloneOptionsModal({
                         onClick={handleClose}
                         className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
                     >
-                        Cancel
+                        {t('common.cancel', 'Cancel')}
                     </button>
                     <button
                         onClick={handleExecute}
@@ -223,11 +225,11 @@ export default function ASECloneOptionsModal({
                         {isLoading ? (
                             <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Processing...
+                                {t('ase.cloneOptions.processing', 'Processing...')}
                             </>
                         ) : (
                             <>
-                                Execute
+                                {t('ase.cloneOptions.execute', 'Execute')}
                             </>
                         )}
                     </button>

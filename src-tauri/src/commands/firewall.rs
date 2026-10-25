@@ -5,6 +5,12 @@ use std::path::PathBuf;
 use std::process::Command;
 use tauri::State;
 
+/// Escape a value for use inside a single-quoted PowerShell string literal
+/// (single quotes are escaped by doubling them).
+fn ps_quote(s: &str) -> String {
+    s.replace('\'', "''")
+}
+
 /// Status of firewall rules for a specific port
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -112,7 +118,7 @@ fn fetch_all_firewall_rules() -> std::collections::HashSet<(u16, String)> {
 
             log::info!(
                 "[FIREWALL] Raw PowerShell output: {}",
-                &stdout[..stdout.len().min(500)]
+                stdout.chars().take(500).collect::<String>()
             );
 
             parse_firewall_rules_json(&stdout, &mut rules_set);
@@ -228,7 +234,7 @@ pub fn create_firewall_rules_elevated(rules: Vec<(u16, &str, String)>) -> Result
     let mut script_parts = Vec::new();
     script_parts.push(format!(
         "$logFile = '{}'",
-        log_path.to_string_lossy().replace('\\', "\\\\")
+        ps_quote(&log_path.to_string_lossy().replace('\\', "\\\\"))
     ));
     script_parts.push("$results = @()".to_string());
 
@@ -238,7 +244,7 @@ pub fn create_firewall_rules_elevated(rules: Vec<(u16, &str, String)>) -> Result
 $existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
 if (-not $existingRule) {{
     try {{
-        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -LocalPort {} -Protocol {} -Action Allow -Profile Any | Out-Null
+        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -LocalPort {} -Protocol '{}' -Action Allow -Profile Any | Out-Null
         $results += "CREATED: $ruleName"
     }} catch {{
         $results += "FAILED: $ruleName - $($_.Exception.Message)"
@@ -246,7 +252,7 @@ if (-not $existingRule) {{
 }} else {{
     $results += "EXISTS: $ruleName"
 }}"#,
-            rule_name, port, protocol
+            ps_quote(rule_name), port, ps_quote(protocol)
         ));
     }
 
@@ -264,7 +270,7 @@ if (-not $existingRule) {{
     // Use Start-Process with -Verb RunAs to get elevation
     let launcher_script = format!(
         r#"Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '{}'"#,
-        script_path.to_string_lossy().replace('\\', "\\\\")
+        ps_quote(&script_path.to_string_lossy().replace('\\', "\\\\"))
     );
 
     let output = Command::new("powershell")
@@ -332,7 +338,7 @@ pub fn create_outbound_firewall_rules_elevated(rules: Vec<(u16, &str, String)>) 
     let mut script_parts = Vec::new();
     script_parts.push(format!(
         "$logFile = '{}'",
-        log_path.to_string_lossy().replace('\\', "\\\\")
+        ps_quote(&log_path.to_string_lossy().replace('\\', "\\\\"))
     ));
     script_parts.push("$results = @()".to_string());
 
@@ -342,7 +348,7 @@ pub fn create_outbound_firewall_rules_elevated(rules: Vec<(u16, &str, String)>) 
 $existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
 if (-not $existingRule) {{
     try {{
-        New-NetFirewallRule -DisplayName $ruleName -Direction Outbound -LocalPort {} -Protocol {} -Action Allow -Profile Any | Out-Null
+        New-NetFirewallRule -DisplayName $ruleName -Direction Outbound -LocalPort {} -Protocol '{}' -Action Allow -Profile Any | Out-Null
         $results += "CREATED: $ruleName"
     }} catch {{
         $results += "FAILED: $ruleName - $($_.Exception.Message)"
@@ -350,7 +356,7 @@ if (-not $existingRule) {{
 }} else {{
     $results += "EXISTS: $ruleName"
 }}"#,
-            rule_name, port, protocol
+            ps_quote(rule_name), port, ps_quote(protocol)
         ));
     }
 
@@ -366,7 +372,7 @@ if (-not $existingRule) {{
 
     let launcher_script = format!(
         r#"Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '{}'"#,
-        script_path.to_string_lossy().replace('\\', "\\\\")
+        ps_quote(&script_path.to_string_lossy().replace('\\', "\\\\"))
     );
 
     let output = Command::new("powershell")
@@ -417,9 +423,9 @@ if (-not $existingRule) {{
     $results += "EXISTS: $ruleName"
 }}
 $results | Out-File -FilePath $logFile -Encoding UTF8"#,
-        log = log_path.to_string_lossy().replace('\\', "\\\\"),
-        name = rule_name,
-        exe = escaped_exe,
+        log = ps_quote(&log_path.to_string_lossy().replace('\\', "\\\\")),
+        name = ps_quote(rule_name),
+        exe = ps_quote(&escaped_exe),
     );
 
     let mut bom_bytes = vec![0xEF, 0xBB, 0xBF];
@@ -431,7 +437,7 @@ $results | Out-File -FilePath $logFile -Encoding UTF8"#,
 
     let launcher_script = format!(
         r#"Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '{}'"#,
-        script_path.to_string_lossy().replace('\\', "\\\\")
+        ps_quote(&script_path.to_string_lossy().replace('\\', "\\\\"))
     );
 
     let output = Command::new("powershell")
@@ -467,7 +473,7 @@ fn remove_firewall_rules_elevated(rule_names: Vec<String>) -> Result<(), String>
     for rule_name in &rule_names {
         script_parts.push(format!(
             r#"Remove-NetFirewallRule -DisplayName '{}' -ErrorAction SilentlyContinue"#,
-            rule_name
+            ps_quote(rule_name)
         ));
     }
     let combined_script = script_parts.join("\n");
@@ -481,7 +487,7 @@ fn remove_firewall_rules_elevated(rule_names: Vec<String>) -> Result<(), String>
 
     let launcher_script = format!(
         r#"Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '{}'"#,
-        script_path.to_string_lossy().replace('\\', "\\\\")
+        ps_quote(&script_path.to_string_lossy().replace('\\', "\\\\"))
     );
 
     let output = Command::new("powershell")
@@ -622,8 +628,8 @@ pub async fn get_all_servers_firewall_status(
             game_port_status,
             query_port_status,
             rcon_port_status,
-            peer_port: Some(server.game_port + 1),
-            peer_port_status: Some(check_port_in_cache(&rules_cache, server.game_port + 1, "UDP")),
+            peer_port: Some(server.game_port.saturating_add(1)),
+            peer_port_status: Some(check_port_in_cache(&rules_cache, server.game_port.saturating_add(1), "UDP")),
         });
     }
 
@@ -664,8 +670,8 @@ pub async fn get_firewall_status(
         game_port_status,
         query_port_status,
         rcon_port_status,
-        peer_port: Some(server.game_port + 1),
-        peer_port_status: Some(check_port_in_cache(&rules_cache, server.game_port + 1, "UDP")),
+        peer_port: Some(server.game_port.saturating_add(1)),
+        peer_port_status: Some(check_port_in_cache(&rules_cache, server.game_port.saturating_add(1), "UDP")),
     })
 }
 
@@ -876,7 +882,7 @@ pub fn configure_firewall_raw(
     server_id: i64,
 ) -> Result<ConfigureFirewallResult, String> {
     let server = get_server_from_db(state, server_id)?;
-    let raw_port = server.game_port + 1;
+    let raw_port = server.game_port.saturating_add(1);
 
     let mut exe_path = "".to_string();
     if !server.install_path.trim().is_empty() {
@@ -1327,7 +1333,7 @@ pub async fn get_all_ase_servers_firewall_status(
     for server in servers {
         let game_port_status = check_port_in_cache(&rules_cache, server.game_port, "UDP");
         let query_port_status = check_port_in_cache(&rules_cache, server.query_port, "UDP");
-        let peer_port_status = check_port_in_cache(&rules_cache, server.game_port + 1, "UDP");
+        let peer_port_status = check_port_in_cache(&rules_cache, server.game_port.saturating_add(1), "UDP");
         let rcon_port_status = if server.rcon_enabled {
             check_port_in_cache(&rules_cache, server.rcon_port, "TCP")
         } else {
@@ -1344,7 +1350,7 @@ pub async fn get_all_ase_servers_firewall_status(
             game_port_status,
             query_port_status,
             rcon_port_status,
-            peer_port: Some(server.game_port + 1),
+            peer_port: Some(server.game_port.saturating_add(1)),
             peer_port_status: Some(peer_port_status),
         });
     }
@@ -1363,7 +1369,7 @@ pub async fn get_ase_firewall_status(
 
     let game_port_status = check_port_in_cache(&rules_cache, server.game_port, "UDP");
     let query_port_status = check_port_in_cache(&rules_cache, server.query_port, "UDP");
-    let peer_port_status = check_port_in_cache(&rules_cache, server.game_port + 1, "UDP");
+    let peer_port_status = check_port_in_cache(&rules_cache, server.game_port.saturating_add(1), "UDP");
     let rcon_port_status = if server.rcon_enabled {
         check_port_in_cache(&rules_cache, server.rcon_port, "TCP")
     } else {
@@ -1380,7 +1386,7 @@ pub async fn get_ase_firewall_status(
         game_port_status,
         query_port_status,
         rcon_port_status,
-        peer_port: Some(server.game_port + 1),
+        peer_port: Some(server.game_port.saturating_add(1)),
         peer_port_status: Some(peer_port_status),
     })
 }
@@ -1780,7 +1786,7 @@ pub fn configure_ase_firewall_raw(
     server_id: i64,
 ) -> Result<ConfigureFirewallResult, String> {
     let server = get_ase_server_from_db(state, server_id)?;
-    let peer_port = server.game_port + 1;
+    let peer_port = server.game_port.saturating_add(1);
 
     let mut exe_path = "".to_string();
     if !server.install_path.trim().is_empty() {

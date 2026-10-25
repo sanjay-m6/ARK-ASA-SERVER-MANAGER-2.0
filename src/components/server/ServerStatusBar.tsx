@@ -226,7 +226,7 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
                         )}
                     >
                         <HelpCircle className="w-3.5 h-3.5" />
-                        <span>{showGuide ? "Hide Guide" : "Troubleshoot"}</span>
+                        <span>{showGuide ? t('serverManager.statusBar.hideTroubleshoot', 'Hide Guide') : t('serverManager.statusBar.troubleshoot', 'Troubleshoot')}</span>
                     </button>
 
                     {report && (currentStatus === 'online' || currentStatus === 'starting') && (
@@ -234,13 +234,13 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
                             {/* LAN Address Card */}
                             <div className="group/card flex items-center bg-slate-950/40 backdrop-blur-md border border-white/5 rounded-xl p-1.5 px-3 hover:border-amber-500/30 transition-all duration-300 shadow-inner">
                                 <div className="flex flex-col font-mono text-[10px] text-slate-400 select-text pr-4">
-                                    <span className="text-[8px] font-sans font-bold text-slate-600 uppercase tracking-wider select-none">Local Network (LAN)</span>
+                                    <span className="text-[8px] font-sans font-bold text-slate-600 uppercase tracking-wider select-none">{t('serverManager.statusBar.lanLabel', 'Local Network (LAN)')}</span>
                                     <span className="font-semibold text-slate-200">{report.localIp}:{report.queryPort}</span>
                                 </div>
                                 <button
                                     onClick={() => handleCopy(`${report.localIp}:${report.queryPort}`, 'lan')}
                                     className="p-1.5 bg-white/[0.02] hover:bg-amber-500/10 hover:text-amber-400 border border-white/5 hover:border-amber-500/25 rounded-lg transition-all focus:outline-none"
-                                    title={t('common.copyAddress', 'Copy LAN Address')}
+                                    title={t('serverManager.statusBar.copyLan', 'Copy LAN Address')}
                                 >
                                     {copiedType === 'lan' ? (
                                         <Check className="w-3.5 h-3.5 text-green-400 animate-in zoom-in duration-200" />
@@ -254,7 +254,7 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
                             {report.publicIp && (
                                 <div className="group/card flex items-center bg-slate-950/40 backdrop-blur-md border border-white/5 rounded-xl p-1.5 px-3 hover:border-cyan-500/30 transition-all duration-300 shadow-inner">
                                     <div className="flex flex-col font-mono text-[10px] text-slate-400 select-text pr-4">
-                                        <span className="text-[8px] font-sans font-bold text-slate-600 uppercase tracking-wider select-none">Public Internet (WAN)</span>
+                                        <span className="text-[8px] font-sans font-bold text-slate-600 uppercase tracking-wider select-none">{t('serverManager.statusBar.wanLabel', 'Public Internet (WAN)')}</span>
                                         <span className={cn(
                                             "font-semibold",
                                             isWanVisible ? "text-cyan-300" : "text-slate-500 line-through opacity-70"
@@ -271,7 +271,7 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
                                                 ? "bg-white/[0.02] hover:bg-cyan-500/10 hover:text-cyan-400 border-white/5 hover:border-cyan-500/25 cursor-pointer" 
                                                 : "bg-transparent border-transparent text-slate-600 cursor-not-allowed opacity-30"
                                         )}
-                                        title={isWanVisible ? t('common.copyAddress', 'Copy WAN Address') : t('serverManager.statusBar.wanUnavailable', 'Public IP queries blocked')}
+                                        title={isWanVisible ? t('serverManager.statusBar.copyWan', 'Copy WAN Address') : t('serverManager.statusBar.wanUnavailable', 'Public IP queries blocked')}
                                     >
                                         {copiedType === 'wan' ? (
                                             <Check className="w-3.5 h-3.5 text-green-400 animate-in zoom-in duration-200" />
@@ -378,10 +378,10 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
                 <div className="border-t border-white/[0.03] bg-slate-950/40 p-6 text-left animate-fadeIn relative z-10 space-y-4">
                     <div className="flex items-center gap-2 mb-1">
                         <GraduationCap className="w-4.5 h-4.5 text-sky-400" />
-                        <h4 className="font-bold text-xs text-white uppercase tracking-wider">Troubleshooting & Diagnostics Guide</h4>
+                        <h4 className="font-bold text-xs text-white uppercase tracking-wider">{t('serverManager.statusBar.guide.title', 'Troubleshooting & Diagnostics Guide')}</h4>
                     </div>
                     <p className="text-xs text-slate-400 max-w-4xl leading-relaxed">
-                        The diagnostics pipeline runs tests sequentially (left to right) to assess the status of your server instance. Use this guide to resolve failures indicated in red.
+                        {t('serverManager.statusBar.guide.intro', 'The diagnostics pipeline runs tests sequentially (left to right) to assess the status of your server instance. Use this guide to resolve failures indicated in red.')}
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
@@ -389,13 +389,13 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
                         <div className="bg-slate-900/30 border border-slate-800/40 rounded-xl p-4 space-y-2">
                             <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
                                 <Cpu className="w-3.5 h-3.5" />
-                                <span>1. Game Process</span>
+                                <span>1. {t('serverManager.diagnostics.process', 'Game Process')}</span>
                             </div>
                             <p className="text-xs text-slate-300 leading-normal">
-                                Detects if the server executable process is currently running on the server host machine.
+                                {t('serverManager.statusBar.guide.processDesc', 'Detects if the server executable process is currently running on the server host machine.')}
                             </p>
                             <div className="text-[11px] bg-slate-950/50 border border-white/5 rounded-lg p-2.5 text-slate-400 leading-normal">
-                                <span className="text-emerald-400 font-semibold">Fix:</span> Click the <strong>Start</strong> button in the main control panel to launch your server.
+                                <span className="text-emerald-400 font-semibold">{t('serverManager.statusBar.guide.fix', 'Fix:')}</span> {t('serverManager.statusBar.guide.processFix', 'Click the Start button in the main control panel to launch your server.')}
                             </div>
                         </div>
 
@@ -403,13 +403,13 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
                         <div className="bg-slate-900/30 border border-slate-800/40 rounded-xl p-4 space-y-2">
                             <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
                                 <Terminal className="w-3.5 h-3.5" />
-                                <span>2. UDP Port Binding</span>
+                                <span>2. {t('serverManager.diagnostics.port', 'UDP Port Binding')}</span>
                             </div>
                             <p className="text-xs text-slate-300 leading-normal">
-                                Checks if the server executable has successfully locked and started listening on the game/query port.
+                                {t('serverManager.statusBar.guide.portDesc', 'Checks if the server executable has successfully locked and started listening on the game/query port.')}
                             </p>
                             <div className="text-[11px] bg-slate-950/50 border border-white/5 rounded-lg p-2.5 text-slate-400 leading-normal">
-                                <span className="text-emerald-400 font-semibold">Fix:</span> {serverType === 'ASE' ? 'Ensure no other server instance or app is running on the same port (e.g. 7777 or 27015).' : 'ARK ASA takes 1–5 minutes to load maps/mods before opening port 7777. Wait for the full boot. If stuck, check for port conflicts with: netstat -ano | findstr :7777'}
+                                <span className="text-emerald-400 font-semibold">{t('serverManager.statusBar.guide.fix', 'Fix:')}</span> {serverType === 'ASE' ? t('serverManager.statusBar.guide.portFixAse', 'Ensure no other server instance or app is running on the same port (e.g. 7777 or 27015).') : t('serverManager.statusBar.guide.portFixAsa', 'ARK ASA takes 1–5 minutes to load maps/mods before opening port 7777. Wait for the full boot. If stuck, check for port conflicts with: netstat -ano | findstr :7777')}
                             </div>
                         </div>
 
@@ -417,13 +417,13 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
                         <div className="bg-slate-900/30 border border-slate-800/40 rounded-xl p-4 space-y-2">
                             <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-wider">
                                 <Wifi className="w-3.5 h-3.5" />
-                                <span>3. LAN Reachability</span>
+                                <span>3. {t('serverManager.diagnostics.lan', 'LAN Reachability')}</span>
                             </div>
                             <p className="text-xs text-slate-300 leading-normal">
-                                Pings the query port locally using the Steam/Epic A2S protocol to ensure the server responds to players on the local network.
+                                {t('serverManager.statusBar.guide.lanDesc', 'Pings the query port locally using the Steam/Epic A2S protocol to ensure the server responds to players on the local network.')}
                             </p>
                             <div className="text-[11px] bg-slate-950/50 border border-white/5 rounded-lg p-2.5 text-slate-400 leading-normal">
-                                <span className="text-amber-400 font-semibold">Fix:</span> Ensure Windows Firewall is not blocking the server app. Click <strong>Allow access</strong> or add inbound rules for UDP/TCP.
+                                <span className="text-amber-400 font-semibold">{t('serverManager.statusBar.guide.fix', 'Fix:')}</span> {t('serverManager.statusBar.guide.lanFix', 'Ensure Windows Firewall is not blocking the server app. Click "Allow access" or add inbound rules for UDP/TCP.')}
                             </div>
                         </div>
 
@@ -431,13 +431,13 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
                         <div className="bg-slate-900/30 border border-slate-800/40 rounded-xl p-4 space-y-2">
                             <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-wider">
                                 <Globe className="w-3.5 h-3.5" />
-                                <span>4. Global Visibility</span>
+                                <span>4. {t('serverManager.diagnostics.wan', 'Global Visibility')}</span>
                             </div>
                             <p className="text-xs text-slate-300 leading-normal">
-                                Queries the server query port from external nodes to test public joinability. <strong>Note:</strong> If your router lacks NAT Loopback, this will report "Blocked / Filtered" even if the server is fully open to the public.
+                                {t('serverManager.statusBar.guide.wanDesc', 'Queries the server query port from external nodes to test public joinability.')} <strong>{t('serverManager.statusBar.guide.note', 'Note:')}</strong> {t('serverManager.statusBar.guide.wanNote', 'If your router lacks NAT Loopback, this will report "Blocked / Filtered" even if the server is fully open to the public.')}
                             </p>
                             <div className="text-[11px] bg-slate-950/50 border border-white/5 rounded-lg p-2.5 text-slate-400 leading-normal">
-                                <span className="text-cyan-400 font-semibold">Fix:</span> {serverType === 'ASE' ? 'Forward the Game Port (e.g. 7777 UDP), Query Port (e.g. 27015 UDP), and Raw Port (Game Port + 1, e.g. 7778 UDP). Missing the Raw Port makes servers greyed out.' : 'Forward only port 7777 UDP on your router. ASA does not need ports 7778 or 27015 (those are ASE-only). If you are behind CGNAT (router WAN IP ≠ whatismyip.com), port forwarding will never work — use playit.gg or request a public IP from your ISP.'} Ask a friend outside your network to check.
+                                <span className="text-cyan-400 font-semibold">{t('serverManager.statusBar.guide.fix', 'Fix:')}</span> {serverType === 'ASE' ? t('serverManager.statusBar.guide.wanFixAse', 'Forward the Game Port (e.g. 7777 UDP), Query Port (e.g. 27015 UDP), and Raw Port (Game Port + 1, e.g. 7778 UDP). Missing the Raw Port makes servers greyed out.') : t('serverManager.statusBar.guide.wanFixAsa', 'Forward only port 7777 UDP on your router. ASA does not need ports 7778 or 27015 (those are ASE-only). If you are behind CGNAT (router WAN IP ≠ whatismyip.com), port forwarding will never work — use playit.gg or request a public IP from your ISP.')} {t('serverManager.statusBar.guide.askFriend', 'Ask a friend outside your network to check.')}
                             </div>
                         </div>
                     </div>

@@ -279,7 +279,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                             onChange={(e) => setConfig({ ...config, bot_token: e.target.value })}
                             onMouseDown={(e) => e.stopPropagation()}
                             onKeyDown={(e) => e.stopPropagation()}
-                            placeholder="Enter your Discord bot token"
+                            placeholder={t('discordBridge.tokenPlaceholder', 'Enter your Discord bot token')}
                             className="w-full px-4 py-2.5 pr-12 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent select-text cursor-text"
                         />
                         <button
@@ -306,7 +306,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                         onChange={(e) => setConfig({ ...config, guild_id: e.target.value })}
                         onMouseDown={(e) => e.stopPropagation()}
                         onKeyDown={(e) => e.stopPropagation()}
-                        placeholder="e.g., 123456789012345678"
+                        placeholder={t('discordBridge.guildPlaceholder', 'e.g., 123456789012345678')}
                         className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent select-text cursor-text"
                     />
                 </div>
@@ -322,7 +322,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                         onChange={(e) => setConfig({ ...config, channel_id: e.target.value })}
                         onMouseDown={(e) => e.stopPropagation()}
                         onKeyDown={(e) => e.stopPropagation()}
-                        placeholder="e.g., 987654321098765432"
+                        placeholder={t('discordBridge.channelPlaceholder', 'e.g., 987654321098765432')}
                         className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent select-text cursor-text"
                     />
                 </div>
@@ -332,7 +332,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                     <label className="block text-sm font-medium text-slate-300 mb-1.5 flex items-center gap-2">
                         {t('discord.adminChannelId', 'Admin Command Channel ID')}
                         <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                            Safe & Secure
+                            {t('discordBridge.safeSecure', 'Safe & Secure')}
                         </span>
                     </label>
                     <input
@@ -341,11 +341,11 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                         onChange={(e) => setConfig({ ...config, admin_channel_id: e.target.value })}
                         onMouseDown={(e) => e.stopPropagation()}
                         onKeyDown={(e) => e.stopPropagation()}
-                        placeholder="Channel ID for Admin Commands (!restart, !kick)"
+                        placeholder={t('discordBridge.adminChannelPlaceholder', 'Channel ID for Admin Commands (!restart, !kick)')}
                         className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent select-text cursor-text"
                     />
                     <p className="text-xs text-slate-500 mt-1">
-                        Commands like <code>!kick</code> and <code>!restart</code> will ONLY work in this channel.
+                        <Trans i18nKey="discordBridge.adminChannelHint" defaults="Commands like <c>!kick</c> and <c>!restart</c> will ONLY work in this channel." components={{ c: <code /> }} />
                     </p>
                 </div>
             </div>
@@ -431,7 +431,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                                 onChange={(e) => setConfig({ ...config, server_list_channel_id: e.target.value })}
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onKeyDown={(e) => e.stopPropagation()}
-                                placeholder="Channel ID for Status Panel (can be same as chat)"
+                                placeholder={t('discordBridge.statusChannelPlaceholder', 'Channel ID for Status Panel (can be same as chat)')}
                                 className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 select-text cursor-text"
                             />
                         </div>
@@ -450,9 +450,9 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                                 <button
                                     onClick={() => setConfig({ ...config, server_list_message_id: '' })}
                                     className="px-3 py-1 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-xs text-slate-400 rounded border border-slate-700 transition"
-                                    title="Reset to force new message"
+                                    title={t('discordBridge.resetMessageTitle', 'Reset to force new message')}
                                 >
-                                    Reset
+                                    {t('common.reset', 'Reset')}
                                 </button>
                             </div>
                         </div>
@@ -498,7 +498,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                                 onChange={(e) => setConfig({ ...config, player_list_channel_id: e.target.value })}
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onKeyDown={(e) => e.stopPropagation()}
-                                placeholder="Channel ID for Player List"
+                                placeholder={t('discordBridge.playerChannelPlaceholder', 'Channel ID for Player List')}
                                 className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 select-text cursor-text"
                             />
                         </div>
@@ -532,9 +532,9 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                                 <button
                                     onClick={() => setConfig({ ...config, player_list_message_id: '' })}
                                     className="px-3 py-1 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-xs text-slate-400 rounded border border-slate-700 transition"
-                                    title="Reset to force new message"
+                                    title={t('discordBridge.resetMessageTitle', 'Reset to force new message')}
                                 >
-                                    Reset
+                                    {t('common.reset', 'Reset')}
                                 </button>
                             </div>
                         </div>

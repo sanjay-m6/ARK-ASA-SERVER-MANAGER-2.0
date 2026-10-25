@@ -43,11 +43,11 @@ export default function ASEUPnPPanel() {
         try {
             const gw = await discoverAseUPnPGateway();
             setGateway(gw);
-            toast.success('UPnP gateway discovered successfully');
+            toast.success(t('ase.upnp.discoverSuccess', 'UPnP gateway discovered successfully'));
         } catch (error) {
             setDiscoveryError(String(error));
             setGateway(null);
-            toast.error(`Gateway discovery failed: ${error}`);
+            toast.error(t('ase.upnp.discoverFailed', { defaultValue: 'Gateway discovery failed: {{error}}', error: String(error) }));
         } finally {
             setIsDiscovering(false);
         }
@@ -62,12 +62,12 @@ export default function ASEUPnPPanel() {
             setLastResult(result);
             setGateway(result.gateway);
             if (result.allSuccess) {
-                toast.success('All ASE ports forwarded successfully!');
+                toast.success(t('ase.upnp.forwardAllSuccess', 'All ASE ports forwarded successfully!'));
             } else {
-                toast.error('Some ASE ports failed to forward');
+                toast.error(t('ase.upnp.forwardSomeFailed', 'Some ASE ports failed to forward'));
             }
         } catch (error) {
-            toast.error(`Port forwarding failed: ${error}`);
+            toast.error(t('ase.upnp.forwardFailed', { defaultValue: 'Port forwarding failed: {{error}}', error: String(error) }));
         } finally {
             setIsForwarding(false);
         }
@@ -80,9 +80,9 @@ export default function ASEUPnPPanel() {
         try {
             const result = await removeAseServerPortForwards(selectedServerId);
             setLastRemovalResult(result);
-            toast.success('ASE Port forwards removed');
+            toast.success(t('ase.upnp.removeSuccess', 'ASE port forwards removed'));
         } catch (error) {
-            toast.error(`Failed to remove forwards: ${error}`);
+            toast.error(t('ase.upnp.removeFailed', { defaultValue: 'Failed to remove forwards: {{error}}', error: String(error) }));
         } finally {
             setIsRemoving(false);
         }
@@ -99,7 +99,7 @@ export default function ASEUPnPPanel() {
                         {t('upnp.title', 'ASE UPnP Port Forwarding')}
                     </h1>
                     <p className="text-slate-400 mt-2 text-lg">
-                        Automatically map query and game ports on your home router for server visibility.
+                        {t('ase.upnp.subtitle', 'Automatically map query and game ports on your home router for server visibility.')}
                     </p>
                 </div>
             </div>
@@ -117,7 +117,7 @@ export default function ASEUPnPPanel() {
                         className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl transition-all disabled:opacity-50 font-semibold"
                     >
                         {isDiscovering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
-                        <span>{isDiscovering ? 'Scanning IGD...' : 'Discover Gateway'}</span>
+                        <span>{isDiscovering ? t('ase.upnp.scanning', 'Scanning IGD...') : t('ase.upnp.discoverGateway', 'Discover Gateway')}</span>
                     </button>
                 </div>
 
@@ -158,7 +158,7 @@ export default function ASEUPnPPanel() {
             <div className="bg-slate-900/60 border border-amber-500/10 rounded-2xl p-6 backdrop-blur-sm">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
                     <Globe className="w-5 h-5 text-amber-400" />
-                    Automated Port Redirections
+                    {t('ase.upnp.portRedirections', 'Automated Port Redirections')}
                 </h3>
 
                 <div className="space-y-4">
@@ -168,17 +168,17 @@ export default function ASEUPnPPanel() {
                     {selectedServer && (
                         <div className="grid grid-cols-3 gap-3">
                             <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700 text-center">
-                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Game Port</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">{t('ase.upnp.gamePort', 'Game Port')}</p>
                                 <p className="text-white font-mono font-bold text-lg">{selectedServer.port}</p>
                                 <p className="text-[10px] text-slate-500">UDP</p>
                             </div>
                             <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700 text-center">
-                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Query Port</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">{t('ase.upnp.queryPort', 'Query Port')}</p>
                                 <p className="text-white font-mono font-bold text-lg">{selectedServer.queryPort}</p>
                                 <p className="text-[10px] text-slate-500">UDP</p>
                             </div>
                             <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700 text-center">
-                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">RCON Command Port</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">{t('ase.upnp.rconPort', 'RCON Command Port')}</p>
                                 <p className="text-white font-mono font-bold text-lg">{selectedServer.rconPort}</p>
                                 <p className="text-[10px] text-slate-500">TCP</p>
                             </div>
@@ -193,7 +193,7 @@ export default function ASEUPnPPanel() {
                             className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50"
                         >
                             {isForwarding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radio className="w-4 h-4" />}
-                            <span>{isForwarding ? 'Injecting Port Forwards...' : 'Inject Port Forwards'}</span>
+                            <span>{isForwarding ? t('ase.upnp.forwarding', 'Injecting Port Forwards...') : t('ase.upnp.forwardAll', 'Inject Port Forwards')}</span>
                         </button>
                         <button
                             onClick={handleRemove}
@@ -201,7 +201,7 @@ export default function ASEUPnPPanel() {
                             className="flex items-center gap-2 px-5 py-3 bg-slate-800 hover:bg-red-500/20 hover:text-red-300 text-slate-400 border border-slate-700 rounded-xl transition-all disabled:opacity-50"
                         >
                             {isRemoving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                            <span>Remove Port Mapping</span>
+                            <span>{t('ase.upnp.removeMapping', 'Remove Port Mapping')}</span>
                         </button>
                     </div>
 
@@ -245,7 +245,7 @@ export default function ASEUPnPPanel() {
                         <div className="space-y-2 mt-4">
                             <h4 className="text-sm font-bold text-white flex items-center gap-2">
                                 <Shield className="w-4 h-4 text-amber-400" />
-                                Removal Mappings Status
+                                {t('ase.upnp.removalStatus', 'Removal Mappings Status')}
                             </h4>
                             {lastRemovalResult.map((m, idx) => (
                                 <div
@@ -256,7 +256,7 @@ export default function ASEUPnPPanel() {
                                         <Check className="w-4 h-4 text-emerald-400" />
                                         <span className="text-white font-mono text-sm">{m.protocol}:{m.port}</span>
                                     </div>
-                                    <span className="text-xs text-slate-400">Successfully Unmapped</span>
+                                    <span className="text-xs text-slate-400">{t('ase.upnp.unmapped', 'Successfully Unmapped')}</span>
                                 </div>
                             ))}
                         </div>
@@ -265,7 +265,7 @@ export default function ASEUPnPPanel() {
                     {/* Safety note */}
                     <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200">
                         <AlertTriangle className="w-3 h-3 inline mr-1 mb-0.5" />
-                        IGD dynamic leases automatically request 24h reservations. Ensure UPnP is checked on in your Router configuration interface.
+                        {t('ase.upnp.safetyNote', 'IGD dynamic leases automatically request 24h reservations. Ensure UPnP is enabled in your router configuration interface.')}
                     </div>
                 </div>
             </div>

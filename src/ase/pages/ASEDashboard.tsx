@@ -58,7 +58,7 @@ export default function ASEDashboard() {
   const handleCopyIp = (port: number) => {
     const address = `127.0.0.1:${port}`;
     navigator.clipboard.writeText(address);
-    toast.success(`Copied address (${address}) to clipboard!`);
+    toast.success(t('ase.dashboard.addressCopied', { defaultValue: 'Copied address ({{address}}) to clipboard!', address }));
   };
 
   const fetchStartupConfig = async () => {
@@ -161,17 +161,17 @@ export default function ASEDashboard() {
   });
 
   const handleStart = async (id: number) => {
-    try { updateServerStatus(id, 'starting'); await startAseServer(id); toast.success('Server started'); }
-    catch (e) { updateServerStatus(id, 'stopped'); toast.error(`Failed: ${e}`); }
+    try { updateServerStatus(id, 'starting'); await startAseServer(id); toast.success(t('clusterManager.serverStarted', 'Server started')); }
+    catch (e) { updateServerStatus(id, 'stopped'); toast.error(t('ase.dashboard.failed', { defaultValue: 'Failed: {{error}}', error: String(e) })); }
   };
   const handleStop = async (id: number) => {
     try {
       setStoppingServers(prev => [...prev, id]);
       await stopAseServer(id);
       updateServerStatus(id, 'stopped');
-      toast.success('Server stopped');
+      toast.success(t('clusterManager.serverStopped', 'Server stopped'));
     } catch (e) {
-      toast.error(`Failed: ${e}`);
+      toast.error(t('ase.dashboard.failed', { defaultValue: 'Failed: {{error}}', error: String(e) }));
     } finally {
       setStoppingServers(prev => prev.filter(x => x !== id));
     }
@@ -181,9 +181,9 @@ export default function ASEDashboard() {
     try {
       updateServerStatus(id, 'starting');
       await restartAseServer(id, wipeDinos);
-      toast.success(wipeDinos ? 'ASE server restarting with dino wipe...' : 'ASE server restarting...');
+      toast.success(wipeDinos ? t('ase.dashboard.restartingWipe', 'ASE server restarting with dino wipe...') : t('ase.dashboard.restarting', 'ASE server restarting...'));
     } catch (e) {
-      toast.error(`Failed: ${e}`);
+      toast.error(t('ase.dashboard.failed', { defaultValue: 'Failed: {{error}}', error: String(e) }));
     }
   };
 
@@ -237,7 +237,7 @@ export default function ASEDashboard() {
         <div className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
           <span className="text-xs font-bold text-amber-400 tracking-wider uppercase">ARK: Survival Evolved</span>
         </div>
-        <span className="text-xs text-slate-500">UE4 • Steam Workshop • AppID 376030</span>
+        <span className="text-xs text-slate-500">{t('ase.dashboard.appInfo', 'UE4 • Steam Workshop • AppID 376030')}</span>
       </div>
 
       {/* Sponsor Banner */}
@@ -250,42 +250,42 @@ export default function ASEDashboard() {
           {/* Total Servers */}
           <div className="glass-panel rounded-xl p-4 flex flex-col justify-between group hover:border-amber-500/30 transition-all">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Total Servers</span>
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">{t('discordBot.stats.totalServers', 'Total Servers')}</span>
               <div className="p-1.5 bg-amber-500/10 rounded-lg">
                 <Server className="w-3.5 h-3.5 text-amber-400" />
               </div>
             </div>
             <div className="mt-2">
               <p className="text-xl font-bold text-white leading-none">{servers.length}</p>
-              <p className="text-[10px] text-slate-500 mt-1">ASE Instances</p>
+              <p className="text-[10px] text-slate-500 mt-1">{t('ase.dashboard.instances', 'ASE Instances')}</p>
             </div>
           </div>
 
           {/* Running */}
           <div className="glass-panel rounded-xl p-4 flex flex-col justify-between group hover:border-green-500/30 transition-all">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Running</span>
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">{t('common.running', 'Running')}</span>
               <div className="p-1.5 bg-green-500/10 rounded-lg">
                 <Activity className="w-3.5 h-3.5 text-green-400" />
               </div>
             </div>
             <div className="mt-2">
               <p className="text-xl font-bold text-green-400 leading-none">{running}</p>
-              <p className="text-[10px] text-slate-500 mt-1">Online</p>
+              <p className="text-[10px] text-slate-500 mt-1">{t('common.online', 'Online')}</p>
             </div>
           </div>
 
           {/* Stopped */}
           <div className="glass-panel rounded-xl p-4 flex flex-col justify-between group hover:border-slate-500/30 transition-all">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Stopped</span>
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">{t('common.stopped', 'Stopped')}</span>
               <div className="p-1.5 bg-slate-500/10 rounded-lg">
                 <Square className="w-3.5 h-3.5 text-slate-400" />
               </div>
             </div>
             <div className="mt-2">
               <p className="text-xl font-bold text-slate-400 leading-none">{stopped}</p>
-              <p className="text-[10px] text-slate-500 mt-1">Offline</p>
+              <p className="text-[10px] text-slate-500 mt-1">{t('common.offline', 'Offline')}</p>
             </div>
           </div>
         </div>
@@ -293,8 +293,8 @@ export default function ASEDashboard() {
         {/* Host Telemetry Dials Card */}
         <div className="lg:col-span-2 glass-panel rounded-xl p-4 flex flex-col">
           <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-2">
-            <span className="text-[10px] text-slate-300 uppercase tracking-wider font-bold">Host Allocation Telemetry</span>
-            <span className="text-[9px] text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full font-mono font-semibold tracking-wide animate-pulse">STREAMING</span>
+            <span className="text-[10px] text-slate-300 uppercase tracking-wider font-bold">{t('ase.dashboard.telemetry', 'Host Allocation Telemetry')}</span>
+            <span className="text-[9px] text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full font-mono font-semibold tracking-wide animate-pulse">{t('ase.dashboard.streaming', 'STREAMING')}</span>
           </div>
           <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4 py-2">
             {/* CPU Dial */}
@@ -329,10 +329,10 @@ export default function ASEDashboard() {
               <div className="text-center mt-3">
                 <p className="text-[10px] text-slate-300 uppercase font-bold tracking-widest flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  CPU LOAD
+                  {t('ase.dashboard.cpuLoad', 'CPU LOAD')}
                 </p>
                 <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                  {systemInfo ? `${systemInfo.cpuUsage.toFixed(1)}% Cores` : 'Auditing...'}
+                  {systemInfo ? t('ase.dashboard.cpuCores', { defaultValue: '{{value}}% Cores', value: systemInfo.cpuUsage.toFixed(1) }) : t('ase.dashboard.auditing', 'Auditing...')}
                 </p>
               </div>
             </div>
@@ -369,10 +369,10 @@ export default function ASEDashboard() {
               <div className="text-center mt-3">
                 <p className="text-[10px] text-slate-300 uppercase font-bold tracking-widest flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
-                  MEMORY
+                  {t('ase.dashboard.memory', 'MEMORY')}
                 </p>
                 <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                  {systemInfo ? `${(systemInfo.ramUsage / 1024).toFixed(1)}G / ${(systemInfo.ramTotal / 1024).toFixed(1)}G` : 'Active'}
+                  {systemInfo ? `${(systemInfo.ramUsage / 1024).toFixed(1)}G / ${(systemInfo.ramTotal / 1024).toFixed(1)}G` : t('ase.dashboard.active', 'Active')}
                 </p>
               </div>
             </div>
@@ -409,10 +409,10 @@ export default function ASEDashboard() {
               <div className="text-center mt-3">
                 <p className="text-[10px] text-slate-300 uppercase font-bold tracking-widest flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  DISK SPACE
+                  {t('ase.dashboard.diskSpace', 'DISK SPACE')}
                 </p>
                 <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                  {systemInfo ? `${(systemInfo.diskUsage).toFixed(1)}G Used` : 'Active'}
+                  {systemInfo ? t('ase.dashboard.diskUsed', { defaultValue: '{{value}}G Used', value: (systemInfo.diskUsage).toFixed(1) }) : t('ase.dashboard.active', 'Active')}
                 </p>
               </div>
             </div>
@@ -427,7 +427,7 @@ export default function ASEDashboard() {
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
             <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
               <span className="text-amber-400 font-mono font-black leading-none mt-0.5">{'>_'}</span>
-              <span className="tracking-wide">ASE Server Control Hub</span>
+              <span className="tracking-wide">{t('ase.dashboard.controlHub', 'ASE Server Control Hub')}</span>
             </h2>
             <div className="flex flex-wrap items-center gap-3">
               {/* Search Box */}
@@ -437,34 +437,34 @@ export default function ASEDashboard() {
                   type="text"
                   id="ase-server-search"
                   name="searchQuery"
-                  aria-label="Search servers"
+                  aria-label={t('ase.dashboard.searchAria', 'Search servers')}
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search server..."
+                  placeholder={t('ase.dashboard.searchPlaceholder', 'Search server...')}
                   className="pl-9 pr-4 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 w-48 transition-all"
                 />
               </div>
               <button
                 onClick={() => navigate('/ase/servers')}
                 className="text-xs font-bold px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl transition-all flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-[1.03] active:scale-[0.97]"
-                aria-label="Deploy Server"
+                aria-label={t('dashboard.deployServer', 'Deploy Server')}
               >
                 <Zap className="w-3.5 h-3.5 fill-current" />
-                Deploy Server
+                {t('dashboard.deployServer', 'Deploy Server')}
               </button>
               <button
                 onClick={() => navigate('/ase/tools/organization')}
                 className="text-xs font-semibold px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-[1.03] active:scale-[0.97]"
-                aria-label="Organize Nodes"
+                aria-label={t('ase.dashboard.organizeNodes', 'Organize Nodes')}
               >
-                Organize Nodes
+                {t('ase.dashboard.organizeNodes', 'Organize Nodes')}
               </button>
               <button
                 onClick={() => navigate('/ase/servers')}
                 className="text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-lg"
-                aria-label="Manage all servers"
+                aria-label={t('ase.dashboard.manageAllAria', 'Manage all servers')}
               >
-                Manage All →
+                {t('dashboard.manageAll', 'Manage All →')}
               </button>
             </div>
           </div>
@@ -480,10 +480,10 @@ export default function ASEDashboard() {
                     ? 'bg-amber-500 text-slate-900'
                     : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5'
                 )}
-                aria-label="Filter servers: show all nodes"
+                aria-label={t('ase.dashboard.filterAllAria', 'Filter servers: show all nodes')}
               >
                 <FolderOpen className="w-3.5 h-3.5" />
-                <span>All Nodes</span>
+                <span>{t('ase.dashboard.allNodes', 'All Nodes')}</span>
               </button>
               {snapshot.folders.map((folder: any) => {
                 const isActive = selectedFolderId === folder.id;
@@ -498,7 +498,7 @@ export default function ASEDashboard() {
                         : 'bg-white/5 hover:bg-white/10 text-slate-300'
                     )}
                     style={isActive ? { backgroundColor: folder.color } : { borderLeft: `3px solid ${folder.color}` }}
-                    aria-label={`Filter servers by folder: ${folder.name}`}
+                    aria-label={t('ase.dashboard.filterByFolder', { defaultValue: 'Filter servers by folder: {{name}}', name: folder.name })}
                   >
                     <Folder className="w-3.5 h-3.5" />
                     <span>{folder.name}</span>
@@ -566,7 +566,7 @@ export default function ASEDashboard() {
 
                 {/* Visual Label */}
                 <div className="mt-4 text-[9px] font-bold tracking-[0.15em] text-slate-500 uppercase font-mono">
-                  No active instances
+                  {t('ase.dashboard.noInstances', 'No active instances')}
                 </div>
               </div>
 
@@ -574,10 +574,10 @@ export default function ASEDashboard() {
               <div className="flex-1 flex flex-col gap-6 w-full text-left">
                 <div>
                   <h3 className="text-lg font-bold text-slate-200 mb-1.5">
-                    Initialize ASE Server Cluster
+                    {t('ase.dashboard.initTitle', 'Initialize ASE Server Cluster')}
                   </h3>
                   <p className="text-slate-400 text-xs sm:text-sm leading-relaxed max-w-xl">
-                    Deploy, customize, and manage your high-performance ARK: Survival Evolved (ASE) servers from a clean, unified dashboard.
+                    {t('ase.dashboard.initDesc', 'Deploy, customize, and manage your high-performance ARK: Survival Evolved (ASE) servers from a clean, unified dashboard.')}
                   </p>
                 </div>
 
@@ -592,8 +592,8 @@ export default function ASEDashboard() {
                       <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 mb-3 group-hover:scale-105 transition-all">
                         <Zap className="w-4 h-4 fill-current" />
                       </div>
-                      <h4 className="text-xs sm:text-sm font-semibold text-slate-200 group-hover:text-amber-400 transition-colors">Deploy ASE Server</h4>
-                      <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">Configure and download a clean server installation with our guided tools.</p>
+                      <h4 className="text-xs sm:text-sm font-semibold text-slate-200 group-hover:text-amber-400 transition-colors">{t('ase.dashboard.deployAse', 'Deploy ASE Server')}</h4>
+                      <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">{t('ase.dashboard.deployAseDesc', 'Configure and download a clean server installation with our guided tools.')}</p>
                     </div>
                   </div>
 
@@ -606,8 +606,8 @@ export default function ASEDashboard() {
                       <div className="w-8 h-8 rounded-lg bg-slate-500/10 flex items-center justify-center text-slate-400 mb-3 group-hover:scale-105 transition-all">
                         <Server className="w-4 h-4" />
                       </div>
-                      <h4 className="text-xs sm:text-sm font-semibold text-slate-200 group-hover:text-white transition-colors">Import Instance</h4>
-                      <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">Link an existing ShooterGame installation directory to manage it here.</p>
+                      <h4 className="text-xs sm:text-sm font-semibold text-slate-200 group-hover:text-white transition-colors">{t('ase.dashboard.importInstance', 'Import Instance')}</h4>
+                      <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">{t('ase.dashboard.importInstanceDesc', 'Link an existing ShooterGame installation directory to manage it here.')}</p>
                     </div>
                   </div>
                 </div>
@@ -615,12 +615,12 @@ export default function ASEDashboard() {
                 {/* Bottom Helper Bar */}
                 <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-1.5">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  <span>Central systems are online.</span>
+                  <span>{t('ase.dashboard.systemsOnline', 'Central systems are online.')}</span>
                   <button
                     onClick={() => navigate('/ase/config')}
                     className="text-amber-400 hover:text-amber-300 font-semibold focus:outline-none ml-1 flex items-center gap-0.5 hover:underline"
                   >
-                    Open Config Editor →
+                    {t('ase.dashboard.openConfig', 'Open Config Editor →')}
                   </button>
                 </div>
               </div>
@@ -657,7 +657,7 @@ export default function ASEDashboard() {
                           srv.status === 'updating' && 'bg-sky-500 animate-pulse'
                         )}
                         role="img"
-                        aria-label={`Status: ${srv.status}`}
+                        aria-label={t('ase.dashboard.statusAria', { defaultValue: 'Status: {{status}}', status: srv.status })}
                       />
                       <div>
                         <div className="flex items-center gap-2">
@@ -666,7 +666,7 @@ export default function ASEDashboard() {
                           {cust?.is_pinned && <Bookmark className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />}
                           {srv.autoStart && (
                             <span className="text-[9px] px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold tracking-wide uppercase">
-                              AUTOSTART
+                              {t('ase.dashboard.autostart', 'AUTOSTART')}
                             </span>
                           )}
                         </div>
@@ -686,8 +686,8 @@ export default function ASEDashboard() {
                         <button
                           onClick={() => handleStart(srv.id)}
                           className="w-[34px] h-[34px] flex items-center justify-center bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
-                          title="Start Server"
-                          aria-label={`Start Server ${displayName}`}
+                          title={t('scheduler.startServer', 'Start Server')}
+                          aria-label={t('ase.dashboard.startAria', { defaultValue: 'Start Server {{name}}', name: displayName })}
                         >
                           <Play className="w-4 h-4 fill-current ml-0.5" />
                         </button>
@@ -697,8 +697,8 @@ export default function ASEDashboard() {
                             <button
                               onClick={() => setTimedShutdownServer(srv)}
                               className="w-[34px] h-[34px] flex items-center justify-center bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-400 border border-rose-500/30 rounded-xl transition-all focus:outline-none hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
-                              title="Stop / Shutdown Options"
-                              aria-label={`Stop Server ${displayName}`}
+                              title={t('ase.dashboard.stopOptions', 'Stop / Shutdown Options')}
+                              aria-label={t('ase.dashboard.stopAria', { defaultValue: 'Stop Server {{name}}', name: displayName })}
                             >
                               <Square className="w-4 h-4 fill-current" />
                             </button>
@@ -711,8 +711,8 @@ export default function ASEDashboard() {
                               >
                                 <Timer className="w-4 h-4 text-amber-500 shrink-0" />
                                 <div className="flex flex-col">
-                                  <span>Timed Shutdown</span>
-                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Countdown with broadcasts</span>
+                                  <span>{t('serverManager.actions.timedShutdown', 'Timed Shutdown')}</span>
+                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.timedShutdownDesc', 'Countdown with broadcasts')}</span>
                                 </div>
                               </button>
                               <button
@@ -721,8 +721,8 @@ export default function ASEDashboard() {
                               >
                                 <Square className="w-4 h-4 fill-current text-rose-500 shrink-0" />
                                 <div className="flex flex-col">
-                                  <span>Immediate Stop</span>
-                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Halt process right away</span>
+                                  <span>{t('serverManager.actions.immediateStop', 'Immediate Stop')}</span>
+                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.immediateStopDesc', 'Halt process right away')}</span>
                                 </div>
                               </button>
                             </div>
@@ -731,8 +731,8 @@ export default function ASEDashboard() {
                           <div className="relative group/dropdown">
                             <button
                               className="w-[34px] h-[34px] flex items-center justify-center bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] rounded-xl transition-all focus:outline-none hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
-                              title="Restart Options"
-                              aria-label={`Restart options for Server ${displayName}`}
+                              title={t('serverManager.tooltips.restartOptions', 'Restart Options')}
+                              aria-label={t('ase.dashboard.restartAria', { defaultValue: 'Restart options for Server {{name}}', name: displayName })}
                             >
                               <RotateCw className="w-4 h-4" />
                             </button>
@@ -749,7 +749,7 @@ export default function ASEDashboard() {
                               <button
                                 onClick={() => handleRestart(srv.id, true)}
                                 className="w-full text-left px-3.5 py-2.5 hover:bg-amber-500/15 text-amber-700 dark:text-amber-400 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)] text-xs font-medium cursor-pointer"
-                                title="Gracefully restart the server and wipe all wild dinosaurs"
+                                title={t('ase.dashboard.restartWipeTitle', 'Gracefully restart the server and wipe all wild dinosaurs')}
                               >
                                 <RefreshCw className="w-3.5 h-3.5 text-amber-500" />
                                 <span className="font-semibold">{t('dashboard.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
@@ -767,7 +767,7 @@ export default function ASEDashboard() {
                             srv.status === 'updating' && 'bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30',
                             'bg-slate-500/15 text-slate-700 dark:text-slate-400 border-slate-500/30'
                           )}
-                          aria-label={`Server ${displayName} status updating`}
+                          aria-label={t('ase.dashboard.updatingAria', { defaultValue: 'Server {{name}} status updating', name: displayName })}
                         >
                           {stoppingServers.includes(srv.id) ? (
                             <div className="relative w-4 h-4 flex items-center justify-center">
@@ -793,8 +793,8 @@ export default function ASEDashboard() {
                       <button
                         onClick={() => handleCopyIp(srv.port)}
                         className="w-[34px] h-[34px] flex items-center justify-center bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] rounded-xl transition-all focus:outline-none hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
-                        title="Copy IP Address"
-                        aria-label={`Copy IP address for Server ${displayName}`}
+                        title={t('ase.dashboard.copyIp', 'Copy IP Address')}
+                        aria-label={t('ase.dashboard.copyIpAria', { defaultValue: 'Copy IP address for Server {{name}}', name: displayName })}
                       >
                         <Copy className="w-3.5 h-3.5" />
                       </button>
@@ -802,8 +802,8 @@ export default function ASEDashboard() {
                       <button
                         onClick={() => navigate('/ase/config', { state: { serverId: srv.id } })}
                         className="w-[34px] h-[34px] flex items-center justify-center bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] rounded-xl transition-all focus:outline-none hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
-                        title="Config Editor"
-                        aria-label={`Open Config Editor for Server ${displayName}`}
+                        title={t('configEditor.title', 'Config Editor')}
+                        aria-label={t('ase.dashboard.configAria', { defaultValue: 'Open Config Editor for Server {{name}}', name: displayName })}
                       >
                         <FileEdit className="w-4 h-4" />
                       </button>
@@ -812,8 +812,8 @@ export default function ASEDashboard() {
                         onClick={(e) => { e.stopPropagation(); window.location.href = `steam://connect/127.0.0.1:${srv.queryPort || 27015}`; }}
                         disabled={srv.status !== 'online'}
                         className="w-[34px] h-[34px] flex items-center justify-center bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30 rounded-xl transition-all focus:outline-none disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
-                        title="Join Server via Steam"
-                        aria-label={`Join Server ${displayName} via Steam`}
+                        title={t('ase.dashboard.joinSteam', 'Join Server via Steam')}
+                        aria-label={t('ase.dashboard.joinAria', { defaultValue: 'Join Server {{name}} via Steam', name: displayName })}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4c7 0 11 8 11 8a18.6 18.6 0 0 1-3.2 4.6" /><path d="M18.8 18.8A18.6 18.6 0 0 1 12 20c-7 0-11-8-11-8a18.6 18.6 0 0 1 5.3-6.4" /><circle cx="12" cy="12" r="3" /><line x1="2" y1="2" x2="22" y2="22" /></svg>
                       </button>
@@ -853,15 +853,15 @@ export default function ASEDashboard() {
                 <span className="relative flex h-2 w-2">
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
                 </span>
-                Startup & Boot Options
+                {t('ase.dashboard.startupOptions', 'Startup & Boot Options')}
               </h3>
 
               <div className="space-y-3">
                 {/* Run at System Boot */}
                 <div className="flex items-center justify-between p-3 bg-white/[0.01] border border-white/5 rounded-xl hover:bg-white/[0.03] transition-colors">
                   <div className="min-w-0 pr-2">
-                    <p className="text-xs font-semibold text-slate-200">Run at System Boot</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5 truncate">Auto-start app when PC starts</p>
+                    <p className="text-xs font-semibold text-slate-200">{t('settings.startup.windowsBoot', 'Run at System Boot')}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5 truncate">{t('ase.dashboard.runAtBootDesc', 'Auto-start app when PC starts')}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer shrink-0">
                     <input
@@ -878,8 +878,8 @@ export default function ASEDashboard() {
                 {/* Enable Global Auto-Start */}
                 <div className="flex items-center justify-between p-3 bg-white/[0.01] border border-white/5 rounded-xl hover:bg-white/[0.03] transition-colors">
                   <div className="min-w-0 pr-2">
-                    <p className="text-xs font-semibold text-slate-200">Auto-Start Server Profiles</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5 truncate">Launch servers on app boot</p>
+                    <p className="text-xs font-semibold text-slate-200">{t('ase.dashboard.autoStartProfiles', 'Auto-Start Server Profiles')}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5 truncate">{t('ase.dashboard.autoStartProfilesDesc', 'Launch servers on app boot')}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer shrink-0">
                     <input
@@ -896,8 +896,8 @@ export default function ASEDashboard() {
                 {/* Bypass UAC (Task Scheduler) */}
                 <div className="flex items-center justify-between p-3 bg-white/[0.01] border border-white/5 rounded-xl hover:bg-white/[0.03] transition-colors">
                   <div className="min-w-0 pr-2">
-                    <p className="text-xs font-semibold text-slate-200">Bypass UAC (Admin Level)</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5 truncate">Elevated run via Task Scheduler</p>
+                    <p className="text-xs font-semibold text-slate-200">{t('ase.dashboard.bypassUac', 'Bypass UAC (Admin Level)')}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5 truncate">{t('ase.dashboard.bypassUacDesc', 'Elevated run via Task Scheduler')}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer shrink-0">
                     <input
@@ -913,7 +913,7 @@ export default function ASEDashboard() {
               </div>
 
               <p className="text-[10px] text-slate-500 mt-3 text-center">
-                Additional options are available in <button onClick={() => navigate('/ase/settings')} className="text-amber-500 hover:underline">Settings</button>
+                {t('ase.dashboard.additionalOptions', 'Additional options are available in')} <button onClick={() => navigate('/ase/settings')} className="text-amber-500 hover:underline">{t('settings.title', 'Settings')}</button>
               </p>
             </div>
 

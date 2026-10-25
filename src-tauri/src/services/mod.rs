@@ -19,6 +19,7 @@ pub mod plugin_manager;
 pub mod process_manager;
 pub mod rcon;
 pub mod scheduler;
+pub mod routines;
 pub mod server_installer;
 pub mod steamcmd;
 pub mod mod_watchdog;

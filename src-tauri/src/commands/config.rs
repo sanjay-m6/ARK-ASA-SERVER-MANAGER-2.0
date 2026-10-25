@@ -116,6 +116,52 @@ pub(crate) fn get_config_write_dir(install_path: &str, server_type: &str, user_c
     }
 }
 
+/// Location of the copy kept for an INI saved while the server was running (see `apply_pending_config_saves`).
+fn get_pending_save_path(install_path: &str, server_type: &str, config_type: &str) -> PathBuf {
+    get_config_write_dir(install_path, server_type, None)
+        .join(".asm_pending")
+        .join(format!("{}.ini", config_type))
+}
+
+/// Queue `content` (a full INI file, e.g. the snapshot taken before a graceful stop) to be re-applied
+/// over `config_file` right before the next start. Uses the same `.asm_pending` location as
+/// `get_pending_save_path` (the default server config dir).
+pub(crate) fn queue_pending_config_restore(config_file: &std::path::Path, content: &str) {
+    let (Some(dir), Some(name)) = (config_file.parent(), config_file.file_name()) else { return };
+    let pending = dir.join(".asm_pending").join(name);
+    if let Err(e) = IniParser::write_string_to_file_utf8(&pending, content) {
+        println!("  ⚠️ [Pending Save] Could not queue restore of {:?}: {}", config_file, e);
+    }
+}
+
+/// ARK rewrites GameUserSettings.ini from its in-memory settings when the server shuts down, so
+/// changes saved while it is running get wiped on the next stop/restart. `save_config` keeps a copy
+/// of such saves; this re-applies them (merged over whatever ARK wrote) right before the next start.
+pub(crate) fn apply_pending_config_saves(install_path: &str, server_type: &str) {
+    for config_type in ["GameUserSettings", "Game"] {
+        let pending_path = get_pending_save_path(install_path, server_type, config_type);
+        if !pending_path.exists() {
+            continue;
+        }
+        let target = get_config_write_dir(install_path, server_type, None).join(format!("{}.ini", config_type));
+        match IniParser::read_file_to_string(&pending_path) {
+            Ok(saved) if !saved.trim().is_empty() => {
+                let current = IniParser::read_file_to_string(&target).unwrap_or_default();
+                let current = if config_type == "GameUserSettings" { sanitize_ini_content(&current) } else { current };
+                let restored = if current.trim().is_empty() { saved } else { IniParser::merge(&current, &saved) };
+                if let Err(e) = IniParser::write_string_to_file_utf8(&target, &restored) {
+                    println!("  ⚠️ [Pending Save] Failed to re-apply {}.ini saved while running: {}", config_type, e);
+                    continue;
+                }
+                println!("  ♻️ [Pending Save] Re-applied {}.ini changes saved while the server was running", config_type);
+            }
+            Ok(_) => {}
+            Err(e) => println!("  ⚠️ [Pending Save] Could not read {:?}: {}", pending_path, e),
+        }
+        let _ = fs::remove_file(&pending_path);
+    }
+}
+
 /// Get backup directory path
 fn get_backup_dir(install_path: &str, server_type: &str) -> PathBuf {
     let sub_dir = ConfigGenerator::get_config_subdirectory(&PathBuf::from(install_path), Some(server_type));
@@ -201,6 +247,21 @@ pub async fn save_config(
 
     IniParser::write_string_to_file_utf8(&file_path, &final_content).map_err(|e| e.to_string())?;
     println!("  ✅ Saved {} to {:?}", config_type, file_path);
+
+    // Saved while running: ARK will overwrite the file on shutdown, so keep a copy to re-apply on next start
+    if server_type != "ASE" {
+        let pending_path = get_pending_save_path(&install_path, &server_type, &config_type);
+        if state.process_manager.is_server_running(server_id) {
+            if let Err(e) = IniParser::write_string_to_file_utf8(&pending_path, &final_content) {
+                println!("  ⚠️ [Pending Save] Failed to store copy of {}.ini: {}", config_type, e);
+            } else {
+                println!("  📌 [Pending Save] Server {} is running — {}.ini will be re-applied before next start", server_id, config_type);
+            }
+        } else if pending_path.exists() {
+            // A save while stopped is authoritative; drop any older pending copy
+            let _ = fs::remove_file(&pending_path);
+        }
+    }
 
     // If custom config folder is active, also sync/dual-write to the default server config directory
     if user_folder.is_some() {
@@ -327,9 +388,23 @@ pub async fn save_config(
             .map(|s| s.trim_matches('"').trim_matches('\'').to_string());
 
         // Perform the update in a nested scope to drop the lock before firewall call
-        {
+        let ase_ports_changed = {
             let db = state.db.lock().map_err(|e| e.to_string())?;
             let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+            // ASE: only re-check the firewall (slow netsh calls) when a port actually changed
+            let ase_ports_changed = server_type == "ASE" && conn
+                .query_row(
+                    "SELECT port, query_port, rcon_port FROM ase_servers WHERE id = ?1",
+                    [server_id],
+                    |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?)),
+                )
+                .map(|(p, q, r)| {
+                    game_port.map_or(false, |v| v as i64 != p)
+                        || query_port.map_or(false, |v| v as i64 != q)
+                        || rcon_port.map_or(false, |v| v as i64 != r)
+                })
+                .unwrap_or(true);
 
             let mut query = if server_type == "ASE" {
                 "UPDATE ase_servers SET ".to_string()
@@ -418,9 +493,11 @@ pub async fn save_config(
                     server_id
                 );
             }
-        }
 
-        if server_type == "ASE" {
+            ase_ports_changed
+        };
+
+        if server_type == "ASE" && ase_ports_changed {
             match crate::commands::firewall::configure_ase_firewall_raw(&state, server_id) {
                 Ok(res) => {
                     let msg = if res.already_configured {

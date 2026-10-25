@@ -16,6 +16,46 @@ fn get_config_dir(install_path: &str) -> PathBuf {
         .join("WindowsServer")
 }
 
+/// Resolve the INI directory exactly like read/write_ase_config do (honoring the
+/// `ase_user_config_folder` override). Returns the active dir and whether the override is in use.
+/// Raw edits previously always went to the install dir, so with an override folder they were
+/// never seen by the visual editor and were overwritten by the next visual save.
+fn get_active_config_dir(conn: &rusqlite::Connection, install_path: &str) -> (PathBuf, bool) {
+    let user_folder_raw: String = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = 'ase_user_config_folder'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or_default();
+    let user_folder = if !user_folder_raw.is_empty() && PathBuf::from(&user_folder_raw).is_dir() {
+        Some(user_folder_raw)
+    } else {
+        None
+    };
+    (
+        crate::ase::commands::config::get_config_path(install_path, user_folder.as_deref()),
+        user_folder.is_some(),
+    )
+}
+
+/// When the user config folder override is active, also write the file to the server's
+/// default config dir (same dual-write behavior as write_ase_config), so the running server
+/// and the visual editor stay in sync.
+fn mirror_to_default_dir(user_folder_active: bool, install_path: &str, filename: &str, content: &str) {
+    if !user_folder_active {
+        return;
+    }
+    let default_dir = get_config_dir(install_path);
+    if let Err(e) = fs::create_dir_all(&default_dir) {
+        println!("  ⚠️ [WARNING] [ASE] Failed to create default config directory: {}", e);
+        return;
+    }
+    if let Err(e) = fs::write(default_dir.join(filename), content) {
+        println!("  ⚠️ [WARNING] [ASE] Failed to dual-write {} to default path: {}", filename, e);
+    }
+}
+
 #[tauri::command]
 pub async fn read_ase_ini(server_id: i64, filename: String, state: State<'_, AppState>) -> Result<IniData, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -29,7 +69,7 @@ pub async fn read_ase_ini(server_id: i64, filename: String, state: State<'_, App
         )
         .map_err(|e| format!("Server not found: {}", e))?;
 
-    let config_dir = get_config_dir(&install_path);
+    let (config_dir, _) = get_active_config_dir(&conn, &install_path);
     let target_file = config_dir.join(&filename);
 
     if !target_file.exists() {
@@ -55,7 +95,7 @@ pub async fn write_ase_ini(server_id: i64, filename: String, data: IniData, stat
         )
         .map_err(|e| format!("Server not found: {}", e))?;
 
-    let config_dir = get_config_dir(&install_path);
+    let (config_dir, user_folder_active) = get_active_config_dir(&conn, &install_path);
     
     if !config_dir.exists() {
         fs::create_dir_all(&config_dir)
@@ -65,8 +105,10 @@ pub async fn write_ase_ini(server_id: i64, filename: String, data: IniData, stat
     let target_file = config_dir.join(&filename);
     let content = data.serialize();
 
-    fs::write(&target_file, content)
+    fs::write(&target_file, &content)
         .map_err(|e| format!("Failed to write {}: {}", filename, e))?;
+
+    mirror_to_default_dir(user_folder_active, &install_path, &filename, &content);
 
     Ok(())
 }
@@ -84,7 +126,7 @@ pub async fn read_ase_ini_raw(server_id: i64, filename: String, state: State<'_,
         )
         .map_err(|e| format!("Server not found: {}", e))?;
 
-    let config_dir = get_config_dir(&install_path);
+    let (config_dir, _) = get_active_config_dir(&conn, &install_path);
     let target_file = config_dir.join(&filename);
 
     if !target_file.exists() {
@@ -110,7 +152,7 @@ pub async fn write_ase_ini_raw(server_id: i64, filename: String, content: String
         )
         .map_err(|e| format!("Server not found: {}", e))?;
 
-    let config_dir = get_config_dir(&install_path);
+    let (config_dir, user_folder_active) = get_active_config_dir(&conn, &install_path);
     
     if !config_dir.exists() {
         fs::create_dir_all(&config_dir)
@@ -119,8 +161,10 @@ pub async fn write_ase_ini_raw(server_id: i64, filename: String, content: String
 
     let target_file = config_dir.join(&filename);
 
-    fs::write(&target_file, content)
+    fs::write(&target_file, &content)
         .map_err(|e| format!("Failed to write {}: {}", filename, e))?;
+
+    mirror_to_default_dir(user_folder_active, &install_path, &filename, &content);
 
     Ok(())
 }

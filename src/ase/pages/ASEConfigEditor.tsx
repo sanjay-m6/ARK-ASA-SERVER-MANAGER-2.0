@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, memo, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import i18n from 'i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
 import { Save, RotateCcw, ChevronDown, ChevronUp, Check, CheckSquare, Settings2, Users, Flame, Hammer, MonitorPlay, Search, Shield, Globe, Cpu, Map, Compass, Download, FileText, Database, Loader2, Sliders, AlertTriangle, X, ExternalLink, Copy, GraduationCap, BarChart3, RefreshCw, TerminalSquare, Lock, Unlock } from 'lucide-react';
@@ -24,6 +25,7 @@ import { cn } from '../../utils/helpers';
 import aseLogo from '../../assets/ASE.png';
 import { ASE_MAPS } from '../data/aseMaps';
 import { getModdedMapByMapArg, buildLaunchArgs } from '../../data/moddedMapRegistry';
+import { NumberInput } from '../../components/ui/NumberInput';
 
 const MANUAL_KEYS = [
   'sessionName', 'serverPassword', 'serverAdminPassword', 'SpectatorPassword',
@@ -187,6 +189,7 @@ type ConfigFile = 'GameUserSettings.ini' | 'Game.ini';
 type TabType = 'administration' | 'general' | 'rates' | 'player' | 'breeding' | 'structures' | 'pvp' | 'tribe' | 'transfer' | 'environment' | 'engrams' | 'admin' | 'advanced' | 'server_options' | 'search' | 'diagnostics' | 'stats' | 'levels' | 'dino_control' | 'players';
 
 const FieldWrapper = memo(({ label, description, children, file, layout = 'vertical', configKey }: { label: string; description?: string; children: React.ReactNode; file?: string; layout?: 'horizontal' | 'vertical', configKey?: string }) => {
+  const { t } = useTranslation();
   return (
     <div className={cn(
       "p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:scale-[1.01] hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] group relative flex flex-col justify-between gap-4 w-full min-h-[120px]",
@@ -203,7 +206,7 @@ const FieldWrapper = memo(({ label, description, children, file, layout = 'verti
                 window.open(`https://ark.wiki.gg/wiki/Server_configuration#${configKey}`, '_blank');
               }}
               className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800"
-              title={`Search Wiki for ${configKey}`}
+              title={t('ase.configEditor.searchWiki', { defaultValue: 'Search Wiki for {{key}}', key: configKey })}
             >
               <ExternalLink className="w-3.5 h-3.5" />
             </button>
@@ -250,41 +253,19 @@ const Toggle = memo(({ label, value, onChange, desc, file, configKey }: { label:
 ));
 Toggle.displayName = 'Toggle';
 
-const NumberInput = memo(({ label, value, onChange, desc, step = 1, file, configKey }: { label: string; value: number; onChange: (v: number) => void; desc?: string; step?: number; file?: string; configKey?: string }) => {
-  const [localValue, setLocalValue] = useState<string>(String(value));
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLocalValue(String(value));
-  }, [value]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setLocalValue(e.target.value);
-
-  const handleBlur = () => {
-    const num = Number(localValue);
-    if (!isNaN(num)) onChange(num);
-    else setLocalValue(String(value));
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') e.currentTarget.blur();
-  };
-
+// `step` is accepted for field-definition compatibility but no longer needed by the text-based NumberInput
+const NumberField = memo(({ label, value, onChange, desc, file, configKey }: { label: string; value: number; onChange: (v: number) => void; desc?: string; step?: number; file?: string; configKey?: string }) => {
   return (
     <FieldWrapper label={label} description={desc} file={file} layout="vertical" configKey={configKey}>
-      <input
-        type="number"
-        step={step}
-        value={localValue}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        onKeyDown={handleKeyDown}
+      <NumberInput
+        value={value}
+        onValueChange={onChange}
         className="w-full bg-slate-950/60 border border-slate-800 hover:border-slate-700 focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none font-mono transition-all text-sm placeholder-slate-600 shadow-inner"
       />
     </FieldWrapper>
   );
 });
-NumberInput.displayName = 'NumberInput';
+NumberField.displayName = 'NumberField';
 
 const TextInput = memo(({ label, value, onChange, desc, placeholder, file, configKey }: { label: string; value: string; onChange: (v: string) => void; desc?: string; placeholder?: string; file?: string; configKey?: string }) => {
   const [localValue, setLocalValue] = useState<string>(value || '');
@@ -317,6 +298,7 @@ const TextInput = memo(({ label, value, onChange, desc, placeholder, file, confi
 TextInput.displayName = 'TextInput';
 
 const TextAreaInput = memo(({ idKey, label, value, onChange, desc, file }: { idKey: string, label: string; value: string; onChange: (v: string) => void; desc?: string; file?: string }) => {
+  const { t } = useTranslation();
   const [localValue, setLocalValue] = useState<string>(value || '');
 
   useEffect(() => {
@@ -379,7 +361,7 @@ const TextAreaInput = memo(({ idKey, label, value, onChange, desc, file }: { idK
         {/* Toolbar */}
         {idKey === 'motd' && (
           <div className="flex flex-wrap items-center gap-2 bg-slate-950/80 p-2.5 rounded-t-xl border border-slate-800/85 border-b-0">
-            <span className="text-[10px] uppercase font-bold text-slate-500 select-none mr-1">MOTD Colors:</span>
+            <span className="text-[10px] uppercase font-bold text-slate-500 select-none mr-1">{t('ase.configEditor.motdColors', 'MOTD Colors:')}</span>
             {[
               { name: 'Red', color: '1,0,0,1', bg: 'bg-red-500' },
               { name: 'Green', color: '0,1,0,1', bg: 'bg-emerald-500' },
@@ -397,7 +379,7 @@ const TextAreaInput = memo(({ idKey, label, value, onChange, desc, file }: { idK
                   "w-5 h-5 rounded-full border border-white/10 hover:scale-110 active:scale-95 transition-all shadow-sm",
                   c.bg
                 )}
-                title={`Format selection to ${c.name}`}
+                title={t('ase.configEditor.formatTo', { defaultValue: 'Format selection to {{color}}', color: t(`ase.configEditor.colors.${c.name}`, c.name) })}
               />
             ))}
             <div className="h-4 w-px bg-slate-850 mx-1" />
@@ -405,7 +387,7 @@ const TextAreaInput = memo(({ idKey, label, value, onChange, desc, file }: { idK
               type="button"
               onClick={insertNewline}
               className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800/80 text-[10px] font-bold transition-colors"
-              title="Insert literal newline \n tag"
+              title={t('configEditor.motd.insertNewlineTitle', 'Insert literal newline \\n tag')}
             >
               + New Line (\n)
             </button>
@@ -418,7 +400,7 @@ const TextAreaInput = memo(({ idKey, label, value, onChange, desc, file }: { idK
           value={localValue}
           onChange={handleChange}
           onBlur={handleBlur}
-          placeholder={idKey === 'motd' ? 'Enter server welcome message... Use \\n for line breaks, or color presets above.' : 'Enter entries (one per line)...'}
+          placeholder={idKey === 'motd' ? t('ase.configEditor.motdPlaceholder', 'Enter server welcome message... Use \\n for line breaks, or color presets above.') : t('ase.configEditor.entriesPlaceholder', 'Enter entries (one per line)...')}
           rows={4}
           className={cn(
             "w-full bg-slate-950/60 border border-slate-800 hover:border-slate-700 focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 px-4 py-3 text-slate-200 focus:outline-none font-mono transition-all text-sm placeholder-slate-650 shadow-inner resize-y min-h-[90px]",
@@ -430,8 +412,8 @@ const TextAreaInput = memo(({ idKey, label, value, onChange, desc, file }: { idK
         {idKey === 'motd' && (
           <div className="mt-2.5 flex flex-col gap-1.5 bg-slate-950/40 border border-white/5 rounded-2xl p-4">
             <div className="text-[10px] uppercase font-black text-slate-500 tracking-wider flex items-center justify-between">
-              <span>In-Game Broadcast Preview</span>
-              <span className="text-[8px] bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold px-1.5 py-0.5 rounded">Real-Time</span>
+              <span>{t('configEditor.motd.broadcastPreview', 'In-Game Broadcast Preview')}</span>
+              <span className="text-[8px] bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold px-1.5 py-0.5 rounded">{t('configEditor.motd.realTime', 'Real-Time')}</span>
             </div>
             <div className="text-sm font-semibold tracking-wide leading-relaxed p-2.5 rounded-xl bg-black/30 border border-slate-900/60 font-sans break-words select-none max-h-[150px] overflow-y-auto custom-scrollbar text-left">
               {renderMotdPreview(localValue)}
@@ -461,7 +443,7 @@ const SelectInput = memo(({ label, value, onChange, desc, options, file, configK
 SelectInput.displayName = 'SelectInput';
 
 const renderMotdPreview = (text: string) => {
-  if (!text) return <span className="text-slate-500 italic text-xs">No message entered yet.</span>;
+  if (!text) return <span className="text-slate-500 italic text-xs">{i18n.t('ase.configEditor.noMotd', 'No message entered yet.')}</span>;
 
   const lines = text.split('\\n');
 
@@ -544,6 +526,17 @@ export default function ASEConfigEditor() {
   const [mapName, setMapName] = useState<string>('TheIsland');
 
   const [isLoading, setIsLoading] = useState(false);
+  // Server whose INI is currently loaded into `config`; null while loading or after a failed load.
+  // Saving the visual editor is only allowed when this matches the selected server.
+  const [loadedServerId, setLoadedServerId] = useState<number | null>(null);
+  const selectedServerRef = useRef<number | null>(selectedServer);
+  useEffect(() => {
+    selectedServerRef.current = selectedServer;
+  }, [selectedServer]);
+  // `${serverId}:${file}` of the content currently in the raw editor (null if not loaded).
+  const rawLoadedKeyRef = useRef<string | null>(null);
+  // Server whose record last seeded mapName/adminState.
+  const adminSeededForRef = useRef<number | null>(null);
 
   // Sidebar resize and collapse states
   const [sidebarWidth, setSidebarWidth] = useState(256);
@@ -591,13 +584,20 @@ export default function ASEConfigEditor() {
 
   const loadConfig = async (id: number) => {
     setIsLoading(true);
+    setLoadedServerId(null);
     try {
       await syncAseServerFromIni(id);
       const c = await readAseConfig(id);
+      // Ignore a late response for a server that is no longer selected; applying it would
+      // let the next save write server A's settings into server B.
+      if (selectedServerRef.current !== id) return;
       setConfig({ ...defaultConfig, ...c });
+      setLoadedServerId(id);
       setIsDirty(false);
     } catch (e) {
       console.error('Failed to load config:', e);
+      if (selectedServerRef.current !== id) return;
+      // loadedServerId stays null, so these placeholder defaults can never be saved over the real INI.
       setConfig(defaultConfig);
     } finally {
       setIsLoading(false);
@@ -626,13 +626,16 @@ export default function ASEConfigEditor() {
   });
 
   useEffect(() => {
-    if (selectedServer) {
+    // While there are unsaved edits, don't re-seed map/admin fields from the server record
+    // (unless they were never seeded for this server): this effect also fires when isDirty
+    // flips to true, which used to revert the user's first edit to port/RCON/mods/map
+    // (e.g. picking TheIsland) right after it was made.
+    if (selectedServer && (!isDirty || adminSeededForRef.current !== selectedServer)) {
       const serverObj = servers.find(s => s.id === selectedServer);
       if (serverObj) {
-        if (!isDirty || mapName === 'TheIsland') {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setMapName(serverObj.mapName || 'TheIsland');
-        }
+        adminSeededForRef.current = selectedServer;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setMapName(serverObj.mapName || 'TheIsland');
 
         let localIp = '';
         let peerPort = serverObj.port + 1;
@@ -665,19 +668,25 @@ export default function ASEConfigEditor() {
 
 
   useEffect(() => {
+    let cancelled = false;
     const fetchRawIni = async () => {
       if (!selectedServer || editorMode !== 'raw') return;
+      rawLoadedKeyRef.current = null;
       setIsLoading(true);
       try {
         const raw = await readAseIniRaw(selectedServer, activeFile);
+        // A late response for a previous server/file must not land in the editor.
+        if (cancelled) return;
         setRawIniContent(raw);
+        rawLoadedKeyRef.current = `${selectedServer}:${activeFile}`;
       } catch (e) {
-        toast.error(`Failed to load raw INI: ${e}`);
+        toast.error(t('ase.configEditor.rawLoadFailed', { defaultValue: 'Failed to load raw INI: {{error}}', error: String(e) }));
       } finally {
         setIsLoading(false);
       }
     };
     fetchRawIni();
+    return () => { cancelled = true; };
   }, [selectedServer, activeFile, editorMode]);
 
   useEffect(() => {
@@ -707,13 +716,13 @@ export default function ASEConfigEditor() {
       if (ip && ip !== '127.0.0.1') {
         setAdminState(prev => ({ ...prev, localIp: ip }));
         setIsDirty(true);
-        toast.success(`Detected IP: ${ip}`);
+        toast.success(t('ase.configEditor.detectedIp', { defaultValue: 'Detected IP: {{ip}}', ip }));
       } else {
-        toast.error("Could not determine local IP automatically");
+        toast.error(t('ase.configEditor.ipUndetermined', 'Could not determine local IP automatically'));
       }
     } catch (err) {
       console.error("Failed to detect IP", err);
-      toast.error("Failed to detect local IP");
+      toast.error(t('ase.configEditor.ipDetectFailed', 'Failed to detect local IP'));
     }
   };
 
@@ -763,23 +772,56 @@ export default function ASEConfigEditor() {
   const addFirewallRules = async () => {
     if (!selectedServer) return;
     try {
-      const toastId = toast.loading('Adding firewall rules (requires admin)...');
+      const toastId = toast.loading(t('ase.configEditor.addingFirewall', 'Adding firewall rules (requires admin)...'));
       await invoke('create_ase_firewall_rules', { serverId: selectedServer });
-      toast.success('Firewall rules added successfully!', { id: toastId });
+      toast.success(t('ase.configEditor.firewallAdded', 'Firewall rules added successfully!'), { id: toastId });
     } catch (err) {
       console.error("Failed to add firewall rules", err);
-      toast.error(`Failed to add firewall rules: ${err}`);
+      toast.error(t('ase.configEditor.firewallFailed', { defaultValue: 'Failed to add firewall rules: {{error}}', error: String(err) }));
     }
   };
 
   const handleSave = useCallback(async () => {
     if (!selectedServer) return;
+    // Never write placeholder defaults or another server's state: only save what was
+    // actually loaded for the selected server.
+    if (editorMode === 'visual' && loadedServerId !== selectedServer) {
+      toast.error(t('ase.configEditor.notLoaded', 'Configuration has not finished loading for this server. Reload it before saving.'));
+      return;
+    }
+    if (editorMode !== 'visual' && rawLoadedKeyRef.current !== `${selectedServer}:${activeFile}`) {
+      toast.error(t('ase.configEditor.fileNotLoaded', { defaultValue: '{{file}} has not finished loading. Reload it before saving.', file: activeFile }));
+      return;
+    }
     setIsLoading(true);
     try {
       if (editorMode === 'visual') {
-        await writeAseConfig(selectedServer, config);
-
         const server = servers.find(s => s.id === selectedServer);
+
+        // Active mods and RCON can be edited in two places (Admin panel -> adminState, and the
+        // visual config fields). Use whichever one the user changed, so the other copy doesn't
+        // silently revert it during save.
+        const configToSave: AseGameConfig = { ...config };
+        if (server) {
+          if (adminState.activeMods !== (server.activeMods || '')) {
+            configToSave.activeMods = adminState.activeMods;
+          }
+          if (adminState.rconPort !== (server.rconPort || 27020)) {
+            if (adminState.rconPort > 0) {
+              configToSave.rconPort = adminState.rconPort;
+              configToSave.rconEnabled = true;
+            } else {
+              configToSave.rconEnabled = false;
+            }
+          }
+        }
+
+        await writeAseConfig(selectedServer, configToSave);
+        // Sync the DB (incl. the ase_mods table) from the INI we just wrote *before*
+        // updateAseServer: it regenerates GameUserSettings.ini from the DB, and with a stale
+        // ase_mods table it would overwrite ActiveMods with the old mod list.
+        await syncAseServerFromIni(selectedServer);
+
         if (server) {
           let extraArgs = server.extraArgs || '';
 
@@ -802,8 +844,10 @@ export default function ASEConfigEditor() {
             mapName,
             port: adminState.port,
             queryPort: adminState.queryPort,
-            rconPort: adminState.rconPort,
-            activeMods: adminState.activeMods,
+            // The backend regenerates RCONEnabled from this (port > 0), so pass 0 when RCON is
+            // disabled; otherwise a disabled RCON toggle was re-enabled on every save.
+            rconPort: configToSave.rconEnabled ? configToSave.rconPort : 0,
+            activeMods: configToSave.activeMods,
             extraArgs: extraArgs.trim()
           });
         }
@@ -819,15 +863,15 @@ export default function ASEConfigEditor() {
       loadDiagnostics(selectedServer);
       // Refresh servers list to reflect updates in UI
       await useAseServerStore.getState().refreshServers();
-      toast.success('Configuration saved successfully', {
+      toast.success(t('configEditor.toasts.saveSuccess', 'Configuration saved successfully'), {
         style: { background: '#10b981', color: '#fff', borderRadius: '12px' }
       });
     } catch (e) {
-      toast.error(`Failed to save config: ${e}`);
+      toast.error(t('ase.configEditor.saveFailed', { defaultValue: 'Failed to save config: {{error}}', error: String(e) }));
     } finally {
       setIsLoading(false);
     }
-  }, [selectedServer, editorMode, config, mapName, activeFile, rawIniContent]);
+  }, [selectedServer, editorMode, config, mapName, activeFile, rawIniContent, adminState, servers, loadedServerId]);
 
   // Ctrl+S keyboard shortcut
   useEffect(() => {
@@ -924,7 +968,7 @@ export default function ASEConfigEditor() {
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    toast.success('Copied to clipboard');
+    toast.success(t('configEditor.toasts.copySuccess', 'Copied to clipboard'));
   };
 
   const applyAsePreset = (preset: ConfigPreset, currentConfig: AseGameConfig): AseGameConfig => {
@@ -958,7 +1002,7 @@ export default function ASEConfigEditor() {
     setConfig(newConfig);
     setIsDirty(true);
     setCurrentPreset(preset.id);
-    toast.success(`Preset "${preset.name}" applied`);
+    toast.success(t('ase.configEditor.presetApplied', { defaultValue: 'Preset "{{name}}" applied', name: preset.name }));
   };
 
   const update = (key: keyof AseGameConfig, val: string | number | boolean | number[] | string[]) => {
@@ -1031,7 +1075,7 @@ export default function ASEConfigEditor() {
           ...prev,
           launcherArgs: updatedArgs
         }));
-        toast.success(`${preset.name} mod launch parameters auto-configured in Advanced tab!`);
+        toast.success(t('ase.configEditor.modLaunchConfigured', { defaultValue: '{{name}} mod launch parameters auto-configured in Advanced tab!', name: preset.name }));
       }
     }
   };
@@ -1041,10 +1085,10 @@ export default function ASEConfigEditor() {
       <div className="p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] flex flex-col gap-4 text-left">
         <div className="flex-1 min-w-0">
           <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1.5 text-sm group-hover:text-white transition-colors">
-            Active Map Profile
+            {t('ase.configEditor.mapProfile', 'Active Map Profile')}
           </div>
           <div className="text-xs text-slate-450 leading-relaxed font-medium">
-            Select the active map for this ARK: Survival Evolved server instance.
+            {t('ase.configEditor.mapProfileDesc', 'Select the active map for this ARK: Survival Evolved server instance.')}
           </div>
         </div>
 
@@ -1061,10 +1105,10 @@ export default function ASEConfigEditor() {
               </span>
               <div>
                 <div className="font-semibold text-slate-100 leading-tight">
-                  {dropdownValue === '__CUSTOM__' ? (mapName || 'Custom Map') : (selectedMapMeta ? selectedMapMeta.name : (mapName || 'Custom Map'))}
+                  {dropdownValue === '__CUSTOM__' ? (mapName || t('ase.configEditor.customMap', 'Custom Map')) : (selectedMapMeta ? selectedMapMeta.name : (mapName || t('ase.configEditor.customMap', 'Custom Map')))}
                 </div>
                 <div className="text-[10px] text-amber-500 font-semibold tracking-wider uppercase mt-0.5">
-                  {dropdownValue === '__CUSTOM__' ? (mapName ? 'Custom Mod Map' : 'Custom Map Argument') : (selectedMapMeta ? (selectedMapMeta.author ? `${selectedMapMeta.dlcType} • By ${selectedMapMeta.author}` : selectedMapMeta.dlcType) : 'Official Map')}
+                  {dropdownValue === '__CUSTOM__' ? (mapName ? t('ase.configEditor.customModMap', 'Custom Mod Map') : t('ase.configEditor.customMapArg', 'Custom Map Argument')) : (selectedMapMeta ? (selectedMapMeta.author ? `${t(`ase.maps.dlcType.${selectedMapMeta.dlcType.replace(/\s+/g, '')}`, selectedMapMeta.dlcType)} • ${t('ase.installWizard.byAuthor', { defaultValue: 'By {{author}}', author: selectedMapMeta.author })}` : t(`ase.maps.dlcType.${selectedMapMeta.dlcType.replace(/\s+/g, '')}`, selectedMapMeta.dlcType)) : t('ase.configEditor.officialMap', 'Official Map'))}
                 </div>
               </div>
             </div>
@@ -1225,8 +1269,8 @@ export default function ASEConfigEditor() {
                         <span className="text-base">✏️</span>
                       </div>
                       <div className="min-w-0">
-                        <div className="font-semibold text-slate-100 truncate">Custom Map / Mod ID</div>
-                        <div className="text-[10px] text-slate-450 mt-0.5">Specify custom identifier launch arguments</div>
+                        <div className="font-semibold text-slate-100 truncate">{t('ase.configEditor.customMapModId', 'Custom Map / Mod ID')}</div>
+                        <div className="text-[10px] text-slate-450 mt-0.5">{t('ase.configEditor.customMapDesc', 'Specify custom identifier launch arguments')}</div>
                       </div>
                     </div>
                     {dropdownValue === '__CUSTOM__' && <Check className="w-4 h-4 text-amber-500" />}
@@ -1240,12 +1284,12 @@ export default function ASEConfigEditor() {
         {/* Custom Map Input Field */}
         {dropdownValue === '__CUSTOM__' && (
           <div className="space-y-2 relative z-10 animate-fadeIn">
-            <label className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider">Custom Map Name / Server Argument</label>
+            <label className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider">{t('ase.configEditor.customMapName', 'Custom Map Name / Server Argument')}</label>
             <input
               type="text"
               value={mapName}
               onChange={(e) => handleMapChange(e.target.value)}
-              placeholder="e.g. TheIslandReforged"
+              placeholder={t('ase.configEditor.customMapPlaceholder', 'e.g. TheIslandReforged')}
               className="w-full bg-slate-950/40 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500 focus:shadow-[0_0_15px_rgba(245,158,11,0.15)] font-mono text-sm transition-all placeholder-slate-650"
             />
           </div>
@@ -1285,13 +1329,13 @@ export default function ASEConfigEditor() {
                 </div>
                 {selectedMapMeta.author && (
                   <div className="text-[10px] text-amber-400 font-bold mb-1">
-                    By {selectedMapMeta.author}
+                    {t('ase.installWizard.byAuthor', { defaultValue: 'By {{author}}', author: selectedMapMeta.author })}
                   </div>
                 )}
-                <p className="text-xs text-slate-300 leading-normal drop-shadow-sm line-clamp-2">{selectedMapMeta.description}</p>
+                <p className="text-xs text-slate-300 leading-normal drop-shadow-sm line-clamp-2">{selectedMapMeta.isModded ? selectedMapMeta.description : t(`ase.maps.desc.${selectedMapMeta.serverArg}`, selectedMapMeta.description)}</p>
                 {selectedMapMeta.mapModId && (
                   <div className="mt-2 text-[10px] text-slate-400 font-mono">
-                    Mod ID: <span className="text-slate-200">{selectedMapMeta.mapModId}</span>
+                    {t('ase.configEditor.modId', 'Mod ID:')} <span className="text-slate-200">{selectedMapMeta.mapModId}</span>
                   </div>
                 )}
               </div>
@@ -1299,8 +1343,8 @@ export default function ASEConfigEditor() {
           ) : (
             <div className="relative p-6 z-10 flex flex-col justify-center items-center h-full text-slate-500 bg-slate-950">
               <span className="text-4xl mb-2">🗺️</span>
-              <div className="font-bold text-slate-350">Custom Modded Map Selected</div>
-              <div className="text-xs text-slate-500 mt-1">Specify custom identifier launch arguments as needed.</div>
+              <div className="font-bold text-slate-350">{t('ase.configEditor.customModdedSelected', 'Custom Modded Map Selected')}</div>
+              <div className="text-xs text-slate-500 mt-1">{t('ase.configEditor.customModdedDesc', 'Specify custom identifier launch arguments as needed.')}</div>
             </div>
           )}
         </div>
@@ -1308,13 +1352,13 @@ export default function ASEConfigEditor() {
         {/* Total Conversion and Mods */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-slate-300">Total Conversion ID</label>
-            <input type="text" value={adminState.totalConversionId} onChange={e => { setAdminState({ ...adminState, totalConversionId: e.target.value }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950/40 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="Mod ID (e.g. 111111111)" />
+            <label className="text-xs font-bold text-slate-300">{t('ase.configEditor.totalConversion', 'Total Conversion ID')}</label>
+            <input type="text" value={adminState.totalConversionId} onChange={e => { setAdminState({ ...adminState, totalConversionId: e.target.value }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950/40 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder={t('ase.configEditor.modIdPlaceholder', 'Mod ID (e.g. 111111111)')} />
           </div>
           <div className="flex flex-col gap-1.5 md:col-span-2">
-            <label className="text-xs font-bold text-slate-300">Active Mod IDs</label>
-            <input type="text" value={adminState.activeMods} onChange={e => { setAdminState({ ...adminState, activeMods: e.target.value }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950/40 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="Comma separated list (e.g. 123456, 789012)" />
-            <p className="text-[10px] text-slate-500">List of workshop Mod IDs loaded on server startup. Multiple entries must be comma separated.</p>
+            <label className="text-xs font-bold text-slate-300">{t('ase.configEditor.activeMods', 'Active Mod IDs')}</label>
+            <input type="text" value={adminState.activeMods} onChange={e => { setAdminState({ ...adminState, activeMods: e.target.value }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950/40 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder={t('ase.configEditor.activeModsPlaceholder', 'Comma separated list (e.g. 123456, 789012)')} />
+            <p className="text-[10px] text-slate-500">{t('ase.configEditor.activeModsDesc', 'List of workshop Mod IDs loaded on server startup. Multiple entries must be comma separated.')}</p>
           </div>
         </div>
       </div>
@@ -1376,7 +1420,7 @@ export default function ASEConfigEditor() {
     if (importedCount > 0) {
       setConfig(newConfig as AseGameConfig);
       setIsDirty(true);
-      toast.success(`Imported ${importedCount} settings from INI`, { style: { background: '#10b981', color: '#fff' } });
+      toast.success(t('ase.configEditor.importedSettings', { defaultValue: 'Imported {{count}} settings from INI', count: importedCount }), { style: { background: '#10b981', color: '#fff' } });
 
       // Warn user to check the map setting
       setTimeout(() => {
@@ -1393,7 +1437,7 @@ export default function ASEConfigEditor() {
         });
       }, 500);
     } else {
-      toast.error('No matching settings found in the file');
+      toast.error(t('ase.configEditor.noMatchingFile', 'No matching settings found in the file'));
     }
   };
 
@@ -1410,7 +1454,7 @@ export default function ASEConfigEditor() {
     template?: Record<string, any>;
   }
 
-  const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = useMemo(() => [
+  const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = useMemo(() => ([
     { id: 'general', label: 'General', icon: <Settings2 className="w-4 h-4" /> },
     { id: 'server_options', label: 'Server Options', icon: <Cpu className="w-4 h-4" /> },
     { id: 'rates', label: 'Rates & Multipliers', icon: <Flame className="w-4 h-4" /> },
@@ -1427,7 +1471,7 @@ export default function ASEConfigEditor() {
     { id: 'engrams', label: 'Engrams & Crafting', icon: <Hammer className="w-4 h-4" /> },
     { id: 'admin', label: 'Server Rules', icon: <MonitorPlay className="w-4 h-4" /> },
     { id: 'advanced', label: 'Advanced', icon: <Cpu className="w-4 h-4" /> },
-  ], []);
+  ] as { id: TabType; label: string; icon: React.ReactNode }[]).map(tab => ({ ...tab, label: t(`ase.configEditor.tabs.${tab.id}`, tab.label) })), [t]);
 
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const schema: SchemaField[] = useMemo(() => [
@@ -1435,24 +1479,24 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'serverPve', label: 'PvE Mode', desc: 'Disables player vs player combat and structure damage' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'battleEyeEnforcer', label: 'BattlEye Anti-Cheat', desc: 'Requires client restart if changed' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'preventSpawnAnimations', label: 'Prevent Spawn Animations', desc: 'Skips waking-up scratching animation when respawning' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'sessionName', label: 'Session Name', desc: 'The name of the server shown in the server list' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'serverPassword', label: 'Server Password', desc: 'Password required to join the server (leave blank for public)' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'serverAdminPassword', label: 'Admin Password', desc: 'Password required to gain administrator/cheat access' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'SpectatorPassword', label: 'Spectator Password', desc: 'Password required to use spectator mode' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'maxPlayers', label: 'Max Players', desc: 'Maximum number of player slots' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'rconPort', label: 'RCON Port', desc: 'Port used for remote console connection' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'sessionName', label: t('configEditor.fields.SessionName.label', 'Session Name'), desc: 'The name of the server shown in the server list' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'serverPassword', label: t('configEditor.fields.ServerPassword.label', 'Server Password'), desc: 'Password required to join the server (leave blank for public)' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'serverAdminPassword', label: t('configEditor.adminPassword', 'Admin Password'), desc: 'Password required to gain administrator/cheat access' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'SpectatorPassword', label: t('ase.configEditor.spectatorPassword', 'Spectator Password'), desc: 'Password required to use spectator mode' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'maxPlayers', label: t('configEditor.fields.MaxPlayers.label', 'Max Players'), desc: 'Maximum number of player slots' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'rconPort', label: t('configEditor.fields.RCONPort.label', 'RCON Port'), desc: 'Port used for remote console connection' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'RCONServerLogBuffer', label: 'RCON Server Log Buffer', desc: 'Buffer size for RCON logging history' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'autoSavePeriodMinutes', label: 'Auto Save Period (Mins)', desc: 'Interval in minutes between automatic world saves' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'backupQuantity', label: 'Backup Quantity', desc: 'Number of backup archives to keep before pruning' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'newSaveGameFormat', label: 'New Save Game Format', desc: 'Uses the optimized new save format structure' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'useStore', label: 'Use Store', desc: 'Enables in-game storefront/microtransaction systems if applicable' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'backupTransferPlayerDatas', label: 'Backup Transfer Player Datas', desc: 'Includes cross-server player transfer profiles in backups' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'autoSavePeriodMinutes', label: t('ase.configEditor.autoSave', 'Auto Save Period (Mins)'), desc: 'Interval in minutes between automatic world saves' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'backupQuantity', label: t('ase.configEditor.backupQty', 'Backup Quantity'), desc: 'Number of backup archives to keep before pruning' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'newSaveGameFormat', label: t('ase.configEditor.newSaveFormat', 'New Save Game Format'), desc: 'Uses the optimized new save format structure' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'useStore', label: t('ase.configEditor.useStore', 'Use Store'), desc: 'Enables in-game storefront/microtransaction systems if applicable' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'backupTransferPlayerDatas', label: t('ase.configEditor.backupTransfer', 'Backup Transfer Player Datas'), desc: 'Includes cross-server player transfer profiles in backups' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'textarea', key: 'motd', label: 'Message of the Day (MOTD)', desc: 'Welcome message shown to players when they connect' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'motdDuration', label: 'MOTD Duration', desc: 'Duration in seconds the welcome message stays on screen' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'motdInterval', label: 'MOTD Periodic Interval', desc: 'Interval in minutes between repeating MOTD broadcasts' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'motdIntervalEnabled', label: 'Enable Periodic MOTD', desc: 'Repeats the MOTD message periodically during gameplay' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'enableExtinctionEvent', label: 'Enable Extinction Event', desc: 'Enables automatic server wiping cycles' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'extinctionEventTimeInterval', label: 'Extinction Interval (Days)', desc: 'Number of days between automatic server wipes' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'motdIntervalEnabled', label: t('ase.configEditor.periodicMotd', 'Enable Periodic MOTD'), desc: 'Repeats the MOTD message periodically during gameplay' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'enableExtinctionEvent', label: t('ase.configEditor.extinction', 'Enable Extinction Event'), desc: 'Enables automatic server wiping cycles' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'extinctionEventTimeInterval', label: t('ase.configEditor.extinctionInterval', 'Extinction Interval (Days)'), desc: 'Number of days between automatic server wipes' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'allowHitMarkers', label: 'Allow Hit Markers', desc: 'Displays crosshair hit indicators when damaging targets' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'forceFlyerexplosives', label: 'Force Flyer Explosives', desc: 'Allows placing C4 explosives on flying tames' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'bForceCanRideFliers', label: 'Force Can Ride Fliers', desc: 'Allow riding flyers on Genesis: Part 1 and other flyer-restricted maps (bForceCanRideFliers)' },
@@ -1663,7 +1707,7 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'serverForceNoHud', label: 'Force No HUD' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'number', key: 'kickIdlePlayerPeriod', label: 'Kick Idle Player Period (Secs)' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'number', key: 'destroyTamesOverLevelClamp', label: 'Destroy Tames Over Level Clamp', desc: '0 = disabled' },
-    { file: 'GameUserSettings.ini', tab: 'admin', type: 'text', key: 'SpectatorPassword', label: 'Spectator Password', desc: 'Password required to use spectator mode' },
+    { file: 'GameUserSettings.ini', tab: 'admin', type: 'text', key: 'SpectatorPassword', label: t('ase.configEditor.spectatorPassword', 'Spectator Password'), desc: 'Password required to use spectator mode' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'useSecureSpawnRules', label: 'Use Secure Spawn Rules' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'useItemDupeCheck', label: 'Use Item Dupe Check' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'globalVoiceChat', label: 'Global Voice Chat', desc: 'Allows everyone to hear voice communications across the map' },
@@ -1775,7 +1819,12 @@ export default function ASEConfigEditor() {
     { file: 'Game.ini', tab: 'advanced', type: 'textarea', key: 'configAddNpcSpawnEntriesContainer', label: 'Add NPC Spawn Entries Container', desc: 'Adds custom spawn entries. One entry per line.' },
     { file: 'Game.ini', tab: 'advanced', type: 'textarea', key: 'configSubtractNpcSpawnEntriesContainer', label: 'Subtract NPC Spawn Entries Container', desc: 'Removes specific spawn entries. One entry per line.' },
     { file: 'Game.ini', tab: 'advanced', type: 'textarea', key: 'configOverrideNpcSpawnEntriesContainer', label: 'Override NPC Spawn Entries Container', desc: 'Overrides specific spawn entries. One entry per line.' },
-  ], []);
+  ].map(f => ({
+    ...f,
+    label: t(`ase.configEditor.fields.${f.key}.label`, f.label),
+    desc: f.desc ? t(`ase.configEditor.fields.${f.key}.desc`, f.desc) : f.desc,
+    options: f.options?.map(o => ({ ...o, label: t(`ase.configEditor.options.${f.key}.${o.value || 'none'}`, o.label) })),
+  })), [t]);
   const handleSaveCurrentAsPreset = useCallback((name: string, description: string) => {
     const gusSettings: Record<string, string> = {};
     const gameSettings: Record<string, string> = {};
@@ -1807,7 +1856,7 @@ export default function ASEConfigEditor() {
 
     saveCustomPreset(preset);
     setCurrentPreset(preset.id);
-    toast.success('Preset saved successfully');
+    toast.success(t('configEditor.toasts.presetSaved', 'Preset saved successfully'));
   }, [config, schema]);
 
   const getMatchCount = useCallback((tabId: string, file: string) => {
@@ -1888,8 +1937,8 @@ export default function ASEConfigEditor() {
       t.id === 'levels' ||
       t.id === 'dino_control'
     );
-    list.push({ id: 'diagnostics', label: 'Diagnostics', icon: <Database className="w-4 h-4" /> });
-    list.push({ id: 'players', label: 'Player Management', icon: <Users className="w-4 h-4" /> });
+    list.push({ id: 'diagnostics', label: t('ase.configEditor.tabs.diagnostics', 'Diagnostics'), icon: <Database className="w-4 h-4" /> });
+    list.push({ id: 'players', label: t('ase.configEditor.tabs.players', 'Player Management'), icon: <Users className="w-4 h-4" /> });
     return list;
   }, [schema, tabs]);
 
@@ -1966,7 +2015,7 @@ export default function ASEConfigEditor() {
         <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] flex flex-col gap-4 text-left" key={field.key}>
           <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1 text-sm">
             {field.label}
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`https://ark.wiki.gg/wiki/Server_configuration#${field.key}`, '_blank'); }} className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800" title={`Search Wiki for ${field.key}`}>
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`https://ark.wiki.gg/wiki/Server_configuration#${field.key}`, '_blank'); }} className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800" title={t('ase.configEditor.searchWiki', { defaultValue: 'Search Wiki for {{key}}', key: field.key })}>
               <ExternalLink className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -1978,13 +2027,14 @@ export default function ASEConfigEditor() {
               update(field.key as keyof AseGameConfig, items);
             }}
             template={field.template || {}}
+            fieldKey={field.key}
           />
           {field.desc && <div className="text-xs text-slate-400 leading-relaxed font-medium px-1 italic">{field.desc}</div>}
         </div>
       );
     }
     if (field.type === 'number') {
-      return <NumberInput key={field.key} configKey={field.key} file={field.file} label={field.label} value={config[field.key as keyof AseGameConfig] as number} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} step={field.step} />;
+      return <NumberField key={field.key} configKey={field.key} file={field.file} label={field.label} value={config[field.key as keyof AseGameConfig] as number} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} step={field.step} />;
     }
     if (field.type === 'toggle') {
       return <Toggle key={field.key} configKey={field.key} file={field.file} label={field.label} value={config[field.key as keyof AseGameConfig] as boolean} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} />;
@@ -1998,7 +2048,7 @@ export default function ASEConfigEditor() {
         <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] flex flex-col gap-4 text-left" key={field.key}>
           <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1 text-sm">
             {field.label}
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`https://ark.wiki.gg/wiki/Server_configuration#${field.key}`, '_blank'); }} className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800" title={`Search Wiki for ${field.key}`}>
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`https://ark.wiki.gg/wiki/Server_configuration#${field.key}`, '_blank'); }} className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800" title={t('ase.configEditor.searchWiki', { defaultValue: 'Search Wiki for {{key}}', key: field.key })}>
               <ExternalLink className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -2018,7 +2068,7 @@ export default function ASEConfigEditor() {
         <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] flex flex-col gap-4 text-left" key={field.key}>
           <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1 text-sm">
             {field.label}
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`https://ark.wiki.gg/wiki/Server_configuration#${field.key}`, '_blank'); }} className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800" title={`Search Wiki for ${field.key}`}>
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`https://ark.wiki.gg/wiki/Server_configuration#${field.key}`, '_blank'); }} className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800" title={t('ase.configEditor.searchWiki', { defaultValue: 'Search Wiki for {{key}}', key: field.key })}>
               <ExternalLink className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -2037,7 +2087,7 @@ export default function ASEConfigEditor() {
         <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] flex flex-col gap-4 text-left" key={field.key}>
           <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1 text-sm">
             {field.label}
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`https://ark.wiki.gg/wiki/Server_configuration#OverrideNamedEngramEntries`, '_blank'); }} className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800" title="Search Wiki for OverrideNamedEngramEntries">
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`https://ark.wiki.gg/wiki/Server_configuration#OverrideNamedEngramEntries`, '_blank'); }} className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800" title={t('ase.configEditor.searchWiki', { defaultValue: 'Search Wiki for {{key}}', key: 'OverrideNamedEngramEntries' })}>
               <ExternalLink className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -2050,7 +2100,7 @@ export default function ASEConfigEditor() {
         <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] flex flex-col gap-4 text-left" key={field.key}>
           <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1 text-sm">
             {field.label}
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`https://ark.wiki.gg/wiki/Server_configuration#ConfigOverrideItemCraftingCosts`, '_blank'); }} className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800" title="Search Wiki for ConfigOverrideItemCraftingCosts">
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`https://ark.wiki.gg/wiki/Server_configuration#ConfigOverrideItemCraftingCosts`, '_blank'); }} className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800" title={t('ase.configEditor.searchWiki', { defaultValue: 'Search Wiki for {{key}}', key: 'ConfigOverrideItemCraftingCosts' })}>
               <ExternalLink className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -2072,7 +2122,7 @@ export default function ASEConfigEditor() {
                 <img src={aseLogo} alt="ARK Survival Evolved" className="w-full h-full object-cover scale-110" />
               </div>
               <span className="bg-gradient-to-r from-white via-amber-200 to-orange-200 bg-clip-text text-transparent">
-                ASE Configuration
+                {t('ase.configEditor.title', 'ASE Configuration')}
               </span>
             </h2>
 
@@ -2087,10 +2137,10 @@ export default function ASEConfigEditor() {
 
           <div className="flex items-center gap-3">
             <input type="file" accept=".ini" className="hidden" ref={fileInputRef} onChange={handleImportIni} />
-            <button onClick={() => fileInputRef.current?.click()} className="px-3 py-2 bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl text-slate-400 hover:text-white hover:border-amber-500/50 text-sm flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(245,158,11,0.15)]" title="Import INI">
+            <button onClick={() => fileInputRef.current?.click()} className="px-3 py-2 bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl text-slate-400 hover:text-white hover:border-amber-500/50 text-sm flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(245,158,11,0.15)]" title={t('ase.configEditor.importIni', 'Import INI')}>
               <Download className="w-4 h-4" />
             </button>
-            <button onClick={() => setConfig(defaultConfig)} className="px-3 py-2 bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl text-slate-400 hover:text-white hover:border-amber-500/50 text-sm flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(245,158,11,0.15)]" title="Reset Default">
+            <button onClick={() => setConfig(defaultConfig)} className="px-3 py-2 bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl text-slate-400 hover:text-white hover:border-amber-500/50 text-sm flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(245,158,11,0.15)]" title={t('ase.configEditor.resetDefault', 'Reset Default')}>
               <RotateCcw className="w-4 h-4" />
             </button>
             <a
@@ -2201,7 +2251,7 @@ export default function ASEConfigEditor() {
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-amber-500 transition-colors z-10 pointer-events-none" />
                     <input
                       type="text"
-                      placeholder="Search settings..."
+                      placeholder={t('configEditor.placeholders.searchSettings', 'Search settings...')}
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
                       className="w-full pl-11 pr-4 py-3 bg-slate-950/80 border border-white/10 rounded-2xl text-xs font-semibold text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 transition-all duration-300 shadow-inner"
@@ -2211,17 +2261,17 @@ export default function ASEConfigEditor() {
                   <div className="space-y-6 overflow-y-auto flex-1 pr-1 custom-scrollbar">
                     {[
                       {
-                        title: 'GameUserSettings.ini (GUS)',
+                        title: t('ase.configEditor.groupGus', 'GameUserSettings.ini (GUS)'),
                         ids: ['general', 'server_options', 'rates', 'player', 'pvp', 'structures', 'tribe', 'transfer', 'environment', 'admin', 'advanced', 'breeding', 'engrams'],
                         fileType: 'GameUserSettings.ini',
                       },
                       {
-                        title: 'Game.ini Settings',
+                        title: t('ase.configEditor.groupGame', 'Game.ini Settings'),
                         ids: ['breeding', 'engrams', 'environment', 'levels', 'stats', 'player', 'dino_control'],
                         fileType: 'Game.ini',
                       },
                       {
-                        title: 'Utilities',
+                        title: t('ase.configEditor.groupUtilities', 'Utilities'),
                         ids: ['diagnostics', 'players'],
                         fileType: 'Utilities',
                       }
@@ -2361,10 +2411,10 @@ export default function ASEConfigEditor() {
                       <div>
                         <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
                           <FileText className="w-4 h-4 text-amber-500" />
-                          Raw {activeFile} Editor
+                          {t('ase.configEditor.rawEditor', { defaultValue: 'Raw {{file}} Editor', file: activeFile })}
                         </h3>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          Directly edit the raw INI configuration lines. Make sure to follow correct INI key=value syntax.
+                          {t('ase.configEditor.rawDesc', 'Directly edit the raw INI configuration lines. Make sure to follow correct INI key=value syntax.')}
                         </p>
                       </div>
                       <button
@@ -2389,9 +2439,9 @@ export default function ASEConfigEditor() {
                       <div>
                         <h2 className="text-lg font-bold text-white flex items-center gap-2">
                           <Database className="w-5 h-5 text-amber-500" />
-                          Configuration Diagnostics & Cache
+                          {t('ase.configEditor.diagTitle', 'Configuration Diagnostics & Cache')}
                         </h2>
-                        <p className="text-xs text-slate-455 mt-1">Verify profile integrity, parse status, and sync state parameters.</p>
+                        <p className="text-xs text-slate-455 mt-1">{t('ase.configEditor.diagDesc', 'Verify profile integrity, parse status, and sync state parameters.')}</p>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
@@ -2403,11 +2453,11 @@ export default function ASEConfigEditor() {
                               await syncAseServerFromIni(selectedServer);
                               await loadConfig(selectedServer);
                               await loadDiagnostics(selectedServer);
-                              toast.success('Configuration successfully reloaded from disk!', {
+                              toast.success(t('ase.configEditor.reloaded', 'Configuration successfully reloaded from disk!'), {
                                 style: { background: '#10b981', color: '#fff', borderRadius: '12px' }
                               });
                             } catch (e) {
-                              toast.error(`Reload failed: ${e}`);
+                              toast.error(t('ase.configEditor.reloadFailed', { defaultValue: 'Reload failed: {{error}}', error: String(e) }));
                             } finally {
                               setIsLoading(false);
                             }
@@ -2415,7 +2465,7 @@ export default function ASEConfigEditor() {
                           className="px-4 py-2 bg-[#1a1a2e] hover:bg-slate-800 text-slate-200 border border-slate-700/50 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow transition-all duration-300"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
-                          Reload Configuration
+                          {t('ase.configEditor.reload', 'Reload Configuration')}
                         </button>
 
                         <button
@@ -2426,11 +2476,11 @@ export default function ASEConfigEditor() {
                               await syncAseServerFromIni(selectedServer);
                               await loadConfig(selectedServer);
                               await loadDiagnostics(selectedServer);
-                              toast.success('Server profile completely rebuilt from raw configuration!', {
+                              toast.success(t('ase.configEditor.rebuilt', 'Server profile completely rebuilt from raw configuration!'), {
                                 style: { background: '#10b981', color: '#fff', borderRadius: '12px' }
                               });
                             } catch (e) {
-                              toast.error(`Rebuild failed: ${e}`);
+                              toast.error(t('ase.configEditor.rebuildFailed', { defaultValue: 'Rebuild failed: {{error}}', error: String(e) }));
                             } finally {
                               setIsLoading(false);
                             }
@@ -2438,7 +2488,7 @@ export default function ASEConfigEditor() {
                           className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-amber-500/10 transition-all duration-300"
                         >
                           <Cpu className="w-3.5 h-3.5" />
-                          Force Rebuild Profile
+                          {t('ase.configEditor.rebuild', 'Force Rebuild Profile')}
                         </button>
                       </div>
                     </div>
@@ -2446,37 +2496,37 @@ export default function ASEConfigEditor() {
                     {/* Info grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[100px]">
-                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Cache Status</span>
+                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{t('ase.configEditor.cacheStatus', 'Cache Status')}</span>
                         <div className="mt-2 flex items-center gap-2">
                           {diagnostics?.cacheStatus.toLowerCase().includes('fresh') ? (
                             <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-1.5">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              Fresh (Synced)
+                              {t('ase.configEditor.fresh', 'Fresh (Synced)')}
                             </span>
                           ) : (
                             <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold flex items-center gap-1.5">
                               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                              Stale (External edits)
+                              {t('ase.configEditor.stale', 'Stale (External edits)')}
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] text-slate-500 mt-2 font-medium">Compares files vs active SQLite db records</span>
+                        <span className="text-[10px] text-slate-500 mt-2 font-medium">{t('ase.configEditor.cacheDesc', 'Compares files vs active SQLite db records')}</span>
                       </div>
 
                       <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[100px]">
-                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Configuration Hash</span>
+                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{t('ase.configEditor.hash', 'Configuration Hash')}</span>
                         <div className="mt-2 text-xs font-mono font-bold text-slate-200 truncate" title={diagnostics?.configHash || 'N/A'}>
                           {diagnostics?.configHash ? diagnostics.configHash.substring(0, 16) + '...' : 'Unknown'}
                         </div>
-                        <span className="text-[10px] text-slate-500 mt-2 font-medium">Combined SHA-256 profile integrity check</span>
+                        <span className="text-[10px] text-slate-500 mt-2 font-medium">{t('ase.configEditor.hashDesc', 'Combined SHA-256 profile integrity check')}</span>
                       </div>
 
                       <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[100px]">
-                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Last Sync Execution</span>
+                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{t('ase.configEditor.lastSync', 'Last Sync Execution')}</span>
                         <div className="mt-2 text-xs font-mono font-bold text-slate-200">
                           {diagnostics?.lastParsed ? new Date(diagnostics.lastParsed).toLocaleString() : 'Never'}
                         </div>
-                        <span className="text-[10px] text-slate-500 mt-2 font-medium">Timestamp of database parity parse</span>
+                        <span className="text-[10px] text-slate-500 mt-2 font-medium">{t('ase.configEditor.lastSyncDesc', 'Timestamp of database parity parse')}</span>
                       </div>
                     </div>
 
@@ -2484,26 +2534,26 @@ export default function ASEConfigEditor() {
                     <div className="bg-slate-900/35 border border-white/5 p-5 rounded-2xl space-y-4 text-left">
                       <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest border-b border-white/5 pb-2 flex items-center gap-2">
                         <Shield className="w-4 h-4 text-amber-500" />
-                        Configuration Integrity Check
+                        {t('ase.configEditor.integrity', 'Configuration Integrity Check')}
                       </h3>
                       {isValidating ? (
                         <div className="flex items-center gap-2 text-slate-400 text-xs py-2">
                           <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
-                          Analyzing configuration files...
+                          {t('ase.configEditor.analyzing', 'Analyzing configuration files...')}
                         </div>
                       ) : validationResult ? (
                         validationResult.issues.length === 0 ? (
                           <div className="flex items-center gap-3 bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-xl text-emerald-450 text-xs">
                             <Check className="w-5 h-5 text-emerald-500 shrink-0" />
                             <div>
-                              <div className="font-bold text-slate-200">All Checks Passed!</div>
-                              <div className="mt-0.5">No structural syntax errors, unbalanced parentheses, or misplaced keys were found in your INI files.</div>
+                              <div className="font-bold text-slate-200">{t('ase.configEditor.allPassed', 'All Checks Passed!')}</div>
+                              <div className="mt-0.5">{t('ase.configEditor.allPassedDesc', 'No structural syntax errors, unbalanced parentheses, or misplaced keys were found in your INI files.')}</div>
                             </div>
                           </div>
                         ) : (
                           <div className="space-y-3">
                             <div className="text-[11px] font-semibold text-slate-400">
-                              Found {validationResult.issues.length} issue(s) in configuration files:
+                              {t('ase.configEditor.issuesFound', { defaultValue: 'Found {{count}} issue(s) in configuration files:', count: validationResult.issues.length })}
                             </div>
                             <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
                               {validationResult.issues.map((issue, idx) => {
@@ -2529,13 +2579,13 @@ export default function ASEConfigEditor() {
                                         </span>
                                         {issue.lineNumber && (
                                           <span className="text-slate-400 text-[10px] font-mono">
-                                            Line {issue.lineNumber}
+                                            {t('ase.configEditor.lineN', { defaultValue: 'Line {{line}}', line: issue.lineNumber })}
                                           </span>
                                         )}
                                       </div>
                                       <div className="text-[10px] text-slate-400 font-mono">
-                                        Section: <span className="text-slate-300">[{issue.section}]</span>
-                                        {issue.key && <> • Key: <span className="text-slate-300">{issue.key}</span></>}
+                                        {t('ase.configEditor.section', 'Section:')} <span className="text-slate-300">[{issue.section}]</span>
+                                        {issue.key && <> • {t('ase.configEditor.key', 'Key:')} <span className="text-slate-300">{issue.key}</span></>}
                                       </div>
                                       <p className="text-slate-300 mt-1">{issue.message}</p>
                                     </div>
@@ -2546,14 +2596,14 @@ export default function ASEConfigEditor() {
                           </div>
                         )
                       ) : (
-                        <div className="text-slate-500 text-xs py-2 italic">No validation results loaded.</div>
+                        <div className="text-slate-500 text-xs py-2 italic">{t('ase.configEditor.noValidation', 'No validation results loaded.')}</div>
                       )}
                     </div>
 
                     {/* File details panel */}
                     <div className="bg-slate-900/35 border border-white/5 p-5 rounded-2xl space-y-4">
                       <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest border-b border-white/5 pb-2">
-                        Tracked Source Configuration Files
+                        {t('ase.configEditor.trackedFiles', 'Tracked Source Configuration Files')}
                       </h3>
                       <div className="space-y-4">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-slate-950/40 p-3 rounded-xl border border-slate-900">
@@ -2566,11 +2616,11 @@ export default function ASEConfigEditor() {
                               )}
                               GameUserSettings.ini
                             </div>
-                            <span className="text-[10px] text-slate-500 mt-0.5 block">Stores general identity, rates, administration, and launcher parameters</span>
+                            <span className="text-[10px] text-slate-500 mt-0.5 block">{t('ase.configEditor.gusDesc', 'Stores general identity, rates, administration, and launcher parameters')}</span>
                           </div>
                           <div className="text-right sm:text-right flex flex-row sm:flex-col justify-between sm:justify-start gap-4 sm:gap-1 text-[11px] font-mono">
-                            <span className="text-slate-400">Size: <b className="text-slate-200">{diagnostics?.gusSize ? (diagnostics.gusSize / 1024).toFixed(2) : '0.00'} KB</b></span>
-                            <span className="text-slate-400">Modified: <b className="text-slate-200">{diagnostics?.gusModified ? new Date(diagnostics.gusModified).toLocaleString() : 'N/A'}</b></span>
+                            <span className="text-slate-400">{t('ase.configEditor.size', 'Size:')} <b className="text-slate-200">{diagnostics?.gusSize ? (diagnostics.gusSize / 1024).toFixed(2) : '0.00'} KB</b></span>
+                            <span className="text-slate-400">{t('ase.configEditor.modified', 'Modified:')} <b className="text-slate-200">{diagnostics?.gusModified ? new Date(diagnostics.gusModified).toLocaleString() : t('ase.configEditor.na', 'N/A')}</b></span>
                           </div>
                         </div>
 
@@ -2584,11 +2634,11 @@ export default function ASEConfigEditor() {
                               )}
                               Game.ini
                             </div>
-                            <span className="text-[10px] text-slate-500 mt-0.5 block">Stores gameplay multipliers, breeding settings, engrams, and crafting overrides</span>
+                            <span className="text-[10px] text-slate-500 mt-0.5 block">{t('ase.configEditor.gameDesc', 'Stores gameplay multipliers, breeding settings, engrams, and crafting overrides')}</span>
                           </div>
                           <div className="text-right sm:text-right flex flex-row sm:flex-col justify-between sm:justify-start gap-4 sm:gap-1 text-[11px] font-mono">
-                            <span className="text-slate-400">Size: <b className="text-slate-200">{diagnostics?.gameIniSize ? (diagnostics.gameIniSize / 1024).toFixed(2) : '0.00'} KB</b></span>
-                            <span className="text-slate-400">Modified: <b className="text-slate-200">{diagnostics?.gameIniModified ? new Date(diagnostics.gameIniModified).toLocaleString() : 'N/A'}</b></span>
+                            <span className="text-slate-400">{t('ase.configEditor.size', 'Size:')} <b className="text-slate-200">{diagnostics?.gameIniSize ? (diagnostics.gameIniSize / 1024).toFixed(2) : '0.00'} KB</b></span>
+                            <span className="text-slate-400">{t('ase.configEditor.modified', 'Modified:')} <b className="text-slate-200">{diagnostics?.gameIniModified ? new Date(diagnostics.gameIniModified).toLocaleString() : t('ase.configEditor.na', 'N/A')}</b></span>
                           </div>
                         </div>
                       </div>
@@ -2600,13 +2650,13 @@ export default function ASEConfigEditor() {
                         <Cpu className="w-4 h-4" /> Live Boot Launch Parameters
                       </h3>
                       <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                        These command line arguments are generated on startup by mapping custom settings variables:
+                        {t('ase.configEditor.cmdLineDesc', 'These command line arguments are generated on startup by mapping custom settings variables:')}
                       </p>
                       <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-355 break-all select-all leading-normal relative">
                         <span className="text-amber-500 select-none mr-2">ShooterGameServer.exe</span>
                         {diagnostics?.activeLaunchArgs && diagnostics.activeLaunchArgs.length > 0
                           ? diagnostics.activeLaunchArgs.join(' ')
-                          : 'No arguments detected. Verify directory settings.'}
+                          : t('ase.configEditor.noArgs', 'No arguments detected. Verify directory settings.')}
                       </div>
                     </div>
 
@@ -2616,7 +2666,7 @@ export default function ASEConfigEditor() {
                         <Shield className="w-4 h-4" /> Server Launch Readiness
                       </h3>
                       <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                        Pre-flight checks to verify the server is ready to launch. Resolve any issues before starting.
+                        {t('ase.configEditor.preflightDesc', 'Pre-flight checks to verify the server is ready to launch. Resolve any issues before starting.')}
                       </p>
                       <div className="space-y-2">
                         {/* Executable check */}
@@ -2627,7 +2677,7 @@ export default function ASEConfigEditor() {
                             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
                           )}
                           <div className="flex-1">
-                            <div className="text-xs font-semibold text-slate-200">Server Executable</div>
+                            <div className="text-xs font-semibold text-slate-200">{t('ase.configEditor.serverExe', 'Server Executable')}</div>
                             <div className="text-[10px] text-slate-500 mt-0.5">ShooterGame/Binaries/Win64/ShooterGameServer.exe</div>
                           </div>
                           <span className="text-[10px] font-bold text-slate-400 uppercase">
@@ -2644,7 +2694,7 @@ export default function ASEConfigEditor() {
                           )}
                           <div className="flex-1">
                             <div className="text-xs font-semibold text-slate-200">GameUserSettings.ini</div>
-                            <div className="text-[10px] text-slate-500 mt-0.5">Core server identity, rates, and admin config</div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">{t('ase.configEditor.gusCheckDesc', 'Core server identity, rates, and admin config')}</div>
                           </div>
                           <span className={`text-[10px] font-bold uppercase ${diagnostics?.gusExists ? 'text-emerald-400' : 'text-rose-400'}`}>
                             {diagnostics?.gusExists ? 'Present' : 'Missing'}
@@ -2660,10 +2710,10 @@ export default function ASEConfigEditor() {
                           )}
                           <div className="flex-1">
                             <div className="text-xs font-semibold text-slate-200">Game.ini</div>
-                            <div className="text-[10px] text-slate-500 mt-0.5">Breeding, engrams, and gameplay overrides</div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">{t('ase.configEditor.gameCheckDesc', 'Breeding, engrams, and gameplay overrides')}</div>
                           </div>
                           <span className={`text-[10px] font-bold uppercase ${diagnostics?.gameIniExists ? 'text-emerald-400' : 'text-amber-400'}`}>
-                            {diagnostics?.gameIniExists ? 'Present' : 'Will be created on save'}
+                            {diagnostics?.gameIniExists ? t('ase.configEditor.present', 'Present') : t('ase.configEditor.createdOnSave', 'Will be created on save')}
                           </span>
                         </div>
 
@@ -2675,11 +2725,11 @@ export default function ASEConfigEditor() {
                             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
                           )}
                           <div className="flex-1">
-                            <div className="text-xs font-semibold text-slate-200">Map Configuration</div>
+                            <div className="text-xs font-semibold text-slate-200">{t('ase.configEditor.mapConfig', 'Map Configuration')}</div>
                             <div className="text-[10px] text-slate-500 mt-0.5">
                               {mapName && mapName.trim().length > 0
-                                ? `Active map: ${mapName}`
-                                : 'No map selected — server will fail to start'}
+                                ? t('ase.configEditor.activeMap', { defaultValue: 'Active map: {{map}}', map: mapName })
+                                : t('ase.configEditor.noMap', 'No map selected — server will fail to start')}
                             </div>
                           </div>
                           <span className={`text-[10px] font-bold uppercase ${mapName && mapName.trim().length > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -2693,8 +2743,8 @@ export default function ASEConfigEditor() {
                         <div className="flex items-start gap-2">
                           <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                           <div className="text-[11px] text-slate-400 leading-relaxed">
-                            <span className="font-bold text-amber-400">Server crashes with Code 0?</span> This usually means the server files are incomplete or corrupt.
-                            Try updating the server via SteamCMD (use the Update button on the dashboard), or verify that the install path contains a complete ARK server installation.
+                            <span className="font-bold text-amber-400">{t('ase.configEditor.code0Title', 'Server crashes with Code 0?')}</span> {t('ase.configEditor.code0Desc1', 'This usually means the server files are incomplete or corrupt.')}{' '}
+                            {t('ase.configEditor.code0Desc2', 'Try updating the server via SteamCMD (use the Update button on the dashboard), or verify that the install path contains a complete ARK server installation.')}
                           </div>
                         </div>
                       </div>
@@ -2762,7 +2812,7 @@ export default function ASEConfigEditor() {
                             <div className="flex flex-col items-center justify-center py-16 px-6 bg-slate-900/20 border border-white/5 rounded-3xl text-center">
                               <Search className="w-10 h-10 text-amber-500/30 mb-3" />
                               <h3 className="text-base font-bold text-white">No matches in "{tabs.find(t => t.id === activeTab)?.label}"</h3>
-                              <p className="text-xs text-slate-400 mt-1 max-w-sm">No settings match your search in this category. However, matches were found in these sections:</p>
+                              <p className="text-xs text-slate-400 mt-1 max-w-sm">{t('ase.configEditor.noMatchHere', 'No settings match your search in this category. However, matches were found in these sections:')}</p>
                               <div className="flex flex-wrap justify-center gap-2 mt-4">
                                 {Object.entries(tabMatchCounts).map(([key, count]) => {
                                   const [tabId, file] = key.split('::');
@@ -2823,19 +2873,19 @@ export default function ASEConfigEditor() {
                                       </h3>
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="flex flex-col gap-1.5">
-                                          <label className="text-xs font-bold text-slate-300">Session Name</label>
+                                          <label className="text-xs font-bold text-slate-300">{t('configEditor.fields.SessionName.label', 'Session Name')}</label>
                                           <input type="text" value={config.sessionName || ''} onChange={e => { setConfig({ ...config, sessionName: e.target.value }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                          <label className="text-xs font-bold text-slate-300">Server Password</label>
-                                          <input type="text" value={config.serverPassword || ''} onChange={e => { setConfig({ ...config, serverPassword: e.target.value }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="Leave blank for public" />
+                                          <label className="text-xs font-bold text-slate-300">{t('configEditor.fields.ServerPassword.label', 'Server Password')}</label>
+                                          <input type="text" value={config.serverPassword || ''} onChange={e => { setConfig({ ...config, serverPassword: e.target.value }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder={t('ase.configEditor.leaveBlank', 'Leave blank for public')} />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                          <label className="text-xs font-bold text-slate-300">Admin Password</label>
+                                          <label className="text-xs font-bold text-slate-300">{t('configEditor.adminPassword', 'Admin Password')}</label>
                                           <input type="text" value={config.serverAdminPassword || ''} onChange={e => { setConfig({ ...config, serverAdminPassword: e.target.value }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                          <label className="text-xs font-bold text-slate-300">Spectator Password</label>
+                                          <label className="text-xs font-bold text-slate-300">{t('ase.configEditor.spectatorPassword', 'Spectator Password')}</label>
                                           <input type="text" value={config.SpectatorPassword || ''} onChange={e => { setConfig({ ...config, SpectatorPassword: e.target.value }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                         </div>
                                       </div>
@@ -2856,38 +2906,39 @@ export default function ASEConfigEditor() {
                                       </div>
                                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                                         <div className="flex flex-col gap-1.5 lg:col-span-2">
-                                          <label className="text-xs font-bold text-slate-300">Local IP</label>
+                                          <label className="text-xs font-bold text-slate-300">{t('settings.portValidator.localIp', 'Local IP')}</label>
                                           <div className="flex items-center gap-2">
                                             <input type="text" value={adminState.localIp} onChange={e => { setAdminState({ ...adminState, localIp: e.target.value }); setIsDirty(true); }} className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="e.g. 192.168.1.100" />
-                                            <button title="Detect Local IP" onClick={fetchLocalIp} className="p-2.5 bg-slate-950 hover:bg-amber-500/20 text-slate-400 hover:text-amber-500 rounded-xl border border-slate-800 transition-colors flex-shrink-0">
+                                            <button title={t('ase.configEditor.detectIp', 'Detect Local IP')} onClick={fetchLocalIp} className="p-2.5 bg-slate-950 hover:bg-amber-500/20 text-slate-400 hover:text-amber-500 rounded-xl border border-slate-800 transition-colors flex-shrink-0">
                                               <RefreshCw className="w-4 h-4" />
                                             </button>
                                           </div>
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                          <label className="text-xs font-bold text-slate-300">Server Port</label>
-                                          <input type="number" value={adminState.port} onChange={e => {
-                                            const newPort = parseInt(e.target.value) || 0;
+                                          <label className="text-xs font-bold text-slate-300">{t('ase.configEditor.serverPort', 'Server Port')}</label>
+                                          <NumberInput integer min={0} max={65535} value={adminState.port} onValueChange={newPort => {
                                             setAdminState({ ...adminState, port: newPort, peerPort: isPeerPortLocked ? (newPort ? newPort + 1 : adminState.peerPort) : adminState.peerPort });
                                             setIsDirty(true);
                                           }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                           <div className="flex items-center justify-between">
-                                            <label className="text-xs font-bold text-slate-300">Peer Port</label>
+                                            <label className="text-xs font-bold text-slate-300">{t('settings.firewallAutomation.headers.peerPort', 'Peer Port')}</label>
                                           </div>
                                           <div className="relative">
-                                            <input
-                                              type="number"
+                                            <NumberInput
+                                              integer
+                                              min={0}
+                                              max={65535}
                                               disabled={isPeerPortLocked}
                                               value={adminState.peerPort}
-                                              onChange={e => { setAdminState({ ...adminState, peerPort: parseInt(e.target.value) || 0 }); setIsDirty(true); }}
+                                              onValueChange={n => { setAdminState({ ...adminState, peerPort: n }); setIsDirty(true); }}
                                               className="w-full px-4 py-2.5 pr-10 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                             />
                                             <button
                                               type="button"
                                               onClick={() => setIsPeerPortLocked(!isPeerPortLocked)}
-                                              title={isPeerPortLocked ? "Unlock to edit manually" : "Lock to auto-calculate"}
+                                              title={isPeerPortLocked ? t('ase.configEditor.lockPeer', 'Unlock to edit manually') : t('ase.configEditor.autoPeer', 'Lock to auto-calculate')}
                                               className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${isPeerPortLocked ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800' : 'text-amber-500 bg-amber-500/10 hover:bg-amber-500/20'}`}
                                             >
                                               {isPeerPortLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
@@ -2895,12 +2946,12 @@ export default function ASEConfigEditor() {
                                           </div>
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                          <label className="text-xs font-bold text-slate-300">Query Port</label>
-                                          <input type="number" value={adminState.queryPort} onChange={e => { setAdminState({ ...adminState, queryPort: parseInt(e.target.value) || 0 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                          <label className="text-xs font-bold text-slate-300">{t('configEditor.fields.QueryPort.label', 'Query Port')}</label>
+                                          <NumberInput integer min={0} max={65535} value={adminState.queryPort} onValueChange={n => { setAdminState({ ...adminState, queryPort: n }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                          <label className="text-xs font-bold text-slate-300">Max Players</label>
-                                          <input type="number" value={config.maxPlayers || 70} onChange={e => { setConfig({ ...config, maxPlayers: parseInt(e.target.value) || 70 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                          <label className="text-xs font-bold text-slate-300">{t('configEditor.fields.MaxPlayers.label', 'Max Players')}</label>
+                                          <NumberInput integer min={1} value={config.maxPlayers ?? 70} onValueChange={n => { setConfig({ ...config, maxPlayers: n }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                         </div>
                                       </div>
 
@@ -2909,7 +2960,7 @@ export default function ASEConfigEditor() {
                                           <div className="flex items-start gap-2">
                                             <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                                             <div className="text-[11px] text-slate-400 leading-relaxed">
-                                              <span className="font-bold text-amber-400">Warning:</span> Specifying a Local IP forces the server to bind strictly to that address (<code className="text-slate-200 bg-slate-950 px-1 py-0.5 rounded font-mono text-[10px]">-MultiHome</code>). This is required for LAN play or complex multi-homing setups, but **prevents the server from registering with the Steam Master Server**, making it invisible on the public internet server list. **Leave this field blank** if you want your server to be visible on the public web.
+                                              <span className="font-bold text-amber-400">{t('ase.configEditor.warning', 'Warning:')}</span> {t('ase.configEditor.localIpWarn1', 'Specifying a Local IP forces the server to bind strictly to that address')} (<code className="text-slate-200 bg-slate-950 px-1 py-0.5 rounded font-mono text-[10px]">-MultiHome</code>). {t('ase.configEditor.localIpWarn2', 'This is required for LAN play or complex multi-homing setups, but **prevents the server from registering with the Steam Master Server**, making it invisible on the public internet server list. **Leave this field blank** if you want your server to be visible on the public web.')}
                                             </div>
                                           </div>
                                         </div>
@@ -2924,15 +2975,15 @@ export default function ASEConfigEditor() {
                                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                                         <label className="flex items-center gap-3 p-3 h-[42px] bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
                                           <input type="checkbox" checked={adminState.rconPort > 0} onChange={e => { setAdminState({ ...adminState, rconPort: e.target.checked ? 27020 : 0 }); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
-                                          <span className="text-sm font-semibold text-slate-200">Enable RCON</span>
+                                          <span className="text-sm font-semibold text-slate-200">{t('rconHelp.enableRcon', 'Enable RCON')}</span>
                                         </label>
                                         <div className="flex flex-col gap-1.5">
-                                          <label className="text-xs font-bold text-slate-300">RCON Port</label>
-                                          <input type="number" disabled={adminState.rconPort === 0} value={adminState.rconPort > 0 ? adminState.rconPort : 27020} onChange={e => { setAdminState({ ...adminState, rconPort: parseInt(e.target.value) || 0 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50" />
+                                          <label className="text-xs font-bold text-slate-300">{t('configEditor.fields.RCONPort.label', 'RCON Port')}</label>
+                                          <NumberInput integer min={1} max={65535} disabled={adminState.rconPort === 0} value={adminState.rconPort > 0 ? adminState.rconPort : 27020} onValueChange={n => { setAdminState({ ...adminState, rconPort: n }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50" />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                          <label className="text-xs font-bold text-slate-300">Server Log Buffer</label>
-                                          <input type="number" value={config.RCONServerLogBuffer || 600} onChange={e => { setConfig({ ...config, RCONServerLogBuffer: parseInt(e.target.value) || 600 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                          <label className="text-xs font-bold text-slate-300">{t('ase.configEditor.logBuffer', 'Server Log Buffer')}</label>
+                                          <NumberInput integer min={0} value={config.RCONServerLogBuffer ?? 600} onValueChange={n => { setConfig({ ...config, RCONServerLogBuffer: n }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                         </div>
                                         <div className="flex flex-col">
                                           <button
@@ -2954,13 +3005,13 @@ export default function ASEConfigEditor() {
                                         </h3>
                                         <div className="space-y-4">
                                           <div className="flex flex-col gap-1.5">
-                                            <label className="text-xs font-bold text-slate-300">Auto Save Period (Mins)</label>
-                                            <input type="number" value={config.autoSavePeriodMinutes || 15} onChange={e => { setConfig({ ...config, autoSavePeriodMinutes: parseFloat(e.target.value) || 15 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                            <label className="text-xs font-bold text-slate-300">{t('ase.configEditor.autoSave', 'Auto Save Period (Mins)')}</label>
+                                            <NumberInput min={0} value={config.autoSavePeriodMinutes ?? 15} onValueChange={n => { setConfig({ ...config, autoSavePeriodMinutes: n }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                           </div>
                                           <div className="flex flex-col gap-1.5">
-                                            <label className="text-xs font-bold text-slate-300">Backup Quantity</label>
-                                            <input type="number" value={config.backupQuantity || 0} onChange={e => { setConfig({ ...config, backupQuantity: parseInt(e.target.value) || 0 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
-                                            <p className="text-[10px] text-slate-500">Number of backup archives to keep. Oldest will be pruned.</p>
+                                            <label className="text-xs font-bold text-slate-300">{t('ase.configEditor.backupQty', 'Backup Quantity')}</label>
+                                            <NumberInput integer min={0} value={config.backupQuantity ?? 0} onValueChange={n => { setConfig({ ...config, backupQuantity: n }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                            <p className="text-[10px] text-slate-500">{t('ase.configEditor.backupQtyDesc', 'Number of backup archives to keep. Oldest will be pruned.')}</p>
                                           </div>
                                         </div>
                                       </div>
@@ -2972,15 +3023,15 @@ export default function ASEConfigEditor() {
                                         <div className="space-y-3">
                                           <label className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
                                             <input type="checkbox" checked={!!config.newSaveGameFormat} onChange={e => { setConfig({ ...config, newSaveGameFormat: e.target.checked }); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
-                                            <span className="text-sm font-semibold text-slate-200">New Save Game Format</span>
+                                            <span className="text-sm font-semibold text-slate-200">{t('ase.configEditor.newSaveFormat', 'New Save Game Format')}</span>
                                           </label>
                                           <label className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
                                             <input type="checkbox" checked={!!config.useStore} onChange={e => { setConfig({ ...config, useStore: e.target.checked }); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
-                                            <span className="text-sm font-semibold text-slate-200">Use Store</span>
+                                            <span className="text-sm font-semibold text-slate-200">{t('ase.configEditor.useStore', 'Use Store')}</span>
                                           </label>
                                           <label className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
                                             <input type="checkbox" checked={!!config.backupTransferPlayerDatas} onChange={e => { setConfig({ ...config, backupTransferPlayerDatas: e.target.checked }); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
-                                            <span className="text-sm font-semibold text-slate-200">Backup Transfer Player Datas</span>
+                                            <span className="text-sm font-semibold text-slate-200">{t('ase.configEditor.backupTransfer', 'Backup Transfer Player Datas')}</span>
                                           </label>
                                         </div>
                                       </div>
@@ -2996,7 +3047,7 @@ export default function ASEConfigEditor() {
                                           <div className="w-full flex flex-col">
                                             {/* Toolbar */}
                                             <div className="flex flex-wrap items-center gap-2 bg-slate-950 p-2.5 rounded-t-xl border border-slate-800 border-b-0">
-                                              <span className="text-[10px] uppercase font-bold text-slate-500 select-none mr-1">MOTD Colors:</span>
+                                              <span className="text-[10px] uppercase font-bold text-slate-500 select-none mr-1">{t('ase.configEditor.motdColors', 'MOTD Colors:')}</span>
                                               {[
                                                 { name: 'Red', color: '1,0,0,1', bg: 'bg-red-500' },
                                                 { name: 'Green', color: '0,1,0,1', bg: 'bg-emerald-500' },
@@ -3014,7 +3065,7 @@ export default function ASEConfigEditor() {
                                                     "w-5 h-5 rounded-full border border-white/10 hover:scale-110 active:scale-95 transition-all shadow-sm",
                                                     c.bg
                                                   )}
-                                                  title={`Format selection to ${c.name}`}
+                                                  title={t('ase.configEditor.formatTo', { defaultValue: 'Format selection to {{color}}', color: t(`ase.configEditor.colors.${c.name}`, c.name) })}
                                                 />
                                               ))}
                                               <div className="h-4 w-px bg-slate-800 mx-1" />
@@ -3022,7 +3073,7 @@ export default function ASEConfigEditor() {
                                                 type="button"
                                                 onClick={insertMotdNewline}
                                                 className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 text-[10px] font-bold transition-colors"
-                                                title="Insert literal newline \n tag"
+                                                title={t('configEditor.motd.insertNewlineTitle', 'Insert literal newline \\n tag')}
                                               >
                                                 + New Line (\n)
                                               </button>
@@ -3033,7 +3084,7 @@ export default function ASEConfigEditor() {
                                               id="motd-textarea"
                                               value={config.motd || ''}
                                               onChange={e => { setConfig({ ...config, motd: e.target.value }); setIsDirty(true); }}
-                                              placeholder="Enter server welcome message... Use \n for line breaks, or color presets above."
+                                              placeholder={t('ase.configEditor.motdPlaceholder', 'Enter server welcome message... Use \\n for line breaks, or color presets above.')}
                                               rows={4}
                                               className="w-full bg-slate-950/60 border border-slate-800 hover:border-slate-700 focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 rounded-b-xl px-4 py-3 text-slate-200 focus:outline-none font-mono transition-all text-sm placeholder-slate-600 shadow-inner resize-y min-h-[90px]"
                                             />
@@ -3041,8 +3092,8 @@ export default function ASEConfigEditor() {
                                             {/* Real-time Game Preview */}
                                             <div className="mt-2.5 flex flex-col gap-1.5 bg-slate-950/40 border border-white/5 rounded-2xl p-4">
                                               <div className="text-[10px] uppercase font-black text-slate-500 tracking-wider flex items-center justify-between">
-                                                <span>In-Game Broadcast Preview</span>
-                                                <span className="text-[8px] bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold px-1.5 py-0.5 rounded">Real-Time</span>
+                                                <span>{t('configEditor.motd.broadcastPreview', 'In-Game Broadcast Preview')}</span>
+                                                <span className="text-[8px] bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold px-1.5 py-0.5 rounded">{t('configEditor.motd.realTime', 'Real-Time')}</span>
                                               </div>
                                               <div className="text-sm font-semibold tracking-wide leading-relaxed p-2.5 rounded-xl bg-black/30 border border-slate-900/60 font-sans break-words select-none max-h-[150px] overflow-y-auto custom-scrollbar text-left">
                                                 {renderMotdPreview(config.motd || '')}
@@ -3051,17 +3102,17 @@ export default function ASEConfigEditor() {
                                           </div>
                                           <div className="grid grid-cols-2 gap-4">
                                             <div className="flex flex-col gap-1.5">
-                                              <label className="text-xs font-bold text-slate-300">Duration</label>
-                                              <input type="number" value={config.motdDuration || 0} onChange={e => { setConfig({ ...config, motdDuration: parseFloat(e.target.value) || 0 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                              <label className="text-xs font-bold text-slate-300">{t('ase.configEditor.duration', 'Duration')}</label>
+                                              <NumberInput min={0} value={config.motdDuration ?? 0} onValueChange={n => { setConfig({ ...config, motdDuration: n }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                             </div>
                                             <div className="flex flex-col gap-1.5">
-                                              <label className="text-xs font-bold text-slate-300">Interval (Mins)</label>
-                                              <input type="number" disabled={!config.motdIntervalEnabled} value={config.motdInterval || 0} onChange={e => { setConfig({ ...config, motdInterval: parseFloat(e.target.value) || 0 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50" />
+                                              <label className="text-xs font-bold text-slate-300">{t('ase.configEditor.intervalMins', 'Interval (Mins)')}</label>
+                                              <NumberInput min={0} disabled={!config.motdIntervalEnabled} value={config.motdInterval ?? 0} onValueChange={n => { setConfig({ ...config, motdInterval: n }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50" />
                                             </div>
                                           </div>
                                           <label className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
                                             <input type="checkbox" checked={!!config.motdIntervalEnabled} onChange={e => { setConfig({ ...config, motdIntervalEnabled: e.target.checked }); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
-                                            <span className="text-sm font-semibold text-slate-200">Enable Periodic MOTD</span>
+                                            <span className="text-sm font-semibold text-slate-200">{t('ase.configEditor.periodicMotd', 'Enable Periodic MOTD')}</span>
                                           </label>
                                         </div>
                                       </div>
@@ -3073,11 +3124,11 @@ export default function ASEConfigEditor() {
                                         <div className="space-y-4">
                                           <label className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
                                             <input type="checkbox" checked={!!config.enableExtinctionEvent} onChange={e => { setConfig({ ...config, enableExtinctionEvent: e.target.checked }); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
-                                            <span className="text-sm font-semibold text-slate-200">Enable Extinction Event</span>
+                                            <span className="text-sm font-semibold text-slate-200">{t('ase.configEditor.extinction', 'Enable Extinction Event')}</span>
                                           </label>
                                           <div className="flex flex-col gap-1.5">
-                                            <label className="text-xs font-bold text-slate-300">Extinction Interval (Days)</label>
-                                            <input type="number" disabled={!config.enableExtinctionEvent} value={config.extinctionEventTimeInterval || 0} onChange={e => { setConfig({ ...config, extinctionEventTimeInterval: parseFloat(e.target.value) || 0 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50" />
+                                            <label className="text-xs font-bold text-slate-300">{t('ase.configEditor.extinctionInterval', 'Extinction Interval (Days)')}</label>
+                                            <NumberInput min={0} disabled={!config.enableExtinctionEvent} value={config.extinctionEventTimeInterval ?? 0} onValueChange={n => { setConfig({ ...config, extinctionEventTimeInterval: n }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50" />
                                           </div>
                                         </div>
                                       </div>
@@ -3107,7 +3158,7 @@ export default function ASEConfigEditor() {
                           <Cpu className="w-4 h-4" /> Real-time Launch Preview
                         </div>
                         <p className="text-xs text-slate-450 mb-4 leading-relaxed font-medium">
-                          This live command line is automatically compiled on server boot based on your settings:
+                          {t('ase.configEditor.liveCmd', 'This live command line is automatically compiled on server boot based on your settings:')}
                         </p>
                         <div className="bg-slate-900 border border-white/5 rounded-2xl p-4 font-mono text-xs text-slate-300 break-all select-all leading-normal relative">
                           <span className="text-amber-500 select-none mr-2">ShooterGameServer.exe</span>
@@ -3140,8 +3191,8 @@ export default function ASEConfigEditor() {
           >
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-              <span className="text-sm font-semibold text-slate-200">Unsaved changes</span>
-              <span className="text-xs text-slate-500 hidden sm:inline">(Ctrl+S to save)</span>
+              <span className="text-sm font-semibold text-slate-200">{t('settings.unsaved.title', 'Unsaved changes')}</span>
+              <span className="text-xs text-slate-500 hidden sm:inline">{t('ase.configEditor.saveHint', '(Ctrl+S to save)')}</span>
             </div>
             <div className="h-5 w-px bg-slate-700" />
             <button
@@ -3152,7 +3203,7 @@ export default function ASEConfigEditor() {
               }}
               className="px-4 py-1.5 text-xs font-semibold text-slate-400 hover:text-white bg-slate-850 hover:bg-slate-700 border border-slate-700/50 rounded-xl transition-all"
             >
-              Discard
+              {t('advanced.discard', 'Discard')}
             </button>
             <button
               onClick={handleSave}
@@ -3160,7 +3211,7 @@ export default function ASEConfigEditor() {
               className="px-5 py-1.5 text-sm font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center gap-2"
             >
               <Save className="w-4 h-4" />
-              {isLoading ? 'Saving...' : 'Save Changes'}
+              {isLoading ? t('advanced.saving', 'Saving...') : t('configEditor.buttons.save', 'Save Changes')}
             </button>
           </motion.div>
         )}
@@ -3189,9 +3240,9 @@ export default function ASEConfigEditor() {
                   <AlertTriangle className="w-5 h-5 text-amber-500" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Unsaved Changes</h3>
+                  <h3 className="text-base font-bold text-white">{t('advanced.unsavedChanges', 'Unsaved Changes')}</h3>
                   <p className="text-sm text-slate-400 mt-1 leading-relaxed">
-                    You have unsaved configuration changes. Switching servers will discard them.
+                    {t('ase.configEditor.switchWarn', 'You have unsaved configuration changes. Switching servers will discard them.')}
                   </p>
                 </div>
                 <button onClick={cancelServerSwitch} className="p-1 text-slate-500 hover:text-white transition-colors shrink-0 ml-auto">
@@ -3203,7 +3254,7 @@ export default function ASEConfigEditor() {
                   onClick={cancelServerSwitch}
                   className="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/50 rounded-xl transition-all whitespace-nowrap"
                 >
-                  Stay Here
+                  {t('ase.configEditor.stayHere', 'Stay Here')}
                 </button>
                 <button
                   onClick={async () => {
@@ -3218,7 +3269,7 @@ export default function ASEConfigEditor() {
                   onClick={confirmServerSwitch}
                   className="px-4 py-2 text-sm font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl transition-all whitespace-nowrap"
                 >
-                  Discard & Switch
+                  {t('ase.configEditor.discardSwitch', 'Discard & Switch')}
                 </button>
               </div>
             </motion.div>

@@ -44,19 +44,7 @@ pub struct ServerInstaller {
 }
 
 fn log_to_file(msg: &str) {
-    if let Ok(mut file) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open("C:\\Users\\sanja\\AppData\\Roaming\\com.ark.asaservermanager\\rust_debug.log")
-    {
-        use std::io::Write;
-        let _ = writeln!(
-            file,
-            "[{}] {}",
-            chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
-            msg
-        );
-    }
+    log::info!("[server_installer] {}", msg);
 }
 
 impl ServerInstaller {

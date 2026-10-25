@@ -2,6 +2,7 @@
 // Runs on an interval, checks for issues, and pushes alerts to the copilot
 
 import { invoke } from '@tauri-apps/api/core';
+import i18n from '../i18n';
 
 export interface WatchdogAlert {
     id: string;
@@ -36,8 +37,8 @@ export async function runHealthCheck(): Promise<WatchdogAlert[]> {
                     id: `ram_high_${Date.now()}`,
                     type: 'resource',
                     severity: 'critical',
-                    title: 'RAM usage critical',
-                    message: `RAM is at ${ramPct.toFixed(0)}%. Consider stopping unused servers.`,
+                    title: i18n.t('aiWatchdog.ramCriticalTitle', 'RAM usage critical'),
+                    message: i18n.t('aiWatchdog.ramCritical', { defaultValue: 'RAM is at {{pct}}%. Consider stopping unused servers.', pct: ramPct.toFixed(0) }),
                     timestamp: Date.now(),
                     dismissed: false,
                 });
@@ -46,8 +47,8 @@ export async function runHealthCheck(): Promise<WatchdogAlert[]> {
                     id: `ram_warn_${Date.now()}`,
                     type: 'resource',
                     severity: 'warning',
-                    title: 'RAM usage high',
-                    message: `RAM is at ${ramPct.toFixed(0)}%. Monitor closely.`,
+                    title: i18n.t('aiWatchdog.ramHighTitle', 'RAM usage high'),
+                    message: i18n.t('aiWatchdog.ramHigh', { defaultValue: 'RAM is at {{pct}}%. Monitor closely.', pct: ramPct.toFixed(0) }),
                     timestamp: Date.now(),
                     dismissed: false,
                 });
@@ -58,8 +59,8 @@ export async function runHealthCheck(): Promise<WatchdogAlert[]> {
                     id: `disk_critical_${Date.now()}`,
                     type: 'resource',
                     severity: 'critical',
-                    title: 'Disk space critical',
-                    message: `Disk is ${diskPct.toFixed(0)}% full. Clean up old backups or logs.`,
+                    title: i18n.t('aiWatchdog.diskCriticalTitle', 'Disk space critical'),
+                    message: i18n.t('aiWatchdog.diskCritical', { defaultValue: 'Disk is {{pct}}% full. Clean up old backups or logs.', pct: diskPct.toFixed(0) }),
                     timestamp: Date.now(),
                     dismissed: false,
                 });
@@ -68,8 +69,8 @@ export async function runHealthCheck(): Promise<WatchdogAlert[]> {
                     id: `disk_warn_${Date.now()}`,
                     type: 'resource',
                     severity: 'warning',
-                    title: 'Disk space low',
-                    message: `Disk is ${diskPct.toFixed(0)}% full.`,
+                    title: i18n.t('aiWatchdog.diskLowTitle', 'Disk space low'),
+                    message: i18n.t('aiWatchdog.diskLow', { defaultValue: 'Disk is {{pct}}% full.', pct: diskPct.toFixed(0) }),
                     timestamp: Date.now(),
                     dismissed: false,
                 });
@@ -80,8 +81,8 @@ export async function runHealthCheck(): Promise<WatchdogAlert[]> {
                     id: `cpu_high_${Date.now()}`,
                     type: 'performance',
                     severity: 'warning',
-                    title: 'CPU usage very high',
-                    message: `CPU at ${sysInfo.cpuUsage.toFixed(0)}%. Servers may experience lag.`,
+                    title: i18n.t('aiWatchdog.cpuHighTitle', 'CPU usage very high'),
+                    message: i18n.t('aiWatchdog.cpuHigh', { defaultValue: 'CPU at {{pct}}%. Servers may experience lag.', pct: sysInfo.cpuUsage.toFixed(0) }),
                     timestamp: Date.now(),
                     dismissed: false,
                 });

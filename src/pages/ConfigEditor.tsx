@@ -8,13 +8,15 @@ import { readConfig, saveConfig, updateServerSettings, getInstalledMods, install
 import toast from 'react-hot-toast';
 import { useServerStore } from '../stores/serverStore';
 import { useLocation } from 'react-router-dom';
-import { getAllCategories, ConfigField, parseIniContent, generateIniContent, CaseInsensitiveMap } from '../data/configMappings';
+import { getAllCategories, CATEGORY_INFO, ConfigField, ConfigGroup, parseIniContent, generateIniContent, CaseInsensitiveMap } from '../data/configMappings';
 import { SettingsSlider } from '../components/settings/SettingsSlider';
 import { CodeEditor } from '../components/ui/CodeEditor';
+import { NumberInput } from '../components/ui/NumberInput';
 import { PresetSelector } from '../components/config/PresetSelector';
 import { ConfigTooltip } from '../components/config/ConfigTooltip';
 import { ArrayEditor } from '../components/config/ArrayEditor';
 import { CraftingCostEditor } from '../components/config/CraftingCostEditor';
+import { ItemStackEditor } from '../components/config/ItemStackEditor';
 import { EngramOverridesEditor } from '../components/config/EngramOverridesEditor';
 import { EngramPointsPerLevelEditor } from '../components/config/EngramPointsPerLevelEditor';
 import { LootCrateEditor } from '../components/config/LootCrateEditor';
@@ -52,6 +54,14 @@ import mapFjordur from '../assets/maps/fjordur.png';
 import mapCrystalIsles from '../assets/maps/crystal_isles.png';
 import mapLostIsland from '../assets/maps/lost_island.png';
 import mapArkClub from '../assets/maps/ark_club.png';
+
+// Render-time translation helpers for map metadata (keys fall back to the English source text)
+const mapDescriptionLabel = (t: any, mapKey: string, description: string) =>
+    t(`configEditor.maps.${mapKey}.description`, { defaultValue: description });
+const mapDlcLabel = (t: any, dlcType: string) =>
+    t(`configEditor.mapDlc.${groupTitleKey(dlcType)}`, { defaultValue: dlcType });
+const mapSizeLabel = (t: any, size: string) =>
+    size.replace(/^(Large|Medium|Small)/, (m) => t(`configEditor.map.size.${m.toLowerCase()}`, m));
 
 interface MapInfo {
     name: string;
@@ -469,7 +479,7 @@ const TextAreaFieldInput = ({
     };
 
     const renderMotdPreview = (text: string) => {
-        if (!text) return <span className="text-slate-500 italic text-xs">No message entered yet.</span>;
+        if (!text) return <span className="text-slate-500 italic text-xs">{t('configEditor.motd.noMessage', 'No message entered yet.')}</span>;
 
         const lines = text.split('\\n');
 
@@ -526,22 +536,22 @@ const TextAreaFieldInput = ({
                 <div className="w-full flex flex-col gap-2 mt-2">
                     {/* Toolbar */}
                     <div className="flex flex-wrap items-center gap-2 bg-[#0e0e1a]/80 p-2.5 rounded-t-xl border-2 border-b-0 border-[#2d2d44]">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 select-none mr-1">Colors:</span>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 select-none mr-1">{t('configEditor.motd.colors', 'Colors:')}</span>
                         {[
-                            { name: 'Red', color: '1,0,0,1', bg: 'bg-red-500' },
-                            { name: 'Green', color: '0,1,0,1', bg: 'bg-emerald-500' },
-                            { name: 'Blue', color: '0,0.5,1,1', bg: 'bg-blue-500' },
-                            { name: 'Yellow', color: '1,1,0,1', bg: 'bg-amber-400' },
-                            { name: 'Orange', color: '1,0.65,0,1', bg: 'bg-orange-500' },
-                            { name: 'Cyan', color: '0,1,1,1', bg: 'bg-cyan-400' },
-                            { name: 'White', color: '1,1,1,1', bg: 'bg-white' },
+                            { name: 'Red', label: t('configEditor.motd.colorNames.red', 'Red'), color: '1,0,0,1', bg: 'bg-red-500' },
+                            { name: 'Green', label: t('configEditor.motd.colorNames.green', 'Green'), color: '0,1,0,1', bg: 'bg-emerald-500' },
+                            { name: 'Blue', label: t('configEditor.motd.colorNames.blue', 'Blue'), color: '0,0.5,1,1', bg: 'bg-blue-500' },
+                            { name: 'Yellow', label: t('configEditor.motd.colorNames.yellow', 'Yellow'), color: '1,1,0,1', bg: 'bg-amber-400' },
+                            { name: 'Orange', label: t('configEditor.motd.colorNames.orange', 'Orange'), color: '1,0.65,0,1', bg: 'bg-orange-500' },
+                            { name: 'Cyan', label: t('configEditor.motd.colorNames.cyan', 'Cyan'), color: '0,1,1,1', bg: 'bg-cyan-400' },
+                            { name: 'White', label: t('configEditor.motd.colorNames.white', 'White'), color: '1,1,1,1', bg: 'bg-white' },
                         ].map(c => (
                             <button
                                 key={c.name}
                                 type="button"
                                 onClick={() => insertColorTag(c.color)}
                                 className={`w-5 h-5 rounded-full border border-white/10 hover:scale-110 active:scale-95 transition-all shadow-sm ${c.bg}`}
-                                title={`Format selection to ${c.name}`}
+                                title={t('configEditor.motd.formatSelection', { defaultValue: 'Format selection to {{color}}', color: c.label })}
                             />
                         ))}
 
@@ -549,7 +559,7 @@ const TextAreaFieldInput = ({
                         <label
                             className="w-5 h-5 rounded-full border border-white/10 hover:scale-110 active:scale-95 transition-all shadow-sm cursor-pointer flex items-center justify-center relative"
                             style={{ background: 'linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet)' }}
-                            title="Choose custom color"
+                            title={t('configEditor.motd.customColor', 'Choose custom color')}
                         >
                             <input
                                 type="color"
@@ -569,9 +579,9 @@ const TextAreaFieldInput = ({
                             type="button"
                             onClick={insertNewline}
                             className="px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/5 text-[10px] font-bold transition-colors"
-                            title="Insert literal newline \n tag"
+                            title={t('configEditor.motd.insertNewlineTitle', 'Insert literal newline \\n tag')}
                         >
-                            + New Line (\n)
+                            {t('configEditor.motd.newLine', '+ New Line (\\n)')}
                         </button>
 
                         <button
@@ -587,9 +597,9 @@ const TextAreaFieldInput = ({
                                 setShowGradientBuilder(!showGradientBuilder);
                             }}
                             className={`px-2.5 py-0.5 rounded text-[10px] font-bold border transition-colors ${showGradientBuilder ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-white/5'}`}
-                            title="Create beautiful multi-color gradient text"
+                            title={t('configEditor.motd.gradientBuilderTitle', 'Create beautiful multi-color gradient text')}
                         >
-                            🎨 Gradient Builder
+                            🎨 {t('configEditor.motd.gradientBuilder', 'Gradient Builder')}
                         </button>
                     </div>
 
@@ -597,19 +607,19 @@ const TextAreaFieldInput = ({
                     {showGradientBuilder && (
                         <div className="flex flex-col gap-3 bg-[#0f0f20]/90 p-3.5 rounded-lg border-2 border-[#2d2d44] mb-2 text-left animate-fadeIn">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-orange-400">Multi-Color Gradient Builder</span>
-                                <span className="text-[10px] text-slate-500">Generates ArkML color codes dynamically</span>
+                                <span className="text-xs font-bold text-orange-400">{t('configEditor.motd.gradientTitle', 'Multi-Color Gradient Builder')}</span>
+                                <span className="text-[10px] text-slate-500">{t('configEditor.motd.gradientSubtitle', 'Generates ArkML color codes dynamically')}</span>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {/* Input Text */}
                                 <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Text to Colorize</label>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase">{t('configEditor.motd.textToColorize', 'Text to Colorize')}</label>
                                     <input
                                         type="text"
                                         value={gradientText}
                                         onChange={e => setGradientText(e.target.value)}
-                                        placeholder="Enter text to make gradient..."
+                                        placeholder={t('configEditor.motd.gradientPlaceholder', 'Enter text to make gradient...')}
                                         className="px-3 py-1.5 bg-[#080812] border border-[#2d2d44] rounded-lg text-xs text-white focus:outline-none focus:border-orange-500/50"
                                     />
                                 </div>
@@ -618,7 +628,7 @@ const TextAreaFieldInput = ({
                                 <div className="flex items-end gap-3">
                                     {/* Colors */}
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Colors (Start → End)</label>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">{t('configEditor.motd.colorsStartEnd', 'Colors (Start → End)')}</label>
                                         <div className="flex items-center gap-2">
                                             <div className="relative">
                                                 <label className="w-8 h-8 rounded-lg border border-[#2d2d44] hover:border-slate-650 transition-all shadow-sm cursor-pointer flex items-center justify-center border-dashed" style={{ backgroundColor: gradColor1 }}>
@@ -636,21 +646,21 @@ const TextAreaFieldInput = ({
 
                                     {/* Mode Toggle */}
                                     <div className="flex flex-col gap-1 flex-1">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Spread Mode</label>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">{t('configEditor.motd.spreadMode', 'Spread Mode')}</label>
                                         <div className="flex rounded-lg overflow-hidden border border-[#2d2d44] bg-[#080812] p-0.5">
                                             <button
                                                 type="button"
                                                 onClick={() => setGradMode('char')}
                                                 className={`flex-1 py-1 text-[10px] font-bold rounded transition-all ${gradMode === 'char' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'text-slate-400 hover:text-white'}`}
                                             >
-                                                Smooth (Letter)
+                                                {t('configEditor.motd.smooth', 'Smooth (Letter)')}
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => setGradMode('word')}
                                                 className={`flex-1 py-1 text-[10px] font-bold rounded transition-all ${gradMode === 'word' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'text-slate-400 hover:text-white'}`}
                                             >
-                                                Bold (Word)
+                                                {t('configEditor.motd.bold', 'Bold (Word)')}
                                             </button>
                                         </div>
                                     </div>
@@ -660,7 +670,7 @@ const TextAreaFieldInput = ({
                             {/* Dynamic Preview */}
                             {gradientText && (
                                 <div className="flex flex-col gap-1 bg-[#080812] p-2.5 rounded-lg border border-[#2d2d44]">
-                                    <span className="text-[9px] font-bold text-slate-500 uppercase">Live Builder Preview</span>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase">{t('configEditor.motd.livePreview', 'Live Builder Preview')}</span>
                                     <div className="text-sm font-semibold tracking-wide flex flex-wrap select-none">
                                         {renderGradPreview()}
                                     </div>
@@ -674,7 +684,7 @@ const TextAreaFieldInput = ({
                                     onClick={() => setShowGradientBuilder(false)}
                                     className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-350 text-xs font-medium transition-colors border border-white/5"
                                 >
-                                    Cancel
+                                    {t('common.cancel', 'Cancel')}
                                 </button>
                                 <button
                                     type="button"
@@ -682,7 +692,7 @@ const TextAreaFieldInput = ({
                                     onClick={insertGradientTag}
                                     className="px-3 py-1 rounded bg-orange-500 hover:bg-orange-400 text-slate-950 text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-orange-500/20"
                                 >
-                                    Insert Gradient
+                                    {t('configEditor.motd.insertGradient', 'Insert Gradient')}
                                 </button>
                             </div>
                         </div>
@@ -701,8 +711,8 @@ const TextAreaFieldInput = ({
                     {/* Real-time Game Preview */}
                     <div className="mt-1 flex flex-col gap-1.5 bg-[#0a0a14]/60 border-2 border-[#2d2d44] rounded-2xl p-4 text-left">
                         <div className="text-[10px] uppercase font-black text-slate-400 tracking-wider flex items-center justify-between">
-                            <span>In-Game Broadcast Preview</span>
-                            <span className="text-[8px] bg-orange-500/10 border border-orange-500/20 text-orange-400 font-bold px-1.5 py-0.5 rounded">Real-Time</span>
+                            <span>{t('configEditor.motd.broadcastPreview', 'In-Game Broadcast Preview')}</span>
+                            <span className="text-[8px] bg-orange-500/10 border border-orange-500/20 text-orange-400 font-bold px-1.5 py-0.5 rounded">{t('configEditor.motd.realTime', 'Real-Time')}</span>
                         </div>
                         <div className="text-sm font-semibold tracking-wide leading-relaxed p-2.5 rounded-xl bg-black/40 border border-[#2d2d44] font-sans break-words select-none max-h-[150px] overflow-y-auto custom-scrollbar text-left">
                             {renderMotdPreview(value)}
@@ -731,6 +741,7 @@ const MapSelectorDropdown = ({
     handleChange: (val: string) => void;
     matchedInstalledMod?: ModInfo;
 }) => {
+    const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const mapButtonRef = useRef<HTMLButtonElement>(null);
@@ -796,21 +807,21 @@ const MapSelectorDropdown = ({
                             {matchedInstalledMod
                                 ? matchedInstalledMod.name
                                 : (dropdownValue === '__CUSTOM__'
-                                    ? (value || 'Custom Map')
-                                    : (selectedMapMeta ? selectedMapMeta.name : (selectedOption ? selectedOption.label.replace(/^[^\s]+\s+/, '') : value || 'Custom Map')))}
+                                    ? (value || t('configEditor.map.customMap', 'Custom Map'))
+                                    : (selectedMapMeta ? selectedMapMeta.name : (selectedOption ? selectedOption.label.replace(/^[^\s]+\s+/, '') : value || t('configEditor.map.customMap', 'Custom Map'))))}
                         </div>
                         <div className="text-[10px] text-violet-400 font-medium tracking-wider uppercase mt-0.5 truncate flex items-center gap-1.5">
                             {matchedInstalledMod ? (
                                 <span className="text-emerald-400 font-semibold flex items-center gap-1">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                    Installed Mod Map • ID: {matchedInstalledMod.id}
+                                    {t('configEditor.map.installedModMapId', { defaultValue: 'Installed Mod Map • ID: {{id}}', id: matchedInstalledMod.id })}
                                 </span>
                             ) : dropdownValue === '__CUSTOM__' ? (
-                                value ? 'Custom Mod Map' : 'Custom Map Argument'
+                                value ? t('configEditor.map.customModMap', 'Custom Mod Map') : t('configEditor.map.customMapArgument', 'Custom Map Argument')
                             ) : selectedMapMeta ? (
-                                selectedMapMeta.author ? `${selectedMapMeta.dlcType} • By ${selectedMapMeta.author}` : selectedMapMeta.dlcType
+                                selectedMapMeta.author ? `${mapDlcLabel(t, selectedMapMeta.dlcType)} • ${t('configEditor.map.byAuthor', { defaultValue: 'By {{author}}', author: selectedMapMeta.author })}` : mapDlcLabel(t, selectedMapMeta.dlcType)
                             ) : (
-                                'Official Map'
+                                t('configEditor.map.officialMap', 'Official Map')
                             )}
                         </div>
                     </div>
@@ -831,10 +842,10 @@ const MapSelectorDropdown = ({
                         <div className="space-y-1">
                             <div className="px-3 py-1.5 text-[10px] font-bold text-emerald-400 uppercase tracking-widest bg-emerald-950/40 border border-emerald-500/30 rounded-lg flex items-center justify-between select-none">
                                 <div className="flex items-center gap-1.5">
-                                    <Package className="w-3.5 h-3.5 text-emerald-400" /> Installed Mod Maps
+                                    <Package className="w-3.5 h-3.5 text-emerald-400" /> {t('configEditor.map.groups.installed', 'Installed Mod Maps')}
                                 </div>
                                 <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
-                                    {groupedOptions.installed.length} detected
+                                    {t('configEditor.map.detected', { defaultValue: '{{count}} detected', count: groupedOptions.installed.length })}
                                 </span>
                             </div>
                             <div className="space-y-1">
@@ -885,13 +896,13 @@ const MapSelectorDropdown = ({
                                                         {mod?.id && (
                                                             <>
                                                                 <span className="w-1 h-1 rounded-full bg-slate-600" />
-                                                                <span>Mod ID: {mod.id}</span>
+                                                                <span>{t('configEditor.map.modId', { defaultValue: 'Mod ID: {{id}}', id: mod.id })}</span>
                                                             </>
                                                         )}
                                                         {mod?.author && (
                                                             <>
                                                                 <span className="w-1 h-1 rounded-full bg-slate-600" />
-                                                                <span className="text-emerald-400 font-medium">By {mod.author}</span>
+                                                                <span className="text-emerald-400 font-medium">{t('configEditor.map.byAuthor', { defaultValue: 'By {{author}}', author: mod.author })}</span>
                                                             </>
                                                         )}
                                                     </div>
@@ -899,7 +910,7 @@ const MapSelectorDropdown = ({
                                             </div>
                                             <div className="flex items-center gap-2 flex-shrink-0">
                                                 <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-emerald-950/80 border border-emerald-500/40 text-emerald-300">
-                                                    Installed
+                                                    {t('configEditor.map.installed', 'Installed')}
                                                 </span>
                                                 {isSelected && <Check className="w-4 h-4 text-emerald-400" />}
                                             </div>
@@ -914,7 +925,7 @@ const MapSelectorDropdown = ({
                     {groupedOptions.released && groupedOptions.released.length > 0 && (
                         <div className="space-y-1">
                             <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg flex items-center gap-1.5 select-none">
-                                <Globe className="w-3 h-3 text-emerald-400" /> Official Release Maps
+                                <Globe className="w-3 h-3 text-emerald-400" /> {t('configEditor.map.groups.released', 'Official Release Maps')}
                             </div>
                             <div className="space-y-1">
                                 {groupedOptions.released.map(opt => {
@@ -952,11 +963,11 @@ const MapSelectorDropdown = ({
                                                         <span className="truncate">{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
                                                     </div>
                                                     <div className="text-[10px] text-slate-400 truncate mt-0.5 flex items-center gap-1.5">
-                                                        <span>{meta?.size || 'Unknown Size'}</span>
+                                                        <span>{meta?.size ? mapSizeLabel(t, meta.size) : t('configEditor.map.unknownSize', 'Unknown Size')}</span>
                                                         {meta?.author && (
                                                             <>
                                                                 <span className="w-1 h-1 rounded-full bg-slate-650" />
-                                                                <span className="text-violet-400 font-semibold">By {meta.author}</span>
+                                                                <span className="text-violet-400 font-semibold">{t('configEditor.map.byAuthor', { defaultValue: 'By {{author}}', author: meta.author })}</span>
                                                             </>
                                                         )}
                                                     </div>
@@ -965,7 +976,7 @@ const MapSelectorDropdown = ({
                                             <div className="flex items-center gap-2 flex-shrink-0">
                                                 {meta?.dlcType && (
                                                     <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-slate-800 border border-white/5 text-slate-350">
-                                                        {meta.dlcType}
+                                                        {mapDlcLabel(t, meta.dlcType)}
                                                     </span>
                                                 )}
                                                 {isSelected && <Check className="w-4 h-4 text-violet-400" />}
@@ -981,7 +992,7 @@ const MapSelectorDropdown = ({
                     {groupedOptions.premium && groupedOptions.premium.length > 0 && (
                         <div className="space-y-1">
                             <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border border-[#2d2d44]/30 rounded-lg flex items-center gap-1.5 select-none">
-                                <Sparkles className="w-3 h-3 text-pink-400" /> Premium Mod Maps
+                                <Sparkles className="w-3 h-3 text-pink-400" /> {t('configEditor.map.groups.premium', 'Premium Mod Maps')}
                             </div>
                             <div className="space-y-1">
                                 {groupedOptions.premium.map(opt => {
@@ -1019,11 +1030,11 @@ const MapSelectorDropdown = ({
                                                         <span className="truncate">{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
                                                     </div>
                                                     <div className="text-[10px] text-slate-400 truncate mt-0.5 flex items-center gap-1.5">
-                                                        <span>{meta?.size || 'Unknown Size'}</span>
+                                                        <span>{meta?.size ? mapSizeLabel(t, meta.size) : t('configEditor.map.unknownSize', 'Unknown Size')}</span>
                                                         {meta?.author && (
                                                             <>
                                                                 <span className="w-1 h-1 rounded-full bg-slate-650" />
-                                                                <span className="text-pink-400 font-semibold">By {meta.author}</span>
+                                                                <span className="text-pink-400 font-semibold">{t('configEditor.map.byAuthor', { defaultValue: 'By {{author}}', author: meta.author })}</span>
                                                             </>
                                                         )}
                                                     </div>
@@ -1032,7 +1043,7 @@ const MapSelectorDropdown = ({
                                             <div className="flex items-center gap-2 flex-shrink-0">
                                                 {meta?.dlcType && (
                                                     <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-slate-800 border border-white/5 text-slate-350">
-                                                        {meta.dlcType}
+                                                        {mapDlcLabel(t, meta.dlcType)}
                                                     </span>
                                                 )}
                                                 {isSelected && <Check className="w-4 h-4 text-violet-400" />}
@@ -1048,7 +1059,7 @@ const MapSelectorDropdown = ({
                     {groupedOptions.modded && groupedOptions.modded.length > 0 && (
                         <div className="space-y-1">
                             <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border border-[#2d2d44]/30 rounded-lg flex items-center gap-1.5 select-none">
-                                <Compass className="w-3 h-3 text-orange-400" /> Modded Expansion Maps
+                                <Compass className="w-3 h-3 text-orange-400" /> {t('configEditor.map.groups.modded', 'Modded Expansion Maps')}
                             </div>
                             <div className="space-y-1">
                                 {groupedOptions.modded.map(opt => {
@@ -1086,11 +1097,11 @@ const MapSelectorDropdown = ({
                                                         <span className="truncate">{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
                                                     </div>
                                                     <div className="text-[10px] text-slate-400 truncate mt-0.5 flex items-center gap-1.5">
-                                                        <span>{meta?.size || 'Unknown Size'}</span>
+                                                        <span>{meta?.size ? mapSizeLabel(t, meta.size) : t('configEditor.map.unknownSize', 'Unknown Size')}</span>
                                                         {meta?.author && (
                                                             <>
                                                                 <span className="w-1 h-1 rounded-full bg-slate-650" />
-                                                                <span className="text-orange-400 font-semibold">By {meta.author}</span>
+                                                                <span className="text-orange-400 font-semibold">{t('configEditor.map.byAuthor', { defaultValue: 'By {{author}}', author: meta.author })}</span>
                                                             </>
                                                         )}
                                                     </div>
@@ -1099,7 +1110,7 @@ const MapSelectorDropdown = ({
                                             <div className="flex items-center gap-2 flex-shrink-0">
                                                 {meta?.dlcType && (
                                                     <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-slate-800 border border-white/5 text-slate-355">
-                                                        {meta.dlcType}
+                                                        {mapDlcLabel(t, meta.dlcType)}
                                                     </span>
                                                 )}
                                                 {isSelected && <Check className="w-4 h-4 text-violet-400" />}
@@ -1115,7 +1126,7 @@ const MapSelectorDropdown = ({
                     {groupedOptions.upcoming && groupedOptions.upcoming.length > 0 && (
                         <div className="space-y-1">
                             <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border border-[#2d2d44]/30 rounded-lg flex items-center gap-1.5 select-none">
-                                <Clock className="w-3 h-3 text-amber-400 animate-pulse" /> Upcoming Maps (Soon)
+                                <Clock className="w-3 h-3 text-amber-400 animate-pulse" /> {t('configEditor.map.groups.upcoming', 'Upcoming Maps (Soon)')}
                             </div>
                             <div className="space-y-1">
                                 {groupedOptions.upcoming.map(opt => {
@@ -1153,14 +1164,14 @@ const MapSelectorDropdown = ({
                                                         <span className="truncate">{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
                                                     </div>
                                                     <div className="text-[10px] text-slate-400 truncate mt-0.5 flex items-center gap-1.5">
-                                                        <span>{meta?.size || 'Unknown Size'}</span>
+                                                        <span>{meta?.size ? mapSizeLabel(t, meta.size) : t('configEditor.map.unknownSize', 'Unknown Size')}</span>
                                                     </div>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2 flex-shrink-0">
                                                 {meta?.dlcType && (
                                                     <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-slate-800 border border-white/5 text-slate-355">
-                                                        {meta.dlcType}
+                                                        {mapDlcLabel(t, meta.dlcType)}
                                                     </span>
                                                 )}
                                                 {isSelected && <Check className="w-4 h-4 text-violet-400" />}
@@ -1198,8 +1209,8 @@ const MapSelectorDropdown = ({
                                                     <span className="text-base">✏️</span>
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <div className="font-semibold text-slate-100 truncate">{opt.label}</div>
-                                                    <div className="text-[10px] text-slate-400 mt-0.5">Specify a custom map argument</div>
+                                                    <div className="font-semibold text-slate-100 truncate">{t(`configEditor.options.MapName.${opt.value}`, { defaultValue: opt.label })}</div>
+                                                    <div className="text-[10px] text-slate-400 mt-0.5">{t('configEditor.map.specifyCustom', 'Specify a custom map argument')}</div>
                                                 </div>
                                             </div>
                                             {isSelected && <Check className="w-4 h-4 text-amber-500" />}
@@ -1218,6 +1229,123 @@ const MapSelectorDropdown = ({
 
 // Field Render Component
 // Field Render Component - Memoized to prevent re-renders of all fields on single keypress
+const NUMERIC = /^-?\d+(\.\d+)?$/;
+/** INI values are equal if they match as numbers ("2" == "2.000000") or case-insensitively ("True" == "true") */
+export const sameIniValue = (a: string, b: string) => {
+    const x = a.trim(), y = b.trim();
+    if (NUMERIC.test(x) && NUMERIC.test(y)) return parseFloat(x) === parseFloat(y);
+    return x.toLowerCase() === y.toLowerCase();
+};
+
+type IniFile = 'GameUserSettings' | 'Game';
+type IniMaps = Record<IniFile, Map<string, Map<string, string>> | CaseInsensitiveMap<CaseInsensitiveMap<string>>>;
+
+interface PendingChange {
+    file: IniFile;
+    section: string;
+    key: string;
+    /** undefined = key not in the file yet */
+    oldValue?: string;
+    newValue: string;
+}
+
+/** Keys whose value differs from what is saved on disk (empty values are not written, so skipped) */
+export const computeConfigChanges = (current: IniMaps, saved: IniMaps): PendingChange[] => {
+    const changes: PendingChange[] = [];
+    for (const file of ['GameUserSettings', 'Game'] as IniFile[]) {
+        for (const [section, values] of current[file]) {
+            for (const [key, newValue] of values) {
+                if (newValue === undefined || newValue === null || newValue.trim() === '') continue;
+                const oldValue = saved[file].get(section)?.get(key);
+                if (oldValue !== undefined && sameIniValue(oldValue, newValue)) continue;
+                changes.push({ file, section, key, oldValue, newValue });
+            }
+        }
+    }
+    return changes;
+};
+
+// Multi-line (repeated key) values are summarized, long ones truncated
+const describeIniValue = (v: string | undefined, entriesLabel: (count: number) => string) => {
+    if (v === undefined) return null;
+    const lines = v.split('\n').filter(l => l.trim());
+    if (lines.length > 1) return entriesLabel(lines.length);
+    return v.length > 60 ? `${v.slice(0, 60)}…` : v;
+};
+
+function SaveChangesDialog({ changes, onCancel, onConfirm }: { changes: PendingChange[]; onCancel: () => void; onConfirm: () => void }) {
+    const { t } = useTranslation();
+    const entriesLabel = (count: number) => t('configEditor.saveDialog.entries', { count, defaultValue: '{{count}} entries' });
+    const labels = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const cat of getAllCategories()) for (const g of cat.groups) for (const f of g.fields) {
+            map.set(f.key.toLowerCase(), t(`configEditor.fields.${f.key}.label`, { defaultValue: f.label }));
+        }
+        return map;
+    }, [t]);
+
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onCancel();
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) onConfirm();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [onCancel, onConfirm]);
+
+    const byFile = (['GameUserSettings', 'Game'] as IniFile[])
+        .map(file => ({ file, items: changes.filter(c => c.file === file) }))
+        .filter(g => g.items.length > 0);
+
+    return (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onMouseDown={e => { if (e.target === e.currentTarget) onCancel(); }}>
+            <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
+                <div className="px-5 py-4 border-b border-[var(--border)]">
+                    <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+                        <Save className="w-5 h-5 text-violet-400" />
+                        {t('configEditor.saveDialog.title', { count: changes.length, defaultValue: 'Save {{count}} changes?' })}
+                    </h3>
+                    <p className="text-xs text-[var(--text-muted)] mt-1">{t('configEditor.saveDialog.subtitle', 'Review what will be written to the INI files.')}</p>
+                </div>
+                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                    {byFile.map(({ file, items }) => (
+                        <div key={file}>
+                            <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">{file}.ini</div>
+                            <div className="rounded-xl border border-[var(--border)] divide-y divide-[var(--border)] overflow-hidden">
+                                {items.map(c => {
+                                    const label = labels.get(c.key.toLowerCase());
+                                    const oldText = describeIniValue(c.oldValue, entriesLabel);
+                                    return (
+                                        <div key={`${c.section}.${c.key}`} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 px-3 py-2 bg-[var(--surface-hover)]">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm text-[var(--text-primary)] truncate">{label ?? c.key}</div>
+                                                <div className="text-[10px] font-mono text-[var(--text-muted)] truncate">[{c.section}] {c.key}</div>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-xs font-mono shrink-0">
+                                                {oldText !== null
+                                                    ? <span className="text-red-300/80 line-through">{oldText}</span>
+                                                    : <span className="text-[var(--text-muted)] italic">{t('configEditor.saveDialog.new', 'new')}</span>}
+                                                <span className="text-[var(--text-muted)]">→</span>
+                                                <span className="text-emerald-300">{describeIniValue(c.newValue, entriesLabel)}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div className="flex justify-end gap-2 px-5 py-4 border-t border-[var(--border)]">
+                    <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] cursor-pointer">{t('common.cancel', 'Cancel')}</button>
+                    <button onClick={onConfirm} autoFocus className="px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white flex items-center gap-2 cursor-pointer">
+                        <Save className="w-4 h-4" /> {t('configEditor.saveDialog.confirm', { count: changes.length, defaultValue: 'Save {{count}} changes' })}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 const ConfigInput = memo(({
     field,
     value,
@@ -1228,7 +1356,8 @@ const ConfigInput = memo(({
     installedMods,
     selectedServerId,
     onOpenMapHub,
-    onRefreshInstalledMods
+    onRefreshInstalledMods,
+    fileValue
 }: {
     field: ConfigField,
     value: string,
@@ -1240,9 +1369,15 @@ const ConfigInput = memo(({
     selectedServerId?: number | null,
     onOpenMapHub?: () => void,
     onRefreshInstalledMods?: () => Promise<void> | void
+    /** Value saved in the INI file on disk (undefined = key absent) */
+    fileValue?: string
 }) => {
     const { t } = useTranslation();
     const [isInstallingMap, setIsInstallingMap] = useState(false);
+
+    // Edited in the UI but different from what is saved in the file (numbers compared numerically,
+    // booleans case-insensitively). A key absent from the file counts as its default value.
+    const isUnsaved = !sameIniValue(value, fileValue ?? field.defaultValue ?? "");
 
     const fieldLabel = t(`configEditor.fields.${field.key}.label`, { defaultValue: field.label });
     const fieldDescription = field.description
@@ -1268,12 +1403,20 @@ const ConfigInput = memo(({
             defaultValue={field.defaultValue}
             currentValue={value}
             wikiLink={field.wikiLink}
+            iniFile={`${source}.ini`}
+            iniSection={field.section}
+            iniKey={field.key}
+            fileValue={fileValue}
+            isUnsaved={isUnsaved}
         >
             <div className="flex items-center gap-2 mb-1">
                 <div className="text-[var(--text-primary)] font-medium flex items-center gap-2">
                     {fieldLabel}
                     {isModified && (
                         <span className="w-2 h-2 rounded-full bg-orange-500 shadow-lg shadow-orange-500/50" title={t('configEditor.tooltips.modified')} />
+                    )}
+                    {isUnsaved && (
+                        <span className="w-2 h-2 rounded-full bg-sky-400 shadow-lg shadow-sky-400/50" title={t("configEditor.tooltips.unsaved", "Changed, not saved yet")} />
                     )}
                 </div>
                 {isModified && onFieldReset && (
@@ -1308,10 +1451,16 @@ const ConfigInput = memo(({
                             defaultValue={field.defaultValue}
                             currentValue={value}
                             wikiLink={field.wikiLink}
+                            iniFile={`${source}.ini`}
+                            iniSection={field.section}
+                            iniKey={field.key}
+                            fileValue={fileValue}
+                            isUnsaved={isUnsaved}
                         >
                             <div className="flex items-center gap-2">
                                 {fieldLabel}
                                 {isModified && <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />}
+                                {isUnsaved && <span className="w-2 h-2 rounded-full bg-sky-400" title={t("configEditor.tooltips.unsaved", "Changed, not saved yet")} />}
                                 {isModified && onFieldReset && (
                                     <button onClick={(e) => { e.stopPropagation(); handleReset(); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1">
                                         <RotateCcw className="w-3 h-3 text-slate-400 hover:text-white" />
@@ -1321,7 +1470,8 @@ const ConfigInput = memo(({
                         </ConfigTooltip>
                     }
                     description={fieldDescription}
-                    value={parseFloat(value) || field.min || 0}
+                    // `|| field.min` used to turn a real 0 into the field minimum
+                    value={Number.isFinite(parseFloat(value)) ? parseFloat(value) : (field.min ?? 0)}
                     min={field.min || 0}
                     max={field.max || 100}
                     step={field.step || 1}
@@ -1492,10 +1642,10 @@ const ConfigInput = memo(({
                                     type="button"
                                     onClick={onOpenMapHub}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-600/20 to-indigo-600/20 hover:from-violet-600/35 hover:to-indigo-600/35 border border-violet-500/40 hover:border-violet-400 rounded-xl text-xs font-semibold text-violet-300 hover:text-white transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
-                                    title="Open Curated Modded Maps Hub: browse popular maps, search CurseForge & 1-click install"
+                                    title={t('configEditor.map.hubTitle', 'Open Curated Modded Maps Hub: browse popular maps, search CurseForge & 1-click install')}
                                 >
                                     <Sparkles className="w-3.5 h-3.5 text-violet-400 animate-pulse" />
-                                    <span>✨ Modded Maps Hub</span>
+                                    <span>✨ {t('configEditor.map.hub', 'Modded Maps Hub')}</span>
                                 </button>
                             )}
                         </div>
@@ -1516,21 +1666,21 @@ const ConfigInput = memo(({
                                 <div className="flex items-center justify-between gap-2">
                                     <label className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                                         <Terminal className="w-3.5 h-3.5 text-amber-400" />
-                                        <span>Custom Map Launch Argument</span>
+                                        <span>{t('configEditor.map.customLaunchArg', 'Custom Map Launch Argument')}</span>
                                     </label>
-                                    <span className="text-[10px] text-slate-400 font-mono">e.g. MapName_WP</span>
+                                    <span className="text-[10px] text-slate-400 font-mono">{t('configEditor.map.example', 'e.g. MapName_WP')}</span>
                                 </div>
                                 <input
                                     type="text"
                                     value={value}
                                     onChange={(e) => handleChange(e.target.value)}
-                                    placeholder="Enter map launch argument (e.g. ScorchedEarthRM_WP, CustomMap_WP)"
+                                    placeholder={t('configEditor.map.launchArgPlaceholder', 'Enter map launch argument (e.g. ScorchedEarthRM_WP, CustomMap_WP)')}
                                     autoFocus={!value}
                                     className="w-full bg-[var(--input-background)] border border-amber-500/50 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-[var(--text-primary)] font-mono text-sm transition-all placeholder-[var(--text-muted)] focus:outline-none focus:shadow-[0_0_15px_rgba(245,158,11,0.25)]"
                                 />
                                 <div className="flex items-center justify-between text-[11px] text-slate-400 gap-2">
                                     <p className="leading-tight">
-                                        Enter the exact map identifier from the mod (usually ends with <code className="text-amber-300 font-mono">_WP</code>).
+                                        {t('configEditor.map.exactIdentifier', 'Enter the exact map identifier from the mod (usually ends with')} <code className="text-amber-300 font-mono">_WP</code>).
                                     </p>
                                     {onOpenMapHub && (
                                         <button
@@ -1539,7 +1689,7 @@ const ConfigInput = memo(({
                                             className="text-violet-400 hover:text-violet-300 font-semibold flex items-center gap-1 cursor-pointer shrink-0 transition-colors"
                                         >
                                             <Sparkles className="w-3 h-3 text-violet-400" />
-                                            <span>Modded Maps Hub →</span>
+                                            <span>{t('configEditor.map.hub', 'Modded Maps Hub')} →</span>
                                         </button>
                                     )}
                                 </div>
@@ -1548,7 +1698,7 @@ const ConfigInput = memo(({
                                 {installedModMaps.length > 0 && (
                                     <div className="pt-2 border-t border-[var(--border)] flex flex-wrap items-center gap-1.5">
                                         <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mr-1">
-                                            <Package className="w-3 h-3 text-emerald-400" /> Quick-fill installed:
+                                            <Package className="w-3 h-3 text-emerald-400" /> {t('configEditor.map.quickFill', 'Quick-fill installed:')}
                                         </span>
                                         {installedModMaps.map(mod => {
                                             const mapArg = detectMapArgumentFromMod(mod);
@@ -1602,15 +1752,15 @@ const ConfigInput = memo(({
                                     <div className="absolute top-3 right-3 flex gap-1.5 items-center z-10">
                                         {matchedInstalledMod ? (
                                             <span className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 backdrop-blur-md">
-                                                Installed Mod Map
+                                                {t('configEditor.map.installedModMap', 'Installed Mod Map')}
                                             </span>
                                         ) : isModdedMapNotInstalled ? (
                                             <span className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-amber-500/30 border border-amber-400/50 text-amber-300 backdrop-blur-md">
-                                                Mod Not Installed
+                                                {t('configEditor.map.modNotInstalled', 'Mod Not Installed')}
                                             </span>
                                         ) : (
                                             <span className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-black/60 border border-white/10 text-slate-300 backdrop-blur-md">
-                                                {selectedMapMeta?.size || knownModPreset?.size || 'Mod Map'}
+                                                {(selectedMapMeta?.size || knownModPreset?.size) ? mapSizeLabel(t, (selectedMapMeta?.size || knownModPreset?.size) as string) : t('configEditor.map.modMap', 'Mod Map')}
                                             </span>
                                         )}
                                         <span
@@ -1621,10 +1771,10 @@ const ConfigInput = memo(({
                                             }}
                                         >
                                             {matchedInstalledMod
-                                                ? `Mod ID: ${matchedInstalledMod.id}`
+                                                ? t('configEditor.map.modId', { defaultValue: 'Mod ID: {{id}}', id: matchedInstalledMod.id })
                                                 : knownModPreset
-                                                    ? `Mod ID: ${knownModPreset.mapModId}`
-                                                    : selectedMapMeta?.dlcType}
+                                                    ? t('configEditor.map.modId', { defaultValue: 'Mod ID: {{id}}', id: knownModPreset.mapModId })
+                                                    : (selectedMapMeta?.dlcType ? mapDlcLabel(t, selectedMapMeta.dlcType) : '')}
                                         </span>
                                     </div>
 
@@ -1638,11 +1788,11 @@ const ConfigInput = memo(({
                                         </div>
                                         {(matchedInstalledMod?.author || selectedMapMeta?.author || knownModPreset?.author) && (
                                             <div className="text-[10px] text-amber-400 font-semibold mb-1">
-                                                By {matchedInstalledMod?.author || selectedMapMeta?.author || knownModPreset?.author}
+                                                {t('configEditor.map.byAuthor', { defaultValue: 'By {{author}}', author: matchedInstalledMod?.author || selectedMapMeta?.author || knownModPreset?.author })}
                                             </div>
                                         )}
                                         <p className="text-xs text-slate-300/90 leading-normal drop-shadow-sm line-clamp-2 mb-2">
-                                            {matchedInstalledMod?.description || selectedMapMeta?.description || knownModPreset?.description}
+                                            {matchedInstalledMod?.description || (selectedMapMeta?.description ? mapDescriptionLabel(t, value, selectedMapMeta.description) : knownModPreset?.description)}
                                         </p>
 
                                         {/* In-place 1-Click Install Banner when modded map is selected but not yet installed */}
@@ -1654,11 +1804,11 @@ const ConfigInput = memo(({
                                                     </div>
                                                     <div className="min-w-0">
                                                         <div className="text-xs font-bold text-amber-200 truncate flex items-center gap-1.5">
-                                                            <span>Mod Map files not installed on server</span>
-                                                            <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/20 border border-amber-500/30 rounded text-amber-300 font-normal">Required</span>
+                                                            <span>{t('configEditor.map.filesNotInstalled', 'Mod Map files not installed on server')}</span>
+                                                            <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/20 border border-amber-500/30 rounded text-amber-300 font-normal">{t('configEditor.map.required', 'Required')}</span>
                                                         </div>
                                                         <div className="text-[10px] text-slate-400 truncate mt-0.5">
-                                                            Mod ID: <span className="font-mono text-amber-400 font-bold">{knownModPreset.mapModId}</span> • Creator: {knownModPreset.author}
+                                                            {t('configEditor.map.modIdLabel', 'Mod ID:')} <span className="font-mono text-amber-400 font-bold">{knownModPreset.mapModId}</span> • {t('configEditor.map.creator', { defaultValue: 'Creator: {{author}}', author: knownModPreset.author })}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1667,22 +1817,22 @@ const ConfigInput = memo(({
                                                     disabled={isInstallingMap}
                                                     onClick={async () => {
                                                         if (!selectedServerId) {
-                                                            toast.error('Please select a server first');
+                                                            toast.error(t('configEditor.toasts.selectServerFirst', 'Please select a server first'));
                                                             return;
                                                         }
                                                         try {
                                                             setIsInstallingMap(true);
-                                                            toast.loading(`Installing ${knownModPreset.name}...`, { id: `install-${knownModPreset.mapModId}` });
+                                                            toast.loading(t('configEditor.toasts.installingMod', { defaultValue: 'Installing {{name}}...', name: knownModPreset.name }), { id: `install-${knownModPreset.mapModId}` });
                                                             await installMod(selectedServerId, {
                                                                 id: knownModPreset.mapModId || '',
                                                                 name: knownModPreset.name,
                                                                 description: knownModPreset.description,
                                                                 author: knownModPreset.author,
                                                             });
-                                                            toast.success(`Installed & configured ${knownModPreset.name}!`, { id: `install-${knownModPreset.mapModId}` });
+                                                            toast.success(t('configEditor.toasts.installedMod', { defaultValue: 'Installed & configured {{name}}!', name: knownModPreset.name }), { id: `install-${knownModPreset.mapModId}` });
                                                             if (onRefreshInstalledMods) await onRefreshInstalledMods();
                                                         } catch (err: any) {
-                                                            toast.error(`Installation failed: ${err?.message || err}`, { id: `install-${knownModPreset.mapModId}` });
+                                                            toast.error(t('configEditor.toasts.installFailed', { defaultValue: 'Installation failed: {{error}}', error: err?.message || err }), { id: `install-${knownModPreset.mapModId}` });
                                                         } finally {
                                                             setIsInstallingMap(false);
                                                         }
@@ -1690,7 +1840,7 @@ const ConfigInput = memo(({
                                                     className="w-full sm:w-auto flex-shrink-0 px-3.5 py-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/25 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                                                 >
                                                     {isInstallingMap ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                                                    <span>⚡ 1-Click Install Mod</span>
+                                                    <span>⚡ {t('configEditor.map.oneClickInstall', '1-Click Install Mod')}</span>
                                                 </button>
                                             </div>
                                         )}
@@ -1700,7 +1850,7 @@ const ConfigInput = memo(({
                                             <div className="mt-2 text-[10px] px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium rounded-lg flex items-center gap-1.5 backdrop-blur-md">
                                                 <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping" />
                                                 <span>
-                                                    ✓ Launch configuration will be set automatically (-MapModID={matchedInstalledMod?.id || getModdedMapByMapArg(dropdownValue, 'ASA')?.mapModId})
+                                                    ✓ {t('configEditor.map.autoLaunchConfig', 'Launch configuration will be set automatically')} (-MapModID={matchedInstalledMod?.id || getModdedMapByMapArg(dropdownValue, 'ASA')?.mapModId})
                                                 </span>
                                             </div>
                                         )}
@@ -1718,7 +1868,7 @@ const ConfigInput = memo(({
                                     {/* Header badge */}
                                     <div className="absolute top-3 right-3 z-10">
                                         <span className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-amber-500/20 border border-amber-500/50 text-amber-300 backdrop-blur-md">
-                                            Custom Map
+                                            {t('configEditor.map.customMap', 'Custom Map')}
                                         </span>
                                     </div>
 
@@ -1726,10 +1876,10 @@ const ConfigInput = memo(({
                                     <div className="relative p-4 z-10">
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="text-lg">✏️</span>
-                                            <h4 className="font-bold text-white text-base leading-tight font-mono">{value || 'Custom Map'}</h4>
+                                            <h4 className="font-bold text-white text-base leading-tight font-mono">{value || t('configEditor.map.customMap', 'Custom Map')}</h4>
                                         </div>
                                         <p className="text-xs text-slate-400 leading-normal">
-                                            {value ? 'Custom mod or unofficial map loaded via launch argument.' : 'Please select a map or specify a custom map identifier.'}
+                                            {value ? t('configEditor.map.customLoaded', 'Custom mod or unofficial map loaded via launch argument.') : t('configEditor.map.selectOrSpecify', 'Please select a map or specify a custom map identifier.')}
                                         </p>
                                     </div>
                                 </>
@@ -1751,12 +1901,12 @@ const ConfigInput = memo(({
                         className="w-full bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] cursor-pointer transition-all hover:border-[var(--border-hover)]"
                     >
                         {field.options?.map(opt => (
-                            <option key={opt.value} value={opt.value} className="bg-[var(--card-background)] text-[var(--text-primary)]">{opt.label}</option>
+                            <option key={opt.value} value={opt.value} className="bg-[var(--card-background)] text-[var(--text-primary)]">{optionLabel(t, field.key, opt)}</option>
                         ))}
                     </select>
                     {dropdownValue === '__CUSTOM__' && (
                         <div className="mt-3 space-y-2">
-                            <label className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Custom Value</label>
+                            <label className="text-xs font-semibold text-amber-400 uppercase tracking-wider">{t('configEditor.customValue', 'Custom Value')}</label>
                             <input
                                 type="text"
                                 value={value}
@@ -1777,6 +1927,7 @@ const ConfigInput = memo(({
                         value={value as string}
                         onChange={handleChange}
                         template={field.template || {}}
+                        fieldKey={field.key}
                     />
                     {fieldDescription && (
                         <div className="mt-2 text-xs text-[var(--text-muted)] px-1 italic">
@@ -1804,6 +1955,20 @@ const ConfigInput = memo(({
                 <div className="col-span-1 md:col-span-2 lg:col-span-2">
                     <DinoSpawnEditor
                         value={value as string}
+                        onChange={(val: string) => handleChange(val)}
+                    />
+                    {fieldDescription && (
+                        <div className="mt-2 text-xs text-[var(--text-muted)] px-1 italic">
+                            {fieldDescription}
+                        </div>
+                    )}
+                </div>
+            );
+        case 'item_stack_overrides':
+            return (
+                <div className="col-span-1 md:col-span-2 lg:col-span-2">
+                    <ItemStackEditor
+                        value={value}
                         onChange={(val: string) => handleChange(val)}
                     />
                     {fieldDescription && (
@@ -1870,38 +2035,64 @@ const ConfigInput = memo(({
             return (
                 <div className={containerClassName}>
                     {labelContent}
-                    <input
-                        type={field.type === 'number' ? 'number' : 'text'}
-                        value={value}
-                        onChange={(e) => handleChange(e.target.value)}
-                        className="w-full bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-orange-500 font-mono transition-all placeholder-[var(--text-muted)]"
-                    />
+                    {field.type === 'number' ? (
+                        <NumberInput
+                            value={value}
+                            onValueChange={(n) => handleChange(String(n))}
+                            className="w-full bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-orange-500 font-mono transition-all placeholder-[var(--text-muted)]"
+                        />
+                    ) : (
+                        <input
+                            type="text"
+                            value={value}
+                            onChange={(e) => handleChange(e.target.value)}
+                            className="w-full bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-orange-500 font-mono transition-all placeholder-[var(--text-muted)]"
+                        />
+                    )}
                     {fieldDescription && <div className="mt-2 text-sm text-[var(--text-secondary)]">{fieldDescription}</div>}
                 </div>
             );
     }
 });
 
+// Translated label for a dropdown option (falls back to the English label from configMappings)
+const optionLabel = (t: any, fieldKey: string, opt: { value: string; label: string }) =>
+    t(`configEditor.options.${fieldKey}.${opt.value || '_default'}`, { defaultValue: opt.label });
+
 const groupTitleKey = (title: string) =>
     title.replace(/[^a-zA-Z0-9\s]/g, ' ').trim().split(/\s+/)
         .map((w, i) => i === 0 ? w.toLowerCase() : w[0].toUpperCase() + w.slice(1).toLowerCase())
         .join('');
 
+// Lowercase + strip accents so searches match regardless of diacritics ("domesticação" ≈ "domesticacao")
+const normalizeSearchText = (text: string) =>
+    text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+
+// "TamingSpeedMultiplier" -> "Taming Speed Multiplier", so multi-word queries also match INI keys
+const splitCamelCase = (key: string) =>
+    key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_.]/g, ' ');
+
 export default function ConfigEditor() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const location = useLocation();
     const { servers, activeServer } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(() => activeServer?.id || null);
 
+    // Follow the active server only when its *id* changes. Depending on the object itself made the
+    // editor jump back to the active server after every refreshServers() (e.g. right after saving),
+    // so edits of a non-active server appeared to be wiped.
+    const activeServerId = activeServer?.id;
     useEffect(() => {
-        if (activeServer) {
-            setSelectedServerId(activeServer.id);
+        if (activeServerId) {
+            setSelectedServerId(activeServerId);
         }
-    }, [activeServer]);
+    }, [activeServerId]);
     const [isLoading, setIsLoading] = useState(false);
     const [activeCategory, setActiveCategory] = useState<string>('server');
     const [activeFileFilter, setActiveFileFilter] = useState<'GameUserSettings' | 'Game'>('GameUserSettings');
     const [searchQuery, setSearchQuery] = useState('');
+    // While searching, clicking a tab in the sidebar narrows the results to that tab
+    const [searchScope, setSearchScope] = useState<{ category: string; source: 'GameUserSettings' | 'Game' } | null>(null);
     const [viewMode, setViewMode] = useState<'visual' | 'gus' | 'game' | 'levels' | 'stats' | 'anti-cheat' | 'advanced'>('visual');
 
     const [customDinoLevel, setCustomDinoLevel] = useState(150);
@@ -1947,38 +2138,62 @@ export default function ConfigEditor() {
     // Store raw text for direct editing
     const [rawText, setRawText] = useState({ gus: '', game: '' });
 
-    // Initialize from navigation or default
+    // INI contents as they are on disk (last load or save) — shown in field tooltips and used to
+    // flag fields that were edited but not saved yet
+    const [savedConfigs, setSavedConfigs] = useState<{
+        GameUserSettings: CaseInsensitiveMap<CaseInsensitiveMap<string>>,
+        Game: CaseInsensitiveMap<CaseInsensitiveMap<string>>
+    }>({ GameUserSettings: new CaseInsensitiveMap(), Game: new CaseInsensitiveMap() });
+
+    // Initialize from navigation. Runs only when the navigation state changes — not on every
+    // server list refresh, which used to override the server the user picked in the selector.
     useEffect(() => {
         if (location.state?.serverId) {
             setSelectedServerId(location.state.serverId);
-        } else if (activeServer) {
-            setSelectedServerId(activeServer.id);
-        } else if (servers.length > 0 && !selectedServerId) {
-            setSelectedServerId(servers[0].id);
         }
         if (location.state?.initialMode) {
+            // Raw text is filled in by the loader once the INI files have been read
             setViewMode(location.state.initialMode);
-            if (location.state.initialMode === 'gus' || location.state.initialMode === 'game') {
-                handleSwitchToRaw(location.state.initialMode);
-            }
+            setConfigReloadTrigger(c => c + 1);
         }
-    }, [servers, activeServer, location.state]);
+    }, [location.state]);
+
+    // Fallback selection when nothing is selected yet
+    useEffect(() => {
+        if (!selectedServerId && servers.length > 0) {
+            setSelectedServerId(activeServerId ?? servers[0].id);
+        }
+    }, [servers, activeServerId, selectedServerId]);
+
+    // Server whose INI files are currently held in `configs`. Saving is only allowed into this server,
+    // so a load that failed or is still in flight can never write one server's settings into another.
+    const loadedServerIdRef = useRef<number | null>(null);
+    const viewModeRef = useRef(viewMode);
+    viewModeRef.current = viewMode;
 
     // Load configs
     useEffect(() => {
         if (!selectedServerId) return;
+        let cancelled = false;
         const load = async () => {
             setIsLoading(true);
+            loadedServerIdRef.current = null;
             setConfigs({
                 GameUserSettings: new CaseInsensitiveMap(),
                 Game: new CaseInsensitiveMap()
             });
+            setRawText({ gus: '', game: '' });
+            setSavedConfigs({ GameUserSettings: new CaseInsensitiveMap(), Game: new CaseInsensitiveMap() });
             try {
                 const [gusContent, gameContent] = await Promise.all([
                     readConfig(selectedServerId, 'GameUserSettings'),
                     readConfig(selectedServerId, 'Game')
                 ]);
 
+                // Untouched copy of the files (before the migrations/back-fills below)
+                if (!cancelled) {
+                    setSavedConfigs({ GameUserSettings: parseIniContent(gusContent), Game: parseIniContent(gameContent) });
+                }
                 const parsedGus = parseIniContent(gusContent);
                 const parsedGame = parseIniContent(gameContent);
 
@@ -2021,6 +2236,9 @@ export default function ConfigEditor() {
                     }
                 }
 
+                // A newer load (server switch) superseded this one — drop the stale result
+                if (cancelled) return;
+
                 setConfigs({
                     GameUserSettings: parsedGus,
                     Game: parsedGame
@@ -2031,16 +2249,26 @@ export default function ConfigEditor() {
                     Game: parsedGame
                 });
 
-                // Optimization: Don't store rawText in state initially to save RAM
-                // setRawText({ gus: gusContent, game: gameContent });
+                // Raw editors need their text populated too (e.g. opened directly in raw mode
+                // or switched server while in raw mode); otherwise they show an empty file.
+                const mode = viewModeRef.current;
+                if (mode === 'gus' || mode === 'game') {
+                    setRawText({
+                        gus: generateIniContent(parsedGus),
+                        game: generateIniContent(parsedGame)
+                    });
+                }
+
+                loadedServerIdRef.current = selectedServerId;
             } catch (err) {
                 console.error(err);
-                toast.error(t('configEditor.toasts.loadError'));
+                if (!cancelled) toast.error(t('configEditor.toasts.loadError'));
             } finally {
-                setIsLoading(false);
+                if (!cancelled) setIsLoading(false);
             }
         };
         load();
+        return () => { cancelled = true; };
     }, [selectedServerId, configReloadTrigger]);
 
 
@@ -2075,29 +2303,25 @@ export default function ConfigEditor() {
         setModifiedSettings(modified);
     };
 
-    const handleSwitchToVisual = () => {
-        if (viewMode === 'visual') return;
-
-        const parsedGus = parseIniContent(rawText.gus);
-        const parsedGame = parseIniContent(rawText.game);
-
-        setConfigs({
-            GameUserSettings: parsedGus,
-            Game: parsedGame
-        });
-        checkModifications({
-            GameUserSettings: parsedGus,
-            Game: parsedGame
-        });
-        // Optimization: Clear raw text from memory when in visual mode
-        setRawText({ gus: '', game: '' });
-        setViewMode('visual');
-    };
-
-    const handleSwitchToRaw = (target: 'gus' | 'game') => {
+    // Switch between editor modes, keeping `configs` (all structured modes) and `rawText` (raw modes)
+    // in sync. Previously raw text was only regenerated when coming from 'visual', so going
+    // levels/stats → raw showed an empty file, and raw → visual then parsed that empty text and
+    // wiped every setting in the editor. Raw edits were also lost when leaving raw for levels/stats.
+    const switchViewMode = (target: typeof viewMode) => {
         if (viewMode === target) return;
+        const leavingRaw = viewMode === 'gus' || viewMode === 'game';
+        const enteringRaw = target === 'gus' || target === 'game';
 
-        if (viewMode === 'visual') {
+        if (leavingRaw && !enteringRaw) {
+            const parsed = {
+                GameUserSettings: parseIniContent(rawText.gus),
+                Game: parseIniContent(rawText.game)
+            };
+            setConfigs(parsed);
+            checkModifications(parsed);
+            // Optimization: Clear raw text from memory when leaving raw mode
+            setRawText({ gus: '', game: '' });
+        } else if (!leavingRaw && enteringRaw) {
             setRawText({
                 gus: generateIniContent(configs.GameUserSettings),
                 game: generateIniContent(configs.Game)
@@ -2164,10 +2388,8 @@ export default function ConfigEditor() {
         setShowMapHubModal(false);
     }, [handleUpdate, refreshInstalledMods]);
 
-    const handleSave = async () => {
-        if (!selectedServerId) return;
-        setIsLoading(true);
-        try {
+    // Turn the editor state into the INI texts that would be written
+    const buildSavePayload = () => {
             let gusString = rawText.gus;
             let gameString = rawText.game;
 
@@ -2200,12 +2422,55 @@ export default function ConfigEditor() {
             if (!gameString.includes('[/Script/ShooterGame.ShooterGameMode]')) {
                 gameString = '[/Script/ShooterGame.ShooterGameMode]\n' + gameString;
             }
+            return { parsedConfigs, gusString, gameString };
+    };
 
-            // Save INI files
+    // Save is two-step: list what changed and ask for confirmation, then write
+    const [pendingSave, setPendingSave] = useState<null | { payload: ReturnType<typeof buildSavePayload>; changes: PendingChange[] }>(null);
+
+    const handleSave = () => {
+        if (!selectedServerId) return;
+        // Never write settings that were not loaded from this server's files (load failed, still in
+        // flight, or the selection changed) — that would replace its INI values with another server's.
+        if (loadedServerIdRef.current !== selectedServerId) {
+            toast.error(t('configEditor.toasts.notLoaded', 'Configuration is not loaded for this server yet. Reload and try again.'));
+            return;
+        }
+        const payload = buildSavePayload();
+        const changes = computeConfigChanges(payload.parsedConfigs, savedConfigs);
+        if (changes.length === 0) {
+            toast(t('configEditor.saveDialog.noChanges', 'No changes to save'), { icon: 'ℹ️' });
+            return;
+        }
+        setPendingSave({ payload, changes });
+    };
+
+    const performSave = async ({ parsedConfigs, gusString, gameString }: ReturnType<typeof buildSavePayload>, changes: PendingChange[]) => {
+        if (!selectedServerId) return;
+        setPendingSave(null);
+        setIsLoading(true);
+        try {
+            // Only write the files that actually changed
+            const gusChanged = changes.some(c => c.file === 'GameUserSettings');
+            const gameChanged = changes.some(c => c.file === 'Game');
             await Promise.all([
-                saveConfig(selectedServerId, 'GameUserSettings', gusString),
-                saveConfig(selectedServerId, 'Game', gameString)
+                gusChanged ? saveConfig(selectedServerId, 'GameUserSettings', gusString) : Promise.resolve(),
+                gameChanged ? saveConfig(selectedServerId, 'Game', gameString) : Promise.resolve(),
             ]);
+            // What we just wrote is now the on-disk state (the backend merges, so keys missing here
+            // keep their previous saved value)
+            setSavedConfigs(prev => {
+                const merge = (base: CaseInsensitiveMap<CaseInsensitiveMap<string>>, written: string) => {
+                    const next = base.clone();
+                    for (const [section, values] of parseIniContent(written)) {
+                        const sec = (next.get(section) ?? new CaseInsensitiveMap<string>()).clone();
+                        for (const [k, v] of values) sec.set(k, v);
+                        next.set(section, sec);
+                    }
+                    return next;
+                };
+                return { GameUserSettings: merge(prev.GameUserSettings, gusString), Game: merge(prev.Game, gameString) };
+            });
 
             // Extract critical settings from the parsed configs and sync to database
             // This ensures settings are always saved even if INI parsing in backend fails
@@ -2308,11 +2573,33 @@ export default function ConfigEditor() {
             const ipAddress = getSetting(serverSettings, 'IPAddress') || getSetting(serverSettings, 'MultiHome') || getSetting(urlSettings, 'MultiHome');
             if (ipAddress !== undefined) updateParams.ipAddress = ipAddress;
 
-            // Sync critical settings to database
-            await updateServerSettings(updateParams);
-
-            // Refresh servers list to reflect updates in UI
-            await useServerStore.getState().refreshServers();
+            // Sync critical settings to database — only the ones that differ from what the DB has,
+            // and skip the call entirely when nothing changed (it also re-checks the firewall)
+            const current = useServerStore.getState().servers.find(s => s.id === selectedServerId);
+            if (current) {
+                const known: Partial<Record<keyof typeof updateParams, unknown>> = {
+                    mapName: current.config?.mapName,
+                    sessionName: current.config?.sessionName,
+                    maxPlayers: current.config?.maxPlayers,
+                    serverPassword: current.config?.serverPassword ?? '',
+                    adminPassword: current.config?.adminPassword,
+                    gamePort: current.ports?.gamePort,
+                    queryPort: current.ports?.queryPort,
+                    rconPort: current.ports?.rconPort,
+                    ipAddress: current.ipAddress ?? '',
+                    customArgs: current.config?.customArgs ?? current.config?.custom_args ?? '',
+                };
+                for (const k of Object.keys(updateParams) as (keyof typeof updateParams)[]) {
+                    if (k !== 'serverId' && k in known && String(known[k] ?? '') === String(updateParams[k] ?? '')) {
+                        delete updateParams[k];
+                    }
+                }
+            }
+            if (Object.keys(updateParams).length > 1) {
+                await updateServerSettings(updateParams);
+                // Refresh servers list to reflect updates in UI
+                await useServerStore.getState().refreshServers();
+            }
 
             toast.success(t('configEditor.toasts.saveSuccess'));
             toast((toastItem) => (
@@ -2350,24 +2637,60 @@ export default function ConfigEditor() {
 
     const categories = useMemo(() => getAllCategories(), []);
 
-    const filteredGroups = useMemo(() => {
-        let groups = categories.find(c => c.category === activeCategory)?.groups || [];
-        // Filter groups by activeFileFilter
-        groups = groups.filter(g => g.source === activeFileFilter);
+    // Searchable text for every group/field across ALL tabs and both INI files: INI key (also split
+    // into words), section, English + translated label/description, dropdown options, group title and
+    // tab name. Accent-insensitive so "domesticacao" finds "Domesticação".
+    const searchIndex = useMemo(() => {
+        const field = (f: ConfigField) => normalizeSearchText([
+            f.key, splitCamelCase(f.key), f.section,
+            f.label, t(`configEditor.fields.${f.key}.label`, { defaultValue: f.label }),
+            f.description ?? '', f.description ? t(`configEditor.fields.${f.key}.description`, { defaultValue: f.description }) : '',
+            ...(f.options ?? []).map(o => `${o.label} ${optionLabel(t, f.key, o)} ${o.value}`)
+        ].join(' '));
+        return categories.flatMap(({ category, info, groups }) => groups.map(group => ({
+            category,
+            group,
+            groupText: normalizeSearchText([
+                group.title,
+                t(`configEditor.groups.${groupTitleKey(group.title)}.title`, { defaultValue: group.title }),
+                info.label,
+                t(`configEditor.categories.${category}`, { defaultValue: info.label })
+            ].join(' ')),
+            fieldTexts: group.fields.map(field)
+        })));
+    }, [categories, t, i18n.language]);
 
-        if (searchQuery) {
-            const allGroups = categories.flatMap(c => c.groups).filter(g => g.source === activeFileFilter);
-            const search = searchQuery.toLowerCase();
-            return allGroups.filter(g =>
-                g.title.toLowerCase().includes(search) ||
-                g.fields.some(f => f.label.toLowerCase().includes(search) || f.key.toLowerCase().includes(search))
-            ).map(g => ({
-                ...g,
-                fields: g.fields.filter(f => f.label.toLowerCase().includes(search) || f.key.toLowerCase().includes(search))
-            }));
+    // Search results per tab, keyed by `${category}:${source}` (drives the counts in the sidebar)
+    const searchResults = useMemo(() => {
+        const terms = normalizeSearchText(searchQuery).split(/\s+/).filter(Boolean);
+        if (terms.length === 0) return null;
+        const matches = (text: string) => terms.every(term => text.includes(term));
+
+        const results: { category: string; group: ConfigGroup }[] = [];
+        const countByTab = new Map<string, number>();
+        for (const { category, group, groupText, fieldTexts } of searchIndex) {
+            // A matching group/tab name shows the whole group; otherwise only the matching fields
+            const fields = matches(groupText)
+                ? group.fields
+                : group.fields.filter((_, i) => matches(`${groupText} ${fieldTexts[i]}`));
+            if (fields.length === 0) continue;
+            results.push({ category, group: { ...group, fields } });
+            const tabKey = `${category}:${group.source}`;
+            countByTab.set(tabKey, (countByTab.get(tabKey) ?? 0) + fields.length);
         }
-        return groups;
-    }, [activeCategory, activeFileFilter, searchQuery, categories]);
+        return { results, countByTab };
+    }, [searchQuery, searchIndex]);
+
+    const filteredGroups = useMemo(() => {
+        if (searchResults) {
+            return searchResults.results
+                .filter(r => !searchScope || (r.category === searchScope.category && r.group.source === searchScope.source))
+                .map(r => r.group);
+        }
+        const groups = categories.find(c => c.category === activeCategory)?.groups || [];
+        // Filter groups by activeFileFilter
+        return groups.filter(g => g.source === activeFileFilter);
+    }, [activeCategory, activeFileFilter, searchResults, searchScope, categories]);
 
     // Preset handler
     const handleApplyPreset = (preset: ConfigPreset) => {
@@ -2480,7 +2803,7 @@ export default function ConfigEditor() {
         }
 
         return issues;
-    }, [configs]);
+    }, [configs, t]);
 
     // Sidebar resize handlers
     const startResizing = (e: React.MouseEvent) => {
@@ -2543,10 +2866,10 @@ export default function ConfigEditor() {
                         <button
                             onClick={() => setShowPresetHub(true)}
                             className="px-3.5 py-2 bg-gradient-to-r from-violet-500/15 to-purple-500/15 hover:from-violet-500/25 hover:to-purple-500/25 text-violet-600 dark:text-violet-300 border border-violet-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
-                            title="Server Templates Hub: Export or import complete server presets"
+                            title={t('configEditor.templateHubTitle', 'Server Templates Hub: Export or import complete server presets')}
                         >
                             <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-                            <span>Template Hub</span>
+                            <span>{t('configEditor.templateHub', 'Template Hub')}</span>
                         </button>
                     </div>
 
@@ -2573,7 +2896,7 @@ export default function ConfigEditor() {
                 {/* Navigation Tabs - Modern Pill Style */}
                 <div className="flex items-center gap-2 bg-[var(--surface-hover)] p-2 rounded-2xl self-start border border-[var(--border)] max-w-full overflow-x-auto scrollbar-thin">
                     <button
-                        onClick={handleSwitchToVisual}
+                        onClick={() => switchViewMode('visual')}
                         className={cn(
                             "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0 cursor-pointer",
                             viewMode === 'visual'
@@ -2584,7 +2907,7 @@ export default function ConfigEditor() {
                         <Sliders className="w-4 h-4" /> {t('configEditor.tabs.visual')}
                     </button>
                     <button
-                        onClick={() => handleSwitchToRaw('gus')}
+                        onClick={() => switchViewMode('gus')}
                         className={cn(
                             "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0 cursor-pointer",
                             viewMode === 'gus'
@@ -2595,7 +2918,7 @@ export default function ConfigEditor() {
                         <FileText className="w-4 h-4" /> {t('configEditor.tabs.gus')}
                     </button>
                     <button
-                        onClick={() => handleSwitchToRaw('game')}
+                        onClick={() => switchViewMode('game')}
                         className={cn(
                             "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0 cursor-pointer",
                             viewMode === 'game'
@@ -2606,7 +2929,7 @@ export default function ConfigEditor() {
                         <FileText className="w-4 h-4" /> {t('configEditor.tabs.game')}
                     </button>
                     <button
-                        onClick={() => setViewMode('levels')}
+                        onClick={() => switchViewMode('levels')}
                         className={cn(
                             "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0 cursor-pointer",
                             viewMode === 'levels'
@@ -2617,7 +2940,7 @@ export default function ConfigEditor() {
                         <GraduationCap className="w-4 h-4" /> {t('configEditor.tabs.levels')}
                     </button>
                     <button
-                        onClick={() => setViewMode('stats')}
+                        onClick={() => switchViewMode('stats')}
                         className={cn(
                             "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0 cursor-pointer",
                             viewMode === 'stats'
@@ -2628,7 +2951,7 @@ export default function ConfigEditor() {
                         <BarChart3 className="w-4 h-4" /> {t('configEditor.tabs.stats')}
                     </button>
                     <button
-                        onClick={() => setViewMode('anti-cheat')}
+                        onClick={() => switchViewMode('anti-cheat')}
                         className={cn(
                             "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0 cursor-pointer",
                             viewMode === 'anti-cheat'
@@ -2639,7 +2962,7 @@ export default function ConfigEditor() {
                         <Shield className="w-4 h-4" /> {t('configEditor.tabs.antiCheat')}
                     </button>
                     <button
-                        onClick={() => setViewMode('advanced')}
+                        onClick={() => switchViewMode('advanced')}
                         className={cn(
                             "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0 cursor-pointer",
                             viewMode === 'advanced'
@@ -2693,71 +3016,81 @@ export default function ConfigEditor() {
                                                 type="text"
                                                 placeholder={t('configEditor.placeholders.searchSettings')}
                                                 value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
-                                                className="w-full bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl pl-11 pr-4 py-3 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] transition-all"
+                                                onChange={(e) => {
+                                                    setSearchQuery(e.target.value);
+                                                    setSearchScope(null);
+                                                }}
+                                                className="w-full bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl pl-11 pr-10 py-3 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] transition-all"
                                             />
+                                            {searchQuery && (
+                                                <button
+                                                    onClick={() => {
+                                                        setSearchQuery('');
+                                                        setSearchScope(null);
+                                                    }}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] cursor-pointer"
+                                                    title={t('common.clear', 'Clear')}
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
                                         </div>
+                                        {searchResults && (
+                                            <p className="text-[11px] text-[var(--text-muted)] mt-2 px-1">
+                                                {t('configEditor.search.resultsSummary', {
+                                                    defaultValue: '{{count}} settings found in {{tabs}} tabs',
+                                                    count: searchResults.results.reduce((n, r) => n + r.group.fields.length, 0),
+                                                    tabs: searchResults.countByTab.size
+                                                })}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="p-3 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
-                                        {/* GameUserSettings.ini Section */}
-                                        <div className="flex flex-col gap-1.5 text-left">
-                                            <h3 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest px-3 mb-1">GameUserSettings.ini (GUS)</h3>
-                                            {categories
-                                                .filter(c => c.groups.some(g => g.source === 'GameUserSettings'))
-                                                .map(({ category, info }) => {
-                                                    const isActive = activeCategory === category && activeFileFilter === 'GameUserSettings' && !searchQuery;
-                                                    return (
-                                                        <button
-                                                            key={`${category}-GUS`}
-                                                            onClick={() => {
-                                                                setActiveCategory(category);
-                                                                setActiveFileFilter('GameUserSettings');
-                                                                setSearchQuery('');
-                                                            }}
-                                                            className={cn(
-                                                                "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 border text-left group cursor-pointer",
-                                                                isActive
-                                                                    ? "bg-violet-500/15 border-violet-500/30 text-violet-400 shadow-[inset_3px_0_0_0_#8b5cf6]"
-                                                                    : "bg-transparent border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
-                                                            )}
-                                                        >
-                                                            <span className="text-base group-hover:scale-110 transition-transform duration-300">{info.icon}</span>
-                                                            <span>{t(`configEditor.categories.${category}`, { defaultValue: info.label })}</span>
-                                                        </button>
-                                                    );
-                                                })
-                                            }
-                                        </div>
-
-                                        {/* Game.ini Section */}
-                                        <div className="flex flex-col gap-1.5 text-left">
-                                            <h3 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest px-3 mb-1">Game.ini Settings</h3>
-                                            {categories
-                                                .filter(c => c.groups.some(g => g.source === 'Game'))
-                                                .map(({ category, info }) => {
-                                                    const isActive = activeCategory === category && activeFileFilter === 'Game' && !searchQuery;
-                                                    return (
-                                                        <button
-                                                            key={`${category}-Game`}
-                                                            onClick={() => {
-                                                                setActiveCategory(category);
-                                                                setActiveFileFilter('Game');
-                                                                setSearchQuery('');
-                                                            }}
-                                                            className={cn(
-                                                                "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 border text-left group cursor-pointer",
-                                                                isActive
-                                                                    ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-400 shadow-[inset_3px_0_0_0_#6366f1]"
-                                                                    : "bg-transparent border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
-                                                            )}
-                                                        >
-                                                            <span className="text-base group-hover:scale-110 transition-transform duration-300">{info.icon}</span>
-                                                            <span>{t(`configEditor.categories.${category}`, { defaultValue: info.label })}</span>
-                                                        </button>
-                                                    );
-                                                })
-                                            }
-                                        </div>
+                                        {([
+                                            { source: 'GameUserSettings' as const, heading: t('configEditor.sidebar.gus', 'GameUserSettings.ini (GUS)'), activeClass: "bg-violet-500/15 border-violet-500/30 text-violet-400 shadow-[inset_3px_0_0_0_#8b5cf6]" },
+                                            { source: 'Game' as const, heading: t('configEditor.sidebar.gameIni', 'Game.ini Settings'), activeClass: "bg-indigo-500/15 border-indigo-500/30 text-indigo-400 shadow-[inset_3px_0_0_0_#6366f1]" }
+                                        ]).map(({ source, heading, activeClass }) => (
+                                            <div key={source} className="flex flex-col gap-1.5 text-left">
+                                                <h3 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest px-3 mb-1">{heading}</h3>
+                                                {categories
+                                                    .filter(c => c.groups.some(g => g.source === source))
+                                                    .map(({ category, info }) => {
+                                                        // While searching, each tab shows how many of its parameters match
+                                                        const matchCount = searchResults?.countByTab.get(`${category}:${source}`) ?? 0;
+                                                        const isActive = searchResults
+                                                            ? searchScope?.category === category && searchScope.source === source
+                                                            : activeCategory === category && activeFileFilter === source;
+                                                        return (
+                                                            <button
+                                                                key={`${category}-${source}`}
+                                                                disabled={!!searchResults && matchCount === 0}
+                                                                onClick={() => {
+                                                                    if (searchResults) {
+                                                                        // Narrow results to this tab (click again to show all tabs)
+                                                                        setSearchScope(isActive ? null : { category, source });
+                                                                        return;
+                                                                    }
+                                                                    setActiveCategory(category);
+                                                                    setActiveFileFilter(source);
+                                                                }}
+                                                                className={cn(
+                                                                    "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 border text-left group cursor-pointer disabled:opacity-30 disabled:cursor-default",
+                                                                    isActive
+                                                                        ? activeClass
+                                                                        : "bg-transparent border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                                                                )}
+                                                            >
+                                                                <span className="text-base group-hover:scale-110 transition-transform duration-300">{info.icon}</span>
+                                                                <span className="flex-1">{t(`configEditor.categories.${category}`, { defaultValue: info.label })}</span>
+                                                                {searchResults && matchCount > 0 && (
+                                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-300">{matchCount}</span>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })
+                                                }
+                                            </div>
+                                        ))}
                                     </div>
 
                                     {/* Resize Handle */}
@@ -2814,6 +3147,11 @@ export default function ConfigEditor() {
                                                 )}>
                                                     {group.source === 'GameUserSettings' ? 'INI' : 'GAME'}
                                                 </span>
+                                                {searchResults && (
+                                                    <span className="text-xs px-2.5 py-1 rounded-full border border-[var(--border)] text-[var(--text-secondary)]">
+                                                        {CATEGORY_INFO[group.category]?.icon} {t(`configEditor.categories.${group.category}`, { defaultValue: CATEGORY_INFO[group.category]?.label ?? group.category })}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 items-start">
                                                 {group.fields.map((field) => (
@@ -2829,6 +3167,7 @@ export default function ConfigEditor() {
                                                         selectedServerId={selectedServerId}
                                                         onOpenMapHub={() => setShowMapHubModal(true)}
                                                         onRefreshInstalledMods={refreshInstalledMods}
+                                                        fileValue={savedConfigs[group.source === 'Game' ? 'Game' : 'GameUserSettings'].get(field.section)?.get(field.key)}
                                                     />
                                                 ))}
                                             </div>
@@ -2867,12 +3206,12 @@ export default function ConfigEditor() {
                                     <div className="space-y-4">
                                         <label className="block text-sm font-semibold text-slate-200">{t('configEditor.levelsGenerator.dinoLevelLabel')}</label>
                                         <div className="flex gap-4">
-                                            <input
-                                                type="number"
+                                            <NumberInput
+                                                integer
                                                 value={customDinoLevel}
-                                                onChange={(e) => setCustomDinoLevel(parseInt(e.target.value) || 30)}
+                                                onValueChange={setCustomDinoLevel}
                                                 className="w-full bg-slate-900/80 backdrop-blur-sm border border-slate-600/50 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 outline-none shadow-inner transition-all font-mono text-lg"
-                                                min="30" max="3000" step="30"
+                                                min={1}
                                             />
                                         </div>
                                         <button
@@ -2890,10 +3229,11 @@ export default function ConfigEditor() {
                                     <div className="space-y-4">
                                         <label className="block text-sm font-semibold text-slate-200">{t('configEditor.levelsGenerator.playerLevelLabel')}</label>
                                         <div className="flex gap-4">
-                                            <input
-                                                type="number"
+                                            <NumberInput
+                                                integer
                                                 value={customPlayerLevel}
-                                                onChange={(e) => setCustomPlayerLevel(parseInt(e.target.value) || 105)}
+                                                onValueChange={setCustomPlayerLevel}
+                                                min={1}
                                                 className="flex-1 bg-slate-900/80 backdrop-blur-sm border border-slate-600/50 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500/50 outline-none shadow-inner transition-all font-mono text-lg"
                                             />
                                         </div>
@@ -2966,6 +3306,15 @@ export default function ConfigEditor() {
                 initialServerId={selectedServerId || undefined}
                 initialTab="library"
             />
+
+            {/* Save confirmation: list of changed keys */}
+            {pendingSave && (
+                <SaveChangesDialog
+                    changes={pendingSave.changes}
+                    onCancel={() => setPendingSave(null)}
+                    onConfirm={() => performSave(pendingSave.payload, pendingSave.changes)}
+                />
+            )}
 
             {/* Curated Modded Map Hub Modal */}
             <ModMapHubModal

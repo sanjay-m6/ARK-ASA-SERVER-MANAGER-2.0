@@ -114,7 +114,7 @@ export default function ClusterManager() {
             fetchClusters();
         } catch (error) {
             console.error('Failed to create cluster:', error);
-            const errStr = typeof error === 'string' ? error : (error as any)?.message || 'Unknown error';
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || t('clusterManager.unknownError', 'Unknown error');
             toast.error(t('clusterManager.createFailed', { error: errStr, defaultValue: `Failed to create cluster: ${errStr}` }));
         }
     };
@@ -131,7 +131,7 @@ export default function ClusterManager() {
             fetchClusters();
         } catch (error) {
             console.error('Failed to delete cluster:', error);
-            const errStr = typeof error === 'string' ? error : (error as any)?.message || 'Unknown error';
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || t('clusterManager.unknownError', 'Unknown error');
             toast.error(t('clusterManager.deleteFailed', { error: errStr, defaultValue: `Failed to delete cluster: ${errStr}` }));
         }
     };
@@ -152,7 +152,7 @@ export default function ClusterManager() {
             }
         } catch (err) {
             console.error('Failed to scan cluster directories:', err);
-            const errStr = typeof err === 'string' ? err : (err as any)?.message || 'Failed to scan cluster directories';
+            const errStr = typeof err === 'string' ? err : (err as any)?.message || t('clusterManager.scanFailed', 'Failed to scan cluster directories');
             toast.error(errStr);
         } finally {
             setIsScanningClusters(false);
@@ -167,7 +167,7 @@ export default function ClusterManager() {
             refreshServers();
         } catch (error) {
             console.error('Failed to start cluster:', error);
-            const errStr = typeof error === 'string' ? error : (error as any)?.message || 'Failed to start cluster';
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || t('clusterManager.startFailed', 'Failed to start cluster');
             toast.error(errStr);
         } finally {
             setStartingCluster(null);
@@ -182,7 +182,7 @@ export default function ClusterManager() {
             refreshServers();
         } catch (error) {
             console.error('Failed to stop cluster:', error);
-            const errStr = typeof error === 'string' ? error : (error as any)?.message || 'Failed to stop cluster';
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || t('clusterManager.stopFailed', 'Failed to stop cluster');
             toast.error(errStr);
         } finally {
             setStoppingCluster(null);
@@ -193,11 +193,11 @@ export default function ClusterManager() {
         setRestartingCluster(clusterId);
         try {
             await restartCluster(clusterId, staggerDelay);
-            toast.success(`Restarting all cluster servers with ${staggerDelay}s launch delay`);
+            toast.success(t('clusterManager.restartClusterWithDelay', { delay: staggerDelay, defaultValue: `Restarting all cluster servers with ${staggerDelay}s launch delay` }));
             refreshServers();
         } catch (error) {
             console.error('Failed to restart cluster:', error);
-            const errStr = typeof error === 'string' ? error : (error as any)?.message || 'Failed to restart cluster';
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || t('clusterManager.restartFailed', 'Failed to restart cluster');
             toast.error(errStr);
         } finally {
             setRestartingCluster(null);
@@ -310,7 +310,7 @@ export default function ClusterManager() {
                             <div>
                                 <label className="text-sm font-medium text-[var(--text-secondary)] flex items-center justify-between mb-2">
                                     <span>{t('clusterManager.clusterIdString', 'Shared Cluster ID (-clusterid)')}</span>
-                                    <span className="text-xs text-sky-400">Match across machines</span>
+                                    <span className="text-xs text-sky-400">{t('clusterManager.matchAcrossMachines', 'Match across machines')}</span>
                                 </label>
                                 <input
                                     type="text"
@@ -336,7 +336,7 @@ export default function ClusterManager() {
                                     className="text-xs text-pink-400 hover:text-pink-300 flex items-center gap-1 font-semibold disabled:opacity-50 cursor-pointer"
                                 >
                                     {isScanningClusters ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                                    Auto-Detect Multi-Root Clusters
+                                    {t('clusterManager.autoDetect', 'Auto-Detect Multi-Root Clusters')}
                                 </button>
                             </div>
                             <div className="flex gap-2 mb-2">
@@ -358,7 +358,7 @@ export default function ClusterManager() {
 
                             {discoveredClusters.length > 0 && (
                                 <div className="p-3 bg-[var(--surface)] border border-pink-500/30 rounded-xl space-y-2 mb-2">
-                                    <span className="text-xs font-semibold text-pink-300 block">Discovered Cluster Folders (Select to Auto-Connect):</span>
+                                    <span className="text-xs font-semibold text-pink-300 block">{t('clusterManager.discoveredFolders', 'Discovered Cluster Folders (Select to Auto-Connect):')}</span>
                                     <div className="flex flex-wrap gap-2">
                                         {discoveredClusters.map(folder => (
                                             <button
@@ -487,9 +487,9 @@ export default function ClusterManager() {
 
                                 {/* Control Buttons */}
                                 <div className="flex items-center space-x-2 ml-auto">
-                                    <div className="flex items-center gap-1 bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-2 text-xs" title="Delay between consecutive server launches to prevent crashes">
+                                    <div className="flex items-center gap-1 bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-2 text-xs" title={t('clusterManager.delayTooltip', 'Delay between consecutive server launches to prevent crashes')}>
                                         <Clock className="w-3.5 h-3.5 text-amber-400" />
-                                        <span className="text-[var(--text-secondary)] text-[11px]">Delay:</span>
+                                        <span className="text-[var(--text-secondary)] text-[11px]">{t('clusterManager.delay', 'Delay:')}</span>
                                         <select
                                             value={staggerDelay}
                                             onChange={(e) => setStaggerDelay(Number(e.target.value))}
@@ -529,14 +529,14 @@ export default function ClusterManager() {
                                         onClick={() => handleRestartCluster(cluster.id)}
                                         disabled={restartingCluster === cluster.id}
                                         className="flex items-center space-x-1 px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm cursor-pointer"
-                                        title="Restart all servers in this cluster with staggered delay"
+                                        title={t('clusterManager.restartAllTooltip', 'Restart all servers in this cluster with staggered delay')}
                                     >
                                         {restartingCluster === cluster.id ? (
                                             <Loader2 className="w-4 h-4 animate-spin" />
                                         ) : (
                                             <RotateCw className="w-4 h-4" />
                                         )}
-                                        <span>Restart All</span>
+                                        <span>{t('clusterManager.restartAll', 'Restart All')}</span>
                                     </button>
                                     <button
                                         onClick={() => handleValidateCluster(cluster.id)}
@@ -560,10 +560,10 @@ export default function ClusterManager() {
                                                 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
                                                 : "bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-active)] hover:text-[var(--text-primary)]"
                                         )}
-                                        title="Cross-Server Chat Setup"
+                                        title={t('clusterManager.crossChatSetup', 'Cross-Server Chat Setup')}
                                     >
                                         <MessageCircle className="w-4 h-4 text-emerald-400" />
-                                        <span>Cross-Chat</span>
+                                        <span>{t('clusterManager.crossChatLabel', 'Cross-Chat')}</span>
                                         {crossChatStatus[cluster.id] && (
                                             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                                         )}
@@ -737,7 +737,7 @@ export default function ClusterManager() {
                             <button 
                                 onClick={() => setShowGuide(false)} 
                                 className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] rounded-xl transition-all cursor-pointer border border-transparent hover:border-[var(--border)]"
-                                title="Close (Esc)"
+                                title={t('clusterManager.closeEsc', 'Close (Esc)')}
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -756,32 +756,32 @@ export default function ClusterManager() {
                                 </p>
                                 <div className="space-y-2 text-xs bg-slate-950/40 p-3.5 rounded-xl border border-sky-500/20">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <span className="text-[var(--text-primary)] font-semibold">• Computer A (Primary):</span>
+                                        <span className="text-[var(--text-primary)] font-semibold">• {t('clusterManager.computerAPrimary', 'Computer A (Primary):')}</span>
                                         <button 
                                             onClick={() => handleCopy('C:\\ARKClusterData')}
                                             className="px-2.5 py-1 rounded-lg bg-black/40 hover:bg-black/60 border border-emerald-500/30 text-emerald-400 font-mono text-[11px] flex items-center gap-1.5 cursor-pointer transition-all shadow-inner"
-                                            title="Click to copy path"
+                                            title={t('clusterManager.clickToCopyPath', 'Click to copy path')}
                                         >
                                             {copiedText === 'C:\\ARKClusterData' ? <Check className="w-3 h-3 text-emerald-300" /> : <Copy className="w-3 h-3 opacity-60" />}
                                             <span>C:\ARKClusterData</span>
                                         </button>
-                                        <span className="text-[var(--text-muted)]">shared as</span>
+                                        <span className="text-[var(--text-muted)]">{t('clusterManager.sharedAs', 'shared as')}</span>
                                         <button 
                                             onClick={() => handleCopy('\\\\192.168.1.100\\ARKClusterData')}
                                             className="px-2.5 py-1 rounded-lg bg-black/40 hover:bg-black/60 border border-emerald-500/30 text-emerald-400 font-mono text-[11px] flex items-center gap-1.5 cursor-pointer transition-all shadow-inner"
-                                            title="Click to copy network path"
+                                            title={t('clusterManager.clickToCopyNetworkPath', 'Click to copy network path')}
                                         >
                                             {copiedText === '\\\\192.168.1.100\\ARKClusterData' ? <Check className="w-3 h-3 text-emerald-300" /> : <Copy className="w-3 h-3 opacity-60" />}
                                             <span>\\192.168.1.100\ARKClusterData</span>
                                         </button>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <span className="text-[var(--text-primary)] font-semibold">• Computer B (Secondary):</span>
-                                        <span className="text-[var(--text-secondary)]">Map or access the shared network path:</span>
+                                        <span className="text-[var(--text-primary)] font-semibold">• {t('clusterManager.computerBSecondary', 'Computer B (Secondary):')}</span>
+                                        <span className="text-[var(--text-secondary)]">{t('clusterManager.mapNetworkPath', 'Map or access the shared network path:')}</span>
                                         <button 
                                             onClick={() => handleCopy('\\\\192.168.1.100\\ARKClusterData')}
                                             className="px-2.5 py-1 rounded-lg bg-black/40 hover:bg-black/60 border border-emerald-500/30 text-emerald-400 font-mono text-[11px] flex items-center gap-1.5 cursor-pointer transition-all shadow-inner"
-                                            title="Click to copy path"
+                                            title={t('clusterManager.clickToCopyPath', 'Click to copy path')}
                                         >
                                             {copiedText === '\\\\192.168.1.100\\ARKClusterData' ? <Check className="w-3 h-3 text-emerald-300" /> : <Copy className="w-3 h-3 opacity-60" />}
                                             <span>\\192.168.1.100\ARKClusterData</span>
@@ -804,7 +804,7 @@ export default function ClusterManager() {
                                     <button 
                                         onClick={() => handleCopy('MyAwesomeARKCluster')}
                                         className="px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 font-mono font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all shadow-inner"
-                                        title="Click to copy cluster ID"
+                                        title={t('clusterManager.clickToCopyId', 'Click to copy cluster ID')}
                                     >
                                         {copiedText === 'MyAwesomeARKCluster' ? <Check className="w-3.5 h-3.5 text-purple-300" /> : <Copy className="w-3.5 h-3.5 opacity-60" />}
                                         <span>MyAwesomeARKCluster</span>
@@ -820,10 +820,10 @@ export default function ClusterManager() {
                                 </h4>
                                 <div className="space-y-2 text-xs bg-slate-950/40 p-3.5 rounded-xl border border-emerald-500/20">
                                     <p className="text-[var(--text-secondary)] leading-relaxed">
-                                        • On <strong className="text-[var(--text-primary)]">Computer A</strong>: Click <span className="text-pink-400 font-semibold">+ Create Cluster</span> with ID <code className="text-emerald-400 bg-black/40 px-1.5 py-0.5 rounded border border-emerald-500/30">MyAwesomeARKCluster</code> and path <code className="text-emerald-400 bg-black/40 px-1.5 py-0.5 rounded border border-emerald-500/30">C:\ARKClusterData</code>.
+                                        • {t('clusterManager.guideOn', 'On')} <strong className="text-[var(--text-primary)]">{t('clusterManager.computerA', 'Computer A')}</strong>: {t('clusterManager.guideClick', 'Click')} <span className="text-pink-400 font-semibold">+ {t('clusterManager.createCluster', 'Create Cluster')}</span> {t('clusterManager.guideWithId', 'with ID')} <code className="text-emerald-400 bg-black/40 px-1.5 py-0.5 rounded border border-emerald-500/30">MyAwesomeARKCluster</code> {t('clusterManager.guideAndPath', 'and path')} <code className="text-emerald-400 bg-black/40 px-1.5 py-0.5 rounded border border-emerald-500/30">C:\ARKClusterData</code>.
                                     </p>
                                     <p className="text-[var(--text-secondary)] leading-relaxed">
-                                        • On <strong className="text-[var(--text-primary)]">Computer B</strong>: Click <span className="text-pink-400 font-semibold">+ Create Cluster</span> with the <strong className="text-[var(--text-primary)]">SAME ID</strong> <code className="text-emerald-400 bg-black/40 px-1.5 py-0.5 rounded border border-emerald-500/30">MyAwesomeARKCluster</code> and network path <code className="text-emerald-400 bg-black/40 px-1.5 py-0.5 rounded border border-emerald-500/30">\\192.168.1.100\ARKClusterData</code>.
+                                        • {t('clusterManager.guideOn', 'On')} <strong className="text-[var(--text-primary)]">{t('clusterManager.computerB', 'Computer B')}</strong>: {t('clusterManager.guideClick', 'Click')} <span className="text-pink-400 font-semibold">+ {t('clusterManager.createCluster', 'Create Cluster')}</span> {t('clusterManager.guideWithThe', 'with the')} <strong className="text-[var(--text-primary)]">{t('clusterManager.sameId', 'SAME ID')}</strong> <code className="text-emerald-400 bg-black/40 px-1.5 py-0.5 rounded border border-emerald-500/30">MyAwesomeARKCluster</code> {t('clusterManager.guideAndNetworkPath', 'and network path')} <code className="text-emerald-400 bg-black/40 px-1.5 py-0.5 rounded border border-emerald-500/30">\\192.168.1.100\ARKClusterData</code>.
                                     </p>
                                 </div>
                             </div>

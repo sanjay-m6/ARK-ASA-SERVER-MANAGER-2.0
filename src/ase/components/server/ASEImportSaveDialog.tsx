@@ -172,8 +172,8 @@ export default function ASEImportSaveDialog({ onClose, servers }: Props) {
                             <p className="font-medium mb-1">{t('dialogs.importSave.importantNote', 'Important')}</p>
                             <p className="mb-2">{t('dialogs.importSave.backupWarning', 'A backup of existing save data will be created automatically before importing.')}</p>
                             <ul className="list-disc list-inside text-xs space-y-0.5 opacity-80">
-                                <li><strong>File:</strong> Imports a single .ark save file</li>
-                                <li><strong>Folder:</strong> Imports all save files from the selected folder</li>
+                                <li><strong>{t('ase.importSave.fileLabel', 'File:')}</strong> {t('ase.importSave.fileDesc', 'Imports a single .ark save file')}</li>
+                                <li><strong>{t('ase.importSave.folderLabel', 'Folder:')}</strong> {t('ase.importSave.folderDesc', 'Imports all save files from the selected folder')}</li>
                             </ul>
                         </div>
                     </div>

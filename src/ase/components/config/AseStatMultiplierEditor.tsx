@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { AseGameConfig } from '../../types/ase.types';
 import { cn } from '../../../utils/helpers';
+import { useTranslation } from 'react-i18next';
 
 interface AseStatMultiplierEditorProps {
   config: AseGameConfig;
@@ -56,6 +57,7 @@ const StatMultiplierRow: React.FC<StatMultiplierRowProps> = memo(({
   isMutagen,
   onChange
 }) => {
+  const { t } = useTranslation();
   const [localValue, setLocalValue] = useState(String(value));
 
   // Update local input state when value changes externally (e.g. slider drag, preset, reset)
@@ -89,7 +91,7 @@ const StatMultiplierRow: React.FC<StatMultiplierRowProps> = memo(({
       <div className="flex items-center gap-2.5 w-32 shrink-0">
         {stat.icon}
         <span className="text-sm font-semibold text-slate-300 group-hover/slider:text-white transition-colors">
-          {stat.label}:
+          {t(`ase.statMultiplier.stats.${stat.index}`, stat.label)}:
         </span>
       </div>
 
@@ -131,6 +133,7 @@ const StatMultiplierRow: React.FC<StatMultiplierRowProps> = memo(({
 StatMultiplierRow.displayName = 'StatMultiplierRow';
 
 export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = memo(({ config, onChange }) => {
+  const { t } = useTranslation();
   // Collapsible sections state
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     playerBase: true,
@@ -231,7 +234,7 @@ export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = m
                 onReset();
               }}
               className="p-1.5 hover:bg-white/5 text-slate-400 hover:text-amber-400 rounded-lg transition-all"
-              title="Reset defaults"
+              title={t('ase.statMultiplier.resetDefaults', 'Reset defaults')}
             >
               <RotateCcw className="w-4 h-4" />
             </button>
@@ -307,12 +310,12 @@ export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = m
           </div>
           <div>
             <h3 className="text-lg font-black text-white flex items-center gap-2">
-              Stat Multipliers Configuration
+              {t('ase.statMultiplier.title', 'Stat Multipliers Configuration')}
               <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
             </h3>
             <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
-              Define the growth rate, base amounts, and breeding mutagen boosts for both players and creatures.
-              Toggle the checkboxes to enable and expand each category, mirroring the classic ARK Server Manager layout.
+              {t('ase.statMultiplier.desc1', 'Define the growth rate, base amounts, and breeding mutagen boosts for both players and creatures.')}{' '}
+              {t('ase.statMultiplier.desc2', 'Toggle the checkboxes to enable and expand each category, mirroring the classic ARK Server Manager layout.')}
             </p>
           </div>
         </div>
@@ -322,7 +325,7 @@ export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = m
       <div className="space-y-4">
         <div className="flex items-center gap-2 px-2">
           <User className="w-5 h-5 text-amber-500" />
-          <h2 className="text-base font-extrabold text-white tracking-wider uppercase">Player Settings</h2>
+          <h2 className="text-base font-extrabold text-white tracking-wider uppercase">{t('ase.statMultiplier.playerSettings', 'Player Settings')}</h2>
         </div>
 
         <div className="space-y-4 bg-slate-900/20 p-4 rounded-3xl border border-white/5">
@@ -330,7 +333,7 @@ export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = m
           <div className="rounded-2xl border border-white/5 overflow-hidden">
             {renderSectionHeader(
               'playerBase',
-              'Base Stat Multipliers',
+              t('ase.statMultiplier.playerBase', 'Base Stat Multipliers'),
               () => resetArray('playerBaseStatMultipliers', Array(12).fill(1.0))
             )}
             {renderSliders(
@@ -344,7 +347,7 @@ export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = m
           <div className="rounded-2xl border border-white/5 overflow-hidden">
             {renderSectionHeader(
               'playerPerLevel',
-              'Per-Level Stat Multipliers',
+              t('ase.statMultiplier.playerPerLevel', 'Per-Level Stat Multipliers'),
               () => resetArray('perLevelStatsMultiplierPlayer', Array(12).fill(1.0))
             )}
             {renderSliders(
@@ -360,7 +363,7 @@ export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = m
       <div className="space-y-4">
         <div className="flex items-center gap-2 px-2">
           <Sparkles className="w-5 h-5 text-emerald-500" />
-          <h2 className="text-base font-extrabold text-white tracking-wider uppercase">Wild Dino Settings</h2>
+          <h2 className="text-base font-extrabold text-white tracking-wider uppercase">{t('ase.statMultiplier.wildSettings', 'Wild Dino Settings')}</h2>
         </div>
 
         <div className="space-y-4 bg-slate-900/20 p-4 rounded-3xl border border-white/5">
@@ -368,7 +371,7 @@ export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = m
           <div className="rounded-2xl border border-white/5 overflow-hidden">
             {renderSectionHeader(
               'wildPerLevel',
-              'Per-Level Stat Multipliers (Wild)',
+              t('ase.statMultiplier.wildPerLevel', 'Per-Level Stat Multipliers (Wild)'),
               () => resetArray('perLevelStatsMultiplierDinoWild', Array(12).fill(1.0))
             )}
             {renderSliders(
@@ -382,7 +385,7 @@ export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = m
           <div className="rounded-2xl border border-white/5 overflow-hidden">
             {renderSectionHeader(
               'wildMutagen',
-              'Mutagen Level Boost (Wild)',
+              t('ase.statMultiplier.wildMutagen', 'Mutagen Level Boost (Wild)'),
               () => {
                 const def = Array(12).fill(0);
                 def[0] = 5; def[1] = 5; def[7] = 5; def[8] = 5;
@@ -402,7 +405,7 @@ export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = m
       <div className="space-y-4">
         <div className="flex items-center gap-2 px-2">
           <Settings className="w-5 h-5 text-cyan-500" />
-          <h2 className="text-base font-extrabold text-white tracking-wider uppercase">Tamed Dino Settings</h2>
+          <h2 className="text-base font-extrabold text-white tracking-wider uppercase">{t('ase.statMultiplier.tamedSettings', 'Tamed Dino Settings')}</h2>
         </div>
 
         <div className="space-y-4 bg-slate-900/20 p-4 rounded-3xl border border-white/5">
@@ -410,7 +413,7 @@ export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = m
           <div className="rounded-2xl border border-white/5 overflow-hidden">
             {renderSectionHeader(
               'tamedPerLevel',
-              'Per-Level Stat Multipliers (Tamed)',
+              t('ase.statMultiplier.tamedPerLevel', 'Per-Level Stat Multipliers (Tamed)'),
               () => {
                 const def = Array(12).fill(1.0);
                 def[0] = 0.2; def[8] = 0.17;
@@ -428,7 +431,7 @@ export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = m
           <div className="rounded-2xl border border-white/5 overflow-hidden">
             {renderSectionHeader(
               'tamedAdd',
-              'Per-Level Stat Multipliers (Tamed) - Add',
+              t('ase.statMultiplier.tamedAdd', 'Per-Level Stat Multipliers (Tamed) - Add'),
               () => {
                 const def = Array(12).fill(1.0);
                 def[0] = 0.14; def[8] = 0.14;
@@ -446,7 +449,7 @@ export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = m
           <div className="rounded-2xl border border-white/5 overflow-hidden">
             {renderSectionHeader(
               'tamedAffinity',
-              'Per-Level Stat Multipliers (Tamed) - Affinity',
+              t('ase.statMultiplier.tamedAffinity', 'Per-Level Stat Multipliers (Tamed) - Affinity'),
               () => {
                 const def = Array(12).fill(1.0);
                 def[0] = 0.44; def[8] = 0.44;
@@ -464,7 +467,7 @@ export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = m
           <div className="rounded-2xl border border-white/5 overflow-hidden">
             {renderSectionHeader(
               'tamedMutagen',
-              'Mutagen Level Boost (Bred)',
+              t('ase.statMultiplier.tamedMutagen', 'Mutagen Level Boost (Bred)'),
               () => {
                 const def = Array(12).fill(0);
                 def[0] = 1; def[1] = 1; def[7] = 1; def[8] = 1;

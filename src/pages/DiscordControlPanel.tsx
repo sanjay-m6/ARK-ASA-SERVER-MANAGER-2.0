@@ -5,6 +5,7 @@ import { useTauriEvent } from '../hooks/useTauriEvent';
 import { getClusters, getAseClusters } from '../utils/tauri';
 import { useGameStore } from '../stores/gameStore';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface ServerHealth {
   id: number;
@@ -46,6 +47,7 @@ interface DiscordControlPanelProps {
 }
 
 const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelProps) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { activeGame } = useGameStore();
@@ -165,7 +167,7 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
         await invoke('start_server', { serverId, updateOnStart: false });
       }
     } catch (err) {
-      toast.error(`Failed to start server: ${err}`);
+      toast.error(t('discordControlPanel.startFailed', { defaultValue: 'Failed to start server: {{error}}', error: String(err) }));
     }
   };
 
@@ -177,7 +179,7 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
         await invoke('stop_server', { serverId });
       }
     } catch (err) {
-      toast.error(`Failed to stop server: ${err}`);
+      toast.error(t('discordControlPanel.stopFailed', { defaultValue: 'Failed to stop server: {{error}}', error: String(err) }));
     }
   };
 
@@ -189,7 +191,7 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
         await invoke('restart_server', { serverId, wipeDinos: false });
       }
     } catch (err) {
-      toast.error(`Failed to restart server: ${err}`);
+      toast.error(t('discordControlPanel.restartFailed', { defaultValue: 'Failed to restart server: {{error}}', error: String(err) }));
     }
   };
 
@@ -200,9 +202,9 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
       } else {
         await invoke('update_server', { serverId });
       }
-      toast.success(`Update command sent for server #${serverId}.`);
+      toast.success(t('discordControlPanel.updateSent', { defaultValue: 'Update command sent for server #{{id}}.', id: serverId }));
     } catch (err) {
-      toast.error(`Failed to update server: ${err}`);
+      toast.error(t('discordControlPanel.updateFailed', { defaultValue: 'Failed to update server: {{error}}', error: String(err) }));
     }
   };
 
@@ -213,10 +215,10 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
         steamId,
         reason: 'Kicked from Discord Control Panel',
       });
-      toast.success(`Successfully kicked player ${steamId}.`);
+      toast.success(t('discordControlPanel.kicked', { defaultValue: 'Successfully kicked player {{id}}.', id: steamId }));
       await fetchPlayers(selectedServer ?? undefined);
     } catch (err) {
-      toast.error(`Failed to kick player: ${err}`);
+      toast.error(t('discordControlPanel.kickFailed', { defaultValue: 'Failed to kick player: {{error}}', error: String(err) }));
     }
   };
 
@@ -226,10 +228,10 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
         serverId,
         steamId,
       });
-      toast.success(`Successfully banned player ${steamId}.`);
+      toast.success(t('discordControlPanel.banned', { defaultValue: 'Successfully banned player {{id}}.', id: steamId }));
       await fetchPlayers(selectedServer ?? undefined);
     } catch (err) {
-      toast.error(`Failed to ban player: ${err}`);
+      toast.error(t('discordControlPanel.banFailed', { defaultValue: 'Failed to ban player: {{error}}', error: String(err) }));
     }
   };
 
@@ -288,7 +290,7 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
       <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="text-center">
           <div className="animate-spin text-4xl mb-4">🦖</div>
-          <p className="text-gray-300">Loading Discord Control Panel...</p>
+          <p className="text-gray-300">{t('discordControlPanel.loading', 'Loading Discord Control Panel...')}</p>
         </div>
       </div>
     );
@@ -303,7 +305,7 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/40 border border-slate-700/50 text-slate-300 hover:text-white hover:bg-slate-700/40 transition-all font-medium text-sm group"
         >
           <span className="transform group-hover:-translate-x-0.5 transition-transform font-mono">←</span>
-          <span>Back to Discord Bot</span>
+          <span>{t('discordControlPanel.backToBot', 'Back to Discord Bot')}</span>
         </button>
       </div>
 
@@ -311,13 +313,13 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 mb-2">
-            🦖 Discord Control Panel
+            🦖 {t('discordControlPanel.title', 'Discord Control Panel')}
           </h1>
-          <p className="text-gray-400">Real-time ASA server and cluster management</p>
+          <p className="text-gray-400">{t('discordControlPanel.subtitle', 'Real-time ASA server and cluster management')}</p>
         </div>
         {clusters.length > 1 && (
           <div className="flex items-center gap-2">
-            <span className="text-slate-400 text-sm font-medium">Active Cluster:</span>
+            <span className="text-slate-400 text-sm font-medium">{t('discordControlPanel.activeCluster', 'Active Cluster:')}</span>
             <select
               value={activeClusterId ?? ''}
               onChange={(e) => setActiveClusterId(Number(e.target.value))}
@@ -337,7 +339,7 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
       {bridgeStatus && (
         <div className="mb-8 p-6 bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-lg shadow-xl">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-white">Bridge Status</h2>
+            <h2 className="text-xl font-bold text-white">{t('discordControlPanel.bridgeStatus', 'Bridge Status')}</h2>
             <div className="flex items-center gap-2">
               <span
                 className={`inline-block w-3 h-3 rounded-full ${
@@ -345,31 +347,31 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
                 }`}
               ></span>
               <span className="text-sm text-gray-300">
-                {bridgeStatus.gateway_connected ? 'Connected' : 'Disconnected'}
+                {bridgeStatus.gateway_connected ? t('discordControlPanel.connected', 'Connected') : t('discordControlPanel.disconnected', 'Disconnected')}
               </span>
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <p className="text-gray-400 text-sm">Uptime</p>
+              <p className="text-gray-400 text-sm">{t('discordControlPanel.uptime', 'Uptime')}</p>
               <p className="text-xl font-bold text-white">
                 {Math.floor(bridgeStatus.uptime_seconds / 3600)}h
               </p>
             </div>
             <div>
-              <p className="text-gray-400 text-sm">Commands</p>
+              <p className="text-gray-400 text-sm">{t('discordControlPanel.commands', 'Commands')}</p>
               <p className="text-xl font-bold text-white">{bridgeStatus.commands_processed}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-sm">Last Command</p>
+              <p className="text-gray-400 text-sm">{t('discordControlPanel.lastCommand', 'Last Command')}</p>
               <p className="text-sm text-gray-300 truncate">
-                {bridgeStatus.last_command || 'None'}
+                {bridgeStatus.last_command || t('common.none', 'None')}
               </p>
             </div>
             <div>
-              <p className="text-gray-400 text-sm">By User</p>
+              <p className="text-gray-400 text-sm">{t('discordControlPanel.byUser', 'By User')}</p>
               <p className="text-sm text-gray-300 truncate">
-                {bridgeStatus.last_command_user || 'N/A'}
+                {bridgeStatus.last_command_user || t('discordControlPanel.notAvailable', 'N/A')}
               </p>
             </div>
           </div>
@@ -385,19 +387,19 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
             onChange={(e) => setAutoRefresh(e.target.checked)}
             className="w-5 h-5 rounded"
           />
-          <span className="text-gray-300">Auto-refresh (5s)</span>
+          <span className="text-gray-300">{t('discordControlPanel.autoRefresh', 'Auto-refresh (5s)')}</span>
         </label>
         <button
           onClick={() => Promise.all([fetchServerHealth(), fetchPlayers(), fetchBridgeStatus()])}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
         >
-          🔄 Refresh Now
+          🔄 {t('discordControlPanel.refreshNow', 'Refresh Now')}
         </button>
       </div>
 
       {/* Server Cards Grid */}
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-white mb-4">Server Status</h2>
+        <h2 className="text-2xl font-bold text-white mb-4">{t('discordControlPanel.serverStatus', 'Server Status')}</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {servers.map((server) => (
             <div
@@ -415,10 +417,10 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
                   <h3 className="text-xl font-bold text-white flex items-center gap-2">
                     {getStatusIcon(server.status)} {server.name}
                   </h3>
-                  <p className="text-sm text-gray-200">{server.status.toUpperCase()}</p>
+                  <p className="text-sm text-gray-200">{t(`discordControlPanel.status.${server.status.toLowerCase()}`, server.status).toUpperCase()}</p>
                 </div>
                 {server.crashed && (
-                  <span className="text-2xl animate-bounce" title="Server crashed">
+                  <span className="text-2xl animate-bounce" title={t('discordControlPanel.serverCrashed', 'Server crashed')}>
                     ⚠️
                   </span>
                 )}
@@ -427,7 +429,7 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
               {/* Stats Grid */}
               <div className="grid grid-cols-2 gap-3 mb-4 bg-black bg-opacity-30 p-3 rounded">
                 <div>
-                  <p className="text-xs text-gray-200">Players</p>
+                  <p className="text-xs text-gray-200">{t('common.players', 'Players')}</p>
                   <p className="text-lg font-bold text-white">
                     {server.playerCount}/{server.maxPlayers}
                   </p>
@@ -448,7 +450,7 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
 
               {/* Uptime */}
               <div className="mb-4 text-sm text-gray-100">
-                <p>⏱️ Uptime: {server.uptime}</p>
+                <p>⏱️ {t('discordControlPanel.uptimeValue', { defaultValue: 'Uptime: {{value}}', value: server.uptime })}</p>
               </div>
 
               {/* Control Buttons */}
@@ -462,7 +464,7 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
                       }}
                       className="flex-1 px-3 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-xs rounded-xl font-bold shadow-md shadow-emerald-950/20 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
                     >
-                      <span>▶️</span> Start
+                      <span>▶️</span> {t('common.start', 'Start')}
                     </button>
                     <button
                       onClick={(e) => {
@@ -471,7 +473,7 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
                       }}
                       className="flex-1 px-3 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white text-xs rounded-xl font-bold shadow-md shadow-blue-950/20 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
                     >
-                      <span>🔄</span> Update
+                      <span>🔄</span> {t('common.update', 'Update')}
                     </button>
                   </>
                 )}
@@ -484,7 +486,7 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
                       }}
                       className="flex-1 px-3 py-2.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white text-xs rounded-xl font-bold shadow-md shadow-amber-950/20 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
                     >
-                      <span>🔄</span> Restart
+                      <span>🔄</span> {t('common.restart', 'Restart')}
                     </button>
                     <button
                       onClick={(e) => {
@@ -493,14 +495,14 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
                       }}
                       className="flex-1 px-3 py-2.5 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white text-xs rounded-xl font-bold shadow-md shadow-rose-950/20 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
                     >
-                      <span>⏹️</span> Stop
+                      <span>⏹️</span> {t('common.stop', 'Stop')}
                     </button>
                   </>
                 )}
                 {['starting', 'updating', 'stopping'].includes(server.status.toLowerCase()) && (
                   <div className="w-full py-2.5 bg-slate-800/40 border border-slate-700/50 rounded-xl text-slate-400 text-xs font-semibold text-center flex items-center justify-center gap-2 select-none">
                     <span className="animate-spin text-sm">⏳</span>
-                    <span>Server is {server.status.toLowerCase()}...</span>
+                    <span>{t('discordControlPanel.serverIs', { defaultValue: 'Server is {{status}}...', status: t(`discordControlPanel.status.${server.status.toLowerCase()}`, server.status).toLowerCase() })}</span>
                   </div>
                 )}
               </div>
@@ -513,7 +515,7 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
       {(selectedServer || players.length > 0) && (
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-white mb-4">
-            👥 Active Players {selectedServer ? '(Filtered)' : '(All Servers)'}
+            👥 {t('discordControlPanel.activePlayers', 'Active Players')} {selectedServer ? t('discordControlPanel.filtered', '(Filtered)') : t('discordControlPanel.allServers', '(All Servers)')}
           </h2>
           {selectedServer && (
             <button
@@ -523,11 +525,11 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
               }}
               className="mb-4 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
             >
-              Clear Filter
+              {t('discordControlPanel.clearFilter', 'Clear Filter')}
             </button>
           )}
           {players.length === 0 ? (
-            <p className="text-gray-400">No players online</p>
+            <p className="text-gray-400">{t('discordControlPanel.noPlayers', 'No players online')}</p>
           ) : (
             <div className="space-y-2">
               {players.map((player) => (
@@ -544,19 +546,19 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
                           <p className="font-mono text-xs">{player.steam_id}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Level</span>
+                          <span className="text-gray-500">{t('discordControlPanel.level', 'Level')}</span>
                           <p className="text-white">{player.level}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Tribe</span>
-                          <p className="text-white">{player.tribe || 'No Tribe'}</p>
+                          <span className="text-gray-500">{t('discordControlPanel.tribe', 'Tribe')}</span>
+                          <p className="text-white">{player.tribe || t('discordControlPanel.noTribe', 'No Tribe')}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Playtime</span>
+                          <span className="text-gray-500">{t('discordControlPanel.playtime', 'Playtime')}</span>
                           <p className="text-white">{player.playtime_minutes}m</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Location</span>
+                          <span className="text-gray-500">{t('discordControlPanel.location', 'Location')}</span>
                           <p className="text-white">{player.location}</p>
                         </div>
                         <div>
@@ -570,14 +572,14 @@ const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelPr
                     <div className="flex gap-2 ml-4">
                       <button
                         onClick={() => handleKickPlayer(player.server_id, player.steam_id)}
-                        title="Kick player"
+                        title={t('discordControlPanel.kickPlayer', 'Kick player')}
                         className="px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded transition-colors"
                       >
                         👢
                       </button>
                       <button
                         onClick={() => handleBanPlayer(player.server_id, player.steam_id)}
-                        title="Ban player"
+                        title={t('discordControlPanel.banPlayer', 'Ban player')}
                         className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
                       >
                         🚫

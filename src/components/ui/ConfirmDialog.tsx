@@ -36,7 +36,7 @@ export default function ConfirmDialog({
     const variantStyles = {
         danger: {
             icon: AlertOctagon,
-            badgeText: 'Critical Action',
+            badgeText: t('confirmDialog.criticalAction', 'Critical Action'),
             badgeBg: 'bg-rose-500/10 border-rose-500/30 text-rose-400',
             iconBg: 'bg-rose-500/15 border-rose-500/30 text-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.25)]',
             buttonBg: 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white shadow-[0_0_20px_rgba(244,63,94,0.35)] hover:shadow-[0_0_28px_rgba(244,63,94,0.55)] border border-rose-400/30',
@@ -46,7 +46,7 @@ export default function ConfirmDialog({
         },
         warning: {
             icon: AlertTriangle,
-            badgeText: 'Warning',
+            badgeText: t('confirmDialog.warning', 'Warning'),
             badgeBg: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
             iconBg: 'bg-amber-500/15 border-amber-500/30 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.25)]',
             buttonBg: 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-[0_0_20px_rgba(245,158,11,0.35)] hover:shadow-[0_0_28px_rgba(245,158,11,0.55)] border border-amber-400/30',
@@ -56,7 +56,7 @@ export default function ConfirmDialog({
         },
         success: {
             icon: CheckCircle,
-            badgeText: 'Confirmation',
+            badgeText: t('confirmDialog.confirmation', 'Confirmation'),
             badgeBg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
             iconBg: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.25)]',
             buttonBg: 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.35)] hover:shadow-[0_0_28px_rgba(16,185,129,0.55)] border border-emerald-400/30',
@@ -182,7 +182,7 @@ export default function ConfirmDialog({
                                 {isLoading ? (
                                     <>
                                         <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        <span>Processing...</span>
+                                        <span>{t('confirmDialog.processing', 'Processing...')}</span>
                                     </>
                                 ) : (
                                     <span>{effectiveConfirmText}</span>

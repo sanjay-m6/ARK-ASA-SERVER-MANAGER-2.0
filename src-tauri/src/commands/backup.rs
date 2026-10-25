@@ -249,17 +249,17 @@ pub fn enforce_retention_policy_conn(conn: &rusqlite::Connection, server_id: i64
         |row| {
             Ok(BackupPolicy {
                 server_id,
-                enabled: row.get(0)?,
-                interval_hours: row.get(1)?,
-                retention_days: row.get(2)?,
-                retention_count: row.get(3)?,
-                storage_quota_gb: row.get(4)?,
-                backup_before_update: row.get(5)?,
-                backup_before_restart: row.get(6)?,
-                compression_enabled: row.get(7)?,
-                cloud_sync_enabled: row.get(8)?,
-                discord_webhook: row.get(9)?,
-                custom_backup_dir: row.get(10)?,
+                enabled: row.get(1)?,
+                interval_hours: row.get(2)?,
+                retention_days: row.get(3)?,
+                retention_count: row.get(4)?,
+                storage_quota_gb: row.get(5)?,
+                backup_before_update: row.get(6)?,
+                backup_before_restart: row.get(7)?,
+                compression_enabled: row.get(8)?,
+                cloud_sync_enabled: row.get(9)?,
+                discord_webhook: row.get(10)?,
+                custom_backup_dir: row.get(11)?,
             })
         },
     ).unwrap_or_else(|_| BackupPolicy {

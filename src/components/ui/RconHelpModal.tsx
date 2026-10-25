@@ -1,4 +1,5 @@
 import { X, Server, ShieldAlert, Terminal, CheckCircle2, PlayCircle } from 'lucide-react';
+import { useTranslation, Trans } from 'react-i18next';
 
 interface RconHelpModalProps {
     isOpen: boolean;
@@ -6,6 +7,7 @@ interface RconHelpModalProps {
 }
 
 export default function RconHelpModal({ isOpen, onClose }: RconHelpModalProps) {
+    const { t } = useTranslation();
 
     if (!isOpen) return null;
 
@@ -19,8 +21,8 @@ export default function RconHelpModal({ isOpen, onClose }: RconHelpModalProps) {
                             <Terminal className="w-5 h-5 text-cyan-400" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-[var(--text-primary)]">RCON Console Guide</h2>
-                            <p className="text-sm text-[var(--text-muted)]">Setup, Connection, and Troubleshooting</p>
+                            <h2 className="text-xl font-bold text-[var(--text-primary)]">{t('rconHelp.title', 'RCON Console Guide')}</h2>
+                            <p className="text-sm text-[var(--text-muted)]">{t('rconHelp.subtitle', 'Setup, Connection, and Troubleshooting')}</p>
                         </div>
                     </div>
                     <button
@@ -38,10 +40,10 @@ export default function RconHelpModal({ isOpen, onClose }: RconHelpModalProps) {
                     <section>
                         <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
                             <Server className="w-5 h-5 text-blue-400" />
-                            What is RCON?
+                            {t('rconHelp.whatIs', 'What is RCON?')}
                         </h3>
                         <p className="text-[var(--text-secondary)] leading-relaxed text-sm">
-                            RCON (Remote Console) is a protocol that allows server administrators to remotely execute commands, chat with players, and manage the server without being in-game.
+                            {t('rconHelp.whatIsDesc', 'RCON (Remote Console) is a protocol that allows server administrators to remotely execute commands, chat with players, and manage the server without being in-game.')}
                         </p>
                     </section>
 
@@ -49,21 +51,21 @@ export default function RconHelpModal({ isOpen, onClose }: RconHelpModalProps) {
                     <section>
                         <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
                             <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                            Required Settings
+                            {t('rconHelp.requiredSettings', 'Required Settings')}
                         </h3>
                         <div className="space-y-4 text-sm">
                             <div className="bg-[var(--surface-hover)] p-4 rounded-xl border border-[var(--border)]">
-                                <h4 className="font-medium text-[var(--text-primary)] mb-1">1. Enable RCON</h4>
-                                <p className="text-[var(--text-muted)] mb-2">RCON must be enabled in your server configuration.</p>
+                                <h4 className="font-medium text-[var(--text-primary)] mb-1">1. {t('rconHelp.enableRcon', 'Enable RCON')}</h4>
+                                <p className="text-[var(--text-muted)] mb-2">{t('rconHelp.enableRconDesc', 'RCON must be enabled in your server configuration.')}</p>
                             </div>
                             <div className="bg-[var(--surface-hover)] p-4 rounded-xl border border-[var(--border)]">
-                                <h4 className="font-medium text-[var(--text-primary)] mb-1">2. RCON Port</h4>
-                                <p className="text-[var(--text-muted)] mb-2">Usually <code className="text-cyan-400 bg-[var(--bg-primary)] px-1.5 py-0.5 rounded border border-[var(--border)]">32330</code> or <code className="text-cyan-400 bg-[var(--bg-primary)] px-1.5 py-0.5 rounded border border-[var(--border)]">27020</code>.</p>
-                                <p className="text-[var(--text-secondary)]"><strong>Note:</strong> You must Port Forward this port on your router as <strong>TCP</strong> and allow it through your Windows Firewall.</p>
+                                <h4 className="font-medium text-[var(--text-primary)] mb-1">2. {t('rconHelp.rconPort', 'RCON Port')}</h4>
+                                <p className="text-[var(--text-muted)] mb-2">{t('rconHelp.usually', 'Usually')} <code className="text-cyan-400 bg-[var(--bg-primary)] px-1.5 py-0.5 rounded border border-[var(--border)]">32330</code> {t('rconHelp.or', 'or')} <code className="text-cyan-400 bg-[var(--bg-primary)] px-1.5 py-0.5 rounded border border-[var(--border)]">27020</code>.</p>
+                                <p className="text-[var(--text-secondary)]"><Trans i18nKey="rconHelp.portNote" defaults="<strong>Note:</strong> You must Port Forward this port on your router as <strong>TCP</strong> and allow it through your Windows Firewall." components={{ strong: <strong /> }} /></p>
                             </div>
                             <div className="bg-[var(--surface-hover)] p-4 rounded-xl border border-[var(--border)]">
-                                <h4 className="font-medium text-[var(--text-primary)] mb-1">3. Server Admin Password</h4>
-                                <p className="text-[var(--text-muted)]">An admin password is absolutely required to authenticate your RCON connection. Do not leave this field blank.</p>
+                                <h4 className="font-medium text-[var(--text-primary)] mb-1">3. {t('rconHelp.adminPassword', 'Server Admin Password')}</h4>
+                                <p className="text-[var(--text-muted)]">{t('rconHelp.adminPasswordDesc', 'An admin password is absolutely required to authenticate your RCON connection. Do not leave this field blank.')}</p>
                             </div>
                         </div>
                     </section>
@@ -72,22 +74,22 @@ export default function RconHelpModal({ isOpen, onClose }: RconHelpModalProps) {
                     <section>
                         <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
                             <ShieldAlert className="w-5 h-5 text-rose-400" />
-                            Troubleshooting Connection Issues
+                            {t('rconHelp.troubleshooting', 'Troubleshooting Connection Issues')}
                         </h3>
                         <div className="space-y-4 text-sm">
                             <div className="border-l-2 border-rose-500/50 pl-4 py-1">
-                                <h4 className="font-medium text-[var(--text-primary)]">"Authentication Failed"</h4>
+                                <h4 className="font-medium text-[var(--text-primary)]">"{t('rconHelp.authFailed', 'Authentication Failed')}"</h4>
                                 <p className="text-[var(--text-muted)] mt-1">
-                                    The RCON port is open, but the password doesn't match.
-                                    Check your <code className="text-cyan-400">GameUserSettings.ini</code> file for corruption on the <code className="text-cyan-400">ServerAdminPassword=</code> line. Ensure there is no garbage text like <code>?ServerPassword=</code> appended to the end of your password.
+                                    <Trans i18nKey="rconHelp.authFailedDesc" defaults="The RCON port is open, but the password doesn't match. Check your <code>GameUserSettings.ini</code> file for corruption on the <code>ServerAdminPassword=</code> line. Ensure there is no garbage text like <plain>?ServerPassword=</plain> appended to the end of your password." components={{ code: <code className="text-cyan-400" />, plain: <code /> }} />
+
                                 </p>
                             </div>
                             <div className="border-l-2 border-amber-500/50 pl-4 py-1">
-                                <h4 className="font-medium text-[var(--text-primary)]">"Connection Timed Out"</h4>
+                                <h4 className="font-medium text-[var(--text-primary)]">"{t('rconHelp.timedOut', 'Connection Timed Out')}"</h4>
                                 <ul className="text-[var(--text-muted)] mt-1 list-disc list-inside space-y-1">
-                                    <li>The server is still starting. (RCON is the last service to boot).</li>
-                                    <li>The RCON port is blocked by Windows Firewall or your router.</li>
-                                    <li>You placed your public IP in the "Server IP" field. Ensure the Server IP is left empty or set to <code>0.0.0.0</code> to bind all local interfaces.</li>
+                                    <li>{t('rconHelp.timedOut1', 'The server is still starting. (RCON is the last service to boot).')}</li>
+                                    <li>{t('rconHelp.timedOut2', 'The RCON port is blocked by Windows Firewall or your router.')}</li>
+                                    <li><Trans i18nKey="rconHelp.timedOut3" defaults="You placed your public IP in the &quot;Server IP&quot; field. Ensure the Server IP is left empty or set to <code>0.0.0.0</code> to bind all local interfaces." components={{ code: <code /> }} /></li>
                                 </ul>
                             </div>
                         </div>
@@ -97,24 +99,24 @@ export default function RconHelpModal({ isOpen, onClose }: RconHelpModalProps) {
                     <section>
                         <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
                             <PlayCircle className="w-5 h-5 text-violet-400" />
-                            Useful Commands
+                            {t('rconHelp.usefulCommands', 'Useful Commands')}
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                             <div className="bg-[var(--surface-hover)] p-3 rounded-lg border border-[var(--border)]">
                                 <code className="text-cyan-400 block mb-1">SaveWorld</code>
-                                <span className="text-[var(--text-muted)]">Forces a world save.</span>
+                                <span className="text-[var(--text-muted)]">{t('rconHelp.cmdSaveWorld', 'Forces a world save.')}</span>
                             </div>
                             <div className="bg-[var(--surface-hover)] p-3 rounded-lg border border-[var(--border)]">
                                 <code className="text-cyan-400 block mb-1">DestroyWildDinos</code>
-                                <span className="text-[var(--text-muted)]">Wipes all wild dinos.</span>
+                                <span className="text-[var(--text-muted)]">{t('rconHelp.cmdDestroyWildDinos', 'Wipes all wild dinos.')}</span>
                             </div>
                             <div className="bg-[var(--surface-hover)] p-3 rounded-lg border border-[var(--border)]">
                                 <code className="text-cyan-400 block mb-1">ListPlayers</code>
-                                <span className="text-[var(--text-muted)]">Shows connected players.</span>
+                                <span className="text-[var(--text-muted)]">{t('rconHelp.cmdListPlayers', 'Shows connected players.')}</span>
                             </div>
                             <div className="bg-[var(--surface-hover)] p-3 rounded-lg border border-[var(--border)]">
                                 <code className="text-cyan-400 block mb-1">SetTimeOfDay 08:00</code>
-                                <span className="text-[var(--text-muted)]">Changes in-game time.</span>
+                                <span className="text-[var(--text-muted)]">{t('rconHelp.cmdSetTimeOfDay', 'Changes in-game time.')}</span>
                             </div>
                         </div>
                     </section>
@@ -126,7 +128,7 @@ export default function RconHelpModal({ isOpen, onClose }: RconHelpModalProps) {
                         onClick={onClose}
                         className="px-6 py-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-primary)] border border-[var(--border)] rounded-lg font-medium transition-colors"
                     >
-                        Close Guide
+                        {t('rconHelp.close', 'Close Guide')}
                     </button>
                 </div>
             </div>

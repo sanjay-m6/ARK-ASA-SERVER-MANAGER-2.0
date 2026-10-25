@@ -49,11 +49,11 @@ export default function UPnPPanel() {
         try {
             const gw = await discoverUpnpGateway();
             setGateway(gw);
-            toast.success('UPnP gateway discovered successfully');
+            toast.success(t('upnp.discoverSuccess', 'UPnP gateway discovered successfully'));
         } catch (error) {
             setDiscoveryError(String(error));
             setGateway(null);
-            toast.error(`Gateway discovery failed: ${error}`);
+            toast.error(t('upnp.discoverFailed', { defaultValue: 'Gateway discovery failed: {{error}}', error: String(error) }));
         } finally {
             setIsDiscovering(false);
         }
@@ -67,12 +67,12 @@ export default function UPnPPanel() {
             setLastResult(result);
             setGateway(result.gateway);
             if (result.all_success) {
-                toast.success('All ports forwarded successfully!');
+                toast.success(t('upnp.forwardAllSuccess', 'All ports forwarded successfully!'));
             } else {
-                toast.error('Some ports failed to forward');
+                toast.error(t('upnp.forwardSomeFailed', 'Some ports failed to forward'));
             }
         } catch (error) {
-            toast.error(`Port forwarding failed: ${error}`);
+            toast.error(t('upnp.forwardFailed', { defaultValue: 'Port forwarding failed: {{error}}', error: String(error) }));
         } finally {
             setIsForwarding(false);
         }
@@ -84,9 +84,9 @@ export default function UPnPPanel() {
         try {
             await removeServerPortForwards(selectedServerId);
             setLastResult(null);
-            toast.success('Port forwards removed');
+            toast.success(t('upnp.removeSuccess', 'Port forwards removed'));
         } catch (error) {
-            toast.error(`Failed to remove forwards: ${error}`);
+            toast.error(t('upnp.removeFailed', { defaultValue: 'Failed to remove forwards: {{error}}', error: String(error) }));
         } finally {
             setIsRemoving(false);
         }
@@ -119,7 +119,7 @@ export default function UPnPPanel() {
                         className="flex items-center gap-2 px-4 py-2 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 rounded-xl transition-all disabled:opacity-50"
                     >
                         {isDiscovering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
-                        <span>{isDiscovering ? 'Scanning...' : 'Discover Gateway'}</span>
+                        <span>{isDiscovering ? t('upnp.scanning', 'Scanning...') : t('upnp.discoverGateway', 'Discover Gateway')}</span>
                     </button>
                 </div>
 
@@ -170,17 +170,17 @@ export default function UPnPPanel() {
                     {selectedServer && (
                         <div className="grid grid-cols-3 gap-3">
                             <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700 text-center">
-                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Game Port</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">{t('upnp.gamePort', 'Game Port')}</p>
                                 <p className="text-white font-mono font-bold text-lg">{selectedServer.ports.gamePort}</p>
                                 <p className="text-[10px] text-slate-500">UDP</p>
                             </div>
                             <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700 text-center">
-                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Query Port</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">{t('upnp.queryPort', 'Query Port')}</p>
                                 <p className="text-white font-mono font-bold text-lg">{selectedServer.ports.queryPort}</p>
                                 <p className="text-[10px] text-slate-500">UDP</p>
                             </div>
                             <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700 text-center">
-                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">RCON Port</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wide">{t('upnp.rconPort', 'RCON Port')}</p>
                                 <p className="text-white font-mono font-bold text-lg">{selectedServer.ports.rconPort}</p>
                                 <p className="text-[10px] text-slate-500">TCP</p>
                             </div>
@@ -195,7 +195,7 @@ export default function UPnPPanel() {
                             className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white rounded-xl shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50"
                         >
                             {isForwarding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radio className="w-4 h-4" />}
-                            <span>{isForwarding ? 'Forwarding...' : 'Forward All Ports'}</span>
+                            <span>{isForwarding ? t('upnp.forwarding', 'Forwarding...') : t('upnp.forwardAll', 'Forward All Ports')}</span>
                         </button>
                         <button
                             onClick={handleRemove}
@@ -246,7 +246,7 @@ export default function UPnPPanel() {
                     {/* Safety note */}
                     <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200">
                         <AlertTriangle className="w-3 h-3 inline mr-1 mb-0.5" />
-                        UPnP mappings have a 24-hour lease by default. Your router must support UPnP/IGD for this to work. Port forwards are removed when the lease expires or manually removed.
+                        {t('upnp.safetyNote', 'UPnP mappings have a 24-hour lease by default. Your router must support UPnP/IGD for this to work. Port forwards are removed when the lease expires or manually removed.')}
                     </div>
                 </div>
             </div>

@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef } from 'react';
 import { FileText, Upload, AlertCircle, Check, X, Clipboard, FileUp, Link } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface AdvancedModInputProps {
     onImport: (modIds: string[]) => void;
@@ -27,6 +28,7 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
     onImport,
     isLoading = false
 }) => {
+    const { t } = useTranslation();
     const [inputText, setInputText] = useState('');
     const [parsedIds, setParsedIds] = useState<string[]>([]);
     const [errors, setErrors] = useState<string[]>([]);
@@ -46,13 +48,13 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
 
             // Validate: must be alphanumeric, dashes, or underscores after extraction
             if (!/^[\w-]+$/.test(extracted)) {
-                errorList.push(`Line ${index + 1}: "${id}" is not a valid mod ID or URL`);
+                errorList.push(t('advancedModInput.invalidLine', { line: index + 1, id, defaultValue: `Line ${index + 1}: "${id}" is not a valid mod ID or URL` }));
                 return;
             }
 
             // Check for duplicates
             if (seen.has(extracted)) {
-                errorList.push(`Duplicate mod ID: ${extracted}`);
+                errorList.push(t('advancedModInput.duplicate', { id: extracted, defaultValue: `Duplicate mod ID: ${extracted}` }));
                 return;
             }
 
@@ -62,7 +64,7 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
 
         setParsedIds(validIds);
         setErrors(errorList);
-    }, []);
+    }, [t]);
 
     const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const text = e.target.value;
@@ -72,7 +74,7 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
 
     const handleImport = () => {
         if (parsedIds.length === 0) {
-            toast.error('No valid mod IDs to import');
+            toast.error(t('advancedModInput.noValidIds', 'No valid mod IDs to import'));
             return;
         }
         onImport(parsedIds);
@@ -90,10 +92,10 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
             if (text) {
                 setInputText(text);
                 parseModIds(text);
-                toast.success('Pasted from clipboard');
+                toast.success(t('advancedModInput.pasted', 'Pasted from clipboard'));
             }
         } catch {
-            toast.error('Failed to read clipboard. Try pasting manually.');
+            toast.error(t('advancedModInput.clipboardFailed', 'Failed to read clipboard. Try pasting manually.'));
         }
     };
 
@@ -105,9 +107,9 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
             const text = await file.text();
             setInputText(text);
             parseModIds(text);
-            toast.success(`Loaded ${file.name}`);
+            toast.success(t('advancedModInput.loadedFile', { name: file.name, defaultValue: `Loaded ${file.name}` }));
         } catch {
-            toast.error('Failed to read file');
+            toast.error(t('advancedModInput.fileFailed', 'Failed to read file'));
         }
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
@@ -118,24 +120,24 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-white/70">
                     <FileText className="w-4 h-4" />
-                    <span className="text-sm font-medium">Bulk Mod ID Import</span>
+                    <span className="text-sm font-medium">{t('advancedModInput.title', 'Bulk Mod ID Import')}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                     <button
                         onClick={handlePasteFromClipboard}
                         className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 text-xs transition-all"
-                        title="Paste from clipboard"
+                        title={t('advancedModInput.pasteTooltip', 'Paste from clipboard')}
                     >
                         <Clipboard className="w-3 h-3" />
-                        Paste
+                        {t('common.paste', 'Paste')}
                     </button>
                     <button
                         onClick={() => fileInputRef.current?.click()}
                         className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 text-xs transition-all"
-                        title="Import from .txt file"
+                        title={t('advancedModInput.fileTooltip', 'Import from .txt file')}
                     >
                         <FileUp className="w-3 h-3" />
-                        File
+                        {t('common.file', 'File')}
                     </button>
                     <input
                         ref={fileInputRef}
@@ -143,7 +145,7 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
                         accept=".txt,.csv,.text"
                         onChange={handleFileImport}
                         className="hidden"
-                        aria-label="Import mod IDs from file"
+                        aria-label={t('advancedModInput.fileAria', 'Import mod IDs from file')}
                     />
                 </div>
             </div>
@@ -152,7 +154,7 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
             <textarea
                 value={inputText}
                 onChange={handleTextChange}
-                placeholder={"Paste mod IDs or CurseForge URLs (comma, newline, or space separated)\n\nExamples:\n123456789\nhttps://www.curseforge.com/ark-survival-ascended/mods/mymod/files/987654"}
+                placeholder={t('advancedModInput.placeholder', "Paste mod IDs or CurseForge URLs (comma, newline, or space separated)\n\nExamples:\n123456789\nhttps://www.curseforge.com/ark-survival-ascended/mods/mymod/files/987654")}
                 className={cn(
                     "w-full h-32 px-4 py-3 rounded-xl",
                     "bg-white/5 border border-white/10",
@@ -166,7 +168,7 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
             {/* URL hint */}
             <div className="flex items-center gap-1.5 text-white/30 text-xs">
                 <Link className="w-3 h-3" />
-                <span>Supports CurseForge URLs — mod IDs are extracted automatically</span>
+                <span>{t('advancedModInput.urlHint', 'Supports CurseForge URLs — mod IDs are extracted automatically')}</span>
             </div>
 
             {/* Status Bar */}
@@ -176,7 +178,7 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
                     {parsedIds.length > 0 && (
                         <div className="flex items-center gap-1.5 text-emerald-400">
                             <Check className="w-4 h-4" />
-                            <span>{parsedIds.length} valid mod{parsedIds.length !== 1 ? 's' : ''}</span>
+                            <span>{t('advancedModInput.validCount', { count: parsedIds.length, defaultValue: `${parsedIds.length} valid mod(s)` })}</span>
                         </div>
                     )}
 
@@ -184,7 +186,7 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
                     {errors.length > 0 && (
                         <div className="flex items-center gap-1.5 text-amber-400">
                             <AlertCircle className="w-4 h-4" />
-                            <span>{errors.length} error{errors.length !== 1 ? 's' : ''}</span>
+                            <span>{t('advancedModInput.errorCount', { count: errors.length, defaultValue: `${errors.length} error(s)` })}</span>
                         </div>
                     )}
                 </div>
@@ -203,7 +205,7 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
                         )}
                     >
                         <X className="w-3.5 h-3.5" />
-                        Clear
+                        {t('common.clear', 'Clear')}
                     </button>
 
                     <button
@@ -219,7 +221,7 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
                         )}
                     >
                         <Upload className="w-3.5 h-3.5" />
-                        {isLoading ? 'Importing...' : 'Import Mods'}
+                        {isLoading ? t('advancedModInput.importing', 'Importing...') : t('modManager.importMods', 'Import Mods')}
                     </button>
                 </div>
             </div>
@@ -227,13 +229,13 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
             {/* Error List */}
             {errors.length > 0 && (
                 <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <div className="text-amber-400 text-sm font-medium mb-2">Validation Issues:</div>
+                    <div className="text-amber-400 text-sm font-medium mb-2">{t('advancedModInput.validationIssues', 'Validation Issues:')}</div>
                     <ul className="text-amber-400/70 text-xs space-y-1">
                         {errors.slice(0, 5).map((error, i) => (
                             <li key={i}>• {error}</li>
                         ))}
                         {errors.length > 5 && (
-                            <li className="text-amber-400/50">...and {errors.length - 5} more</li>
+                            <li className="text-amber-400/50">{t('advancedModInput.andMore', { count: errors.length - 5, defaultValue: `...and ${errors.length - 5} more` })}</li>
                         )}
                     </ul>
                 </div>
@@ -242,7 +244,7 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
             {/* Preview */}
             {parsedIds.length > 0 && (
                 <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                    <div className="text-white/50 text-xs mb-2">Mod IDs to import (order preserved):</div>
+                    <div className="text-white/50 text-xs mb-2">{t('advancedModInput.previewTitle', 'Mod IDs to import (order preserved):')}</div>
                     <div className="flex flex-wrap gap-1.5">
                         {parsedIds.slice(0, 10).map((id, i) => (
                             <span
@@ -254,7 +256,7 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
                         ))}
                         {parsedIds.length > 10 && (
                             <span className="px-2 py-0.5 rounded bg-white/5 text-white/50 text-xs">
-                                +{parsedIds.length - 10} more
+                                {t('advancedModInput.plusMore', { count: parsedIds.length - 10, defaultValue: `+${parsedIds.length - 10} more` })}
                             </span>
                         )}
                     </div>

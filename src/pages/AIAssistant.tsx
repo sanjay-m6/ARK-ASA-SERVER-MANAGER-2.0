@@ -101,6 +101,7 @@ interface ExecutingToolState {
 }
 
 function ToolProgressCard({ state }: { state: ExecutingToolState }) {
+    const { t } = useTranslation();
     const [elapsed, setElapsed] = useState(0);
 
     useEffect(() => {
@@ -141,17 +142,17 @@ function ToolProgressCard({ state }: { state: ExecutingToolState }) {
                             {!state.done && (
                                 <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
                                     <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 ai-tool-dot-pulse" />
-                                    <span className="text-[10px] font-bold text-cyan-400">LIVE</span>
+                                    <span className="text-[10px] font-bold text-cyan-400">{t('aiAssistant.live', 'LIVE')}</span>
                                 </span>
                             )}
                             {state.done && state.success && (
-                                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400">COMPLETE</span>
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400">{t('aiAssistant.complete', 'COMPLETE')}</span>
                             )}
                             {state.done && !state.success && (
-                                <span className="px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] font-bold text-red-400">FAILED</span>
+                                <span className="px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] font-bold text-red-400">{t('aiAssistant.failedBadge', 'FAILED')}</span>
                             )}
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5 font-mono">{elapsed}s elapsed</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5 font-mono">{t('aiAssistant.elapsed', { seconds: elapsed, defaultValue: `${elapsed}s elapsed` })}</p>
                     </div>
                 </div>
 
@@ -213,6 +214,7 @@ function ToolConfirmation({
     onConfirm: () => void;
     onDeny: () => void;
 }) {
+    const { t } = useTranslation();
     const tool = TOOL_REGISTRY[toolCall.name];
     let parsedArgs: Record<string, unknown> = {};
     try { parsedArgs = JSON.parse(toolCall.arguments || '{}'); } catch { /* empty */ }
@@ -229,13 +231,13 @@ function ToolConfirmation({
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                            <h4 className="text-sm font-bold text-white">{tool?.label || toolCall.name}</h4>
+                            <h4 className="text-sm font-bold text-white">{t(`aiAssistant.tools.${toolCall.name}`, tool?.label || toolCall.name)}</h4>
                             <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20">
                                 <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
-                                <span className="text-[10px] font-bold text-amber-400">CONFIRM</span>
+                                <span className="text-[10px] font-bold text-amber-400">{t('aiAssistant.confirmBadge', 'CONFIRM')}</span>
                             </span>
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5">This action requires your approval to execute</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{t('aiAssistant.requiresApproval', 'This action requires your approval to execute')}</p>
                     </div>
                 </div>
 
@@ -260,13 +262,13 @@ function ToolConfirmation({
                         className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/20 transition-all group"
                     >
                         <Zap className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                        Approve & Execute
+                        {t('aiAssistant.approveExecute', 'Approve & Execute')}
                     </button>
                     <button
                         onClick={onDeny}
                         className="px-4 py-2.5 text-xs font-bold rounded-xl bg-slate-700/30 text-slate-400 hover:bg-slate-700/50 hover:text-slate-300 border border-slate-600/20 transition-all"
                     >
-                        Deny
+                        {t('aiAssistant.deny', 'Deny')}
                     </button>
                 </div>
             </div>
@@ -277,6 +279,7 @@ function ToolConfirmation({
 // ── Tool Result Display ────────────────────────────────────────────────
 
 function ToolResultBadge({ success, name }: { success: boolean; name: string }) {
+    const { t } = useTranslation();
     const tool = TOOL_REGISTRY[name];
     return (
         <div className={cn(
@@ -287,9 +290,9 @@ function ToolResultBadge({ success, name }: { success: boolean; name: string }) 
         )}>
             {success ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
             <Wrench className="w-3 h-3" />
-            <span>{tool?.label || name}</span>
+            <span>{t(`aiAssistant.tools.${name}`, tool?.label || name)}</span>
             {success && <span className="text-emerald-500/50">•</span>}
-            {success && <span className="text-emerald-300/60 font-normal">executed</span>}
+            {success && <span className="text-emerald-300/60 font-normal">{t('aiAssistant.executed', 'executed')}</span>}
         </div>
     );
 }
@@ -400,6 +403,7 @@ const THINKING_PHRASES = [
 ];
 
 function ThinkingBubble() {
+    const { t } = useTranslation();
     const [phraseIndex, setPhraseIndex] = useState(0);
     const [dots, setDots] = useState(1);
 
@@ -431,7 +435,7 @@ function ThinkingBubble() {
                     <div className="flex-1">
                         <div className="flex items-center gap-1.5">
                             <span className="text-xs text-slate-300 font-medium ai-thinking-text">
-                                {THINKING_PHRASES[phraseIndex]}
+                                {t(`aiAssistant.thinking.${phraseIndex}`, THINKING_PHRASES[phraseIndex])}
                             </span>
                             <span className="text-cyan-400 font-mono text-xs w-4">
                                 {'.'.repeat(dots)}
@@ -458,6 +462,7 @@ function ThinkingBubble() {
 // ── Typewriter Bubble (Word-by-word reveal) ──────────────────────────────
 
 function TypewriterBubble({ content, isComplete }: { content: string; isComplete: boolean }) {
+    const { t } = useTranslation();
     return (
         <div className="flex justify-start px-6 py-2 ai-tool-card-enter">
             <div className="max-w-[75%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed glass-panel border-white/5 text-slate-200">
@@ -467,7 +472,7 @@ function TypewriterBubble({ content, isComplete }: { content: string; isComplete
                     {!isComplete && (
                         <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/15">
                             <span className="w-1 h-1 rounded-full bg-cyan-400 ai-tool-dot-pulse" />
-                            <span className="text-[9px] font-bold text-cyan-400">TYPING</span>
+                            <span className="text-[9px] font-bold text-cyan-400">{t('aiAssistant.typing', 'TYPING')}</span>
                         </span>
                     )}
                 </div>
@@ -540,9 +545,10 @@ export default function AIAssistant() {
 
     // Simulate step-by-step progress for tool execution
     const animateToolExecution = useCallback((toolName: string, toolLabel: string): Promise<void> => {
+        const stepKey = TOOL_STEPS[toolName] ? toolName : 'default';
         const stepLabels = TOOL_STEPS[toolName] || ['Processing', 'Executing', 'Completing'];
-        const steps: ExecutionStep[] = stepLabels.map(label => ({
-            label,
+        const steps: ExecutionStep[] = stepLabels.map((label, i) => ({
+            label: t(`aiAssistant.steps.${stepKey}.${i}`, label),
             icon: null,
             status: 'pending' as const,
         }));
@@ -744,7 +750,7 @@ export default function AIAssistant() {
                 // Regular text response → typewriter effect
                 setStreaming(false);
                 setStreamingContent('');
-                startTypewriter(response.content || 'No response from AI.');
+                startTypewriter(response.content || t('aiAssistant.noResponse', 'No response from AI.'));
             }
         } catch (err) {
             const errorMsg = err instanceof Error ? err.message : String(err);
@@ -752,7 +758,7 @@ export default function AIAssistant() {
             addMessage({
                 id: generateMessageId(),
                 role: 'assistant',
-                content: `⚠️ **Error**: ${errorMsg}`,
+                content: `⚠️ **${t('aiAssistant.errorLabel', 'Error')}**: ${errorMsg}`,
                 timestamp: Date.now(),
             });
             setStreaming(false);
@@ -782,7 +788,7 @@ export default function AIAssistant() {
                 addMessage({
                     id: generateMessageId(),
                     role: 'assistant',
-                    content: `✅ Navigated to **${args.path}**`,
+                    content: `✅ ${t('aiAssistant.navigatedTo', { path: `**${args.path}**`, defaultValue: `Navigated to **${args.path}**`, interpolation: { escapeValue: false } })}`,
                     timestamp: Date.now(),
                 });
             } catch { /* ignore */ }
@@ -795,7 +801,7 @@ export default function AIAssistant() {
         // Start the animated progress card and actual execution in parallel
         const [result] = await Promise.all([
             executeToolCall(tc),
-            animateToolExecution(tc.name, toolLabel),
+            animateToolExecution(tc.name, t(`aiAssistant.tools.${tc.name}`, toolLabel)),
         ]);
 
         // Mark progress card as complete
@@ -869,8 +875,8 @@ export default function AIAssistant() {
                 id: generateMessageId(),
                 role: 'assistant',
                 content: result.success
-                    ? `✅ **${toolLabel}** completed successfully.`
-                    : `❌ **${toolLabel}** failed (${errorMsg}): ${result.result}`,
+                    ? `✅ ${t('aiAssistant.toolCompleted', { tool: `**${t(`aiAssistant.tools.${tc.name}`, toolLabel)}**`, defaultValue: `**${toolLabel}** completed successfully.`, interpolation: { escapeValue: false } })}`
+                    : `❌ ${t('aiAssistant.toolFailed', { tool: `**${t(`aiAssistant.tools.${tc.name}`, toolLabel)}**`, error: errorMsg, defaultValue: `**${toolLabel}** failed (${errorMsg})`, interpolation: { escapeValue: false } })}: ${result.result}`,
                 timestamp: Date.now(),
             });
         } finally {
@@ -903,7 +909,7 @@ export default function AIAssistant() {
         addMessage({
             id: generateMessageId(),
             role: 'assistant',
-            content: `🚫 Action **${TOOL_REGISTRY[pendingToolCall.name]?.label || pendingToolCall.name}** was denied by user.`,
+            content: `🚫 ${t('aiAssistant.actionDenied', { tool: `**${t(`aiAssistant.tools.${pendingToolCall.name}`, TOOL_REGISTRY[pendingToolCall.name]?.label || pendingToolCall.name)}**`, defaultValue: `Action **${TOOL_REGISTRY[pendingToolCall.name]?.label || pendingToolCall.name}** was denied by user.`, interpolation: { escapeValue: false } })}`,
             timestamp: Date.now(),
         });
         setPendingToolCall(null);
@@ -939,11 +945,11 @@ export default function AIAssistant() {
                         {/* Sidebar Header */}
                         <div className="p-4 border-b border-white/5">
                             <div className="flex items-center justify-between mb-3">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Chat History</span>
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('aiAssistant.chatHistory', 'Chat History')}</span>
                                 <button
                                     onClick={toggleSidebar}
                                     className="p-1 rounded-lg text-slate-500 hover:text-white hover:bg-slate-700/50 transition-all"
-                                    title="Close sidebar"
+                                    title={t('aiAssistant.closeSidebar', 'Close sidebar')}
                                 >
                                     <PanelLeftClose className="w-4 h-4" />
                                 </button>
@@ -953,7 +959,7 @@ export default function AIAssistant() {
                                 className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500/15 to-blue-500/15 border border-cyan-500/20 text-cyan-400 hover:from-cyan-500/25 hover:to-blue-500/25 hover:text-white transition-all text-xs font-bold"
                             >
                                 <Plus className="w-4 h-4" />
-                                New Chat
+                                {t('aiAssistant.newChat', 'New Chat')}
                             </button>
                         </div>
 
@@ -961,14 +967,14 @@ export default function AIAssistant() {
                         {memoryCount > 0 && (
                             <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/15">
                                 <MemoryStick className="w-3.5 h-3.5 text-indigo-400" />
-                                <span className="text-[10px] font-bold text-indigo-400">{memoryCount} memories</span>
+                                <span className="text-[10px] font-bold text-indigo-400">{t('aiAssistant.memories', { count: memoryCount, defaultValue: `${memoryCount} memories` })}</span>
                             </div>
                         )}
 
                         {/* Session List */}
                         <div className="flex-1 overflow-y-auto py-2 space-y-0.5 scrollbar-hide">
                             {sessions.length === 0 && (
-                                <div className="text-center py-8 text-slate-600 text-xs">No chats yet</div>
+                                <div className="text-center py-8 text-slate-600 text-xs">{t('aiAssistant.noChats', 'No chats yet')}</div>
                             )}
                             {sessions.map((session: ChatSession) => (
                                 <div
@@ -1018,7 +1024,7 @@ export default function AIAssistant() {
                                                 </span>
                                                 {session.messageCount > 0 && (
                                                     <span className="text-[10px] text-slate-600">
-                                                        · {session.messageCount} msgs
+                                                        · {t('aiAssistant.msgs', { count: session.messageCount, defaultValue: `${session.messageCount} msgs` })}
                                                     </span>
                                                 )}
                                             </div>
@@ -1029,21 +1035,21 @@ export default function AIAssistant() {
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setRenamingId(session.id); setRenameValue(session.title); }}
                                                 className="p-1 rounded text-slate-500 hover:text-white hover:bg-slate-700/50 transition-all"
-                                                title="Rename"
+                                                title={t('aiAssistant.rename', 'Rename')}
                                             >
                                                 <Edit3 className="w-3 h-3" />
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); pinChat(session.id); }}
                                                 className={cn("p-1 rounded transition-all", session.pinned ? "text-amber-400" : "text-slate-500 hover:text-amber-400 hover:bg-slate-700/50")}
-                                                title={session.pinned ? 'Unpin' : 'Pin'}
+                                                title={session.pinned ? t('aiAssistant.unpin', 'Unpin') : t('aiAssistant.pin', 'Pin')}
                                             >
                                                 <Pin className="w-3 h-3" />
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); deleteChat(session.id); }}
                                                 className="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                                                title="Delete"
+                                                title={t('common.delete', 'Delete')}
                                             >
                                                 <X className="w-3 h-3" />
                                             </button>
@@ -1066,7 +1072,7 @@ export default function AIAssistant() {
                         <button
                             onClick={toggleSidebar}
                             className="p-2 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
-                            title={sidebarOpen ? 'Close history' : 'Open history'}
+                            title={sidebarOpen ? t('aiAssistant.closeHistory', 'Close history') : t('aiAssistant.openHistory', 'Open history')}
                         >
                             {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
                         </button>
@@ -1088,10 +1094,10 @@ export default function AIAssistant() {
                         <button
                             onClick={createNewChat}
                             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-cyan-500/15 to-blue-500/15 border border-cyan-500/20 text-cyan-400 hover:from-cyan-500/25 hover:to-blue-500/25 hover:text-white transition-all text-xs font-bold"
-                            title="New Chat"
+                            title={t('aiAssistant.newChat', 'New Chat')}
                         >
                             <Plus className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">New Chat</span>
+                            <span className="hidden sm:inline">{t('aiAssistant.newChat', 'New Chat')}</span>
                         </button>
 
                         {/* Model Selector */}
@@ -1100,7 +1106,7 @@ export default function AIAssistant() {
                                 onClick={() => setModelOpen(!modelOpen)}
                                 className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition-all"
                             >
-                                <span className="text-xs font-mono">{AI_MODELS.find(m => m.id === model)?.name || 'Model'}</span>
+                                <span className="text-xs font-mono">{AI_MODELS.find(m => m.id === model)?.name || t('aiAssistant.model', 'Model')}</span>
                                 <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", modelOpen && "rotate-180")} />
                             </button>
                             {modelOpen && (
@@ -1126,7 +1132,7 @@ export default function AIAssistant() {
                         <button
                             onClick={clearMessages}
                             className="p-2 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/20 transition-all"
-                            title="Clear chat"
+                            title={t('aiAssistant.clearChat', 'Clear chat')}
                         >
                             <Trash2 className="w-4 h-4" />
                         </button>
@@ -1143,21 +1149,21 @@ export default function AIAssistant() {
                                 <div className="p-5 rounded-3xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border border-cyan-500/10 mb-6">
                                     <Bot className="w-12 h-12 text-cyan-400/60" />
                                 </div>
-                                <h3 className="text-lg font-bold text-white mb-2">Welcome to Infinity AI</h3>
+                                <h3 className="text-lg font-bold text-white mb-2">{t('aiAssistant.welcomeTitle', 'Welcome to Infinity AI')}</h3>
                                 <p className="text-sm text-slate-400 max-w-md mb-8">
-                                    Your autonomous ARK server management assistant. Ask me to check server status, start or stop servers, create backups, run RCON commands, and more.
+                                    {t('aiAssistant.welcomeDesc', 'Your autonomous ARK server management assistant. Ask me to check server status, start or stop servers, create backups, run RCON commands, and more.')}
                                 </p>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-3xl w-full">
                                     {[
-                                        'Show all server status',
-                                        'What is the system health?',
-                                        'Create a backup for server 1',
-                                        'Show scheduled tasks',
-                                        'Check server logs for crashes',
-                                        'Broadcast a message to all players',
-                                        'Optimize my GameUserSettings.ini',
-                                        'Explain breeding multipliers',
-                                        'Check for server updates'
+                                        t('aiAssistant.suggestions.0', 'Show all server status'),
+                                        t('aiAssistant.suggestions.1', 'What is the system health?'),
+                                        t('aiAssistant.suggestions.2', 'Create a backup for server 1'),
+                                        t('aiAssistant.suggestions.3', 'Show scheduled tasks'),
+                                        t('aiAssistant.suggestions.4', 'Check server logs for crashes'),
+                                        t('aiAssistant.suggestions.5', 'Broadcast a message to all players'),
+                                        t('aiAssistant.suggestions.6', 'Optimize my GameUserSettings.ini'),
+                                        t('aiAssistant.suggestions.7', 'Explain breeding multipliers'),
+                                        t('aiAssistant.suggestions.8', 'Check for server updates')
                                     ].map((prompt) => (
                                         <button
                                             key={prompt}
@@ -1188,7 +1194,7 @@ export default function AIAssistant() {
                                     <div className="flex items-center gap-2 px-6 py-1">
                                         <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">
                                             <ChevronRight className="w-3 h-3 text-indigo-400" />
-                                            <span className="text-[10px] font-bold text-indigo-400">STEP {agentTurnCount}/{MAX_TOOL_TURNS}</span>
+                                            <span className="text-[10px] font-bold text-indigo-400">{t('aiAssistant.stepBadge', { step: agentTurnCount, max: MAX_TOOL_TURNS, defaultValue: `STEP ${agentTurnCount}/${MAX_TOOL_TURNS}` })}</span>
                                         </span>
                                     </div>
                                 )}
@@ -1216,7 +1222,7 @@ export default function AIAssistant() {
                                 className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-cyan-400 transition-colors mb-2"
                             >
                                 <Zap className="w-3 h-3" />
-                                Quick Actions
+                                {t('aiAssistant.quickActions', 'Quick Actions')}
                                 <ChevronDown className={cn("w-3 h-3 transition-transform", showMacros && "rotate-180")} />
                             </button>
                             {showMacros && (
@@ -1263,7 +1269,7 @@ export default function AIAssistant() {
                             </button>
                         </div>
                         <p className="text-[10px] text-slate-600 mt-2 text-center">
-                            Press Enter to send · Shift+Enter for new line · {agentTurnCount > 0 ? `Agent loop: step ${agentTurnCount}/${MAX_TOOL_TURNS}` : 'Powered by NVIDIA AI'}
+                            {t('aiAssistant.inputHint', 'Press Enter to send · Shift+Enter for new line')} · {agentTurnCount > 0 ? t('aiAssistant.agentLoop', { step: agentTurnCount, max: MAX_TOOL_TURNS, defaultValue: `Agent loop: step ${agentTurnCount}/${MAX_TOOL_TURNS}` }) : t('aiAssistant.poweredBy', 'Powered by NVIDIA AI')}
                         </p>
                     </div>
                 </div>

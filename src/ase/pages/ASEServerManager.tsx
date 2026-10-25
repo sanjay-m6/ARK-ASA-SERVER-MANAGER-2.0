@@ -23,6 +23,7 @@ import ServerStatusBar from '../../components/server/ServerStatusBar';
 import MoveServerDialog from '../../components/server/MoveServerDialog';
 import { moveServer } from '../../utils/tauri';
 import { open } from '@tauri-apps/plugin-dialog';
+import { NumberInput } from '../../components/ui/NumberInput';
 
 export default function ASEServerManager() {
   const { servers, setServers, updateServerStatus, refreshServers, removeServer, isServerOutdated } = useAseServerStore();
@@ -99,7 +100,7 @@ export default function ASEServerManager() {
   const handleDragEnd = (result: any) => {
     if (!result.destination) return;
     if (searchQuery.trim() !== '') {
-      toast.error('Cannot reorder servers while searching.');
+      toast.error(t('ase.serverManager.reorderSearching', 'Cannot reorder servers while searching.'));
       return;
     }
     const currentOrder = orderedServers.map(s => s.id);
@@ -233,7 +234,7 @@ export default function ASEServerManager() {
     try { 
       updateServerStatus(id, 'starting'); 
       await startAseServer(id); 
-      toast.success('ASE server starting...'); 
+      toast.success(t('ase.serverManager.starting', 'ASE server starting...')); 
     } catch (e) { 
       updateServerStatus(id, 'stopped'); 
       toast.error(`${e}`); 
@@ -244,7 +245,7 @@ export default function ASEServerManager() {
     try { 
       await stopAseServer(id); 
       updateServerStatus(id, 'stopped'); 
-      toast.success('ASE server stopped'); 
+      toast.success(t('ase.serverManager.stopped', 'ASE server stopped')); 
     } catch (e) { 
       toast.error(`${e}`); 
     } 
@@ -270,7 +271,7 @@ export default function ASEServerManager() {
     try { 
       await deleteAseServer(serverToDelete.id, true); 
       removeServer(serverToDelete.id); 
-      toast.success(`ASE Server instance "${serverToDelete.name}" and all files on disk deleted.`); 
+      toast.success(t('ase.serverManager.deleted', { defaultValue: 'ASE Server instance "{{name}}" and all files on disk deleted.', name: serverToDelete.name })); 
       setServerToDelete(null);
     } catch (e) { 
       toast.error(`${e}`); 
@@ -442,10 +443,10 @@ export default function ASEServerManager() {
   const handleBulkStart = async () => {
     const serversToStart = servers.filter(s => selectedServers.includes(s.id) && (s.status === 'stopped' || s.status === 'crashed'));
     if (serversToStart.length === 0) {
-      toast.error('No startable servers selected.');
+      toast.error(t('serverManager.noStartableServersSelected', 'No startable servers selected.'));
       return;
     }
-    toast.success(`Starting ${serversToStart.length} servers...`);
+    toast.success(t('ase.serverManager.startingCount', { defaultValue: 'Starting {{count}} servers...', count: serversToStart.length }));
     for (const server of serversToStart) {
       handleStart(server.id);
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -455,18 +456,18 @@ export default function ASEServerManager() {
 
   const handleStartAll = async () => {
     const stopps = servers.filter(s => s.status === 'stopped' || s.status === 'crashed');
-    if (stopps.length === 0) return toast.error('No stopped servers to start');
-    toast.success(`Starting ${stopps.length} servers...`);
+    if (stopps.length === 0) return toast.error(t('ase.serverManager.noStoppedToStart', 'No stopped servers to start'));
+    toast.success(t('ase.serverManager.startingCount', { defaultValue: 'Starting {{count}} servers...', count: stopps.length }));
     for (const s of stopps) { handleStart(s.id); await new Promise(r => setTimeout(r, 500)); }
   };
 
   const handleBulkStop = async () => {
     const serversToStop = servers.filter(s => selectedServers.includes(s.id) && (s.status === 'running' || s.status === 'online' || s.status === 'starting'));
     if (serversToStop.length === 0) {
-      toast.error('No running servers selected.');
+      toast.error(t('serverManager.noStoppableServersSelected', 'No running servers selected.'));
       return;
     }
-    toast.success(`Stopping ${serversToStop.length} servers...`);
+    toast.success(t('ase.serverManager.stoppingCount', { defaultValue: 'Stopping {{count}} servers...', count: serversToStop.length }));
     for (const server of serversToStop) {
       handleStop(server.id);
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -476,8 +477,8 @@ export default function ASEServerManager() {
 
   const handleStopAll = async () => {
     const runnings = servers.filter(s => s.status !== 'stopped');
-    if (runnings.length === 0) return toast.error('No active servers to stop');
-    toast.success(`Stopping ${runnings.length} servers...`);
+    if (runnings.length === 0) return toast.error(t('ase.serverManager.noActiveToStop', 'No active servers to stop'));
+    toast.success(t('ase.serverManager.stoppingCount', { defaultValue: 'Stopping {{count}} servers...', count: runnings.length }));
     await Promise.all(runnings.map(s => handleStop(s.id)));
   };
 
@@ -525,7 +526,7 @@ export default function ASEServerManager() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">{t('serverManager.title', 'Server Manager')}</h1>
-          <p className="text-slate-400 mt-2 text-lg">Deploy, configure, and manage your ARK: Survival Evolved servers</p>
+          <p className="text-slate-400 mt-2 text-lg">{t('ase.serverManager.subtitle', 'Deploy, configure, and manage your ARK: Survival Evolved servers')}</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap shrink-0">
           <button
@@ -552,7 +553,7 @@ export default function ASEServerManager() {
       {/* Search Bar */}
       <div className="relative mb-6">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-muted)]" />
-        <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search servers by name or map..." className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface-hover)] backdrop-blur-sm border border-[var(--border)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all shadow-inner" />
+        <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={t('ase.serverManager.searchPlaceholder', 'Search servers by name or map...')} className="w-full pl-12 pr-4 py-3.5 bg-[var(--surface-hover)] backdrop-blur-sm border border-[var(--border)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all shadow-inner" />
       </div>
 
       {/* Bulk Actions Bar - Glassmorphic Pill */}
@@ -568,8 +569,8 @@ export default function ASEServerManager() {
               />
               <span className="font-semibold">
                 {selectedServers.length > 0
-                  ? `${selectedServers.length} Selected`
-                  : 'Select All'}
+                  ? t('serverManager.buttons.selectedCount', { defaultValue: '{{count}} Selected', count: selectedServers.length })
+                  : t('serverManager.buttons.selectAll', 'Select All')}
               </span>
             </label>
           </div>
@@ -581,14 +582,14 @@ export default function ASEServerManager() {
               className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 rounded-full transition-all text-xs font-bold disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Start Selected</span>
+              <span>{t('serverManager.buttons.startSelected', 'Start Selected')}</span>
             </button>
             <button
               onClick={handleStartAll}
               className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 rounded-full transition-all text-xs font-bold cursor-pointer"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Start All</span>
+              <span>{t('serverManager.buttons.startAll', 'Start All')}</span>
             </button>
 
             <div className="w-px h-5 bg-[var(--border)] hidden sm:block mx-1.5"></div>
@@ -600,14 +601,14 @@ export default function ASEServerManager() {
               className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 hover:bg-rose-500/25 rounded-full transition-all text-xs font-bold disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
             >
               <Square className="w-3.5 h-3.5 fill-current" />
-              <span>Stop Selected</span>
+              <span>{t('serverManager.buttons.stopSelected', 'Stop Selected')}</span>
             </button>
             <button
               onClick={handleStopAll}
               className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 hover:bg-rose-500/25 rounded-full transition-all text-xs font-bold cursor-pointer"
             >
               <Square className="w-3.5 h-3.5 fill-current" />
-              <span>Stop All</span>
+              <span>{t('serverManager.buttons.stopAll', 'Stop All')}</span>
             </button>
 
             <div className="w-px h-5 bg-[var(--border)] hidden sm:block mx-1.5"></div>
@@ -620,7 +621,7 @@ export default function ASEServerManager() {
               title={t('serverManager.move.bulkTitle', 'Move selected servers to a new directory')}
             >
               <FolderOpen className="w-3.5 h-3.5" />
-              <span>Move Selected</span>
+              <span>{t('serverManager.buttons.moveSelected', 'Move Selected')}</span>
             </button>
           </div>
         </div>
@@ -631,17 +632,17 @@ export default function ASEServerManager() {
           <div className="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-6">
             <Server className="w-10 h-10 text-slate-500" />
           </div>
-          <h3 className="text-2xl font-bold text-white mb-2">{servers.length === 0 ? 'No ASE Servers Installed' : 'No Results Found'}</h3>
+          <h3 className="text-2xl font-bold text-white mb-2">{servers.length === 0 ? t('ase.serverManager.noServers', 'No ASE Servers Installed') : t('ase.serverManager.noResults', 'No Results Found')}</h3>
           <p className="text-slate-400 mb-8 max-w-md mx-auto">
-            {servers.length === 0 ? 'Deploy your first ASE server to get started managing ARK: Survival Evolved servers.' : 'Try a different search term.'}
+            {servers.length === 0 ? t('ase.serverManager.noServersDesc', 'Deploy your first ASE server to get started managing ARK: Survival Evolved servers.') : t('ase.serverManager.tryDifferent', 'Try a different search term.')}
           </p>
           {servers.length === 0 && (
             <div className="flex items-center justify-center gap-4">
               <button onClick={() => setShowImport(true)} className="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors border border-slate-700 focus:outline-none">
-                Import Existing Server
+                {t('dialogs.importServer.title', 'Import Existing Server')}
               </button>
               <button onClick={handleDeployServer} className="px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-xl transition-all shadow-lg shadow-amber-500/20 font-medium focus:outline-none">
-                Deploy ASE Server
+                {t('ase.serverManager.deployAse', 'Deploy ASE Server')}
               </button>
             </div>
           )}
@@ -760,18 +761,18 @@ export default function ASEServerManager() {
                       </div>
                       <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--surface-hover)] rounded-xl shadow-inner border border-[var(--border)]">
                           <Shield className="w-3.5 h-3.5 text-amber-500" />
-                          <span className="text-xs font-semibold">ASE Server</span>
+                          <span className="text-xs font-semibold">{t('ase.serverManager.aseServer', 'ASE Server')}</span>
                       </div>
                       {serverVersions[srv.id] && (
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--surface-hover)] rounded-xl shadow-inner border border-[var(--border)]" title="Server Executable Build Timestamp">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--surface-hover)] rounded-xl shadow-inner border border-[var(--border)]" title={t('ase.serverManager.buildTimestamp', 'Server Executable Build Timestamp')}>
                             <GitBranch className="w-3.5 h-3.5 text-indigo-500" />
                             <span className="font-mono text-xs text-indigo-600 dark:text-indigo-300">{serverVersions[srv.id]}</span>
                         </div>
                       )}
                       {isServerOutdated(srv.id) && (
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/15 rounded-xl shadow-inner border border-amber-500/30 text-amber-700 dark:text-amber-300 font-bold" title="New update available on Steam! Click Update Server to install.">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/15 rounded-xl shadow-inner border border-amber-500/30 text-amber-700 dark:text-amber-300 font-bold" title={t('ase.serverManager.updateAvailableTip', 'New update available on Steam! Click Update Server to install.')}>
                             <Download className="w-3.5 h-3.5 text-amber-500 animate-bounce" />
-                            <span className="text-xs">Update Available</span>
+                            <span className="text-xs">{t('serverManager.status.updateAvailable', 'Update Available')}</span>
                         </div>
                       )}
                       {(() => {
@@ -793,9 +794,9 @@ export default function ASEServerManager() {
                         });
                         if (!hasMismatch) return null;
                         return (
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-rose-500/15 rounded-xl shadow-inner border border-rose-500/30 text-rose-700 dark:text-rose-400 font-bold" title="Version mismatch detected among clustered servers! Ensure all servers are updated.">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-rose-500/15 rounded-xl shadow-inner border border-rose-500/30 text-rose-700 dark:text-rose-400 font-bold" title={t('ase.serverManager.mismatchTip', 'Version mismatch detected among clustered servers! Ensure all servers are updated.')}>
                               <AlertTriangle className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
-                              <span className="text-xs">Cluster Mismatch</span>
+                              <span className="text-xs">{t('ase.serverManager.clusterMismatch', 'Cluster Mismatch')}</span>
                           </div>
                         );
                       })()}
@@ -810,14 +811,14 @@ export default function ASEServerManager() {
                     className="relative flex items-center gap-2.5 px-3 py-1.5 bg-[var(--surface-active)] backdrop-blur-xl border border-[var(--border)] rounded-full shadow-lg hover:border-amber-500/40 transition-all duration-300 xl:mr-4 shrink-0 no-collapse w-fit mx-auto xl:mx-0 self-center xl:self-auto"
                 >
                   {srv.status === 'updating' ? (
-                    <div className="relative flex items-center justify-center w-10 h-10 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30 shadow-[0_0_12px_rgba(56,189,248,0.25)]" title="Updating Files...">
+                    <div className="relative flex items-center justify-center w-10 h-10 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30 shadow-[0_0_12px_rgba(56,189,248,0.25)]" title={t('ase.serverManager.updatingFiles', 'Updating Files...')}>
                       <RefreshCw className="w-4 h-4 animate-spin" />
                     </div>
                   ) : srv.status === 'stopped' || srv.status === 'crashed' ? (
                     <button 
                       onClick={()=>handleStart(srv.id)} 
                       className="relative flex items-center justify-center w-10 h-10 rounded-full bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 border border-emerald-500/35 shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer group/btn" 
-                      title="Start Server"
+                      title={t('serverManager.startServer', 'Start Server')}
                     >
                       <Play className="w-4 h-4 fill-current ml-0.5" />
                     </button>
@@ -827,14 +828,14 @@ export default function ASEServerManager() {
                         <button
                           onClick={() => setTimedShutdownServer(srv)}
                           className="relative flex items-center justify-center w-10 h-10 rounded-full bg-rose-500/15 hover:bg-rose-500/30 text-rose-700 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 border border-rose-500/35 shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer group/btn"
-                          title="Stop / Shutdown Options"
+                          title={t('dashboard.stopOptions', 'Stop / Shutdown Options')}
                         >
                           <Square className="w-3.5 h-3.5 fill-current" />
                         </button>
 
                         {/* Stop Options Dropdown */}
                         <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-3 w-56 bg-[var(--surface)] backdrop-blur-2xl border border-[var(--border)] rounded-2xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/stop:scale-100 p-1.5 space-y-1">
-                          <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-rose-600 dark:text-rose-400">Shutdown Options</div>
+                          <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-rose-600 dark:text-rose-400">{t('serverManager.actions.shutdownOptions', 'Shutdown Options')}</div>
                           <button
                             onClick={() => setTimedShutdownServer(srv)}
                             className="w-full text-left px-3 py-2.5 hover:bg-amber-500/15 text-[var(--text-secondary)] hover:text-amber-700 dark:hover:text-amber-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-semibold group/item cursor-pointer"
@@ -843,8 +844,8 @@ export default function ASEServerManager() {
                               <Timer className="w-3.5 h-3.5" />
                             </div>
                             <div className="flex flex-col">
-                              <span className="font-bold">Timed Shutdown</span>
-                              <span className="text-[10px] text-[var(--text-muted)] font-normal">Countdown with broadcasts</span>
+                              <span className="font-bold">{t('serverManager.actions.timedShutdown', 'Timed Shutdown')}</span>
+                              <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.timedShutdownDesc', 'Countdown with broadcasts')}</span>
                             </div>
                           </button>
                           <button
@@ -855,8 +856,8 @@ export default function ASEServerManager() {
                               <Square className="w-3.5 h-3.5 fill-current" />
                             </div>
                             <div className="flex flex-col">
-                              <span className="font-bold">Immediate Stop</span>
-                              <span className="text-[10px] text-[var(--text-muted)] font-normal">Halt process immediately</span>
+                              <span className="font-bold">{t('serverManager.actions.immediateStop', 'Immediate Stop')}</span>
+                              <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.haltProcessImmediately', 'Halt process immediately')}</span>
                             </div>
                           </button>
                         </div>
@@ -865,14 +866,14 @@ export default function ASEServerManager() {
                       <div className="relative group/dropdown">
                         <button 
                           className="relative flex items-center justify-center w-10 h-10 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 border border-amber-500/30 shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer group/btn" 
-                          title="Restart Options"
+                          title={t('serverManager.tooltips.restartOptions', 'Restart Options')}
                         >
                           <RotateCw className="w-4 h-4 group-hover/btn:rotate-180 transition-transform duration-500" />
                         </button>
                         
                         {/* Dropdown Menu */}
                         <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-3 w-56 bg-[var(--surface)] backdrop-blur-2xl border border-[var(--border)] rounded-2xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/dropdown:scale-100 p-1.5 space-y-1">
-                          <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400">Restart Control</div>
+                          <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400">{t('serverManager.actions.restartControl', 'Restart Control')}</div>
                           <button
                             onClick={() => handleRestartAseServer(srv.id)}
                             className="w-full text-left px-3 py-2.5 hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
@@ -882,20 +883,20 @@ export default function ASEServerManager() {
                             </div>
                             <div className="flex flex-col">
                               <span className="font-semibold">{t('serverManager.buttons.normalRestart', 'Normal Restart')}</span>
-                              <span className="text-[10px] text-[var(--text-muted)] font-normal">Graceful server restart</span>
+                              <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.gracefulRestart', 'Graceful server restart')}</span>
                             </div>
                           </button>
                           <button
                             onClick={() => handleRestartAseServer(srv.id, true)}
                             className="w-full text-left px-3 py-2.5 hover:bg-amber-500/15 text-[var(--text-secondary)] hover:text-amber-700 dark:hover:text-amber-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer border-t border-[var(--border)] pt-2"
-                            title="Gracefully restart the server and wipe all wild dinosaurs"
+                            title={t('dashboard.restartWipeDinosTooltip', 'Gracefully restart the server and wipe all wild dinosaurs')}
                           >
                             <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-500 group-hover/item:scale-110 transition-transform">
                               <RefreshCw className="w-3.5 h-3.5" />
                             </div>
                             <div className="flex flex-col">
                               <span className="font-semibold">{t('serverManager.buttons.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
-                              <span className="text-[10px] text-[var(--text-muted)] font-normal">DestroyWildDinos on boot</span>
+                              <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('serverManager.actions.destroyWildDinos', 'DestroyWildDinos on boot')}</span>
                             </div>
                           </button>
                         </div>
@@ -907,7 +908,7 @@ export default function ASEServerManager() {
                       onClick={() => navigate('/ase/rcon', { state: { serverId: srv.id } })}
                       disabled={srv.status === 'updating' || srv.status === 'stopped'}
                       className="relative flex items-center justify-center w-10 h-10 rounded-full bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-700 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-300 border border-cyan-500/30 shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer group/btn"
-                      title="RCON Console"
+                      title={t('dashboard.rconConsole', 'RCON Console')}
                   >
                       <Terminal className="w-4 h-4" />
                   </button>
@@ -916,7 +917,7 @@ export default function ASEServerManager() {
                       onClick={async (e) => { e.stopPropagation(); try { await joinAseServer(srv.id); toast.success(t('serverManager.joiningServer', 'Launching ARK and connecting...')); } catch (err) { toast.error(`${err}`); } }}
                       disabled={srv.status !== 'online' && srv.status !== 'running'}
                       className="relative flex items-center justify-center w-10 h-10 rounded-full bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 border border-indigo-500/30 shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer group/btn"
-                      title="Join Server (Direct Connect)"
+                      title={t('ase.serverManager.joinDirect', 'Join Server (Direct Connect)')}
                   >
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
                   </button>
@@ -929,14 +930,14 @@ export default function ASEServerManager() {
                         onClick={() => navigate('/ase/config', { state: { serverId: srv.id } })}
                         disabled={srv.status === 'updating'}
                         className="relative flex items-center justify-center w-10 h-10 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] hover:border-amber-500/50 shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer group/btn"
-                        title="Server Settings & Options"
+                        title={t('ase.serverManager.settingsOptions', 'Server Settings & Options')}
                     >
                         <Settings className="w-4 h-4 group-hover/btn:rotate-45 transition-transform duration-300" />
                     </button>
 
                     {/* Settings Dropdown Menu */}
                     <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-60 bg-[var(--surface)] backdrop-blur-2xl border border-[var(--border)] rounded-2xl shadow-2xl opacity-0 invisible group-hover/settings:opacity-100 group-hover/settings:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/settings:scale-100 p-1.5 space-y-0.5">
-                        <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400">Management & Config</div>
+                        <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400">{t('serverManager.actions.managementConfig', 'Management & Config')}</div>
                         <button
                             onClick={() => navigate('/ase/config', { state: { serverId: srv.id } })}
                             className="w-full text-left px-3 py-2 hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
@@ -944,7 +945,7 @@ export default function ASEServerManager() {
                             <div className="w-6 h-6 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-500 group-hover/item:scale-110 transition-transform">
                                 <Settings className="w-3.5 h-3.5" />
                             </div>
-                            <span>Visual Config Editor</span>
+                            <span>{t('ase.serverManager.visualEditor', 'Visual Config Editor')}</span>
                         </button>
                         <button
                             onClick={() => navigate('/ase/config', { state: { serverId: srv.id, initialMode: 'gus' } })}
@@ -953,7 +954,7 @@ export default function ASEServerManager() {
                             <div className="w-6 h-6 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-500 group-hover/item:scale-110 transition-transform">
                                 <FileText className="w-3.5 h-3.5" />
                             </div>
-                            <span>Edit Files Manually (IDE)</span>
+                            <span>{t('serverManager.buttons.editRawIni', 'Edit Files Manually (IDE)')}</span>
                         </button>
                         <button
                             onClick={() => setCloneModalServer(srv)}
@@ -962,7 +963,7 @@ export default function ASEServerManager() {
                             <div className="w-6 h-6 rounded-lg bg-sky-500/15 flex items-center justify-center text-sky-500 group-hover/item:scale-110 transition-transform">
                                 <Copy className="w-3.5 h-3.5" />
                             </div>
-                            <span>Clone Server</span>
+                            <span>{t('serverManager.actions.cloneServer', 'Clone Server')}</span>
                         </button>
                         <button
                             onClick={(e) => { e.stopPropagation(); handleMoveServer(srv.id); }}
@@ -972,7 +973,7 @@ export default function ASEServerManager() {
                             <div className="w-6 h-6 rounded-lg bg-purple-500/15 flex items-center justify-center text-purple-500 group-hover/item:scale-110 transition-transform">
                                 <FolderOpen className="w-3.5 h-3.5" />
                             </div>
-                            <span>Move Server</span>
+                            <span>{t('serverManager.actions.moveServer', 'Move Server')}</span>
                         </button>
                         <button
                             onClick={() => setResetServer({id: srv.id, name: srv.name})}
@@ -981,7 +982,7 @@ export default function ASEServerManager() {
                             <div className="w-6 h-6 rounded-lg bg-orange-500/15 flex items-center justify-center text-orange-500 group-hover/item:scale-110 transition-transform">
                                 <RotateCw className="w-3.5 h-3.5" />
                             </div>
-                            <span>Reset Server Data</span>
+                            <span>{t('ase.resetDialog.title', 'Reset Server Data')}</span>
                         </button>
                         <div className="border-t border-[var(--border)] my-1"></div>
                         <button
@@ -991,7 +992,7 @@ export default function ASEServerManager() {
                             <div className="w-6 h-6 rounded-lg bg-rose-500/15 flex items-center justify-center text-rose-500 group-hover/item:scale-110 transition-transform">
                                 <Trash2 className="w-3.5 h-3.5" />
                             </div>
-                            <span>Delete Server</span>
+                            <span>{t('serverManager.actions.deleteServer', 'Delete Server')}</span>
                         </button>
                     </div>
                   </div>
@@ -1104,7 +1105,7 @@ export default function ASEServerManager() {
                             </div>
                             {serverVersions[srv.id] && (
                                 <p className="text-[10px] text-[var(--text-muted)] font-mono mt-1.5">
-                                    Build: <span className="text-[var(--text-secondary)]">{serverVersions[srv.id]}</span>
+                                    {t('serverOverview.build', 'Build')}: <span className="text-[var(--text-secondary)]">{serverVersions[srv.id]}</span>
                                 </p>
                             )}
                         </div>
@@ -1119,7 +1120,7 @@ export default function ASEServerManager() {
                         <div className="flex items-center gap-2">
                           <Loader2 className="w-4 h-4 text-sky-500 animate-spin" />
                           <span className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider">
-                            SteamCMD Update Mode: {activeUpdates[srv.id]?.stage || 'Connecting'}
+                            {t('serverManager.statusBar.updateMode', 'SteamCMD Update Mode')}: {activeUpdates[srv.id]?.stage || t('ase.serverManager.connecting', 'Connecting')}
                           </span>
                         </div>
                         <span className="text-xs font-mono font-bold text-sky-600 dark:text-sky-400">
@@ -1146,7 +1147,7 @@ export default function ASEServerManager() {
                           className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors select-none font-semibold uppercase tracking-wider"
                         >
                           <Terminal className="w-3.5 h-3.5" />
-                          <span>{showUpdateConsole[srv.id] ? 'Hide Console Logs' : 'Show Console Logs'}</span>
+                          <span>{showUpdateConsole[srv.id] ? t('serverManager.statusBar.hideLogs', 'Hide Console Logs') : t('serverManager.statusBar.showLogs', 'Show Console Logs')}</span>
                           <span className="text-[10px] bg-[var(--surface)] border border-[var(--border)] px-1.5 py-0.5 rounded text-[var(--text-muted)] font-mono">
                             {updateConsoleLogs[srv.id]?.length || 0} lines
                           </span>
@@ -1155,7 +1156,7 @@ export default function ASEServerManager() {
                         {showUpdateConsole[srv.id] && (
                           <div className="mt-2.5 bg-[var(--surface)] rounded-lg p-3 font-mono text-[11px] h-48 overflow-y-auto border border-[var(--border)] shadow-inner space-y-1 scrollbar-thin select-text">
                             {(updateConsoleLogs[srv.id] || []).length === 0 ? (
-                              <div className="text-[var(--text-muted)] italic">Waiting for SteamCMD stream output...</div>
+                              <div className="text-[var(--text-muted)] italic">{t('serverManager.statusBar.waitingOutput', 'Waiting for SteamCMD stream output...')}</div>
                             ) : (
                               (updateConsoleLogs[srv.id] || []).map((log, i) => (
                                 <div key={i} className="flex gap-2.5 items-start leading-relaxed">
@@ -1204,13 +1205,12 @@ export default function ASEServerManager() {
                              <div className="flex items-center gap-3 bg-[var(--surface)] px-3 py-1.5 rounded-xl border border-[var(--border)] animate-in fade-in duration-200 text-xs no-collapse shadow-inner">
                                  <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
                                      <span className="font-semibold text-[var(--text-muted)] uppercase tracking-wider text-[10px]">{t('serverManager.serverDetails.delay', 'Delay')}:</span>
-                                     <input
-                                         type="number"
-                                         min="0"
+                                     <NumberInput
+                                         integer
+                                         min={0}
                                          placeholder="0"
-                                         value={srv.startupDelay !== undefined ? srv.startupDelay : ''}
-                                         onChange={async (e) => {
-                                             const delay = parseInt(e.target.value) || 0;
+                                         value={srv.startupDelay}
+                                         onValueChange={async (delay) => {
                                              try {
                                                  await updateAseServer(srv.id, { startupDelay: delay });
                                                  setServers(servers.map(s => s.id === srv.id ? { ...s, startupDelay: delay } : s));
@@ -1225,13 +1225,12 @@ export default function ASEServerManager() {
                                  <div className="w-px h-3.5 bg-[var(--border)]"></div>
                                  <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
                                      <span className="font-semibold text-[var(--text-muted)] uppercase tracking-wider text-[10px]">{t('serverManager.serverDetails.priority', 'Priority')}:</span>
-                                     <input
-                                         type="number"
-                                         min="0"
+                                     <NumberInput
+                                         integer
+                                         min={0}
                                          placeholder="0"
-                                         value={srv.startupPriority !== undefined ? srv.startupPriority : ''}
-                                         onChange={async (e) => {
-                                             const priority = parseInt(e.target.value) || 0;
+                                         value={srv.startupPriority}
+                                         onValueChange={async (priority) => {
                                              try {
                                                  await updateAseServer(srv.id, { startupPriority: priority });
                                                  setServers(servers.map(s => s.id === srv.id ? { ...s, startupPriority: priority } : s));

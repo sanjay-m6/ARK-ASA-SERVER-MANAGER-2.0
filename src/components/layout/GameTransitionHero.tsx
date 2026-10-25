@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { useGameStore } from '../../stores/gameStore';
 import asaHero from '../../assets/ASA.png';
 import aseHero from '../../assets/ASE.png';
@@ -28,6 +29,7 @@ const TECH_NODES = [
 
 export default function GameTransitionHero() {
     const { activeGame } = useGameStore();
+    const { t } = useTranslation();
     const isASE = activeGame === 'ASE';
     
     const [assetsLoaded, setAssetsLoaded] = useState(false);
@@ -118,7 +120,7 @@ export default function GameTransitionHero() {
                             }`}>
                                 {isASE ? "SURVIVAL EVOLVED" : "SURVIVAL ASCENDED"}
                             </h2>
-                            <p className="text-xs text-slate-400 mt-2 font-mono tracking-widest uppercase">Initializing Interface Sync...</p>
+                            <p className="text-xs text-slate-400 mt-2 font-mono tracking-widest uppercase">{t('gameTransition.initializing', 'Initializing Interface Sync...')}</p>
                         </motion.div>
                     </motion.div>
                 )}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '../../utils/helpers';
+import { useTranslation } from 'react-i18next';
 import { 
     BookOpen, 
     ChevronRight, 
@@ -24,6 +25,7 @@ interface HelpDocumentationProps {
 }
 
 export default function HelpDocumentation({ content, className, title, category }: HelpDocumentationProps) {
+    const { t } = useTranslation();
     const [copiedContent, setCopiedContent] = useState(false);
 
     // Estimate read time (~200 wpm)
@@ -46,11 +48,11 @@ export default function HelpDocumentation({ content, className, title, category 
                     </div>
                     <div>
                         <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 tracking-wider uppercase mb-1">
-                            <span>Documentation</span>
+                            <span>{t('helpDoc.documentation', 'Documentation')}</span>
                             <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
-                            <span className="text-sky-400 font-semibold">{category || 'Knowledge Base'}</span>
+                            <span className="text-sky-400 font-semibold">{category || t('sidebar.wiki', 'Knowledge Base')}</span>
                         </div>
-                        <h2 className="text-2xl font-bold text-white tracking-tight">{title || 'Guide'}</h2>
+                        <h2 className="text-2xl font-bold text-white tracking-tight">{title || t('helpDoc.guide', 'Guide')}</h2>
                     </div>
                 </div>
 
@@ -58,16 +60,16 @@ export default function HelpDocumentation({ content, className, title, category 
                 <div className="flex items-center gap-3 self-start md:self-auto text-xs text-slate-400">
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/30 border border-white/[0.06]">
                         <Clock className="w-3.5 h-3.5 text-sky-400" />
-                        <span>{readTimeMins} min read</span>
+                        <span>{t('helpDoc.readTime', { defaultValue: '{{count}} min read', count: readTimeMins })}</span>
                     </div>
 
                     <button
                         onClick={handleCopyAll}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 hover:text-white transition-all cursor-pointer"
-                        title="Copy article markdown"
+                        title={t('helpDoc.copyMarkdown', 'Copy article markdown')}
                     >
                         {copiedContent ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                        <span>{copiedContent ? 'Copied' : 'Copy'}</span>
+                        <span>{copiedContent ? t('helpDoc.copied', 'Copied') : t('common.copy', 'Copy')}</span>
                     </button>
                 </div>
             </div>
@@ -186,11 +188,11 @@ export default function HelpDocumentation({ content, className, title, category 
             <div className="px-8 py-3.5 border-t border-white/[0.06] bg-black/20 flex flex-wrap justify-between items-center text-[10px] text-slate-500 font-mono gap-2">
                 <div className="flex items-center gap-2">
                     <FileText className="w-3.5 h-3.5 text-slate-600" />
-                    <span>ARK Server Manager Documentation</span>
+                    <span>{t('helpDoc.footer', 'ARK Server Manager Documentation')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    <span>Local Offline Docs • Synchronized</span>
+                    <span>{t('helpDoc.offlineDocs', 'Local Offline Docs • Synchronized')}</span>
                 </div>
             </div>
         </div>
@@ -199,6 +201,7 @@ export default function HelpDocumentation({ content, className, title, category 
 
 // Inner Code Block component with Copy button & language tag
 function CodeBlock({ code, lang }: { code: string; lang: string }) {
+    const { t } = useTranslation();
     const [copied, setCopied] = useState(false);
 
     const handleCopy = () => {
@@ -216,7 +219,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-white/[0.04] hover:bg-white/[0.08] text-slate-400 hover:text-white transition-all text-[10px] font-medium cursor-pointer"
                 >
                     {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copied ? 'Copied!' : 'Copy'}</span>
+                    <span>{copied ? t('helpDoc.copiedBang', 'Copied!') : t('common.copy', 'Copy')}</span>
                 </button>
             </div>
             <pre className="p-4 overflow-x-auto text-xs font-mono leading-relaxed text-slate-200 select-text">

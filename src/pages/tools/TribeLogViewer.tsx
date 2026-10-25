@@ -58,7 +58,7 @@ export default function TribeLogViewer() {
                 toast(t('tribeLog.noEntries', 'No tribe log entries found for this server.'), { icon: '📜' });
             }
         } catch (error) {
-            toast.error(`Failed to load tribe logs: ${error}`);
+            toast.error(t('tribeLog.failedLoad', { defaultValue: 'Failed to load tribe logs: {{error}}', error: String(error) }));
         } finally {
             setIsLoading(false);
         }
@@ -85,6 +85,11 @@ export default function TribeLogViewer() {
         .sort((a, b) => b - a);
 
     // Event type counts for filter badges
+    const eventLabel = (key: string) => {
+        const k = EVENT_CONFIG[key] ? key : 'other';
+        return t(`tribeLog.events.${k}`, EVENT_CONFIG[k].label);
+    };
+
     const typeCounts = (logResult?.entries || []).reduce<Record<string, number>>((acc, e) => {
         acc[e.event_type] = (acc[e.event_type] || 0) + 1;
         return acc;
@@ -178,7 +183,7 @@ export default function TribeLogViewer() {
                                 : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:text-white'
                         )}
                     >
-                        All
+                        {t('common.all', 'All')}
                     </button>
                     {Object.entries(EVENT_CONFIG).filter(([key]) => typeCounts[key]).map(([key, cfg]) => {
                         const Icon = cfg.icon;
@@ -194,7 +199,7 @@ export default function TribeLogViewer() {
                                 )}
                             >
                                 <Icon className={cn("w-3.5 h-3.5", cfg.color)} />
-                                <span>{cfg.label}</span>
+                                <span>{eventLabel(key)}</span>
                                 <span className="ml-1 text-xs opacity-60">{typeCounts[key]}</span>
                             </button>
                         );
@@ -220,10 +225,10 @@ export default function TribeLogViewer() {
                             {/* Day Header */}
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="px-3 py-1 bg-violet-500/20 text-violet-300 rounded-lg text-sm font-bold border border-violet-500/20">
-                                    Day {day}
+                                    {t('tribeLog.day', { defaultValue: 'Day {{day}}', day })}
                                 </div>
                                 <div className="flex-1 h-px bg-slate-800"></div>
-                                <span className="text-xs text-slate-500">{groupedByDay[day].length} events</span>
+                                <span className="text-xs text-slate-500">{t('tribeLog.eventCount', { defaultValue: '{{count}} events', count: groupedByDay[day].length })}</span>
                             </div>
 
                             {/* Events */}
@@ -257,7 +262,7 @@ export default function TribeLogViewer() {
                                                             entry.event_type === 'member_killed' ? 'bg-red-500/20 text-red-300' :
                                                             entry.event_type === 'tamed' ? 'bg-pink-500/20 text-pink-300' :
                                                             'bg-slate-800 text-slate-400'
-                                                        )}>{cfg.label}</span>
+                                                        )}>{eventLabel(entry.event_type)}</span>
                                                         {entry.timestamp && (
                                                             <span className="text-xs text-slate-500 font-mono">{entry.timestamp}</span>
                                                         )}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { readDirectory, readFileContent } from '../utils/tauri';
 import HelpDocumentation from '../components/help/HelpDocumentation';
 import { 
@@ -71,25 +72,28 @@ function formatDocTitle(filename: string): string {
         .trim();
 }
 
-// Categorizer for sidebar grouping
+// Categorizer for sidebar grouping (returns an i18n key under `wiki.*`)
 function getDocCategory(filename: string): { name: string; icon: any } {
     const base = filename.replace(/\.md$/i, '');
     if (['Dashboard', 'ServerManager', 'Servers', 'ConfigEditor', 'AdvancedConfig', 'InGameAdmin'].includes(base)) {
-        return { name: 'Core Services', icon: Layers };
+        return { name: 'coreServices', icon: Layers };
     }
     if (['AIAssistant', 'Scheduler', 'BackupManager', 'Backups', 'PluginManager', 'Plugins'].includes(base)) {
-        return { name: 'Automation & AI', icon: Bot };
+        return { name: 'automationAi', icon: Bot };
     }
     if (['ModManager', 'Mods', 'FileManager'].includes(base)) {
-        return { name: 'Mods & Files', icon: Boxes };
+        return { name: 'modsFiles', icon: Boxes };
     }
     if (['LogsConsole', 'Logs', 'RconConsole', 'Hardware', 'HardwareAllocation', 'TribeLogViewer'].includes(base)) {
-        return { name: 'Monitoring & Logs', icon: Terminal };
+        return { name: 'monitoringLogs', icon: Terminal };
     }
-    return { name: 'Integrations & Tools', icon: Cpu };
+    return { name: 'integrationsTools', icon: Cpu };
 }
 
 export default function Wiki() {
+    const { t } = useTranslation();
+    const categoryLabel = (cat: string) => t(`wiki.${cat}`);
+    const docTitle = (file: DocFile) => t(`wiki.docTitles.${file.name.replace(/\.md$/i, '')}`, file.title);
     const [files, setFiles] = useState<DocFile[]>([]);
     const [selectedFile, setSelectedFile] = useState<DocFile | null>(null);
     const [content, setContent] = useState<string>('');
@@ -143,7 +147,7 @@ export default function Wiki() {
             }
         } catch (err) {
             console.error('Failed to read file content:', err);
-            setContent('# Error\nFailed to load documentation content.');
+            setContent(`# ${t('wiki.errorTitle', 'Error')}\n${t('wiki.loadContentFailed', 'Failed to load documentation content.')}`);
         }
     };
 
@@ -152,13 +156,15 @@ export default function Wiki() {
         return files.filter(f => {
             const matchesSearch = searchQuery.trim() === '' ||
                 f.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                docTitle(f).toLowerCase().includes(searchQuery.toLowerCase()) ||
+                categoryLabel(f.category).toLowerCase().includes(searchQuery.toLowerCase()) ||
                 f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 f.category.toLowerCase().includes(searchQuery.toLowerCase());
             
             const matchesCategory = selectedCategory === null || f.category === selectedCategory;
             return matchesSearch && matchesCategory;
         });
-    }, [files, searchQuery, selectedCategory]);
+    }, [files, searchQuery, selectedCategory, t]);
 
     // Group files by category for sidebar
     const categorizedFiles = useMemo(() => {
@@ -187,12 +193,12 @@ export default function Wiki() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
-                            Knowledge Base
+                            {t('wiki.title', 'Knowledge Base')}
                             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                                {files.length} Guides
+                                {files.length} {t('wiki.guides', 'Guides')}
                             </span>
                         </h1>
-                        <p className="text-xs text-slate-400 mt-0.5">Comprehensive technical guides and operational reference for ARK Server Manager.</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{t('wiki.subtitle', 'Comprehensive technical guides and operational reference for ARK Server Manager.')}</p>
                     </div>
                 </div>
 
@@ -201,10 +207,10 @@ export default function Wiki() {
                     <button
                         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                         className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-black/40 hover:bg-white/[0.06] border border-white/[0.08] text-xs font-semibold text-slate-300 hover:text-white transition-all cursor-pointer shadow-sm"
-                        title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+                        title={isSidebarOpen ? t('wiki.collapseSidebar', 'Collapse sidebar') : t('wiki.expandSidebar', 'Expand sidebar')}
                     >
                         {isSidebarOpen ? <PanelLeftClose className="w-4 h-4 text-sky-400" /> : <PanelLeftOpen className="w-4 h-4 text-sky-400" />}
-                        <span className="hidden sm:inline">{isSidebarOpen ? "Hide Index" : "Show Index"}</span>
+                        <span className="hidden sm:inline">{isSidebarOpen ? t('wiki.hideIndex', 'Hide Index') : t('wiki.showIndex', 'Show Index')}</span>
                     </button>
                 </div>
             </div>
@@ -222,7 +228,7 @@ export default function Wiki() {
                             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-sky-400 transition-colors" />
                             <input
                                 type="text"
-                                placeholder="Search all guides..."
+                                placeholder={t('wiki.searchPlaceholder', 'Search all guides...')}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full bg-slate-900/80 border border-white/[0.08] rounded-xl py-2.5 pl-10 pr-9 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/40 focus:bg-black/40 transition-all shadow-inner"
@@ -230,6 +236,8 @@ export default function Wiki() {
                             {searchQuery && (
                                 <button 
                                     onClick={() => setSearchQuery('')}
+                                    title={t('wiki.clearSearch', 'Clear search')}
+                                    aria-label={t('wiki.clearSearch', 'Clear search')}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors cursor-pointer"
                                 >
                                     <X className="w-3.5 h-3.5" />
@@ -248,7 +256,7 @@ export default function Wiki() {
                                         : "bg-white/[0.03] text-slate-400 hover:text-slate-200 border border-white/[0.05]"
                                 )}
                             >
-                                All ({files.length})
+                                {t('wiki.all', 'All')} ({files.length})
                             </button>
                             {categories.map(cat => (
                                 <button
@@ -261,7 +269,7 @@ export default function Wiki() {
                                             : "bg-white/[0.03] text-slate-400 hover:text-slate-200 border border-white/[0.05]"
                                     )}
                                 >
-                                    {cat.split(' ')[0]}
+                                    {categoryLabel(cat).split(' ')[0]}
                                 </button>
                             ))}
                         </div>
@@ -279,7 +287,7 @@ export default function Wiki() {
                             Object.entries(categorizedFiles).map(([catName, catFiles]) => (
                                 <div key={catName} className="space-y-1">
                                     <div className="px-3 py-1 flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                        <span>{catName}</span>
+                                        <span>{categoryLabel(catName)}</span>
                                         <span className="text-slate-600">{catFiles.length}</span>
                                     </div>
 
@@ -302,7 +310,7 @@ export default function Wiki() {
                                                             "w-3.5 h-3.5 flex-shrink-0 transition-colors",
                                                             isSelected ? "text-sky-400" : "text-slate-500 group-hover:text-slate-300"
                                                         )} />
-                                                        <span className="text-xs font-medium truncate">{file.title}</span>
+                                                        <span className="text-xs font-medium truncate">{docTitle(file)}</span>
                                                     </div>
                                                     {isSelected && (
                                                         <ChevronRight className="w-3.5 h-3.5 text-sky-400 flex-shrink-0 ml-2" />
@@ -316,8 +324,8 @@ export default function Wiki() {
                         ) : (
                             <div className="p-8 text-center">
                                 <Folder className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-                                <p className="text-xs text-slate-400 font-medium">No matching guides found</p>
-                                <p className="text-[11px] text-slate-600 mt-1">Try resetting your search query or filters.</p>
+                                <p className="text-xs text-slate-400 font-medium">{t('wiki.noGuides', 'No matching guides found')}</p>
+                                <p className="text-[11px] text-slate-600 mt-1">{t('wiki.noGuidesDesc', 'Try resetting your search query or filters.')}</p>
                             </div>
                         )}
                     </div>
@@ -328,8 +336,8 @@ export default function Wiki() {
                     {selectedFile ? (
                         <HelpDocumentation 
                             content={content} 
-                            title={selectedFile.title}
-                            category={selectedFile.category}
+                            title={docTitle(selectedFile)}
+                            category={categoryLabel(selectedFile.category)}
                             className="h-full"
                         />
                     ) : (
@@ -337,8 +345,8 @@ export default function Wiki() {
                             <div className="p-5 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 mb-4 shadow-xl">
                                 <Sparkles className="w-10 h-10" />
                             </div>
-                            <h3 className="text-lg font-bold text-white">Select a Guide to Begin</h3>
-                            <p className="text-xs text-slate-400 mt-1.5 max-w-md">Choose a topic from the sidebar index to view detailed operational guides, setup procedures, and troubleshooting steps.</p>
+                            <h3 className="text-lg font-bold text-white">{t('wiki.selectGuide', 'Select a Guide to Begin')}</h3>
+                            <p className="text-xs text-slate-400 mt-1.5 max-w-md">{t('wiki.selectGuideDesc', 'Choose a topic from the sidebar index to view detailed operational guides, setup procedures, and troubleshooting steps.')}</p>
                         </div>
                     )}
                 </div>

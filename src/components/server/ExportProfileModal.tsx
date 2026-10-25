@@ -94,7 +94,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
             setJsonPreview(json);
             return json;
         } catch (err) {
-            toast.error(`Failed to generate profile export: ${err}`);
+            toast.error(t('exportProfile.generateFailed', { defaultValue: 'Failed to generate profile export: {{error}}', error: String(err) }));
             return '';
         } finally {
             setIsGenerating(false);
@@ -154,7 +154,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                 onClose();
             }
         } catch (err) {
-            toast.error(`Failed to save export file: ${err}`);
+            toast.error(t('exportProfile.saveFailed', { defaultValue: 'Failed to save export file: {{error}}', error: String(err) }));
         } finally {
             setIsSaving(false);
         }
@@ -178,7 +178,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                 { icon: '📋' }
             );
         } catch (err) {
-            toast.error(`Clipboard copy failed: ${err}`);
+            toast.error(t('exportProfile.copyFailed', { defaultValue: 'Clipboard copy failed: {{error}}', error: String(err) }));
         }
     };
 
@@ -250,7 +250,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                             <button
                                 onClick={onClose}
                                 className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/60 transition-all ml-1 cursor-pointer"
-                                title="Close"
+                                title={t('common.close', 'Close')}
                             >
                                 <X className="w-4 h-4" />
                             </button>
@@ -296,9 +296,9 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                             onChange={e => setFilterType(e.target.value as any)}
                                             className="px-2.5 py-1.5 bg-slate-900/80 border border-slate-700 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-violet-500 cursor-pointer"
                                         >
-                                            <option value="ALL">All Types</option>
-                                            <option value="ASA">ASA Only</option>
-                                            <option value="ASE">ASE Only</option>
+                                            <option value="ALL">{t('exportProfile.filter.all', 'All Types')}</option>
+                                            <option value="ASA">{t('exportProfile.filter.asa', 'ASA Only')}</option>
+                                            <option value="ASE">{t('exportProfile.filter.ase', 'ASE Only')}</option>
                                         </select>
                                     </div>
                                 </div>
@@ -311,13 +311,13 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                             {t('exportProfile.selectServersTitle', '1. Select Profiles to Include')}
                                         </h3>
                                         <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                                            {selectedCount} of {servers.length} Selected
+                                            {t('exportProfile.selectedCount', { defaultValue: '{{selected}} of {{total}} Selected', selected: selectedCount, total: servers.length })}
                                         </span>
                                     </div>
 
                                     {filteredServers.length === 0 ? (
                                         <div className="text-center py-8 bg-slate-800/20 border border-slate-800 rounded-xl">
-                                            <p className="text-xs text-slate-400">No servers match your search filter.</p>
+                                            <p className="text-xs text-slate-400">{t('exportProfile.noMatch', 'No servers match your search filter.')}</p>
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-56 overflow-y-auto pr-1">
@@ -359,9 +359,9 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                                                     </span>
                                                                 </div>
                                                                 <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                                                                    <span>Map: {server.config?.mapName || 'TheIsland'}</span>
+                                                                    <span>{t('exportProfile.mapLabel', 'Map')}: {server.config?.mapName || 'TheIsland'}</span>
                                                                     <span>•</span>
-                                                                    <span>Port: {server.ports?.gamePort || 7777}</span>
+                                                                    <span>{t('common.port', 'Port')}: {server.ports?.gamePort || 7777}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -392,7 +392,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2 text-violet-400">
                                                     <Settings className="w-4 h-4" />
-                                                    <span className="text-xs font-bold text-white">Game Config & Rates</span>
+                                                    <span className="text-xs font-bold text-white">{t('exportProfile.modules.config', 'Game Config & Rates')}</span>
                                                 </div>
                                                 <div
                                                     className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
@@ -405,7 +405,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                                 </div>
                                             </div>
                                             <p className="text-[11px] text-slate-400 leading-normal">
-                                                Map, max players, multipliers, custom args, and gameplay flags.
+                                                {t('exportProfile.modules.configDesc', 'Map, max players, multipliers, custom args, and gameplay flags.')}
                                             </p>
                                         </div>
 
@@ -421,7 +421,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2 text-sky-400">
                                                     <Radio className="w-4 h-4" />
-                                                    <span className="text-xs font-bold text-white">Network & Ports</span>
+                                                    <span className="text-xs font-bold text-white">{t('exportProfile.modules.ports', 'Network & Ports')}</span>
                                                 </div>
                                                 <div
                                                     className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
@@ -434,7 +434,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                                 </div>
                                             </div>
                                             <p className="text-[11px] text-slate-400 leading-normal">
-                                                Game Port, Query Port, RCON Port, and Peer Port bindings.
+                                                {t('exportProfile.modules.portsDesc', 'Game Port, Query Port, RCON Port, and Peer Port bindings.')}
                                             </p>
                                         </div>
 
@@ -450,7 +450,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2 text-emerald-400">
                                                     <Puzzle className="w-4 h-4" />
-                                                    <span className="text-xs font-bold text-white">Installed Mods List</span>
+                                                    <span className="text-xs font-bold text-white">{t('exportProfile.modules.mods', 'Installed Mods List')}</span>
                                                 </div>
                                                 <div
                                                     className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
@@ -463,7 +463,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                                 </div>
                                             </div>
                                             <p className="text-[11px] text-slate-400 leading-normal">
-                                                Installed CurseForge mod IDs, names, and active mod order.
+                                                {t('exportProfile.modules.modsDesc', 'Installed CurseForge mod IDs, names, and active mod order.')}
                                             </p>
                                         </div>
 
@@ -479,7 +479,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2 text-amber-400">
                                                     <Cpu className="w-4 h-4" />
-                                                    <span className="text-xs font-bold text-white">Automation & Rules</span>
+                                                    <span className="text-xs font-bold text-white">{t('exportProfile.modules.automation', 'Automation & Rules')}</span>
                                                 </div>
                                                 <div
                                                     className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
@@ -492,7 +492,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                                 </div>
                                             </div>
                                             <p className="text-[11px] text-slate-400 leading-normal">
-                                                Auto-start, auto-stop, intelligent mode, delays, priorities.
+                                                {t('exportProfile.modules.automationDesc', 'Auto-start, auto-stop, intelligent mode, delays, priorities.')}
                                             </p>
                                         </div>
 
@@ -508,7 +508,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2 text-indigo-400">
                                                     <Layers className="w-4 h-4" />
-                                                    <span className="text-xs font-bold text-white">Cluster Settings</span>
+                                                    <span className="text-xs font-bold text-white">{t('exportProfile.modules.cluster', 'Cluster Settings')}</span>
                                                 </div>
                                                 <div
                                                     className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
@@ -521,7 +521,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                                 </div>
                                             </div>
                                             <p className="text-[11px] text-slate-400 leading-normal">
-                                                Cluster ID, paths, item/dino/survivor transfer restrictions.
+                                                {t('exportProfile.modules.clusterDesc', 'Cluster ID, paths, item/dino/survivor transfer restrictions.')}
                                             </p>
                                         </div>
 
@@ -537,7 +537,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2 text-amber-400">
                                                     <ShieldAlert className="w-4 h-4" />
-                                                    <span className="text-xs font-bold text-white">Include Passwords</span>
+                                                    <span className="text-xs font-bold text-white">{t('exportProfile.modules.passwords', 'Include Passwords')}</span>
                                                 </div>
                                                 <div
                                                     className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
@@ -552,10 +552,10 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                             <p className="text-[11px] text-slate-400 leading-normal">
                                                 {options.includePasswords ? (
                                                     <span className="text-amber-400 font-semibold">
-                                                        ⚠️ Passwords WILL be included in cleartext JSON.
+                                                        ⚠️ {t('exportProfile.modules.passwordsWarn', 'Passwords WILL be included in cleartext JSON.')}
                                                     </span>
                                                 ) : (
-                                                    <span>Admin & Server Passwords masked for safe sharing.</span>
+                                                    <span>{t('exportProfile.modules.passwordsDesc', 'Admin & Server Passwords masked for safe sharing.')}</span>
                                                 )}
                                             </p>
                                         </div>
@@ -568,15 +568,15 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                 <div className="flex items-center justify-between bg-slate-800/50 px-4 py-2.5 rounded-xl border border-slate-700/60">
                                     <div className="flex items-center gap-3">
                                         <FileJson className="w-4 h-4 text-violet-400" />
-                                        <span className="text-xs font-bold text-white">Export Bundle Preview</span>
+                                        <span className="text-xs font-bold text-white">{t('exportProfile.previewTitle', 'Export Bundle Preview')}</span>
                                     </div>
 
                                     <div className="flex items-center gap-3 text-xs">
                                         <span className="text-slate-400">
-                                            Profiles: <strong className="text-white">{selectedCount}</strong>
+                                            {t('exportProfile.profilesLabel', 'Profiles')}: <strong className="text-white">{selectedCount}</strong>
                                         </span>
                                         <span className="text-slate-400">
-                                            Est. Size: <strong className="text-white">{estimatedKb} KB</strong>
+                                            {t('exportProfile.estSize', 'Est. Size')}: <strong className="text-white">{estimatedKb} KB</strong>
                                         </span>
                                         <button
                                             onClick={() => generateExportJson()}
@@ -584,7 +584,7 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                             className="flex items-center gap-1 text-violet-400 hover:text-violet-300 text-xs font-semibold cursor-pointer"
                                         >
                                             <RefreshCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
-                                            Refresh
+                                            {t('common.refresh', 'Refresh')}
                                         </button>
                                     </div>
                                 </div>
@@ -593,13 +593,13 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                                     {isGenerating ? (
                                         <div className="flex items-center justify-center py-12 text-slate-400 gap-2">
                                             <RefreshCw className="w-4 h-4 animate-spin text-violet-400" />
-                                            <span>Building Profile JSON Bundle...</span>
+                                            <span>{t('exportProfile.building', 'Building Profile JSON Bundle...')}</span>
                                         </div>
                                     ) : jsonPreview ? (
                                         <pre className="whitespace-pre-wrap">{jsonPreview}</pre>
                                     ) : (
                                         <div className="text-center py-12 text-slate-500">
-                                            No server selected for JSON preview.
+                                            {t('exportProfile.noPreview', 'No server selected for JSON preview.')}
                                         </div>
                                     )}
                                 </div>
@@ -612,10 +612,10 @@ export const ExportProfileModal: React.FC<ExportProfileModalProps> = ({
                         <div className="text-xs text-slate-400">
                             {selectedCount > 0 ? (
                                 <span>
-                                    Ready to export <strong className="text-white">{selectedCount}</strong> profile(s).
+                                    {t('exportProfile.readyToExport', { defaultValue: 'Ready to export {{count}} profile(s).', count: selectedCount })}
                                 </span>
                             ) : (
-                                <span className="text-amber-400">No profiles selected.</span>
+                                <span className="text-amber-400">{t('exportProfile.noProfilesSelected', 'No profiles selected.')}</span>
                             )}
                         </div>
 

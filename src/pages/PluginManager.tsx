@@ -431,7 +431,7 @@ export default function PluginManager() {
                                             ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20"
                                             : "bg-slate-800 text-slate-400 border-slate-700"
                                     )}>
-                                        {selectedServer.status || 'stopped'}
+                                        {t(`logs.serverStatus.${selectedServer.status || 'stopped'}`, { defaultValue: selectedServer.status || 'stopped' })}
                                     </span>
                                 )}
                             </div>

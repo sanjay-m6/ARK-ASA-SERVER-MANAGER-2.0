@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { MODDED_MAP_PRESETS, buildLaunchArgs } from '../../data/moddedMapRegistry';
 import LaunchArgsEditor from '../../components/ui/LaunchArgsEditor';
 
@@ -58,6 +59,7 @@ const ASE_COMMON_FLAGS: FlagDefinition[] = [
 ];
 
 export default function ASEAdvancedPage() {
+    const { t } = useTranslation();
     const location = useLocation();
     const { servers, refreshServers, activeServer } = useAseServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(() => activeServer?.id || null);
@@ -118,10 +120,10 @@ export default function ASEAdvancedPage() {
             await refreshServers();
             setOriginalArgs(customArgs);
             loadedServerIdRef.current = selectedServerId;
-            toast.success('ASE Boot Launch Parameters saved');
+            toast.success(t('ase.advanced.saved', 'ASE Boot Launch Parameters saved'));
         } catch (err) {
             console.error(err);
-            toast.error('Failed to save ASE settings');
+            toast.error(t('ase.advanced.saveFailed', 'Failed to save ASE settings'));
         } finally {
             setIsLoading(false);
         }
@@ -129,7 +131,7 @@ export default function ASEAdvancedPage() {
 
     const handleExecute = async () => {
         if (!selectedServerId) {
-            toast.error('No ASE server selected');
+            toast.error(t('ase.advanced.noServer', 'No ASE server selected'));
             return;
         }
         setIsExecuting(true);
@@ -146,18 +148,18 @@ export default function ASEAdvancedPage() {
             const isRunning = currentSrv?.status === 'running' || currentSrv?.status === 'online' || currentSrv?.status === 'starting';
 
             if (isRunning) {
-                toast.loading('Restarting ASE server with updated parameters...', { id: 'execute-ase-toast' });
+                toast.loading(t('ase.advanced.restarting', 'Restarting ASE server with updated parameters...'), { id: 'execute-ase-toast' });
                 await restartAseServer(selectedServerId);
-                toast.success('ASE Server restart initiated with parameters!', { id: 'execute-ase-toast' });
+                toast.success(t('ase.advanced.restartInitiated', 'ASE Server restart initiated with parameters!'), { id: 'execute-ase-toast' });
             } else {
-                toast.loading('Launching ASE server with boot parameters...', { id: 'execute-ase-toast' });
+                toast.loading(t('ase.advanced.launching', 'Launching ASE server with boot parameters...'), { id: 'execute-ase-toast' });
                 await startAseServer(selectedServerId);
-                toast.success('ASE Server executed successfully with parameters!', { id: 'execute-ase-toast' });
+                toast.success(t('ase.advanced.executed', 'ASE Server executed successfully with parameters!'), { id: 'execute-ase-toast' });
             }
             await refreshServers();
         } catch (err) {
             console.error('Failed to execute ASE server:', err);
-            toast.error(`Execution failed: ${err}`, { id: 'execute-ase-toast' });
+            toast.error(t('ase.advanced.executionFailed', { defaultValue: 'Execution failed: {{error}}', error: String(err) }), { id: 'execute-ase-toast' });
         } finally {
             setIsExecuting(false);
         }
@@ -167,10 +169,10 @@ export default function ASEAdvancedPage() {
         setIsOptimizing(true);
         try {
             await optimizeMemory();
-            toast.success('System memory optimized successfully');
+            toast.success(t('ase.advanced.memOptimized', 'System memory optimized successfully'));
         } catch (err) {
             console.error(err);
-            toast.error('Failed to optimize memory');
+            toast.error(t('ase.advanced.memOptimizeFailed', 'Failed to optimize memory'));
         } finally {
             setIsOptimizing(false);
         }
@@ -180,10 +182,10 @@ export default function ASEAdvancedPage() {
         try {
             await setProcessPriority(high);
             setHighPriority(high);
-            toast.success(`Process priority set to ${high ? 'High' : 'Normal'}`);
+            toast.success(high ? t('ase.advanced.priorityHighSet', 'Process priority set to High') : t('ase.advanced.priorityNormalSet', 'Process priority set to Normal'));
         } catch (err) {
             console.error(err);
-            toast.error('Failed to change process priority');
+            toast.error(t('ase.advanced.priorityFailed', 'Failed to change process priority'));
         }
     };
 
@@ -232,7 +234,7 @@ export default function ASEAdvancedPage() {
             }
         });
         setCustomArgs(current);
-        toast.success(`Applied ${name} profile`);
+        toast.success(t('advanced.appliedPreset', { defaultValue: 'Applied {{name}} profile', name }));
     };
 
     const currentServer = useMemo(() => {
@@ -274,15 +276,15 @@ export default function ASEAdvancedPage() {
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h1 className="text-xl font-bold text-white tracking-tight">ASE Boot Launch Parameters</h1>
+                            <h1 className="text-xl font-bold text-white tracking-tight">{t('ase.advanced.title', 'ASE Boot Launch Parameters')}</h1>
                             {isDirty && (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full animate-pulse">
-                                    Unsaved Changes
+                                    {t('advanced.unsavedChanges', 'Unsaved Changes')}
                                 </span>
                             )}
                         </div>
                         <p className="text-xs text-slate-400 mt-0.5">
-                            Manage command-line switches, performance flags, and process priority for ShooterGameServer.exe
+                            {t('ase.advanced.subtitle', 'Manage command-line switches, performance flags, and process priority for ShooterGameServer.exe')}
                         </p>
                     </div>
                 </div>
@@ -298,7 +300,7 @@ export default function ASEAdvancedPage() {
                             className="bg-transparent text-sm text-white font-medium outline-none cursor-pointer pr-2"
                         >
                             {servers.length === 0 ? (
-                                <option value="">No ASE servers available</option>
+                                <option value="">{t('ase.advanced.noServers', 'No ASE servers available')}</option>
                             ) : (
                                 servers.map(s => (
                                     <option key={s.id} value={s.id} className="bg-slate-900 text-white">
@@ -314,10 +316,10 @@ export default function ASEAdvancedPage() {
                         <button
                             onClick={() => setCustomArgs(originalArgs)}
                             className="px-3 py-2 bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 rounded-xl text-xs font-semibold transition-all border border-slate-700/60 flex items-center gap-1.5"
-                            title="Discard unsaved changes"
+                            title={t('advanced.discardTitle', 'Discard unsaved changes')}
                         >
                             <RotateCcw className="w-3.5 h-3.5" />
-                            Discard
+                            {t('advanced.discard', 'Discard')}
                         </button>
                     )}
 
@@ -332,7 +334,7 @@ export default function ASEAdvancedPage() {
                         } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        <span>{isLoading ? 'Saving...' : 'Save Parameters'}</span>
+                        <span>{isLoading ? t('advanced.saving', 'Saving...') : t('advanced.saveParameters', 'Save Parameters')}</span>
                     </button>
 
                     {/* Execute Button */}
@@ -340,10 +342,10 @@ export default function ASEAdvancedPage() {
                         onClick={handleExecute}
                         disabled={isExecuting || !selectedServerId}
                         className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-lg shadow-amber-950/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        title="Execute ASE server directly with configured boot parameters"
+                        title={t('ase.advanced.executeTitle', 'Execute ASE server directly with configured boot parameters')}
                     >
                         {isExecuting ? <Loader2 className="w-4 h-4 animate-spin text-slate-950" /> : <Play className="w-4 h-4 fill-slate-950 text-slate-950" />}
-                        <span>{isExecuting ? 'Executing...' : 'Execute Server'}</span>
+                        <span>{isExecuting ? t('advanced.executing', 'Executing...') : t('advanced.executeServer', 'Execute Server')}</span>
                     </button>
                 </div>
             </div>
@@ -358,16 +360,16 @@ export default function ASEAdvancedPage() {
                         </div>
                         <div>
                             <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                                ASE ShooterGame Boot Command Matrix
+                                {t('ase.advanced.matrixTitle', 'ASE ShooterGame Boot Command Matrix')}
                             </h3>
                             <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                                Parameters added here are directly appended to <code className="text-amber-400 font-mono bg-slate-950/80 px-1.5 py-0.5 rounded border border-amber-500/20">ShooterGameServer.exe</code> execution string on boot up.
+                                {t('ase.advanced.matrixDesc1', 'Parameters added here are directly appended to')} <code className="text-amber-400 font-mono bg-slate-950/80 px-1.5 py-0.5 rounded border border-amber-500/20">ShooterGameServer.exe</code> {t('ase.advanced.matrixDesc2', 'execution string on boot up.')}
                             </p>
                         </div>
                     </div>
                     {activeFlagCount > 0 && (
                         <div className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-right flex-shrink-0">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block">Active Switches</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block">{t('advanced.activeSwitches', 'Active Switches')}</span>
                             <span className="text-sm font-mono font-black text-white">{activeFlagCount} Flags</span>
                         </div>
                     )}
@@ -378,7 +380,7 @@ export default function ASEAdvancedPage() {
                     <div className="flex items-center justify-between">
                         <h2 className="text-sm font-bold text-white flex items-center gap-2">
                             <Terminal className="w-4 h-4 text-amber-400" />
-                            Raw Custom Arguments & Executable Inspector
+                            {t('ase.advanced.rawInspector', 'Raw Custom Arguments & Executable Inspector')}
                         </h2>
                         {customArgs.trim() && (
                             <button
@@ -392,7 +394,7 @@ export default function ASEAdvancedPage() {
 
                     {/* Tag & Text Launch Args Editor */}
                     <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-slate-300">Custom Command Line Arguments</label>
+                        <label className="text-xs font-semibold text-slate-300">{t('ase.advanced.customArgs', 'Custom Command Line Arguments')}</label>
                         <LaunchArgsEditor
                             value={customArgs}
                             onChange={setCustomArgs}
@@ -406,9 +408,9 @@ export default function ASEAdvancedPage() {
                         <div className="flex items-start gap-2.5 p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl">
                             <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
                             <div className="text-xs">
-                                <p className="font-bold text-amber-300">Conditional -mods= configuration detected</p>
+                                <p className="font-bold text-amber-300">{t('ase.advanced.modsDetected', 'Conditional -mods= configuration detected')}</p>
                                 <p className="text-amber-400/80 mt-0.5">
-                                    If active mods are enabled in the Mod Manager, any manual <code className="font-mono bg-amber-500/20 px-1 rounded">-mods=</code> here will be automatically formatted at boot time.
+                                    {t('ase.advanced.modsWarn1', 'If active mods are enabled in the Mod Manager, any manual')} <code className="font-mono bg-amber-500/20 px-1 rounded">-mods=</code> {t('ase.advanced.modsWarn2', 'here will be automatically formatted at boot time.')}
                                 </p>
                             </div>
                         </div>
@@ -421,7 +423,7 @@ export default function ASEAdvancedPage() {
                                 <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                                 <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
                                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                                <span className="text-xs font-mono text-slate-400 ml-2">ShooterGameServer.exe Command Line</span>
+                                <span className="text-xs font-mono text-slate-400 ml-2">{t('ase.advanced.cmdLine', 'ShooterGameServer.exe Command Line')}</span>
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
                                 <button
@@ -434,12 +436,12 @@ export default function ASEAdvancedPage() {
                                     ) : (
                                         <Play className="w-3.5 h-3.5 fill-slate-950 text-slate-950" />
                                     )}
-                                    Execute Server
+                                    {t('advanced.executeServer', 'Execute Server')}
                                 </button>
                                 <button
                                     onClick={() => {
                                         navigator.clipboard.writeText(assembledCommandLine);
-                                        toast.success('Full command line copied to clipboard');
+                                        toast.success(t('ase.advanced.cmdCopied', 'Full command line copied to clipboard'));
                                     }}
                                     className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
                                 >
@@ -452,7 +454,7 @@ export default function ASEAdvancedPage() {
                                         const win64Path = `${pathStr.replace(/\\/g, '/')}/ShooterGame/Binaries/Win64`;
                                         const batContent = `@echo off\r\n:: Auto-generated launch script by ARK Server Manager\r\ntitle ASE Server - ${server?.name || 'Server'}\r\ncd /d "${win64Path}"\r\n"ShooterGameServer.exe" ${assembledCommandLine}\r\npause\r\n`;
                                         navigator.clipboard.writeText(batContent);
-                                        toast.success('Copied start_server.bat script to clipboard!');
+                                        toast.success(t('ase.advanced.batCopied', 'Copied start_server.bat script to clipboard!'));
                                     }}
                                     className="px-2.5 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
                                 >
@@ -471,9 +473,9 @@ export default function ASEAdvancedPage() {
                     <div className="flex items-center justify-between">
                         <h2 className="text-sm font-bold text-white flex items-center gap-2">
                             <Sparkles className="w-4 h-4 text-amber-400" />
-                            Optimized Server Profile Presets
+                            {t('ase.advanced.presetsTitle', 'Optimized Server Profile Presets')}
                         </h2>
-                        <span className="text-xs text-slate-400">Click to append pre-tuned flag combinations</span>
+                        <span className="text-xs text-slate-400">{t('ase.advanced.presetsSubtitle', 'Click to append pre-tuned flag combinations')}</span>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -484,7 +486,7 @@ export default function ASEAdvancedPage() {
                         >
                             <Zap className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                             <div>
-                                <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">⚡ Classic RAM & Thread Optimization</h4>
+                                <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">{t('ase.advanced.presetRam', '⚡ Classic RAM & Thread Optimization')}</h4>
                                 <p className="text-[11px] text-slate-400 mt-0.5">-usecache -nomansky -lowmemory -structurememopts</p>
                             </div>
                         </button>
@@ -496,8 +498,8 @@ export default function ASEAdvancedPage() {
                         >
                             <Shield className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                             <div>
-                                <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">🛡️ Hardened Security & Anti-Dupe</h4>
-                                <p className="text-[11px] text-slate-400 mt-0.5">Strict spawn validation & dupe prevention flags</p>
+                                <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">{t('ase.advanced.presetSecurity', '🛡️ Hardened Security & Anti-Dupe')}</h4>
+                                <p className="text-[11px] text-slate-400 mt-0.5">{t('advanced.presetHardenedSecurityDesc', 'Strict spawn validation & dupe prevention flags')}</p>
                             </div>
                         </button>
 
@@ -508,8 +510,8 @@ export default function ASEAdvancedPage() {
                         >
                             <Globe className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                             <div>
-                                <h4 className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">🦅 Cave Flyer Unlocked</h4>
-                                <p className="text-[11px] text-slate-400 mt-0.5">Force allow mounting & flying in cave volumes</p>
+                                <h4 className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">{t('ase.advanced.presetCave', '🦅 Cave Flyer Unlocked')}</h4>
+                                <p className="text-[11px] text-slate-400 mt-0.5">{t('advanced.presetCaveFlyerDesc', 'Force allow mounting & flying in cave volumes')}</p>
                             </div>
                         </button>
                     </div>
@@ -518,7 +520,7 @@ export default function ASEAdvancedPage() {
                     <div className="pt-2 border-t border-slate-800/60">
                         <div className="text-xs font-semibold text-slate-400 mb-2.5 flex items-center gap-1.5">
                             <Flame className="w-3.5 h-3.5 text-amber-400" />
-                            Modded Map Launch Presets
+                            {t('advanced.moddedMapsPresets', 'Modded Map Launch Presets')}
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             {MODDED_MAP_PRESETS.filter(p => p.serverType === 'ASE').map(preset => {
@@ -529,12 +531,12 @@ export default function ASEAdvancedPage() {
                                         onClick={() => {
                                             if (!preset.mapModId) return;
                                             if (hasPreset) {
-                                                toast('Map preset already applied', { icon: '✓' });
+                                                toast(t('ase.advanced.mapPresetAlready', 'Map preset already applied'), { icon: '✓' });
                                                 return;
                                             }
                                             const newArgs = buildLaunchArgs(preset, customArgs);
                                             setCustomArgs(newArgs);
-                                            toast.success(`${preset.name} launch arguments applied`);
+                                            toast.success(t('ase.advanced.mapPresetApplied', { defaultValue: '{{name}} launch arguments applied', name: preset.name }));
                                         }}
                                         className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all text-xs ${
                                             hasPreset 
@@ -548,9 +550,9 @@ export default function ASEAdvancedPage() {
                                             {preset.author && <span className="text-[10px] text-slate-500 font-normal">({preset.author})</span>}
                                         </div>
                                         {hasPreset ? (
-                                            <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full font-bold">Active</span>
+                                            <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full font-bold">{t('advanced.active', 'Active')}</span>
                                         ) : (
-                                            <span className="text-[10px] text-amber-400 font-mono">+ Apply</span>
+                                            <span className="text-[10px] text-amber-400 font-mono">{t('advanced.apply', '+ Apply')}</span>
                                         )}
                                     </button>
                                 );
@@ -565,10 +567,10 @@ export default function ASEAdvancedPage() {
                         <div>
                             <h2 className="text-sm font-bold text-white flex items-center gap-2">
                                 <Settings2 className="w-4 h-4 text-amber-400" />
-                                Visual Parameter Switcher
+                                {t('ase.advanced.switcherTitle', 'Visual Parameter Switcher')}
                             </h2>
                             <p className="text-xs text-slate-400 mt-0.5">
-                                Toggle standard shooter game server switches directly into your boot configuration
+                                {t('ase.advanced.switcherSubtitle', 'Toggle standard shooter game server switches directly into your boot configuration')}
                             </p>
                         </div>
 
@@ -578,7 +580,7 @@ export default function ASEAdvancedPage() {
                                 <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                                 <input
                                     type="text"
-                                    placeholder="Filter parameters..."
+                                    placeholder={t('advanced.filterPlaceholder', 'Filter parameters...')}
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-amber-500 outline-none w-44"
@@ -596,7 +598,7 @@ export default function ASEAdvancedPage() {
                                                 : 'text-slate-400 hover:text-white'
                                         }`}
                                     >
-                                        {cat}
+                                        {t(`advanced.cat${cat.charAt(0).toUpperCase()}${cat.slice(1)}`, cat)}
                                     </button>
                                 ))}
                             </div>
@@ -636,14 +638,14 @@ export default function ASEAdvancedPage() {
                                                 <Check className="w-3 h-3 stroke-[3]" />
                                             </div>
                                         </div>
-                                        <h4 className="text-xs font-bold text-white mt-2">{f.label}</h4>
-                                        <p className="text-[11px] text-slate-400 mt-1 leading-snug">{f.desc}</p>
+                                        <h4 className="text-xs font-bold text-white mt-2">{t(`ase.advanced.flags.${f.flag.replace(/[^A-Za-z0-9]/g, '')}.label`, f.label)}</h4>
+                                        <p className="text-[11px] text-slate-400 mt-1 leading-snug">{t(`ase.advanced.flags.${f.flag.replace(/[^A-Za-z0-9]/g, '')}.desc`, f.desc)}</p>
                                     </div>
 
                                     <div className="flex items-center justify-between text-[10px] text-slate-500 pt-2 border-t border-slate-800/40 mt-1">
-                                        <span className="uppercase tracking-wider font-semibold">{f.category}</span>
+                                        <span className="uppercase tracking-wider font-semibold">{t(`advanced.cat${f.category.charAt(0).toUpperCase()}${f.category.slice(1)}`, f.category)}</span>
                                         <span className={`font-bold uppercase tracking-wider ${active ? 'text-amber-400' : 'text-slate-600'}`}>
-                                            {active ? 'Enabled' : 'Disabled'}
+                                            {active ? t('advanced.enabled', 'Enabled') : t('advanced.disabled', 'Disabled')}
                                         </span>
                                     </div>
                                 </button>
@@ -657,10 +659,10 @@ export default function ASEAdvancedPage() {
                     <div>
                         <h2 className="text-sm font-bold text-white flex items-center gap-2">
                             <Zap className="w-4 h-4 text-amber-400" />
-                            ASE Global Resource & Hardware Optimizer
+                            {t('ase.advanced.optimizerTitle', 'ASE Global Resource & Hardware Optimizer')}
                         </h2>
                         <p className="text-xs text-slate-400 mt-0.5">
-                            Real-time memory vacuuming, process scheduling priority, and eco-mode controls
+                            {t('advanced.optimizerSubtitle', 'Real-time memory vacuuming, process scheduling priority, and eco-mode controls')}
                         </p>
                     </div>
 
@@ -670,11 +672,11 @@ export default function ASEAdvancedPage() {
                             <div>
                                 <div className="flex items-center justify-between mb-1">
                                     <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                                        <Activity className="w-3.5 h-3.5 text-amber-400" /> Memory Vacuum
+                                        <Activity className="w-3.5 h-3.5 text-amber-400" /> {t('advanced.memoryVacuum', 'Memory Vacuum')}
                                     </h3>
                                 </div>
                                 <p className="text-[11px] text-slate-400">
-                                    Force garbage collection to trim unused background RAM allocation.
+                                    {t('advanced.memoryVacuumDesc', 'Force garbage collection to trim unused background RAM allocation.')}
                                 </p>
                             </div>
                             <button
@@ -683,7 +685,7 @@ export default function ASEAdvancedPage() {
                                 className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-all border border-slate-700 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eraser className="w-3.5 h-3.5" />}
-                                Optimize System Memory
+                                {t('ase.advanced.optimizeMemory', 'Optimize System Memory')}
                             </button>
                         </div>
 
@@ -692,11 +694,11 @@ export default function ASEAdvancedPage() {
                             <div>
                                 <div className="flex items-center justify-between mb-1">
                                     <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                                        <BarChart2 className="w-3.5 h-3.5 text-amber-400" /> Process Execution Priority
+                                        <BarChart2 className="w-3.5 h-3.5 text-amber-400" /> {t('ase.advanced.processPriority', 'Process Execution Priority')}
                                     </h3>
                                 </div>
                                 <p className="text-[11px] text-slate-400">
-                                    Configure core scheduler allocation priority for the management service.
+                                    {t('ase.advanced.priorityDesc', 'Configure core scheduler allocation priority for the management service.')}
                                 </p>
                             </div>
                             <div className="flex gap-2">
@@ -708,7 +710,7 @@ export default function ASEAdvancedPage() {
                                             : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
                                     }`}
                                 >
-                                    Normal
+                                    {t('advanced.priorityNormal', 'Normal')}
                                 </button>
                                 <button
                                     onClick={() => handleSetPriority(true)}
@@ -718,7 +720,7 @@ export default function ASEAdvancedPage() {
                                             : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20'
                                     }`}
                                 >
-                                    High
+                                    {t('ase.advanced.high', 'High')}
                                 </button>
                             </div>
                         </div>

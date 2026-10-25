@@ -56,13 +56,14 @@ fn ini_get(doc: &IniDocument, section: &str, key: &str) -> Option<String> {
             }
             IniLine::Entry { key: k, value: v, .. } if in_target_section => {
                 if k.to_lowercase() == key_lower {
-                    // Collect continuation lines
+                    // Collapse continuation lines of a multi-line (parenthesized) value into
+                    // this entry. Joining them with '\n' made array keys look like several
+                    // entries, so the next save split one entry into bogus `Key=<fragment>` lines.
                     let mut full_value = v.clone();
                     let mut j = i + 1;
                     while j < doc.lines.len() {
                         if let IniLine::Continuation(cont) = &doc.lines[j] {
-                            full_value.push('\n');
-                            full_value.push_str(cont);
+                            full_value.push_str(cont.trim());
                             j += 1;
                         } else {
                             break;
@@ -95,10 +96,23 @@ fn ini_get_f64(
 ) -> f64 {
     ini_get(doc, section, key)
         .and_then(|v| {
-            let last_line = v.lines().last().unwrap_or("");
+            let last_line = v.lines().last().unwrap_or("").trim();
             last_line.parse::<f64>().ok()
         })
         .unwrap_or(default)
+}
+
+/// Parse an integer INI value, also accepting float notation (e.g. `MaxTamedDinos=5000.000000`,
+/// which ARK and other managers write). A failed parse used to fall back to the default,
+/// silently resetting the user's value on the next save.
+fn parse_ini_uint(raw: &str) -> Option<u64> {
+    let s = raw.trim();
+    s.parse::<u64>().ok().or_else(|| {
+        s.parse::<f64>()
+            .ok()
+            .filter(|f| f.is_finite() && *f >= 0.0)
+            .map(|f| f.round() as u64)
+    })
 }
 
 fn ini_get_u32(
@@ -108,10 +122,8 @@ fn ini_get_u32(
     default: u32,
 ) -> u32 {
     ini_get(doc, section, key)
-        .and_then(|v| {
-            let last_line = v.lines().last().unwrap_or("");
-            last_line.parse::<u32>().ok()
-        })
+        .and_then(|v| parse_ini_uint(v.lines().last().unwrap_or("")))
+        .and_then(|n| u32::try_from(n).ok())
         .unwrap_or(default)
 }
 
@@ -122,10 +134,8 @@ fn ini_get_u16(
     default: u16,
 ) -> u16 {
     ini_get(doc, section, key)
-        .and_then(|v| {
-            let last_line = v.lines().last().unwrap_or("");
-            last_line.parse::<u16>().ok()
-        })
+        .and_then(|v| parse_ini_uint(v.lines().last().unwrap_or("")))
+        .and_then(|n| u16::try_from(n).ok())
         .unwrap_or(default)
 }
 
@@ -138,7 +148,7 @@ fn ini_get_bool(
     ini_get(doc, section, key)
         .map(|v| {
             let last_line = v.lines().last().unwrap_or("");
-            let lower = last_line.to_lowercase();
+            let lower = last_line.trim().to_lowercase();
             lower == "true" || lower == "1"
         })
         .unwrap_or(default)
@@ -176,7 +186,7 @@ fn ini_get_str(
 
 
 /// Get ASE config directory path, optionally using a user-specified override folder.
-fn get_config_path(install_path: &str, user_config_folder: Option<&str>) -> PathBuf {
+pub(crate) fn get_config_path(install_path: &str, user_config_folder: Option<&str>) -> PathBuf {
     if let Some(folder) = user_config_folder {
         let user_dir = PathBuf::from(folder);
         // Check if INI files exist directly in the user folder
@@ -596,7 +606,7 @@ pub async fn read_ase_config_internal(
 
         // MaxPlayers also in GameSession
         if let Some(mp) = ini_get(&sections, "/Script/Engine.GameSession", "MaxPlayers") {
-            if let Ok(v) = mp.parse::<u32>() {
+            if let Some(v) = parse_ini_uint(&mp).and_then(|n| u32::try_from(n).ok()) {
                 config.max_players = v;
             }
         }
@@ -692,7 +702,7 @@ pub async fn read_ase_config_internal(
         config.mutagen_level_boost = ini_get_u32(&sections, sgm, "MutagenLevelBoost", 5);
         config.mutagen_level_boost_bred = ini_get(&sections, sgm, "MutagenLevelBoost_Bred")
             .or_else(|| ini_get(&sections, sgm, "MutagenLevelBoostBred"))
-            .and_then(|v| v.parse::<u32>().ok())
+            .and_then(|v| parse_ini_uint(&v).and_then(|n| u32::try_from(n).ok()))
             .unwrap_or(1);
         config.max_imprint_limit = ini_get_f64(&sections, sgm, "MaxImprintLimit", 1.0);
         config.b_disable_friendly_fire =
@@ -836,13 +846,28 @@ pub async fn write_ase_config(
         Ok(cfg) => cfg,
         Err(e) => {
             println!("  ⚠️ [ASE Config] Direct deserialization notice: {}. Applying resilient fallback mapping...", e);
-            let mut base_value = serde_json::to_value(AseGameConfig::default()).unwrap_or_default();
+            // Base the merge on the config currently on disk (not AseGameConfig::default()),
+            // so any field that is missing or invalid in the payload keeps its existing value
+            // instead of being reset to the default.
+            let current = read_ase_config_internal(server_id, &state).await?;
+            let mut base_value = serde_json::to_value(&current).map_err(|err| err.to_string())?;
             if let (serde_json::Value::Object(ref mut base_map), serde_json::Value::Object(ref input_map)) = (&mut base_value, &config) {
                 for (k, v) in input_map {
-                    if let Some(existing_key) = base_map.keys().find(|bk| bk.eq_ignore_ascii_case(k)).cloned() {
-                        base_map.insert(existing_key, v.clone());
-                    } else {
-                        base_map.insert(k.clone(), v.clone());
+                    let target_key = base_map
+                        .keys()
+                        .find(|bk| bk.eq_ignore_ascii_case(k))
+                        .cloned()
+                        .unwrap_or_else(|| k.clone());
+                    let previous = base_map.insert(target_key.clone(), v.clone());
+                    // Reject values that don't deserialize (wrong type, null, duplicate alias)
+                    // and keep the on-disk value for that field instead.
+                    let candidate = serde_json::Value::Object(base_map.clone());
+                    if serde_json::from_value::<AseGameConfig>(candidate).is_err() {
+                        println!("  ⚠️ [ASE Config] Ignoring invalid value for '{}', keeping current value", k);
+                        match previous {
+                            Some(prev) => { base_map.insert(target_key, prev); }
+                            None => { base_map.remove(&target_key); }
+                        }
                     }
                 }
             }
@@ -911,17 +936,62 @@ pub async fn write_ase_config(
 
     let ss = "ServerSettings";
 
-    let gus_doc_ptr = &mut gus_doc as *mut IniDocument as usize;
+    // Helper macros to set values on gus_doc (non-destructive, case-insensitive, deduplicated)
+    macro_rules! ini_set {
+        ($sec:expr, $key:expr, $val:expr $(,)?) => {{
+            let val: String = $val;
+            gus_doc.set_value($sec, $key, &val);
+        }};
+    }
 
-    // Helper closures to set values on gus_doc (non-destructive, case-insensitive, deduplicated)
-    let ini_set = |sec: &str, key: &str, val: String| {
-        let doc = unsafe { &mut *(gus_doc_ptr as *mut IniDocument) };
-        doc.set_value(sec, key, &val);
+    macro_rules! ini_set_opt {
+        ($sec:expr, $key:expr, $val:expr $(,)?) => {{
+            let val: String = $val;
+            gus_doc.set_value_opt($sec, $key, &val);
+        }};
+    }
+
+    // Several INI keys are exposed by two config fields at once (both are read from the same
+    // key). Previously both were written in sequence, so the second write always won and an
+    // edit made through the first field was silently reverted. Pick whichever field actually
+    // differs from the value currently on disk.
+    let pick_changed_bool = |key: &str, a: bool, b: bool| -> bool {
+        if a != ini_get_bool(&gus_doc, ss, key, false) { a } else { b }
     };
-
-    let ini_set_opt = |sec: &str, key: &str, val: String| {
-        let doc = unsafe { &mut *(gus_doc_ptr as *mut IniDocument) };
-        doc.set_value_opt(sec, key, &val);
+    let final_secure_send_ark_payload = pick_changed_bool(
+        "SecureSendARKPayload",
+        config.secure_send_ark_payload,
+        config.creature_upload_issue_protection,
+    );
+    let final_use_secure_spawn_rules = pick_changed_bool(
+        "UseSecureSpawnRules",
+        config.use_secure_spawn_rules,
+        config.secure_item_dino_spawning_rules,
+    );
+    let final_use_item_dupe_check = pick_changed_bool(
+        "UseItemDupeCheck",
+        config.use_item_dupe_check,
+        config.additional_dupe_protection,
+    );
+    // KickIdlePlayerPeriod (kick_idle_player_period) vs. KickIdlePlayersPeriod +
+    // EnableIdleTimeout (kick_idle_players_period / enable_idle_timeout).
+    let final_kick_idle_period = {
+        let disk_player_period = ini_get_f64(&gus_doc, ss, "KickIdlePlayerPeriod", 3600.0);
+        let disk_players_period = {
+            let p = ini_get_f64(&gus_doc, ss, "KickIdlePlayersPeriod", -1.0);
+            if p >= 0.0 { p } else { disk_player_period }
+        };
+        let disk_idle_enabled = ini_get_bool(&gus_doc, "ASM2", "EnableIdleTimeout", false)
+            || disk_players_period > 0.0;
+        let disk_effective = if disk_idle_enabled { disk_players_period } else { 0.0 };
+        let new_effective = if config.enable_idle_timeout { config.kick_idle_players_period } else { 0.0 };
+        if (new_effective - disk_effective).abs() > f64::EPSILON {
+            new_effective
+        } else if (config.kick_idle_player_period - disk_player_period).abs() > f64::EPSILON {
+            config.kick_idle_player_period
+        } else {
+            new_effective
+        }
     };
 
     // Preprocess and validate
@@ -983,329 +1053,329 @@ pub async fn write_ase_config(
         .join(",");
 
     // Identity
-    ini_set("ServerSettings", "SessionName", final_session_name.clone());
-    ini_set("SessionSettings", "SessionName", final_session_name.clone());
-    ini_set("ServerSettings", "ServerPassword", final_server_password.clone());
-    ini_set("ServerSettings", "ServerAdminPassword", final_server_admin_password.clone());
-    ini_set("ServerSettings", "MaxPlayers", config.max_players.to_string());
+    ini_set!("ServerSettings", "SessionName", final_session_name.clone());
+    ini_set!("SessionSettings", "SessionName", final_session_name.clone());
+    ini_set!("ServerSettings", "ServerPassword", final_server_password.clone());
+    ini_set!("ServerSettings", "ServerAdminPassword", final_server_admin_password.clone());
+    ini_set!("ServerSettings", "MaxPlayers", config.max_players.to_string());
 
     // Network & Ports
     let port = db_values.as_ref().map(|v| v.4).unwrap_or(7777);
     let query_port = db_values.as_ref().map(|v| v.5).unwrap_or(27015);
     let rcon_port = if config.rcon_port > 0 { config.rcon_port } else { db_values.as_ref().map(|v| v.6).unwrap_or(27020) };
 
-    ini_set("ServerSettings", "Port", port.to_string());
-    ini_set("URL", "Port", port.to_string());
-    ini_set("ServerSettings", "QueryPort", query_port.to_string());
-    ini_set("URL", "QueryPort", query_port.to_string());
-    ini_set("ServerSettings", "RCONPort", rcon_port.to_string());
-    ini_set("ServerSettings", "RCONEnabled", if config.rcon_enabled { "True" } else { "False" }.to_string());
+    ini_set!("ServerSettings", "Port", port.to_string());
+    ini_set!("URL", "Port", port.to_string());
+    ini_set!("ServerSettings", "QueryPort", query_port.to_string());
+    ini_set!("URL", "QueryPort", query_port.to_string());
+    ini_set!("ServerSettings", "RCONPort", rcon_port.to_string());
+    ini_set!("ServerSettings", "RCONEnabled", if config.rcon_enabled { "True" } else { "False" }.to_string());
 
     // Difficulty
-    ini_set(
+    ini_set!(
         ss,
         "DifficultyOffset",
         format!("{:.6}", config.difficulty_offset),
     );
-    ini_set(
+    ini_set!(
         ss,
         "OverrideOfficialDifficulty",
         format!("{:.6}", config.override_official_difficulty),
     );
 
     // Core Rates
-    ini_set(ss, "XPMultiplier", format!("{:.6}", config.xp_multiplier));
-    ini_set(
+    ini_set!(ss, "XPMultiplier", format!("{:.6}", config.xp_multiplier));
+    ini_set!(
         ss,
         "TamingSpeedMultiplier",
         format!("{:.6}", config.taming_speed_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "HarvestAmountMultiplier",
         format!("{:.6}", config.harvest_amount_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "HarvestHealthMultiplier",
         format!("{:.6}", config.harvest_health_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "ResourcesRespawnPeriodMultiplier",
         format!("{:.6}", config.resources_respawn_period_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "ItemStackSizeMultiplier",
         format!("{:.6}", config.item_stack_size_multiplier),
     );
 
     // Player Stats
-    ini_set(
+    ini_set!(
         ss,
         "PlayerCharacterFoodDrainMultiplier",
         format!("{:.6}", config.player_character_food_drain_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PlayerCharacterWaterDrainMultiplier",
         format!("{:.6}", config.player_character_water_drain_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PlayerCharacterStaminaDrainMultiplier",
         format!("{:.6}", config.player_character_stamina_drain_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PlayerCharacterHealthRecoveryMultiplier",
         format!("{:.6}", config.player_character_health_recovery_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PlayerDamageMultiplier",
         format!("{:.6}", config.player_damage_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PlayerResistanceMultiplier",
         format!("{:.6}", config.player_resistance_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PlayerHarvestingDamageMultiplier",
         format!("{:.6}", config.player_harvesting_damage_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "CraftingSkillBonusMultiplier",
         format!("{:.6}", config.crafting_skill_bonus_multiplier),
     );
 
     // Dino Stats
-    ini_set(
+    ini_set!(
         ss,
         "DinoCharacterFoodDrainMultiplier",
         format!("{:.6}", config.dino_character_food_drain_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "DinoCharacterHealthRecoveryMultiplier",
         format!("{:.6}", config.dino_character_health_recovery_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "DinoDamageMultiplier",
         format!("{:.6}", config.dino_damage_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "DinoResistanceMultiplier",
         format!("{:.6}", config.dino_resistance_multiplier),
     );
-    ini_set(ss, "MaxTamedDinos", config.max_tamed_dinos.to_string());
-    ini_set(
+    ini_set!(ss, "MaxTamedDinos", config.max_tamed_dinos.to_string());
+    ini_set!(
         ss,
         "DinoCountMultiplier",
         format!("{:.6}", config.dino_count_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "WildDinoTorporDrainMultiplier",
         format!("{:.6}", config.wild_dino_torpor_drain_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "TamedDinoTorporDrainMultiplier",
         format!("{:.6}", config.tamed_dino_torpor_drain_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PassiveTameIntervalMultiplier",
         format!("{:.6}", config.passive_tame_interval_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "UseSingleplayerSettings",
         ark_bool(config.use_singleplayer_settings).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "DisableDinoBreeding",
         ark_bool(config.disable_dino_breeding).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "AllowUnclaimDinos",
         ark_bool(config.allow_unclaim_dinos).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "bAllowUnclaimDinos",
         ark_bool(config.b_allow_unclaim_dinos).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "bUseTameLimitForStructuresOnly",
         ark_bool(config.b_use_tame_limit_for_structures_only).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "bAllowRaidDinoFeeding",
         ark_bool(config.b_allow_raid_dino_feeding).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "RaidDinoCharacterFoodDrainMultiplier",
         format!("{:.6}", config.raid_dino_character_food_drain_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "ForceAllowCaveFlyers",
         ark_bool(config.force_allow_cave_flyers).to_string(),
     );
     let fliers_val = config.b_force_can_ride_fliers.unwrap_or(true);
-    ini_set(
+    ini_set!(
         ss,
         "bForceCanRideFliers",
         ark_bool(fliers_val).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "DisableDinoDecayPvE",
         ark_bool(config.disable_dino_decay_pve).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "AllowDinoLevelUpAnimation",
         ark_bool(config.allow_dino_level_up_animation).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "bAllowFlyingStaminaRecovery",
         ark_bool(config.b_allow_flying_stamina_recovery).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "bAllowMultipleAttachedC4",
         ark_bool(config.b_allow_multiple_attached_c4).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "DisableDinoDecayPvP",
         ark_bool(config.disable_dino_decay_pvp).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "UseDinoLevelUpAnimations",
         ark_bool(config.use_dino_level_up_animations).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "MaxPersonalTamedDinos",
         config.max_personal_tamed_dinos.to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PersonalTamedDinosSaddleStructureCost",
         format!("{:.6}", config.personal_tamed_dinos_saddle_structure_cost),
     );
 
     // Structures
-    ini_set(
+    ini_set!(
         ss,
         "TheMaxStructuresInRange",
         config.the_max_structures_in_range.to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "StructureDamageMultiplier",
         format!("{:.6}", config.structure_damage_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "StructureResistanceMultiplier",
         format!("{:.6}", config.structure_resistance_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PerPlatformMaxStructuresMultiplier",
         format!("{:.6}", config.per_platform_max_structures_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "AutoDestroyDecayedDinos",
         ark_bool(config.auto_destroy_decayed_dinos).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "DisableStructureDecayPvE",
         ark_bool(config.disable_structure_decay_pve).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PvEAllowStructuresAtSupplyDrops",
         ark_bool(config.pve_allow_structures_at_supply_drops).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "ForceAllStructureLocking",
         ark_bool(config.force_all_structure_locking).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "AutoDestroyOldStructuresMultiplier",
         format!("{:.6}", config.auto_destroy_old_structures_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "StructurePickupTimeAfterPlacement",
         format!("{:.6}", config.structure_pickup_time_after_placement),
     );
-    ini_set(
+    ini_set!(
         ss,
         "StructurePickupHoldDuration",
         format!("{:.6}", config.structure_pickup_hold_duration),
     );
-    ini_set(
+    ini_set!(
         ss,
         "AllowIntegratedSPlusStructures",
         ark_bool(config.allow_integrated_spinet_attachment).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "IgnoreLimitMaxStructuresInRangeTypeFlag",
         config
             .ignore_limit_max_structures_in_range_type_flag
             .to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "IgnoreStructuresPreventionVolumes",
         ark_bool(config.ignore_structures_prevention_volumes).to_string(),
     );
 
     // PvP Rules
-    ini_set(ss, "ServerPVE", ark_bool(config.server_pve).to_string());
-    ini_set(
+    ini_set!(ss, "ServerPVE", ark_bool(config.server_pve).to_string());
+    ini_set!(
         ss,
         "AllowCaveBuildingPvP",
         ark_bool(config.allow_cave_building_pvp).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "DisableRailgunPVP",
         ark_bool(config.disable_railgun_pvp).to_string(),
     );
-    ini_set(ss, "EnablePvPGamma", ark_bool(config.enable_pvp_gamma).to_string());
-    ini_set(
+    ini_set!(ss, "EnablePvPGamma", ark_bool(config.enable_pvp_gamma).to_string());
+    ini_set!(
         ss,
         "PvPStructureDecay",
         ark_bool(config.pvp_structure_decay).to_string(),
     );
-    ini_set(ss, "PvPDinoDecay", ark_bool(config.pvp_dino_decay).to_string());
-    ini_set(
+    ini_set!(ss, "PvPDinoDecay", ark_bool(config.pvp_dino_decay).to_string());
+    ini_set!(
         ss,
         "GlobalPoweredBatteryDurabilityDecreasePerSecond",
         format!(
@@ -1315,553 +1385,537 @@ pub async fn write_ase_config(
     );
 
     // Player Rules
-    ini_set(
+    ini_set!(
         ss,
         "AllowThirdPersonPlayer",
         ark_bool(config.allow_third_person_player).to_string(),
     );
-    ini_set(ss, "ServerCrosshair", ark_bool(config.server_crosshair).to_string());
-    ini_set(
+    ini_set!(ss, "ServerCrosshair", ark_bool(config.server_crosshair).to_string());
+    ini_set!(
         ss,
         "ShowMapPlayerLocation",
         ark_bool(config.show_map_player_location).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "AllowFlyerCarryPvE",
         ark_bool(config.allow_flyer_carry_pve).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "DisableWeatherFog",
         ark_bool(config.disable_weather_fog).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "AllowAnyoneBabyImprintCuddle",
         ark_bool(config.allow_anyone_baby_imprint_cuddle).to_string(),
     );
-    ini_set(ss, "AllowHitMarkers", ark_bool(config.allow_hit_markers).to_string());
-    ini_set(
+    ini_set!(ss, "AllowHitMarkers", ark_bool(config.allow_hit_markers).to_string());
+    ini_set!(
         ss,
         "EnableExtraStructurePreventionVolumes",
         ark_bool(config.enable_extra_structure_prevention_volumes).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "ShowFloatingDamageText",
         ark_bool(config.show_floating_damage_text).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "ForceFlyerExplosives",
         ark_bool(config.force_flyerexplosives).to_string(),
     );
 
     // Tribe Settings
-    ini_set(
+    ini_set!(
         ss,
         "PreventTribeAlliances",
         ark_bool(config.prevent_tribe_alliances).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "AllowTribeAlliance",
         ark_bool(config.allow_tribe_alliance).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "AllowTribeWarfare",
         ark_bool(config.allow_tribe_warfare).to_string(),
     );
-    ini_set(ss, "MaxTribeLogs", config.max_tribe_logs.to_string());
-    ini_set(
+    ini_set!(ss, "MaxTribeLogs", config.max_tribe_logs.to_string());
+    ini_set!(
         ss,
         "MaxNumberOfPlayersInTribe",
         config.max_number_of_players_in_tribe.to_string(),
     );
 
     // Tribute / Transfer
-    ini_set(ss, "MaxTributeDinos", config.max_tribute_dinos.to_string());
-    ini_set(ss, "MaxTributeItems", config.max_tribute_items.to_string());
-    ini_set(
+    ini_set!(ss, "MaxTributeDinos", config.max_tribute_dinos.to_string());
+    ini_set!(ss, "MaxTributeItems", config.max_tribute_items.to_string());
+    ini_set!(
         ss,
         "NoTributeDownloads",
         ark_bool(config.no_tribute_downloads).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PreventDownloadSurvivors",
         ark_bool(config.prevent_download_survivors).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PreventDownloadItems",
         ark_bool(config.prevent_download_items).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PreventDownloadDinos",
         ark_bool(config.prevent_download_dinos).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PreventUploadSurvivors",
         ark_bool(config.prevent_upload_survivors).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PreventUploadItems",
         ark_bool(config.prevent_upload_items).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PreventUploadDinos",
         ark_bool(config.prevent_upload_dinos).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "DisableCustomFoldersInTributeInventories",
         config
             .disable_custom_folders_in_tribute_inventories
             .to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "CrossARKAllowForeignDinoDownloads",
         ark_bool(config.crossark_allow_foreign_dino_downloads).to_string(),
     );
 
     // Environment
-    ini_set(
+    ini_set!(
         ss,
         "DayCycleSpeedScale",
         format!("{:.6}", config.day_cycle_speed_scale),
     );
-    ini_set(
+    ini_set!(
         ss,
         "DayTimeSpeedScale",
         format!("{:.6}", config.day_time_speed_scale),
     );
-    ini_set(
+    ini_set!(
         ss,
         "NightTimeSpeedScale",
         format!("{:.6}", config.night_time_speed_scale),
     );
-    ini_set(
+    ini_set!(
         ss,
         "SpoilingTimeMultiplier",
         format!("{:.6}", config.spoiling_time_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "ItemDecompositionTimeMultiplier",
         format!("{:.6}", config.item_decomposition_time_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "CorpseDecompositionTimeMultiplier",
         format!("{:.6}", config.corpse_decomposition_time_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "CropGrowthSpeedMultiplier",
         format!("{:.6}", config.crop_growth_speed_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "CropDecaySpeedMultiplier",
         format!("{:.6}", config.crop_decay_speed_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "LayEggIntervalMultiplier",
         format!("{:.6}", config.lay_egg_interval_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PoopIntervalMultiplier",
         format!("{:.6}", config.poop_interval_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "HairGrowthSpeedMultiplier",
         format!("{:.6}", config.hair_growth_speed_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "CustomRecipeEffectivenessMultiplier",
         format!("{:.6}", config.custom_recipe_effectiveness_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "CustomRecipeSkillMultiplier",
         format!("{:.6}", config.custom_recipe_skill_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "FishingLootQualityMultiplier",
         format!("{:.6}", config.fishing_loot_quality_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "SupplyCrateLootQualityMultiplier",
         format!("{:.6}", config.supply_crate_loot_quality_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "GlobalSpoilingTimeMultiplier",
         format!("{:.6}", config.global_spoiling_time_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "GlobalItemDecompositionTimeMultiplier",
         format!("{:.6}", config.global_item_decomposition_time_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "GlobalCorpseDecompositionTimeMultiplier",
         format!("{:.6}", config.global_corpse_decomposition_time_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "KillXPMultiplier",
         format!("{:.6}", config.kill_xp_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "HarvestXPMultiplier",
         format!("{:.6}", config.harvest_xp_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "CraftXPMultiplier",
         format!("{:.6}", config.craft_xp_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "GenericXPMultiplier",
         format!("{:.6}", config.generic_xp_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "SpecialXPMultiplier",
         format!("{:.6}", config.special_xp_multiplier),
     );
 
     // Hexagons
-    ini_set(
+    ini_set!(
         ss,
         "MaxHexagonsPerCharacter",
         format!("{:.6}", config.max_hexagons_per_character),
     );
-    ini_set(
+    ini_set!(
         ss,
         "HexagonRewardMultiplier",
         format!("{:.6}", config.hexagon_reward_multiplier),
     );
 
     // Engrams
-    ini_set(
+    ini_set!(
         ss,
         "AutoUnlockAllEngrams",
         ark_bool(config.auto_unlock_all_engrams).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "OnlyAllowSpecifiedEngrams",
         ark_bool(config.only_allow_specified_engrams).to_string(),
     );
 
     // Network / Admin
-    ini_set(ss, "RCONEnabled", ark_bool(config.rcon_enabled).to_string());
-    ini_set(ss, "RCONPort", config.rcon_port.to_string());
-    ini_set(
+    // (RCONEnabled / RCONPort are written once above, with the DB fallback for port 0)
+    ini_set!(
         ss,
         "BattlEyeEnforcer",
         ark_bool(config.battle_eye_enforcer).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "EnableCreativeMode",
         ark_bool(config.enable_creative_mode).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "ServerForceNoHUD",
         ark_bool(config.server_force_no_hud).to_string(),
     );
-    ini_set(
-        ss,
-        "KickIdlePlayerPeriod",
-        format!("{:.6}", config.kick_idle_player_period),
-    );
-    ini_set(
+    ini_set!(
         ss,
         "DestroyTamesOverLevelClamp",
         config.destroy_tames_over_level_clamp.to_string(),
     );
-    ini_set(ss, "RCONServerLogBuffer", config.rcon_server_log_buffer.to_string());
-    ini_set(ss, "MaxDifficulty", ark_bool(config.max_difficulty).to_string());
-    ini_set(ss, "PreventOfflinePvP", ark_bool(config.prevent_offline_pvp).to_string());
-    ini_set(ss, "PreventOfflinePvPInterval", config.prevent_offline_pvp_interval.to_string());
-    ini_set(ss, "bDisableStructurePlacementCollision", ark_bool(config.b_disable_structure_placement_collision).to_string());
-    ini_set(ss, "bUseCorpseLocator", ark_bool(config.b_use_corpse_locator).to_string());
-    ini_set(ss, "bShowStatusTypes", ark_bool(config.b_show_status_types).to_string());
-    ini_set(ss, "bAllowUnlimitedRespecs", ark_bool(config.b_allow_unlimited_respecs).to_string());
-    ini_set(ss, "SpectatorPassword", config.spectator_password.clone());
+    ini_set!(ss, "RCONServerLogBuffer", config.rcon_server_log_buffer.to_string());
+    ini_set!(ss, "MaxDifficulty", ark_bool(config.max_difficulty).to_string());
+    ini_set!(ss, "PreventOfflinePvP", ark_bool(config.prevent_offline_pvp).to_string());
+    ini_set!(ss, "PreventOfflinePvPInterval", config.prevent_offline_pvp_interval.to_string());
+    ini_set!(ss, "bDisableStructurePlacementCollision", ark_bool(config.b_disable_structure_placement_collision).to_string());
+    ini_set!(ss, "bUseCorpseLocator", ark_bool(config.b_use_corpse_locator).to_string());
+    ini_set!(ss, "bShowStatusTypes", ark_bool(config.b_show_status_types).to_string());
+    ini_set!(ss, "bAllowUnlimitedRespecs", ark_bool(config.b_allow_unlimited_respecs).to_string());
+    ini_set!(ss, "SpectatorPassword", config.spectator_password.clone());
 
     // Mods
-    ini_set_opt(ss, "ActiveMods", final_active_mods.clone());
+    ini_set_opt!(ss, "ActiveMods", final_active_mods.clone());
 
     // Auto-save
-    ini_set(
+    ini_set!(
         ss,
         "AutoSavePeriodMinutes",
         format!("{:.6}", config.auto_save_period_minutes),
     );
 
     // Events
-    ini_set_opt(ss, "ActiveEvent", config.active_event.clone());
-    ini_set(
+    ini_set_opt!(ss, "ActiveEvent", config.active_event.clone());
+    ini_set!(
         ss,
         "EventColorsChanceOverride",
         format!("{:.6}", config.event_colors_chance_override),
     );
 
     // Administration
-    ini_set_opt(ss, "BadWordFilter", config.bad_word_filter.clone());
-    ini_set_opt(ss, "AdminList", config.admin_list.clone());
-    ini_set_opt(
+    ini_set_opt!(ss, "BadWordFilter", config.bad_word_filter.clone());
+    ini_set_opt!(ss, "AdminList", config.admin_list.clone());
+    ini_set_opt!(
         ss,
         "CustomDynamicConfigUrl",
         config.custom_dynamic_config_url.clone(),
     );
-    ini_set_opt(
+    ini_set_opt!(
         ss,
         "CustomLiveTuningUrl",
         config.custom_live_tuning_url.clone(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "UseSecureSpawnRules",
-        config.use_secure_spawn_rules.to_string(),
+        ark_bool(final_use_secure_spawn_rules).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "UseItemDupeCheck",
-        config.use_item_dupe_check.to_string(),
+        ark_bool(final_use_item_dupe_check).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "SecureSendARKPayload",
-        config.secure_send_ark_payload.to_string(),
+        ark_bool(final_secure_send_ark_payload).to_string(),
     );
-    ini_set_opt(ss, "Culture", config.culture.clone());
+    ini_set_opt!(ss, "Culture", config.culture.clone());
 
     // Ragnarok
-    ini_set(
+    ini_set!(
         ss,
         "RagnarokVolcanoIntensity",
         format!("{:.6}", config.ragnarok_volcano_intensity),
     );
-    ini_set(
+    ini_set!(
         ss,
         "RagnarokVolcanoInterval",
         format!("{:.6}", config.ragnarok_volcano_interval),
     );
-    ini_set(
+    ini_set!(
         ss,
         "EnableRagnarokSettings",
         ark_bool(config.enable_ragnarok_settings).to_string(),
     );
 
     // Fjordur
-    ini_set(
+    ini_set!(
         ss,
         "UseFjordurTraversalBuff",
         ark_bool(config.use_fjordur_traversal_buff).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "EnableFjordurSettings",
         ark_bool(config.enable_fjordur_settings).to_string(),
     );
 
     // Adjustable Spawner
-    ini_set(
+    ini_set!(
         ss,
         "AdjustableMutagenSpawnDelayMultiplier",
         format!("{:.6}", config.adjustable_mutagen_spawn_delay_multiplier),
     );
 
     // ── 23 Advanced GUS settings keys ──
-    ini_set(ss, "GlobalVoiceChat", ark_bool(config.global_voice_chat).to_string());
-    ini_set(
+    ini_set!(ss, "GlobalVoiceChat", ark_bool(config.global_voice_chat).to_string());
+    ini_set!(
         ss,
         "ProximityVoiceChat",
         ark_bool(config.proximity_voice_chat).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "AlwaysNotifyPlayerJoined",
         ark_bool(config.always_notify_player_joined).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "AlwaysNotifyPlayerLeft",
         ark_bool(config.always_notify_player_left).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "ServerAdminCommandLogging",
         ark_bool(config.server_admin_command_logging).to_string(),
     );
 
-    ini_set(
+    ini_set!(
         ss,
         "NonPermanentDiseases",
         ark_bool(config.non_permanent_diseases).to_string(),
     );
-    ini_set(ss, "PreventDiseases", ark_bool(config.prevent_diseases).to_string());
-    ini_set(
+    ini_set!(ss, "PreventDiseases", ark_bool(config.prevent_diseases).to_string());
+    ini_set!(
         ss,
         "PreventSpawnAnimations",
         ark_bool(config.prevent_spawn_animations).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "AllowCryoCooldownOnPvE",
         ark_bool(config.allow_cryo_cooldown_on_pve).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "DisableCryopodFridgeRequirement",
         ark_bool(config.disable_cryopod_fridge_requirement).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "AllowCryoFridgeOnSaddle",
         ark_bool(config.allow_cryo_fridge_on_saddle).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "DisableCryopodEnemyCheck",
         ark_bool(config.disable_cryopod_enemy_check).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "EnableCryoSicknessPVP",
         ark_bool(config.enable_cryo_sickness_pvp).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PVPZoneStructureDamageMultiplier",
         format!("{:.6}", config.pvp_zone_structure_damage_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "StructureDamageRepairCooldown",
         format!("{:.6}", config.structure_damage_repair_cooldown),
     );
 
-    ini_set(
+    ini_set!(
         ss,
         "ClampResourceHarvestDamage",
         ark_bool(config.clamp_resource_harvest_damage).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "OptimizedHarvestingHealth",
         ark_bool(config.optimized_harvesting_health).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "TamedDinoHarvestingDamageMultiplier",
         format!("{:.6}", config.tamed_dino_harvesting_damage_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "DinoTurretDamageMultiplier",
         format!("{:.6}", config.dino_turret_damage_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "TamedDinoCharacterFoodDrainMultiplier",
         format!("{:.6}", config.tamed_dino_character_food_drain_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "WildDinoCharacterFoodDrainMultiplier",
         format!("{:.6}", config.wild_dino_character_food_drain_multiplier),
     );
 
-    ini_set(
+    ini_set!(
         ss,
         "StructureDecayPeriodMultiplier",
         format!("{:.6}", config.structure_decay_period_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "PvEDinoDecayPeriodMultiplier",
         format!("{:.6}", config.pve_dino_decay_period_multiplier),
     );
-    ini_set(
+    ini_set!(
         ss,
         "FastDecayUnsnappedCoreStructures",
         ark_bool(config.fast_decay_unsnapped_core_structures).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "bAllowPlatformSaddleMultiFloors",
         ark_bool(config.b_allow_platform_saddle_multi_floors).to_string(),
     );
 
-    ini_set(
+    ini_set!(
         ss,
         "AllowFlyingStaminaRecovery",
         ark_bool(config.allow_flying_stamina_recovery).to_string(),
     );
-    ini_set(
+    ini_set!(
         ss,
         "FlyerPlatformMaxStructuresMultiplier",
         format!("{:.6}", config.flyer_platform_max_structures_multiplier),
     );
 
     // ── Classic ASM Full Server Options Feature Integration - GUS ServerSettings ──
-    ini_set_opt(ss, "BadWordListURL", config.bad_word_list_url.clone());
-    ini_set_opt(ss, "BadWordWhiteListURL", config.bad_word_white_list_url.clone());
-    ini_set(ss, "bFilterTribeNames", ark_bool(config.b_filter_tribe_names).to_string());
-    ini_set(ss, "bFilterCharacterNames", ark_bool(config.b_filter_character_names).to_string());
-    ini_set(ss, "bFilterChat", ark_bool(config.b_filter_chat).to_string());
-    ini_set_opt(ss, "BanListURL", config.ban_list_url.clone());
-    ini_set(ss, "UseBanListURL", ark_bool(config.use_ban_list_url).to_string());
-    ini_set(ss, "AllowSharedConnections", ark_bool(config.allow_shared_connections).to_string());
-    ini_set(ss, "SecureSendARKPayload", ark_bool(config.creature_upload_issue_protection).to_string());
-    ini_set(ss, "AutoForceRespawnDinos", ark_bool(config.enable_auto_force_respawn_dinos).to_string());
-    ini_set(ss, "AutoForceRespawnDinosInterval", format!("{:.6}", config.auto_force_respawn_dinos_interval));
-    
-    if config.enable_idle_timeout {
-        ini_set(ss, "KickIdlePlayersPeriod", format!("{:.6}", config.kick_idle_players_period));
-        ini_set(ss, "KickIdlePlayerPeriod", format!("{:.6}", config.kick_idle_players_period));
-    } else {
-        ini_set(ss, "KickIdlePlayersPeriod", "0.000000".to_string());
-        ini_set(ss, "KickIdlePlayerPeriod", "0.000000".to_string());
-    }
-    
-    ini_set(ss, "UseSecureSpawnRules", ark_bool(config.secure_item_dino_spawning_rules).to_string());
-    ini_set(ss, "UseItemDupeCheck", ark_bool(config.additional_dupe_protection).to_string());
-    ini_set(ss, "OutputServerLogToConsole", ark_bool(config.output_server_log_to_console).to_string());
+    ini_set_opt!(ss, "BadWordListURL", config.bad_word_list_url.clone());
+    ini_set_opt!(ss, "BadWordWhiteListURL", config.bad_word_white_list_url.clone());
+    ini_set!(ss, "bFilterTribeNames", ark_bool(config.b_filter_tribe_names).to_string());
+    ini_set!(ss, "bFilterCharacterNames", ark_bool(config.b_filter_character_names).to_string());
+    ini_set!(ss, "bFilterChat", ark_bool(config.b_filter_chat).to_string());
+    ini_set_opt!(ss, "BanListURL", config.ban_list_url.clone());
+    ini_set!(ss, "UseBanListURL", ark_bool(config.use_ban_list_url).to_string());
+    ini_set!(ss, "AllowSharedConnections", ark_bool(config.allow_shared_connections).to_string());
+    // SecureSendARKPayload / UseSecureSpawnRules / UseItemDupeCheck are written once above
+    // using the reconciled final_* values.
+    ini_set!(ss, "AutoForceRespawnDinos", ark_bool(config.enable_auto_force_respawn_dinos).to_string());
+    ini_set!(ss, "AutoForceRespawnDinosInterval", format!("{:.6}", config.auto_force_respawn_dinos_interval));
 
-    // Session settings
-    ini_set(
-        "SessionSettings",
-        "SessionName",
-        config.session_name.clone(),
-    );
+    ini_set!(ss, "KickIdlePlayersPeriod", format!("{:.6}", final_kick_idle_period));
+    ini_set!(ss, "KickIdlePlayerPeriod", format!("{:.6}", final_kick_idle_period));
+
+    ini_set!(ss, "OutputServerLogToConsole", ark_bool(config.output_server_log_to_console).to_string());
+
+    // Session settings: [SessionSettings] SessionName is written above with the validated
+    // final_session_name (re-writing the raw config.session_name here blanked it when empty).
 
     // Game session (max players)
-    ini_set(
+    ini_set!(
         "/Script/Engine.GameSession",
         "MaxPlayers",
         config.max_players.to_string(),
@@ -1869,8 +1923,8 @@ pub async fn write_ase_config(
 
     // MOTD
     if !config.motd.is_empty() {
-        ini_set("MessageOfTheDay", "Message", config.motd.clone());
-        ini_set(
+        ini_set!("MessageOfTheDay", "Message", config.motd.clone());
+        ini_set!(
             "MessageOfTheDay",
             "Duration",
             config.motd_duration.to_string(),
@@ -1882,55 +1936,55 @@ pub async fn write_ase_config(
     }
 
     // Custom section for launcher args
-    ini_set_opt("ASM2", "LauncherArgs", config.launcher_args.clone());
-    ini_set(
+    ini_set_opt!("ASM2", "LauncherArgs", config.launcher_args.clone());
+    ini_set!(
         "ASM2",
         "UseAllAvailableCores",
         ark_bool(config.use_all_available_cores).to_string(),
     );
-    ini_set("ASM2", "UseLowMemory", ark_bool(config.use_low_memory).to_string());
-    ini_set("ASM2", "NoBattlEye", ark_bool(config.no_battle_eye).to_string());
-    ini_set("ASM2", "EnableAutomanagedMods", ark_bool(config.enable_automanaged_mods).to_string());
-    ini_set("ASM2", "BackupQuantity", config.backup_quantity.to_string());
-    ini_set("ASM2", "NewSaveGameFormat", ark_bool(config.new_save_game_format).to_string());
-    ini_set("ASM2", "UseStore", ark_bool(config.use_store).to_string());
-    ini_set("ASM2", "BackupTransferPlayerDatas", ark_bool(config.backup_transfer_player_datas).to_string());
-    ini_set("ASM2", "MotdIntervalEnabled", ark_bool(config.motd_interval_enabled).to_string());
-    ini_set("ASM2", "MotdInterval", config.motd_interval.to_string());
-    ini_set("ASM2", "EnableExtinctionEvent", ark_bool(config.enable_extinction_event).to_string());
-    ini_set("ASM2", "ExtinctionEventTimeInterval", config.extinction_event_time_interval.to_string());
+    ini_set!("ASM2", "UseLowMemory", ark_bool(config.use_low_memory).to_string());
+    ini_set!("ASM2", "NoBattlEye", ark_bool(config.no_battle_eye).to_string());
+    ini_set!("ASM2", "EnableAutomanagedMods", ark_bool(config.enable_automanaged_mods).to_string());
+    ini_set!("ASM2", "BackupQuantity", config.backup_quantity.to_string());
+    ini_set!("ASM2", "NewSaveGameFormat", ark_bool(config.new_save_game_format).to_string());
+    ini_set!("ASM2", "UseStore", ark_bool(config.use_store).to_string());
+    ini_set!("ASM2", "BackupTransferPlayerDatas", ark_bool(config.backup_transfer_player_datas).to_string());
+    ini_set!("ASM2", "MotdIntervalEnabled", ark_bool(config.motd_interval_enabled).to_string());
+    ini_set!("ASM2", "MotdInterval", config.motd_interval.to_string());
+    ini_set!("ASM2", "EnableExtinctionEvent", ark_bool(config.enable_extinction_event).to_string());
+    ini_set!("ASM2", "ExtinctionEventTimeInterval", config.extinction_event_time_interval.to_string());
 
     // ── Classic ASM Full Server Options Feature Integration - GUS ASM2 ──
-    ini_set("ASM2", "UseDynamicConfigUrl", ark_bool(config.use_dynamic_config_url).to_string());
-    ini_set("ASM2", "UseCustomLiveTuningUrl", ark_bool(config.use_custom_live_tuning_url).to_string());
-    ini_set("ASM2", "EnableIdleTimeout", ark_bool(config.enable_idle_timeout).to_string());
-    ini_set("ASM2", "NoPlayerVAC", ark_bool(config.no_playervac).to_string());
-    ini_set("ASM2", "EnableExclusiveJoin", ark_bool(config.enable_exclusive_join).to_string());
-    ini_set("ASM2", "NoAntiSpeedHack", ark_bool(config.no_anti_speed_hack).to_string());
-    ini_set("ASM2", "SpeedHackCpuBias", format!("{:.6}", config.speed_hack_cpu_bias));
-    ini_set("ASM2", "DisableMovementValidation", ark_bool(config.disable_movement_validation).to_string());
-    ini_set("ASM2", "NoHangDet", ark_bool(config.no_hang_det).to_string());
-    ini_set("ASM2", "NoDinos", ark_bool(config.no_dinos).to_string());
-    ini_set("ASM2", "NoUnderMeshChecking", ark_bool(config.no_under_mesh_checking).to_string());
-    ini_set("ASM2", "NoUnderMeshKilling", ark_bool(config.no_under_mesh_killing).to_string());
-    ini_set("ASM2", "EnableVivox", ark_bool(config.enable_vivox).to_string());
-    ini_set("ASM2", "ForceRespawnDinosOnStartup", ark_bool(config.force_respawn_dinos_on_startup).to_string());
-    ini_set("ASM2", "ForceDirectX10", ark_bool(config.force_direct_x10).to_string());
-    ini_set("ASM2", "ForceShaderModel4", ark_bool(config.force_shader_model4).to_string());
-    ini_set("ASM2", "ForceLowMemory", ark_bool(config.force_low_memory).to_string());
-    ini_set("ASM2", "ForceNoManSky", ark_bool(config.force_no_man_sky).to_string());
-    ini_set("ASM2", "UseNoMemoryBias", ark_bool(config.use_no_memory_bias).to_string());
-    ini_set("ASM2", "StasisKeepControllers", ark_bool(config.stasis_keep_controllers).to_string());
-    ini_set("ASM2", "ServerAllowAnsel", ark_bool(config.server_allow_ansel).to_string());
-    ini_set("ASM2", "StructureMemoryOptimizations", ark_bool(config.structure_memory_optimizations).to_string());
-    ini_set("ASM2", "StructureStasisGrid", ark_bool(config.structure_stasis_grid).to_string());
-    ini_set("ASM2", "EnableCrossplay", ark_bool(config.enable_crossplay).to_string());
-    ini_set("ASM2", "EnablePublicIpForEpic", ark_bool(config.enable_public_ip_for_epic).to_string());
-    ini_set("ASM2", "EpicStorePlayersOnly", ark_bool(config.epic_store_players_only).to_string());
-    ini_set_opt("ASM2", "AlternateSaveDirectoryName", config.alternate_save_directory_name.clone());
-    ini_set_opt("ASM2", "ClusterDirectoryOverride", config.cluster_directory_override.clone());
-    ini_set("ASM2", "UseClusterDirectoryOverride", ark_bool(config.use_cluster_directory_override).to_string());
-    ini_set_opt("ASM2", "ServerLanguage", config.server_language.clone());
+    ini_set!("ASM2", "UseDynamicConfigUrl", ark_bool(config.use_dynamic_config_url).to_string());
+    ini_set!("ASM2", "UseCustomLiveTuningUrl", ark_bool(config.use_custom_live_tuning_url).to_string());
+    ini_set!("ASM2", "EnableIdleTimeout", ark_bool(final_kick_idle_period > 0.0).to_string());
+    ini_set!("ASM2", "NoPlayerVAC", ark_bool(config.no_playervac).to_string());
+    ini_set!("ASM2", "EnableExclusiveJoin", ark_bool(config.enable_exclusive_join).to_string());
+    ini_set!("ASM2", "NoAntiSpeedHack", ark_bool(config.no_anti_speed_hack).to_string());
+    ini_set!("ASM2", "SpeedHackCpuBias", format!("{:.6}", config.speed_hack_cpu_bias));
+    ini_set!("ASM2", "DisableMovementValidation", ark_bool(config.disable_movement_validation).to_string());
+    ini_set!("ASM2", "NoHangDet", ark_bool(config.no_hang_det).to_string());
+    ini_set!("ASM2", "NoDinos", ark_bool(config.no_dinos).to_string());
+    ini_set!("ASM2", "NoUnderMeshChecking", ark_bool(config.no_under_mesh_checking).to_string());
+    ini_set!("ASM2", "NoUnderMeshKilling", ark_bool(config.no_under_mesh_killing).to_string());
+    ini_set!("ASM2", "EnableVivox", ark_bool(config.enable_vivox).to_string());
+    ini_set!("ASM2", "ForceRespawnDinosOnStartup", ark_bool(config.force_respawn_dinos_on_startup).to_string());
+    ini_set!("ASM2", "ForceDirectX10", ark_bool(config.force_direct_x10).to_string());
+    ini_set!("ASM2", "ForceShaderModel4", ark_bool(config.force_shader_model4).to_string());
+    ini_set!("ASM2", "ForceLowMemory", ark_bool(config.force_low_memory).to_string());
+    ini_set!("ASM2", "ForceNoManSky", ark_bool(config.force_no_man_sky).to_string());
+    ini_set!("ASM2", "UseNoMemoryBias", ark_bool(config.use_no_memory_bias).to_string());
+    ini_set!("ASM2", "StasisKeepControllers", ark_bool(config.stasis_keep_controllers).to_string());
+    ini_set!("ASM2", "ServerAllowAnsel", ark_bool(config.server_allow_ansel).to_string());
+    ini_set!("ASM2", "StructureMemoryOptimizations", ark_bool(config.structure_memory_optimizations).to_string());
+    ini_set!("ASM2", "StructureStasisGrid", ark_bool(config.structure_stasis_grid).to_string());
+    ini_set!("ASM2", "EnableCrossplay", ark_bool(config.enable_crossplay).to_string());
+    ini_set!("ASM2", "EnablePublicIpForEpic", ark_bool(config.enable_public_ip_for_epic).to_string());
+    ini_set!("ASM2", "EpicStorePlayersOnly", ark_bool(config.epic_store_players_only).to_string());
+    ini_set_opt!("ASM2", "AlternateSaveDirectoryName", config.alternate_save_directory_name.clone());
+    ini_set_opt!("ASM2", "ClusterDirectoryOverride", config.cluster_directory_override.clone());
+    ini_set!("ASM2", "UseClusterDirectoryOverride", ark_bool(config.use_cluster_directory_override).to_string());
+    ini_set_opt!("ASM2", "ServerLanguage", config.server_language.clone());
 
     // Save GameUserSettings.ini atomically with UTF-8 encoding
     let gus_content = gus_doc.serialize();
@@ -2165,7 +2219,7 @@ pub async fn write_ase_config(
                 config.max_players,
                 final_server_password,
                 final_server_admin_password,
-                config.rcon_port,
+                rcon_port,
                 final_active_mods,
                 server_id
             ],
@@ -2465,4 +2519,3 @@ mod tests {
         assert!(ride_fliers, "bForceCanRideFliers should be true");
     }
 }
-

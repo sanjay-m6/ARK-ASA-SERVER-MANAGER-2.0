@@ -35,7 +35,7 @@ pub async fn send_discord_webhook(
         Some(url) if !url.is_empty() => {
             println!(
                 "  🔔 [DISCORD] Webhook URL found: {}...{}",
-                &url[..url.len().min(40)],
+                url.chars().take(40).collect::<String>(),
                 if url.len() > 40 { "..." } else { "" }
             );
             url

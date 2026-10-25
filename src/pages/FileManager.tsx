@@ -1,29 +1,30 @@
-import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import {
-    Folder,
-    File,
+    ArrowLeft,
+    ArrowRight,
     ArrowUp,
-    Save,
-    RefreshCw,
+    Edit2,
+    ExternalLink,
+    File,
     FileText,
+    Folder,
     HardDrive,
     LayoutGrid,
     List as ListIcon,
-    Search,
-    ArrowLeft,
-    ArrowRight,
     Monitor,
-    Trash2,
-    Edit2,
     Plus,
-    ExternalLink,
+    RefreshCw,
+    Save,
+    Search,
+    Trash2,
     X
 } from 'lucide-react';
-import { cn } from '../utils/helpers';
+import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { useServerStore } from '../stores/serverStore';
+import { useTranslation } from 'react-i18next';
 import { getDefaultServerDir, isWindowsOS } from '../platform/platform';
+import { useServerStore } from '../stores/serverStore';
+import { cn } from '../utils/helpers';
 
 interface FileEntry {
     name: string;
@@ -53,6 +54,7 @@ const formatDate = (timestamp: number) => {
 };
 
 export default function FileManager() {
+    const { t } = useTranslation();
     const [currentPath, setCurrentPath] = useState<string>(isWindowsOS() ? 'C:/' : '/'); // Default start path
     const [history, setHistory] = useState<string[]>([isWindowsOS() ? 'C:/' : '/']);
     const [historyIndex, setHistoryIndex] = useState(0);
@@ -106,12 +108,12 @@ export default function FileManager() {
             }
         } catch (err) {
             setError(String(err));
-            toast.error(`Failed to load directory: ${err}`);
+            toast.error(t('fileManager.loadDirFailed', { defaultValue: 'Failed to load directory: {{error}}', error: String(err) }));
             // If path failed, maybe go back? For now just show error.
         } finally {
             setLoading(false);
         }
-    }, [history, historyIndex]);
+    }, [history, historyIndex, t]);
 
     const activeServer = useServerStore(state => state.activeServer);
 
@@ -168,7 +170,7 @@ export default function FileManager() {
                 setEditorFile(file);
                 setIsEditorOpen(true);
             } catch (err) {
-                toast.error(`Failed to read file: ${err}`);
+                toast.error(t('fileManager.readFailed', { defaultValue: 'Failed to read file: {{error}}', error: String(err) }));
             } finally {
                 setLoading(false);
             }
@@ -183,9 +185,9 @@ export default function FileManager() {
                 path: editorFile.path,
                 content: editorContent
             });
-            toast.success('File saved successfully');
+            toast.success(t('fileManager.fileSavedSuccess', 'File saved successfully'));
         } catch (err) {
-            toast.error(`Failed to save file: ${err}`);
+            toast.error(t('fileManager.saveFailed', { defaultValue: 'Failed to save file: {{error}}', error: String(err) }));
         } finally {
             setSaving(false);
         }
@@ -199,12 +201,12 @@ export default function FileManager() {
             const path = `${currentPath}${separator}${newFolderName}`;
 
             await invoke('create_directory', { path });
-            toast.success('Folder created');
+            toast.success(t('fileManager.folderCreated', 'Folder created'));
             setIsCreateFolderOpen(false);
             setNewFolderName('');
             loadDirectory(currentPath, false); // Refresh
         } catch (err) {
-            toast.error(`Failed to create folder: ${err}`);
+            toast.error(t('fileManager.createFolderFailed', { defaultValue: 'Failed to create folder: {{error}}', error: String(err) }));
         }
     };
 
@@ -216,26 +218,26 @@ export default function FileManager() {
             const newPath = `${parent}${separator}${newName}`;
 
             await invoke('rename_item', { oldPath: selectedFile.path, newPath });
-            toast.success('Item renamed');
+            toast.success(t('fileManager.itemRenamed', 'Item renamed'));
             setIsRenameOpen(false);
             setNewName('');
             loadDirectory(currentPath, false);
         } catch (err) {
-            toast.error(`Failed to rename: ${err}`);
+            toast.error(t('fileManager.renameFailed', { defaultValue: 'Failed to rename: {{error}}', error: String(err) }));
         }
     };
 
     const deleteItem = async () => {
         if (!selectedFile) return;
-        if (!confirm(`Are you sure you want to delete "${selectedFile.name}"? This cannot be undone.`)) return;
+        if (!confirm(t('fileManager.deleteConfirm', { defaultValue: 'Are you sure you want to delete "{{name}}"? This cannot be undone.', name: selectedFile.name }))) return;
 
         try {
             await invoke('delete_item', { path: selectedFile.path });
-            toast.success('Item deleted');
+            toast.success(t('fileManager.itemDeleted', 'Item deleted'));
             loadDirectory(currentPath, false);
             setSelectedFile(null);
         } catch (err) {
-            toast.error(`Failed to delete: ${err}`);
+            toast.error(t('fileManager.deleteFailed', { defaultValue: 'Failed to delete: {{error}}', error: String(err) }));
         }
     };
 
@@ -243,7 +245,7 @@ export default function FileManager() {
         try {
             await invoke('open_in_explorer', { path: currentPath });
         } catch (err) {
-            toast.error(`Failed to open explorer: ${err}`);
+            toast.error(t('fileManager.openExplorerFailed', { defaultValue: 'Failed to open explorer: {{error}}', error: String(err) }));
         }
     };
 
@@ -256,13 +258,13 @@ export default function FileManager() {
             <div className="flex items-center space-x-2 p-3 bg-slate-900/80 border-b border-white/5">
                 {/* Navigation Controls */}
                 <div className="flex items-center space-x-1">
-                    <button onClick={handleBack} disabled={historyIndex === 0} className="p-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30">
+                    <button onClick={handleBack} disabled={historyIndex === 0} title={t('fileManager.back', 'Back')} aria-label={t('fileManager.back', 'Back')} className="p-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30">
                         <ArrowLeft className="w-5 h-5 text-slate-300" />
                     </button>
-                    <button onClick={handleForward} disabled={historyIndex === history.length - 1} className="p-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30">
+                    <button onClick={handleForward} disabled={historyIndex === history.length - 1} title={t('fileManager.forward', 'Forward')} aria-label={t('fileManager.forward', 'Forward')} className="p-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30">
                         <ArrowRight className="w-5 h-5 text-slate-300" />
                     </button>
-                    <button onClick={handleUp} className="p-1.5 rounded-lg hover:bg-white/5">
+                    <button onClick={handleUp} title={t('fileManager.parentFolder', 'Parent Folder')} aria-label={t('fileManager.parentFolder', 'Parent Folder')} className="p-1.5 rounded-lg hover:bg-white/5">
                         <ArrowUp className="w-5 h-5 text-slate-300" />
                     </button>
                 </div>
@@ -277,7 +279,7 @@ export default function FileManager() {
                         onKeyDown={(e) => e.key === 'Enter' && loadDirectory(currentPath)}
                         className="flex-1 bg-transparent border-none outline-none text-sm text-white font-mono"
                     />
-                    <button onClick={() => loadDirectory(currentPath, false)} className="p-1 hover:bg-white/10 rounded">
+                    <button onClick={() => loadDirectory(currentPath, false)} title={t('fileManager.refreshFiles', 'Refresh')} aria-label={t('fileManager.refreshFiles', 'Refresh')} className="p-1 hover:bg-white/10 rounded">
                         <RefreshCw className={cn("w-3.5 h-3.5 text-slate-400", loading && "animate-spin")} />
                     </button>
                 </div>
@@ -286,7 +288,7 @@ export default function FileManager() {
                 <div className="w-64 flex items-center bg-black/40 border border-white/10 rounded-md px-3 py-1.5">
                     <Search className="w-4 h-4 text-slate-500 mr-2" />
                     <input
-                        placeholder="Search..."
+                        placeholder={t('fileManager.searchPlaceholder', 'Search...')}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="flex-1 bg-transparent border-none outline-none text-sm text-white"
@@ -295,22 +297,22 @@ export default function FileManager() {
 
                 {/* Actions */}
                 <div className="flex items-center space-x-1 border-l border-white/10 pl-2">
-                    <button title="New Folder" onClick={() => setIsCreateFolderOpen(true)} className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white">
+                    <button title={t('fileManager.newFolder', 'New Folder')} onClick={() => setIsCreateFolderOpen(true)} className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white">
                         <Plus className="w-5 h-5" />
                     </button>
-                    <button title="Open in Explorer" onClick={openInExplorer} className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white">
+                    <button title={t('fileManager.openInExplorer', 'Open in Explorer')} onClick={openInExplorer} className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white">
                         <ExternalLink className="w-5 h-5" />
                     </button>
                     <div className="w-[1px] h-6 bg-white/10 mx-1" />
                     <button
-                        title="Grid View"
+                        title={t('fileManager.gridView', 'Grid View')}
                         onClick={() => setViewMode('grid')}
                         className={cn("p-2 rounded-lg transition-colors", viewMode === 'grid' ? "bg-white/10 text-cyan-400" : "text-slate-400 hover:text-white hover:bg-white/5")}
                     >
                         <LayoutGrid className="w-5 h-5" />
                     </button>
                     <button
-                        title="List View"
+                        title={t('fileManager.listView', 'List View')}
                         onClick={() => setViewMode('list')}
                         className={cn("p-2 rounded-lg transition-colors", viewMode === 'list' ? "bg-white/10 text-cyan-400" : "text-slate-400 hover:text-white hover:bg-white/5")}
                     >
@@ -325,7 +327,7 @@ export default function FileManager() {
 
                     {/* Quick Access / Drives */}
                     <div>
-                        <div className="px-3 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">This PC</div>
+                        <div className="px-3 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('fileManager.thisPc', 'This PC')}</div>
                         <div className="space-y-0.5">
                             {drives.map(drive => (
                                 <button
@@ -343,7 +345,7 @@ export default function FileManager() {
                                 >
                                     <HardDrive className="w-4 h-4 shrink-0" />
                                     <div className="flex-1 overflow-hidden">
-                                        <div className="truncate">{drive.name || 'Local Disk'} ({drive.mount_point.replace(/\\/g, '')})</div>
+                                        <div className="truncate">{drive.name || t('fileManager.localDisk', 'Local Disk')} ({drive.mount_point.replace(/\\/g, '')})</div>
                                         <div className="text-[10px] text-slate-600 mt-0.5 w-full bg-slate-800 rounded-full h-1 overflow-hidden">
                                             <div
                                                 className="h-full bg-cyan-500/50"
@@ -358,14 +360,14 @@ export default function FileManager() {
 
                     {/* Common Locations */}
                     <div>
-                        <div className="px-3 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Quick Access</div>
+                        <div className="px-3 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">{t('fileManager.quickAccess', 'Quick Access')}</div>
                         <button onClick={() => loadDirectory(isWindowsOS() ? 'C:/ARKServers/' : getDefaultServerDir())} className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm text-left text-slate-400 hover:bg-white/5 hover:text-white">
                             <Folder className="w-4 h-4 text-emerald-500" />
-                            <span>ARK Servers</span>
+                            <span>{t('fileManager.arkServers', 'ARK Servers')}</span>
                         </button>
                         <button onClick={() => loadDirectory(isWindowsOS() ? 'C:/Users/' : '/home/')} className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm text-left text-slate-400 hover:bg-white/5 hover:text-white">
                             <Folder className="w-4 h-4 text-blue-500" />
-                            <span>Users</span>
+                            <span>{t('fileManager.users', 'Users')}</span>
                         </button>
                     </div>
                 </div>
@@ -381,10 +383,10 @@ export default function FileManager() {
                             </div>
                             <div className="flex items-center space-x-2">
                                 <button onClick={() => { setNewName(selectedFile.name); setIsRenameOpen(true); }} className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded text-xs font-medium text-white transition-colors flex items-center">
-                                    <Edit2 className="w-3.5 h-3.5 mr-1.5" /> Rename
+                                    <Edit2 className="w-3.5 h-3.5 mr-1.5" /> {t('fileManager.rename', 'Rename')}
                                 </button>
                                 <button onClick={deleteItem} className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded text-xs font-medium transition-colors flex items-center">
-                                    <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
+                                    <Trash2 className="w-3.5 h-3.5 mr-1.5" /> {t('fileManager.delete', 'Delete')}
                                 </button>
                             </div>
                         </div>
@@ -395,7 +397,7 @@ export default function FileManager() {
                         {error ? (
                             <div className="flex items-center justify-center h-full text-red-400">{error}</div>
                         ) : filteredFiles.length === 0 ? (
-                            <div className="flex items-center justify-center h-full text-slate-500">Folder is empty</div>
+                            <div className="flex items-center justify-center h-full text-slate-500">{t('fileManager.folderEmpty', 'Folder is empty')}</div>
                         ) : (
                             <div className={cn(
                                 viewMode === 'grid'
@@ -454,11 +456,11 @@ export default function FileManager() {
 
                     {/* Footer Info */}
                     <div className="bg-slate-950 px-4 py-1.5 border-t border-white/5 flex items-center space-x-4 text-xs text-slate-500 font-mono">
-                        <span>{filteredFiles.length} items</span>
+                        <span>{t('fileManager.itemCount', { count: filteredFiles.length, defaultValue: '{{count}} items' })}</span>
                         {selectedFile && (
                             <>
                                 <span className="w-[1px] h-3 bg-slate-700" />
-                                <span>{selectedFile.is_dir ? 'Folder' : 'File'}</span>
+                                <span>{selectedFile.is_dir ? t('fileManager.folder', 'Folder') : t('fileManager.file', 'File')}</span>
                                 <span className="w-[1px] h-3 bg-slate-700" />
                                 <span>{selectedFile.is_dir ? '-' : formatSize(selectedFile.size)}</span>
                             </>
@@ -483,10 +485,12 @@ export default function FileManager() {
                                     className="bg-cyan-500 hover:bg-cyan-400 text-black px-4 py-1.5 rounded-lg text-sm font-bold flex items-center disabled:opacity-50"
                                 >
                                     {saving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                                    Save
+                                    {t('fileManager.save', 'Save')}
                                 </button>
                                 <button
                                     onClick={() => setIsEditorOpen(false)}
+                                    title={t('fileManager.close', 'Close')}
+                                    aria-label={t('fileManager.close', 'Close')}
                                     className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white"
                                 >
                                     <X className="w-5 h-5" />
@@ -507,18 +511,18 @@ export default function FileManager() {
             {isCreateFolderOpen && (
                 <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="w-full max-w-sm bg-slate-900 rounded-xl border border-white/10 p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <h3 className="text-lg font-bold text-white mb-4">Create New Folder</h3>
+                        <h3 className="text-lg font-bold text-white mb-4">{t('fileManager.createNewFolder', 'Create New Folder')}</h3>
                         <input
                             value={newFolderName}
                             onChange={(e) => setNewFolderName(e.target.value)}
-                            placeholder="Folder Name"
+                            placeholder={t('fileManager.folderName', 'Folder Name')}
                             className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white outline-none focus:border-cyan-500/50 mb-4"
                             autoFocus
                             onKeyDown={(e) => e.key === 'Enter' && createFolder()}
                         />
                         <div className="flex justify-end space-x-2">
-                            <button onClick={() => setIsCreateFolderOpen(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
-                            <button onClick={createFolder} className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black rounded-lg text-sm font-bold">Create</button>
+                            <button onClick={() => setIsCreateFolderOpen(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">{t('fileManager.cancel', 'Cancel')}</button>
+                            <button onClick={createFolder} className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black rounded-lg text-sm font-bold">{t('fileManager.create', 'Create')}</button>
                         </div>
                     </div>
                 </div>
@@ -528,18 +532,18 @@ export default function FileManager() {
             {isRenameOpen && (
                 <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="w-full max-w-sm bg-slate-900 rounded-xl border border-white/10 p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <h3 className="text-lg font-bold text-white mb-4">Rename Item</h3>
+                        <h3 className="text-lg font-bold text-white mb-4">{t('fileManager.renameItem', 'Rename Item')}</h3>
                         <input
                             value={newName}
                             onChange={(e) => setNewName(e.target.value)}
-                            placeholder="New Name"
+                            placeholder={t('fileManager.newName', 'New Name')}
                             className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-white outline-none focus:border-cyan-500/50 mb-4"
                             autoFocus
                             onKeyDown={(e) => e.key === 'Enter' && renameItem()}
                         />
                         <div className="flex justify-end space-x-2">
-                            <button onClick={() => setIsRenameOpen(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">Cancel</button>
-                            <button onClick={renameItem} className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black rounded-lg text-sm font-bold">Rename</button>
+                            <button onClick={() => setIsRenameOpen(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">{t('fileManager.cancel', 'Cancel')}</button>
+                            <button onClick={renameItem} className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black rounded-lg text-sm font-bold">{t('fileManager.rename', 'Rename')}</button>
                         </div>
                     </div>
                 </div>

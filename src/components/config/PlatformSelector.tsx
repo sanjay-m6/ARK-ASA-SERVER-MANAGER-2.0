@@ -6,6 +6,7 @@ import {
 import { useServerStore } from '../../stores/serverStore';
 import { updateServerSettings } from '../../utils/tauri';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/helpers';
 
 export interface PlatformSelection {
@@ -94,6 +95,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
     onChange,
     compact = false
 }) => {
+    const { t } = useTranslation();
     const { servers, activeServer, refreshServers } = useServerStore();
     const targetServerId = serverId ?? activeServer?.id;
     const server = servers.find(s => s.id === targetServerId);
@@ -122,14 +124,14 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
 
         if (activePlatforms.length === 4) return '-ServerPlatform=ALL -crossplay';
         if (activePlatforms.length === 1 && activePlatforms[0] === 'PC') return '-ServerPlatform=PC -UseServerPCOnly';
-        if (activePlatforms.length === 0) return 'None (All Blocked)';
+        if (activePlatforms.length === 0) return t('platformSelector.noneBlocked', 'None (All Blocked)');
         return `-ServerPlatform=${activePlatforms.join('+')}`;
-    }, [selection]);
+    }, [selection, t]);
 
     const handleCopyFlag = () => {
         navigator.clipboard.writeText(generatedFlag);
         setCopied(true);
-        toast.success('Launch flag copied to clipboard!');
+        toast.success(t('platformSelector.toasts.flagCopied', 'Launch flag copied to clipboard!'));
         setTimeout(() => setCopied(false), 2000);
     };
 
@@ -137,7 +139,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
         const newSelection = { ...selection, [key]: !selection[key] };
         
         if (!newSelection.pc && !newSelection.ps5 && !newSelection.xbox && !newSelection.msStore) {
-            toast.error('At least one platform must remain enabled.');
+            toast.error(t('platformSelector.toasts.atLeastOne', 'At least one platform must remain enabled.'));
             return;
         }
 
@@ -155,10 +157,10 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                     customArgs: newCustomArgs
                 });
                 await refreshServers();
-                toast.success('Platform settings updated!');
+                toast.success(t('platformSelector.toasts.updated', 'Platform settings updated!'));
             } catch (err) {
                 console.error(err);
-                toast.error('Failed to update platform settings');
+                toast.error(t('platformSelector.toasts.updateFailed', 'Failed to update platform settings'));
             }
         }
     };
@@ -184,7 +186,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
         if (onChange) onChange(newCustomArgs);
         if (targetServerId && externalCustomArgs === undefined) {
             updateServerSettings({ serverId: targetServerId, customArgs: newCustomArgs }).then(refreshServers);
-            toast.success('Preset applied!');
+            toast.success(t('platformSelector.toasts.presetApplied', 'Preset applied!'));
         }
     };
 
@@ -199,7 +201,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
             name: 'PC (Steam & Epic)',
             tag: 'Steam + Epic Games',
             flagCode: 'PC',
-            desc: 'Windows Steam & Epic Games Store players',
+            desc: t('platformSelector.platforms.pc.desc', 'Windows Steam & Epic Games Store players'),
             icon: Laptop,
             activeTheme: {
                 bg: 'bg-cyan-950/30 hover:bg-cyan-950/40',
@@ -213,9 +215,9 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
         {
             id: 'ps5' as const,
             name: 'PlayStation 5',
-            tag: 'PS5 Console',
+            tag: t('platformSelector.platforms.ps5.tag', 'PS5 Console'),
             flagCode: 'PS5',
-            desc: 'PlayStation 5 cross-network console survivors',
+            desc: t('platformSelector.platforms.ps5.desc', 'PlayStation 5 cross-network console survivors'),
             icon: Gamepad2,
             activeTheme: {
                 bg: 'bg-blue-950/30 hover:bg-blue-950/40',
@@ -231,7 +233,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
             name: 'Xbox Series X/S',
             tag: 'Xbox XSX | XSS',
             flagCode: 'XSX',
-            desc: 'Xbox Series X and Series S console players',
+            desc: t('platformSelector.platforms.xbox.desc', 'Xbox Series X and Series S console players'),
             icon: Smartphone,
             activeTheme: {
                 bg: 'bg-emerald-950/30 hover:bg-emerald-950/40',
@@ -247,7 +249,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
             name: 'Microsoft Store',
             tag: 'WinGDK / Xbox App',
             flagCode: 'WinGDK',
-            desc: 'PC Xbox App & Windows GDK store clients',
+            desc: t('platformSelector.platforms.msStore.desc', 'PC Xbox App & Windows GDK store clients'),
             icon: Monitor,
             activeTheme: {
                 bg: 'bg-sky-950/30 hover:bg-sky-950/40',
@@ -265,10 +267,10 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
             <div className="glass-panel rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-violet-400" /> Platform Compatibility
+                        <ShieldCheck className="w-4 h-4 text-violet-400" /> {t('platformSelector.compatibility', 'Platform Compatibility')}
                     </span>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/30 font-semibold">
-                        {activeCount}/4 Enabled
+                        {t('platformSelector.enabledCount', { defaultValue: '{{count}}/4 Enabled', count: activeCount })}
                     </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -319,7 +321,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                         <div className="min-w-0">
                             <div className="flex items-center gap-2.5 flex-wrap">
                                 <h3 className="text-lg font-bold text-[var(--text-primary)] tracking-tight whitespace-nowrap">
-                                    Platform Access Control
+                                    {t('platformSelector.title', 'Platform Access Control')}
                                 </h3>
                                 <span className={cn(
                                     "px-2.5 py-0.5 rounded-full text-xs font-semibold border flex items-center gap-1.5 whitespace-nowrap shrink-0",
@@ -333,11 +335,11 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                                         "w-1.5 h-1.5 rounded-full",
                                         isFullCrossplay ? "bg-emerald-400" : isPcOnly ? "bg-cyan-400" : "bg-violet-400"
                                     )} />
-                                    {isFullCrossplay ? 'Full Crossplay' : isPcOnly ? 'PC Exclusive' : isConsolesOnly ? 'Consoles Only' : `Custom (${activeCount}/4)`}
+                                    {isFullCrossplay ? t('platformSelector.fullCrossplay', 'Full Crossplay') : isPcOnly ? t('platformSelector.pcExclusive', 'PC Exclusive') : isConsolesOnly ? t('platformSelector.consolesOnly', 'Consoles Only') : t('platformSelector.custom', { defaultValue: 'Custom ({{count}}/4)', count: activeCount })}
                                 </span>
                             </div>
                             <p className="text-xs text-[var(--text-secondary)] mt-1 leading-relaxed">
-                                Control multi-platform player connectivity with native Unreal Engine <code className="text-violet-400 font-mono bg-[var(--surface-hover)] px-1.5 py-0.5 rounded border border-[var(--border)] whitespace-nowrap">-ServerPlatform</code> arguments.
+                                {t('platformSelector.description', 'Control multi-platform player connectivity with native Unreal Engine')} <code className="text-violet-400 font-mono bg-[var(--surface-hover)] px-1.5 py-0.5 rounded border border-[var(--border)] whitespace-nowrap">-ServerPlatform</code> {t('platformSelector.descriptionSuffix', 'arguments.')}
                             </p>
                         </div>
                     </div>
@@ -345,7 +347,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                     {/* 1-Click Fast Presets */}
                     <div className="flex items-center gap-1.5 flex-wrap shrink-0">
                         <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1 mr-1">
-                            <Sparkles className="w-3.5 h-3.5 text-violet-400" /> Presets:
+                            <Sparkles className="w-3.5 h-3.5 text-violet-400" /> {t('platformSelector.presets', 'Presets:')}
                         </span>
 
                         <button
@@ -358,7 +360,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                                     : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                             )}
                         >
-                            <Globe className="w-3.5 h-3.5" /> Full Crossplay
+                            <Globe className="w-3.5 h-3.5" /> {t('platformSelector.fullCrossplay', 'Full Crossplay')}
                         </button>
 
                         <button
@@ -371,7 +373,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                                     : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                             )}
                         >
-                            <Laptop className="w-3.5 h-3.5" /> PC Only
+                            <Laptop className="w-3.5 h-3.5" /> {t('platformSelector.pcOnly', 'PC Only')}
                         </button>
 
                         <button
@@ -384,7 +386,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                                     : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                             )}
                         >
-                            <Gamepad2 className="w-3.5 h-3.5" /> Consoles Only
+                            <Gamepad2 className="w-3.5 h-3.5" /> {t('platformSelector.consolesOnly', 'Consoles Only')}
                         </button>
 
                         <button
@@ -397,7 +399,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                                     : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                             )}
                         >
-                            <Layers className="w-3.5 h-3.5" /> All PC Stores
+                            <Layers className="w-3.5 h-3.5" /> {t('platformSelector.allPcStores', 'All PC Stores')}
                         </button>
                     </div>
                 </div>
@@ -474,7 +476,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                                 <div className="flex items-center gap-2">
                                     <span className={cn("w-2 h-2 rounded-full", isChecked ? "bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]" : "bg-slate-400")} />
                                     <span className={isChecked ? "text-emerald-500 font-bold" : "text-[var(--text-muted)] font-medium"}>
-                                        {isChecked ? 'Allowed' : 'Blocked'}
+                                        {isChecked ? t('platformSelector.allowed', 'Allowed') : t('platformSelector.blocked', 'Blocked')}
                                     </span>
                                 </div>
                                 <span className={cn(
@@ -499,7 +501,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                     </div>
                     <div className="min-w-0">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block">
-                            Active Generated Engine Flag
+                            {t('platformSelector.activeFlag', 'Active Generated Engine Flag')}
                         </span>
                         <code className="text-xs font-mono font-bold text-emerald-500 truncate block">
                             {generatedFlag}
@@ -512,14 +514,14 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                         type="button"
                         onClick={handleCopyFlag}
                         className="px-3 py-1.5 rounded-xl text-xs font-medium bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-primary)] border border-[var(--border)] flex items-center gap-1.5 transition-all cursor-pointer"
-                        title="Copy launch flag"
+                        title={t('platformSelector.copyFlag', 'Copy launch flag')}
                     >
                         {copied ? <CheckCheck className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                        <span>{copied ? 'Copied' : 'Copy'}</span>
+                        <span>{copied ? t('platformSelector.copied', 'Copied') : t('common.copy', 'Copy')}</span>
                     </button>
                     <div className="text-[11px] text-[var(--text-muted)] hidden md:flex items-center gap-1.5 border-l border-[var(--border)] pl-2.5">
                         <Info className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
-                        Auto-injected on launch
+                        {t('platformSelector.autoInjected', 'Auto-injected on launch')}
                     </div>
                 </div>
             </div>

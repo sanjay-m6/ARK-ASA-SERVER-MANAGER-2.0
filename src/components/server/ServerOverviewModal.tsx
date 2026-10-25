@@ -4,6 +4,7 @@ import {
     X, Server as ServerIcon, Globe, HardDrive, Shield, Wifi, 
     Copy, Eye, EyeOff, FolderOpen, Hash, GitBranch, Key
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/helpers';
 import { toast } from 'react-hot-toast';
 import { openInExplorer } from '../../utils/tauri';
@@ -24,6 +25,7 @@ export default function ServerOverviewModal({
     server,
     publicIp,
 }: ServerOverviewModalProps) {
+    const { t } = useTranslation();
     const [showAdminPassword, setShowAdminPassword] = useState(false);
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
     const asaVersions = useServerStore((state) => state.serverVersions);
@@ -39,7 +41,7 @@ export default function ServerOverviewModal({
     const maxPlayers = server.config?.maxPlayers ?? server.maxPlayers ?? 70;
     const playerCount = server.players?.length ?? server.playerCount ?? 0;
     const adminPassword = server.config?.adminPassword ?? server.adminPassword ?? 'N/A';
-    const serverPassword = server.config?.serverPassword ?? server.serverPassword ?? 'None';
+    const serverPassword = server.config?.serverPassword ?? server.serverPassword ?? t('serverOverview.none', 'None');
     const installPath = server.installPath || 'N/A';
     const displayIp = publicIp || '127.0.0.1';
     const clusterId = server.config?.clusterId ?? server.clusterId ?? null;
@@ -47,13 +49,13 @@ export default function ServerOverviewModal({
 
     const handleCopy = (text: string, label: string) => {
         navigator.clipboard.writeText(text);
-        toast.success(`Copied ${label} to clipboard!`, { icon: '📋' });
+        toast.success(t('serverOverview.copied', { defaultValue: 'Copied {{label}} to clipboard!', label }), { icon: '📋' });
     };
 
     const handleOpenExplorer = () => {
         if (installPath && installPath !== 'N/A') {
             openInExplorer(installPath).catch(err => {
-                toast.error(`Failed to open folder: ${err}`);
+                toast.error(t('serverOverview.openFolderFailed', { defaultValue: 'Failed to open folder: {{error}}', error: String(err) }));
             });
         }
     };
@@ -94,14 +96,14 @@ export default function ServerOverviewModal({
                                     <span>•</span>
                                     <span className="flex items-center gap-1 text-slate-300 truncate">
                                         <Hash className="w-3 h-3 text-slate-500 flex-shrink-0" />
-                                        Map: <strong className="text-white font-mono">{mapName}</strong>
+                                        {t('serverOverview.map', 'Map')}: <strong className="text-white font-mono">{mapName}</strong>
                                     </span>
                                     {serverVersion && (
                                         <>
                                             <span>•</span>
                                             <span className="flex items-center gap-1 text-sky-400 truncate">
                                                 <GitBranch className="w-3 h-3 text-sky-400 flex-shrink-0" />
-                                                Build: <strong className="text-sky-300 font-mono">{serverVersion}</strong>
+                                                {t('serverOverview.build', 'Build')}: <strong className="text-sky-300 font-mono">{serverVersion}</strong>
                                             </span>
                                         </>
                                     )}
@@ -122,13 +124,13 @@ export default function ServerOverviewModal({
                                     "w-1.5 h-1.5 rounded-full",
                                     server.status === 'running' || server.status === 'online' ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
                                 )} />
-                                {server.status || 'STOPPED'}
+                                {t(`serverManager.serverStatus.${server.status || 'stopped'}`, { defaultValue: server.status || 'STOPPED' })}
                             </span>
 
                             <button
                                 onClick={onClose}
                                 className="p-1.5 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-800 rounded-xl transition-colors border border-white/5"
-                                title="Close"
+                                title={t('common.close', 'Close')}
                             >
                                 <X className="w-4 h-4" />
                             </button>
@@ -143,17 +145,17 @@ export default function ServerOverviewModal({
                     <div>
                         <h3 className="text-[11px] font-black uppercase tracking-wider text-sky-400 mb-2.5 flex items-center gap-1.5">
                             <Wifi className="w-3.5 h-3.5" />
-                            Connection & Network Ports
+                            {t('serverOverview.connectionPorts', 'Connection & Network Ports')}
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                             <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl flex flex-col justify-between">
-                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Game Port</span>
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{t('serverOverview.gamePort', 'Game Port')}</span>
                                 <div className="flex items-center justify-between mt-1">
                                     <span className="text-base font-mono font-black text-sky-400">{gamePort}</span>
                                     <button 
-                                        onClick={() => handleCopy(`${gamePort}`, 'Game Port')}
+                                        onClick={() => handleCopy(`${gamePort}`, t('serverOverview.gamePort', 'Game Port'))}
                                         className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
-                                        title="Copy Game Port"
+                                        title={t('serverOverview.copyGamePort', 'Copy Game Port')}
                                     >
                                         <Copy className="w-3.5 h-3.5" />
                                     </button>
@@ -161,13 +163,13 @@ export default function ServerOverviewModal({
                             </div>
 
                             <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl flex flex-col justify-between">
-                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Query Port</span>
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{t('serverOverview.queryPort', 'Query Port')}</span>
                                 <div className="flex items-center justify-between mt-1">
                                     <span className="text-base font-mono font-black text-emerald-400">{queryPort}</span>
                                     <button 
-                                        onClick={() => handleCopy(`${queryPort}`, 'Query Port')}
+                                        onClick={() => handleCopy(`${queryPort}`, t('serverOverview.queryPort', 'Query Port'))}
                                         className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
-                                        title="Copy Query Port"
+                                        title={t('serverOverview.copyQueryPort', 'Copy Query Port')}
                                     >
                                         <Copy className="w-3.5 h-3.5" />
                                     </button>
@@ -175,13 +177,13 @@ export default function ServerOverviewModal({
                             </div>
 
                             <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl flex flex-col justify-between">
-                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">RCON Port</span>
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{t('serverOverview.rconPort', 'RCON Port')}</span>
                                 <div className="flex items-center justify-between mt-1">
                                     <span className="text-base font-mono font-black text-purple-400">{rconPort}</span>
                                     <button 
-                                        onClick={() => handleCopy(`${rconPort}`, 'RCON Port')}
+                                        onClick={() => handleCopy(`${rconPort}`, t('serverOverview.rconPort', 'RCON Port'))}
                                         className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
-                                        title="Copy RCON Port"
+                                        title={t('serverOverview.copyRconPort', 'Copy RCON Port')}
                                     >
                                         <Copy className="w-3.5 h-3.5" />
                                     </button>
@@ -194,15 +196,15 @@ export default function ServerOverviewModal({
                             <div className="flex items-center gap-2 truncate">
                                 <Globe className="w-4 h-4 text-sky-400 flex-shrink-0" />
                                 <span className="text-xs font-mono text-slate-300 truncate">
-                                    Direct Connect: <strong className="text-white font-mono">{displayIp}:{gamePort}</strong>
+                                    {t('serverOverview.directConnect', 'Direct Connect')}: <strong className="text-white font-mono">{displayIp}:{gamePort}</strong>
                                 </span>
                             </div>
                             <button
-                                onClick={() => handleCopy(`${displayIp}:${gamePort}`, 'Direct Connect IP')}
+                                onClick={() => handleCopy(`${displayIp}:${gamePort}`, t('serverOverview.directConnectIp', 'Direct Connect IP'))}
                                 className="px-3 py-1.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 flex-shrink-0"
                             >
                                 <Copy className="w-3.5 h-3.5" />
-                                <span>Copy IP:Port</span>
+                                <span>{t('serverOverview.copyIpPort', 'Copy IP:Port')}</span>
                             </button>
                         </div>
                     </div>
@@ -211,32 +213,32 @@ export default function ServerOverviewModal({
                     <div>
                         <h3 className="text-[11px] font-black uppercase tracking-wider text-sky-400 mb-2.5 flex items-center gap-1.5">
                             <Shield className="w-3.5 h-3.5" />
-                            Configuration & Security Details
+                            {t('serverOverview.configSecurity', 'Configuration & Security Details')}
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
                                 <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-400">Map Name:</span>
+                                    <span className="text-slate-400">{t('serverOverview.mapName', 'Map Name')}:</span>
                                     <span className="font-mono font-bold text-white">{mapName}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-400">Player Capacity:</span>
+                                    <span className="text-slate-400">{t('serverOverview.playerCapacity', 'Player Capacity')}:</span>
                                     <span className="font-mono font-bold text-emerald-400">{playerCount} / {maxPlayers}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-400">BattEye Anti-Cheat:</span>
+                                    <span className="text-slate-400">{t('serverOverview.battleye', 'BattlEye Anti-Cheat')}:</span>
                                     <span className={cn(
                                         "font-bold px-2 py-0.5 rounded text-[10px]",
                                         server.battleye !== false ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-slate-800 text-slate-400"
                                     )}>
-                                        {server.battleye !== false ? 'ENABLED' : 'DISABLED'}
+                                        {server.battleye !== false ? t('serverOverview.enabled', 'ENABLED') : t('serverOverview.disabled', 'DISABLED')}
                                     </span>
                                 </div>
                             </div>
 
                             <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
                                 <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-400">Admin Password:</span>
+                                    <span className="text-slate-400">{t('serverOverview.adminPassword', 'Admin Password')}:</span>
                                     <div className="flex items-center gap-1.5">
                                         <span className="font-mono font-bold text-amber-400">
                                             {showAdminPassword ? adminPassword : '••••••••'}
@@ -244,15 +246,15 @@ export default function ServerOverviewModal({
                                         <button
                                             onClick={() => setShowAdminPassword(!showAdminPassword)}
                                             className="p-1 text-slate-400 hover:text-white transition-colors"
-                                            title={showAdminPassword ? "Hide password" : "Show password"}
+                                            title={showAdminPassword ? t('serverOverview.hidePassword', 'Hide password') : t('serverOverview.showPassword', 'Show password')}
                                         >
                                             {showAdminPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                                         </button>
                                         {adminPassword && adminPassword !== 'N/A' && (
                                             <button
-                                                onClick={() => handleCopy(adminPassword, 'Admin Password')}
+                                                onClick={() => handleCopy(adminPassword, t('serverOverview.adminPassword', 'Admin Password'))}
                                                 className="p-1 text-slate-400 hover:text-white transition-colors"
-                                                title="Copy Admin Password"
+                                                title={t('serverOverview.copyAdminPassword', 'Copy Admin Password')}
                                             >
                                                 <Copy className="w-3.5 h-3.5" />
                                             </button>
@@ -261,13 +263,13 @@ export default function ServerOverviewModal({
                                 </div>
 
                                 <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-400">Server Password:</span>
+                                    <span className="text-slate-400">{t('serverOverview.serverPassword', 'Server Password')}:</span>
                                     <span className="font-mono font-bold text-slate-300">{serverPassword}</span>
                                 </div>
 
                                 <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-400">Cluster ID:</span>
-                                    <span className="font-mono font-bold text-purple-400">{clusterId || 'Standalone'}</span>
+                                    <span className="text-slate-400">{t('serverOverview.clusterId', 'Cluster ID')}:</span>
+                                    <span className="font-mono font-bold text-purple-400">{clusterId || t('serverOverview.standalone', 'Standalone')}</span>
                                 </div>
                             </div>
                         </div>
@@ -279,7 +281,7 @@ export default function ServerOverviewModal({
                                     <Key className="w-4 h-4" />
                                 </div>
                                 <div className="min-w-0">
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">In-Game Admin Auth</span>
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">{t('serverOverview.inGameAdminAuth', 'In-Game Admin Auth')}</span>
                                     <div className="flex items-center gap-2 mt-0.5">
                                         <code className="text-xs font-mono text-amber-300 bg-black/60 px-2 py-0.5 rounded border border-amber-500/20 truncate">
                                             {adminPassword && adminPassword !== 'N/A' ? `enablecheats ${adminPassword}` : 'enablecheats <AdminPassword>'}
@@ -292,21 +294,21 @@ export default function ServerOverviewModal({
                                 <button
                                     onClick={() => handleCopy(
                                         adminPassword && adminPassword !== 'N/A' ? `enablecheats ${adminPassword}` : 'enablecheats',
-                                        'In-Game enablecheats Command'
+                                        t('serverOverview.enablecheatsCommand', 'In-Game enablecheats Command')
                                     )}
                                     className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs transition-all flex items-center gap-1.5 shadow-md shadow-amber-500/10"
-                                    title="Copy enablecheats Command"
+                                    title={t('serverOverview.copyEnablecheats', 'Copy enablecheats Command')}
                                 >
                                     <Copy className="w-3.5 h-3.5" />
-                                    <span>Copy Command</span>
+                                    <span>{t('serverOverview.copyCommand', 'Copy Command')}</span>
                                 </button>
                                 <button
                                     onClick={() => setIsAdminModalOpen(true)}
                                     className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
-                                    title="View In-Game Admin & Cheats Guide"
+                                    title={t('serverOverview.viewAdminGuide', 'View In-Game Admin & Cheats Guide')}
                                 >
                                     <Shield className="w-3.5 h-3.5 text-amber-400" />
-                                    <span>Admin Guide</span>
+                                    <span>{t('serverOverview.adminGuide', 'Admin Guide')}</span>
                                 </button>
                             </div>
                         </div>
@@ -316,12 +318,12 @@ export default function ServerOverviewModal({
                     <div>
                         <h3 className="text-[11px] font-black uppercase tracking-wider text-sky-400 mb-2.5 flex items-center gap-1.5">
                             <HardDrive className="w-3.5 h-3.5" />
-                            Storage & File Paths
+                            {t('serverOverview.storagePaths', 'Storage & File Paths')}
                         </h3>
                         <div className="p-3.5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-3">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="min-w-0 flex-1">
-                                    <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Installation Folder</span>
+                                    <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">{t('serverOverview.installFolder', 'Installation Folder')}</span>
                                     <p className="text-xs font-mono text-slate-300 truncate bg-slate-900 px-3 py-2 rounded-xl border border-slate-800">
                                         {installPath}
                                     </p>
@@ -331,7 +333,7 @@ export default function ServerOverviewModal({
                                     className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-all border border-white/10 flex items-center gap-1.5 flex-shrink-0 shadow-sm"
                                 >
                                     <FolderOpen className="w-4 h-4 text-amber-400" />
-                                    <span>Open Folder</span>
+                                    <span>{t('serverOverview.openFolder', 'Open Folder')}</span>
                                 </button>
                             </div>
                         </div>
@@ -345,7 +347,7 @@ export default function ServerOverviewModal({
                         onClick={onClose}
                         className="px-6 py-2.5 bg-gradient-to-r from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-sky-500/20 transition-all uppercase tracking-wider"
                     >
-                        Close Summary
+                        {t('serverOverview.closeSummary', 'Close Summary')}
                     </button>
                 </div>
             </div>

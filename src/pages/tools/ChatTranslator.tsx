@@ -210,7 +210,8 @@ export default function ChatTranslator() {
   );
 
   const getLanguageName = (code: string) => {
-    return SUPPORTED_LANGUAGES.find((l) => l.code === code)?.name || code;
+    const lang = SUPPORTED_LANGUAGES.find((l) => l.code === code);
+    return lang ? t(`translator.languages.${lang.code}`, lang.name) : code;
   };
 
   const cacheRate = stats && stats.totalRequests > 0 
@@ -391,7 +392,7 @@ export default function ChatTranslator() {
                 </div>
 
                 <div className="pt-4 flex justify-between items-center text-xs text-slate-500">
-                  <span>Plugin Version: 1.0.0</span>
+                  <span>{t('translator.pluginVersion', { version: '1.0.0', defaultValue: 'Plugin Version: {{version}}' })}</span>
                   <button
                     onClick={handleUninstall}
                     className="text-red-400 hover:text-red-300 font-medium hover:underline"
@@ -491,7 +492,7 @@ export default function ChatTranslator() {
                     >
                       {SUPPORTED_LANGUAGES.map((l) => (
                         <option key={l.code} value={l.code}>
-                          {l.name}
+                          {t(`translator.languages.${l.code}`, l.name)}
                         </option>
                       ))}
                     </select>
@@ -543,9 +544,9 @@ export default function ChatTranslator() {
                       onChange={(e) => updateConfigField('translationApi', e.target.value)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-sky-500 text-sm"
                     >
-                      <option value="Google">Google Translate (Free / Web interface)</option>
-                      <option value="DeepL">DeepL (Requires Auth Key)</option>
-                      <option value="LibreTranslate">LibreTranslate (Self-Hosted / Open-Source)</option>
+                      <option value="Google">{t('translator.providers.google', 'Google Translate (Free / Web interface)')}</option>
+                      <option value="DeepL">{t('translator.providers.deepl', 'DeepL (Requires Auth Key)')}</option>
+                      <option value="LibreTranslate">{t('translator.providers.libre', 'LibreTranslate (Self-Hosted / Open-Source)')}</option>
                     </select>
                   </div>
 
@@ -558,7 +559,7 @@ export default function ChatTranslator() {
                         type="password"
                         value={config.apiKey || ''}
                         onChange={(e) => updateConfigField('apiKey', e.target.value)}
-                        placeholder="Enter API Endpoint Key..."
+                        placeholder={t('translator.apiKeyPlaceholder', 'Enter API Endpoint Key...')}
                         className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-sky-500 text-sm"
                       />
                     </div>
@@ -688,7 +689,7 @@ export default function ChatTranslator() {
                 >
                   {SUPPORTED_LANGUAGES.map((l) => (
                     <option key={l.code} value={l.code}>
-                      {l.name}
+                      {t(`translator.languages.${l.code}`, l.name)}
                     </option>
                   ))}
                 </select>

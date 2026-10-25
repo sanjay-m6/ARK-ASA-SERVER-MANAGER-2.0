@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Check, Box } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { NumberInput } from '../ui/NumberInput';
 
 interface ResourceRequirement {
     ResourceItemTypeString: string;
@@ -52,6 +54,7 @@ interface CraftingCostEditorProps {
 }
 
 export function CraftingCostEditor({ value, onChange }: CraftingCostEditorProps) {
+    const { t } = useTranslation();
     const [entries, setEntries] = useState<CraftingCostOverride[]>([]);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [editForm, setEditForm] = useState<CraftingCostOverride | null>(null);
@@ -159,7 +162,7 @@ export function CraftingCostEditor({ value, onChange }: CraftingCostEditorProps)
                     className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-lg transition-colors text-sm font-medium border border-blue-500/30"
                 >
                     <Plus className="w-4 h-4" />
-                    Add Crafting Cost Override
+                    {t('craftingCostEditor.addOverride', 'Add Crafting Cost Override')}
                 </button>
             </div>
 
@@ -169,32 +172,32 @@ export function CraftingCostEditor({ value, onChange }: CraftingCostEditorProps)
                         {editingIndex === idx && editForm ? (
                             <div className="p-4 space-y-5 bg-[#1a1a2e]">
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-400 mb-1">Item to Override (Class Name)</label>
+                                    <label className="block text-xs font-medium text-slate-400 mb-1">{t('craftingCostEditor.itemToOverride', 'Item to Override (Class Name)')}</label>
                                     <input
                                         type="text"
                                         value={editForm.ItemClassString}
                                         onChange={(e) => setEditForm({ ...editForm, ItemClassString: e.target.value })}
                                         className="w-full bg-[#0d0d1a] border border-[#2d2d44] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-violet-500"
-                                        placeholder="e.g., PrimalItem_WeaponStoneHatchet_C"
+                                        placeholder={t('craftingCostEditor.itemPlaceholder', 'e.g., PrimalItem_WeaponStoneHatchet_C')}
                                     />
                                 </div>
                                 
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between">
-                                        <label className="block text-xs font-medium text-slate-400">Resource Requirements</label>
+                                        <label className="block text-xs font-medium text-slate-400">{t('craftingCostEditor.resourceRequirements', 'Resource Requirements')}</label>
                                         <button
                                             onClick={addResourceRequirement}
                                             className="flex items-center gap-1.5 px-2 py-1 bg-[#2d2d44] hover:bg-[#3d3d5c] text-white rounded-md text-xs font-medium transition-colors"
                                         >
                                             <Plus className="w-3 h-3" />
-                                            Add Resource
+                                            {t('craftingCostEditor.addResource', 'Add Resource')}
                                         </button>
                                     </div>
                                     
                                     <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
                                         {editForm.BaseCraftingResourceRequirements.length === 0 ? (
                                             <div className="text-center py-4 text-xs text-slate-500 border border-dashed border-[#2d2d44] rounded-lg">
-                                                No resources added. This will make the item free to craft.
+                                                {t('craftingCostEditor.noResources', 'No resources added. This will make the item free to craft.')}
                                             </div>
                                         ) : (
                                             editForm.BaseCraftingResourceRequirements.map((req, rIdx) => (
@@ -205,14 +208,14 @@ export function CraftingCostEditor({ value, onChange }: CraftingCostEditorProps)
                                                                 type="text"
                                                                 value={req.ResourceItemTypeString}
                                                                 onChange={(e) => updateResourceRequirement(rIdx, 'ResourceItemTypeString', e.target.value)}
-                                                                placeholder="Resource Class Name"
+                                                                placeholder={t('craftingCostEditor.resourceClassName', 'Resource Class Name')}
                                                                 className="flex-1 bg-[#1a1a2e] border border-[#2d2d44] rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-violet-500"
                                                             />
-                                                            <input
-                                                                type="number"
+                                                            <NumberInput
+                                                                min={0}
                                                                 value={req.BaseResourceRequirement}
-                                                                onChange={(e) => updateResourceRequirement(rIdx, 'BaseResourceRequirement', parseFloat(e.target.value) || 0)}
-                                                                placeholder="Amount"
+                                                                onValueChange={(n) => updateResourceRequirement(rIdx, 'BaseResourceRequirement', n)}
+                                                                placeholder={t('craftingCostEditor.amount', 'Amount')}
                                                                 className="w-20 bg-[#1a1a2e] border border-[#2d2d44] rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-violet-500"
                                                             />
                                                         </div>
@@ -227,7 +230,7 @@ export function CraftingCostEditor({ value, onChange }: CraftingCostEditorProps)
                                                                 <div className="w-4 h-4 border-2 border-slate-600 rounded bg-slate-900 peer-checked:bg-blue-500 peer-checked:border-blue-500 transition-all"></div>
                                                                 <Check className="absolute w-2.5 h-2.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
                                                             </div>
-                                                            <span className="text-[10px] font-medium text-slate-400 group-hover:text-slate-300 transition-colors">Require Exact Type</span>
+                                                            <span className="text-[10px] font-medium text-slate-400 group-hover:text-slate-300 transition-colors">{t('craftingCostEditor.requireExactType', 'Require Exact Type')}</span>
                                                         </label>
                                                     </div>
                                                     <button
@@ -247,13 +250,13 @@ export function CraftingCostEditor({ value, onChange }: CraftingCostEditorProps)
                                         onClick={handleCancelEdit}
                                         className="px-3 py-1.5 text-sm font-medium text-slate-400 hover:text-white transition-colors"
                                     >
-                                        Cancel
+                                        {t('common.cancel', 'Cancel')}
                                     </button>
                                     <button
                                         onClick={handleSaveEdit}
                                         className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
                                     >
-                                        Save
+                                        {t('common.save', 'Save')}
                                     </button>
                                 </div>
                             </div>
@@ -272,7 +275,7 @@ export function CraftingCostEditor({ value, onChange }: CraftingCostEditorProps)
                                                 </span>
                                             ))}
                                             {entry.BaseCraftingResourceRequirements.length === 0 && (
-                                                <span className="text-xs text-emerald-400 font-medium">Free to craft</span>
+                                                <span className="text-xs text-emerald-400 font-medium">{t('craftingCostEditor.freeToCraft', 'Free to craft')}</span>
                                             )}
                                         </div>
                                     </div>
@@ -297,7 +300,7 @@ export function CraftingCostEditor({ value, onChange }: CraftingCostEditorProps)
                 ))}
                 {entries.length === 0 && (
                     <div className="text-center py-6 text-sm text-slate-500 bg-[#151525] border border-[#2d2d44] border-dashed rounded-xl">
-                        No crafting cost overrides configured. Click add to create one.
+                        {t('craftingCostEditor.empty', 'No crafting cost overrides configured. Click add to create one.')}
                     </div>
                 )}
             </div>

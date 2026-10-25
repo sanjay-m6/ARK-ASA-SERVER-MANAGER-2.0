@@ -138,8 +138,8 @@ export const useAseServerStore = create<AseServerStore>((set, get) => ({
             });
         } catch (error) {
             console.error('[ASE] Failed to refresh servers:', error);
-            import('react-hot-toast').then(({ default: toast }) => {
-                toast.error(`Failed to load ASE servers: ${error}`);
+            Promise.all([import('react-hot-toast'), import('i18next')]).then(([{ default: toast }, { default: i18n }]) => {
+                toast.error(i18n.t('ase.serverStore.loadFailed', { defaultValue: 'Failed to load ASE servers: {{error}}', error: String(error) }));
             });
         }
     }

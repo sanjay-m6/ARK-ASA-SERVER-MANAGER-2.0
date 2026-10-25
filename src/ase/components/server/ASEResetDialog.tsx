@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, Trash2, X, AlertTriangle, FileText, Globe, Activity } from 'lucide-react';
-import { toast } from 'react-hot-toast';
 import { invoke } from '@tauri-apps/api/core';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Activity, AlertTriangle, FileText, Globe, ShieldAlert, Trash2, X } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface ASEResetDialogProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface ASEResetDialogProps {
 }
 
 export default function ASEResetDialog({ isOpen, serverId, serverName, onClose, onSuccess }: ASEResetDialogProps) {
+  const { t } = useTranslation();
   const [options, setOptions] = useState({
     wipe_save: false,
     wipe_config: false,
@@ -31,11 +33,11 @@ export default function ASEResetDialog({ isOpen, serverId, serverName, onClose, 
     setIsResetting(true);
     try {
       await invoke('reset_ase_server', { serverId, options });
-      toast.success('Server data wiped successfully.');
+      toast.success(t('ase.resetDialog.success', 'Server data wiped successfully.'));
       onSuccess?.();
       onClose();
     } catch (e) {
-      toast.error(`Reset failed: ${e}`);
+      toast.error(t('ase.resetDialog.failed', { defaultValue: 'Reset failed: {{error}}', error: String(e) }));
     } finally {
       setIsResetting(false);
     }
@@ -54,7 +56,7 @@ export default function ASEResetDialog({ isOpen, serverId, serverName, onClose, 
           <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-rose-500/10">
             <h2 className="text-xl font-bold text-rose-400 flex items-center gap-2">
               <ShieldAlert className="w-6 h-6" />
-              Reset Server Data
+              {t('ase.resetDialog.title', 'Reset Server Data')}
             </h2>
             <button
               onClick={onClose}
@@ -69,13 +71,13 @@ export default function ASEResetDialog({ isOpen, serverId, serverName, onClose, 
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
               <div className="text-sm text-amber-200">
-                <p className="font-semibold mb-1">Warning: Data Loss</p>
-                <p>This action will permanently delete selected files for <span className="font-bold text-white">{serverName}</span>. This cannot be undone unless you have a backup.</p>
+                <p className="font-semibold mb-1">{t('ase.resetDialog.warningTitle', 'Warning: Data Loss')}</p>
+                <p>{t('ase.resetDialog.warningPrefix', 'This action will permanently delete selected files for')} <span className="font-bold text-white">{serverName}</span>. {t('ase.resetDialog.warningSuffix', 'This cannot be undone unless you have a backup.')}</p>
               </div>
             </div>
 
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-slate-300">Select what to wipe:</h3>
+              <h3 className="text-sm font-semibold text-slate-300">{t('ase.resetDialog.selectWhat', 'Select what to wipe:')}</h3>
               
               <label className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${options.wipe_save ? 'bg-rose-500/10 border-rose-500/30' : 'bg-slate-800/50 border-white/5 hover:border-white/10'}`}>
                 <div className="mt-0.5">
@@ -89,9 +91,9 @@ export default function ASEResetDialog({ isOpen, serverId, serverName, onClose, 
                 <div className="flex-1">
                   <div className="flex items-center gap-2 text-sm font-medium text-white mb-1">
                     <Globe className="w-4 h-4 text-emerald-400" />
-                    World Save Data & Player Profiles
+                    {t('ase.resetDialog.saveTitle', 'World Save Data & Player Profiles')}
                   </div>
-                  <p className="text-xs text-slate-400">Deletes SavedArks and LocalProfiles. Resets the map, buildings, and player characters completely.</p>
+                  <p className="text-xs text-slate-400">{t('ase.resetDialog.saveDesc', 'Deletes SavedArks and LocalProfiles. Resets the map, buildings, and player characters completely.')}</p>
                 </div>
               </label>
 
@@ -107,9 +109,9 @@ export default function ASEResetDialog({ isOpen, serverId, serverName, onClose, 
                 <div className="flex-1">
                   <div className="flex items-center gap-2 text-sm font-medium text-white mb-1">
                     <FileText className="w-4 h-4 text-blue-400" />
-                    Server Configuration Files
+                    {t('ase.resetDialog.configTitle', 'Server Configuration Files')}
                   </div>
-                  <p className="text-xs text-slate-400">Deletes Game.ini and GameUserSettings.ini. Server settings will revert to default on next start.</p>
+                  <p className="text-xs text-slate-400">{t('ase.resetDialog.configDesc', 'Deletes Game.ini and GameUserSettings.ini. Server settings will revert to default on next start.')}</p>
                 </div>
               </label>
 
@@ -125,16 +127,16 @@ export default function ASEResetDialog({ isOpen, serverId, serverName, onClose, 
                 <div className="flex-1">
                   <div className="flex items-center gap-2 text-sm font-medium text-white mb-1">
                     <Activity className="w-4 h-4 text-amber-400" />
-                    Server Logs
+                    {t('ase.resetDialog.logsTitle', 'Server Logs')}
                   </div>
-                  <p className="text-xs text-slate-400">Deletes crash logs and console output logs.</p>
+                  <p className="text-xs text-slate-400">{t('ase.resetDialog.logsDesc', 'Deletes crash logs and console output logs.')}</p>
                 </div>
               </label>
             </div>
 
             <div className="pt-4 border-t border-white/10">
               <label className="block text-sm text-slate-300 mb-2">
-                Type <span className="font-mono text-rose-400 select-all bg-rose-500/10 px-1 rounded">{serverName}</span> to confirm:
+                {t('ase.resetDialog.typePrefix', 'Type')} <span className="font-mono text-rose-400 select-all bg-rose-500/10 px-1 rounded">{serverName}</span> {t('ase.resetDialog.typeSuffix', 'to confirm:')}
               </label>
               <input
                 type="text"
@@ -152,7 +154,7 @@ export default function ASEResetDialog({ isOpen, serverId, serverName, onClose, 
               disabled={isResetting}
               className="px-5 py-2.5 text-sm font-medium text-slate-300 hover:text-white transition-colors"
             >
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </button>
             <button
               onClick={handleReset}
@@ -164,7 +166,7 @@ export default function ASEResetDialog({ isOpen, serverId, serverName, onClose, 
               ) : (
                 <Trash2 className="w-4 h-4" />
               )}
-              {isResetting ? 'Wiping Data...' : 'Confirm Reset'}
+              {isResetting ? t('ase.resetDialog.wiping', 'Wiping Data...') : t('ase.resetDialog.confirm', 'Confirm Reset')}
             </button>
           </div>
         </motion.div>

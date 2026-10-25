@@ -76,8 +76,8 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
         try {
             const result = await testAseDiscordBridgeConnection(config.bot_token, config.channel_id);
             setConnectionStatus('success');
-            setConnectionMessage(result ? 'Connection successful' : 'Connection failed');
-            toast.success(result ? 'Connection successful' : 'Connection failed');
+            setConnectionMessage(result ? t('ase.discordBridge.connSuccess', 'Connection successful') : t('ase.discordBridge.connFailed', 'Connection failed'));
+            toast.success(result ? t('ase.discordBridge.connSuccess', 'Connection successful') : t('ase.discordBridge.connFailed', 'Connection failed'));
         } catch (error) {
             setConnectionStatus('error');
             setConnectionMessage(String(error));
@@ -282,7 +282,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                             onChange={(e) => setConfig({ ...config, bot_token: e.target.value })}
                             onMouseDown={(e) => e.stopPropagation()}
                             onKeyDown={(e) => e.stopPropagation()}
-                            placeholder="Enter your Discord bot token"
+                            placeholder={t('ase.discordBridge.tokenPlaceholder', 'Enter your Discord bot token')}
                             className="w-full px-4 py-2.5 pr-12 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent select-text cursor-text"
                         />
                         <button
@@ -335,7 +335,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                     <label className="block text-sm font-medium text-slate-300 mb-1.5 flex items-center gap-2">
                         {t('discord.adminChannelId', 'Admin Command Channel ID')}
                         <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                            Safe & Secure
+                            {t('ase.discordBridge.safeSecure', 'Safe & Secure')}
                         </span>
                     </label>
                     <input
@@ -344,11 +344,11 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                         onChange={(e) => setConfig({ ...config, admin_channel_id: e.target.value })}
                         onMouseDown={(e) => e.stopPropagation()}
                         onKeyDown={(e) => e.stopPropagation()}
-                        placeholder="Channel ID for Admin Commands (!restart, !kick)"
+                        placeholder={t('ase.discordBridge.adminChannelPlaceholder', 'Channel ID for Admin Commands (!restart, !kick)')}
                         className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent select-text cursor-text"
                     />
                     <p className="text-xs text-slate-500 mt-1">
-                        Commands like <code>!kick</code> and <code>!restart</code> will ONLY work in this channel.
+                        {t('ase.discordBridge.commandsLike', 'Commands like')} <code>!kick</code> {t('ase.discordBridge.and', 'and')} <code>!restart</code> {t('ase.discordBridge.onlyThisChannel', 'will ONLY work in this channel.')}
                     </p>
                 </div>
             </div>
@@ -434,7 +434,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                                 onChange={(e) => setConfig({ ...config, server_list_channel_id: e.target.value })}
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onKeyDown={(e) => e.stopPropagation()}
-                                placeholder="Channel ID for Status Panel (can be same as chat)"
+                                placeholder={t('discord.statusChannelPlaceholder', 'Channel ID for Status Panel (can be same as chat)')}
                                 className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 select-text cursor-text"
                             />
                         </div>
@@ -453,9 +453,9 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                                 <button
                                     onClick={() => setConfig({ ...config, server_list_message_id: '' })}
                                     className="px-3 py-1 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-xs text-slate-400 rounded border border-slate-700 transition"
-                                    title="Reset to force new message"
+                                    title={t('ase.discordBridge.resetTitle', 'Reset to force new message')}
                                 >
-                                    Reset
+                                    {t('ase.discordBridge.reset', 'Reset')}
                                 </button>
                             </div>
                         </div>
@@ -501,7 +501,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                                 onChange={(e) => setConfig({ ...config, player_list_channel_id: e.target.value })}
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onKeyDown={(e) => e.stopPropagation()}
-                                placeholder="Channel ID for Player List"
+                                placeholder={t('discord.playerChannelPlaceholder', 'Channel ID for Player List')}
                                 className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 select-text cursor-text"
                             />
                         </div>
@@ -534,9 +534,9 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                                 <button
                                     onClick={() => setConfig({ ...config, player_list_message_id: '' })}
                                     className="px-3 py-1 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-xs text-slate-400 rounded border border-slate-700 transition"
-                                    title="Reset to force new message"
+                                    title={t('ase.discordBridge.resetTitle', 'Reset to force new message')}
                                 >
-                                    Reset
+                                    {t('ase.discordBridge.reset', 'Reset')}
                                 </button>
                             </div>
                         </div>

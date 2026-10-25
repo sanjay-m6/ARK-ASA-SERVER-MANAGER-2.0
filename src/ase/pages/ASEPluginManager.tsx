@@ -5,6 +5,7 @@ import { checkAseApiInstalled, getInstalledAsePlugins, type AsePluginInfo } from
 import { Plug, ExternalLink, Loader2, Package, X, AlertTriangle, CheckCircle2, Server } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { openUrl } from '@tauri-apps/plugin-opener';
 
 // Official uMod and classic ARK Server API websites
@@ -12,6 +13,7 @@ const UMOD_REPOSITORY_URL = 'https://umod.org/games/ark';
 const ARKAPI_REPOSITORY_URL = 'https://arkforum.de/';
 
 export default function ASEPluginManager() {
+    const { t } = useTranslation();
     const { servers, activeServer } = useAseServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(() => activeServer?.id || null);
     const [plugins, setPlugins] = useState<AsePluginInfo[]>([]);
@@ -48,7 +50,7 @@ export default function ASEPluginManager() {
             setPlugins(result);
         } catch (error) {
             console.error('Failed to load ASE plugins:', error);
-            toast.error('Failed to retrieve server plugins');
+            toast.error(t('ase.pluginManager.loadFailed', 'Failed to retrieve server plugins'));
         } finally {
             setIsLoading(false);
         }
@@ -78,10 +80,10 @@ export default function ASEPluginManager() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-500">
-                        ASE Plugins Manager
+                        {t('ase.pluginManager.title', 'ASE Plugins Manager')}
                     </h1>
                     <p className="text-slate-400 mt-2">
-                        Manage classic C++ DLL plugins and C# uMod/Oxide server scripting hooks.
+                        {t('ase.pluginManager.subtitle', 'Manage classic C++ DLL plugins and C# uMod/Oxide server scripting hooks.')}
                     </p>
                 </div>
 
@@ -91,14 +93,14 @@ export default function ASEPluginManager() {
                         className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition-all font-medium text-sm"
                     >
                         <ExternalLink className="w-4 h-4 text-amber-400" />
-                        Browse uMod
+                        {t('ase.pluginManager.browseUmod', 'Browse uMod')}
                     </button>
                     <button
                         onClick={() => handleOpenRepository(ARKAPI_REPOSITORY_URL)}
                         className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition-all font-medium text-sm"
                     >
                         <ExternalLink className="w-4 h-4 text-amber-400" />
-                        Browse ArkAPI
+                        {t('ase.pluginManager.browseArkApi', 'Browse ArkAPI')}
                     </button>
                 </div>
             </div>
@@ -111,8 +113,8 @@ export default function ASEPluginManager() {
                             <Server className="w-6 h-6" />
                         </div>
                         <div className="flex-1">
-                            <h3 className="text-sm font-bold text-white leading-tight">Server Plugin Manager</h3>
-                            <p className="text-xs text-slate-400">Manage ARK Server API plugins for active server</p>
+                            <h3 className="text-sm font-bold text-white leading-tight">{t('ase.pluginManager.serverPluginManager', 'Server Plugin Manager')}</h3>
+                            <p className="text-xs text-slate-400">{t('ase.pluginManager.serverPluginManagerDesc', 'Manage ARK Server API plugins for active server')}</p>
                         </div>
                     </div>
 
@@ -120,17 +122,17 @@ export default function ASEPluginManager() {
                         {apiInstalled === true ? (
                             <span className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
                                 <CheckCircle2 className="w-4 h-4" />
-                                API Framework Active
+                                {t('ase.pluginManager.apiActive', 'API Framework Active')}
                             </span>
                         ) : apiInstalled === false ? (
                             <span className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/15 border border-amber-500/20 text-amber-400 text-xs font-bold">
                                 <AlertTriangle className="w-4 h-4" />
-                                API Key/Framework Missing
+                                {t('ase.pluginManager.apiMissing', 'API Key/Framework Missing')}
                             </span>
                         ) : (
                             <span className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 text-xs">
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Checking Status...
+                                {t('ase.pluginManager.checkingStatus', 'Checking Status...')}
                             </span>
                         )}
                     </div>
@@ -138,7 +140,7 @@ export default function ASEPluginManager() {
 
                 <div className="bg-slate-900/60 border border-amber-500/10 rounded-2xl p-5 flex items-center justify-between backdrop-blur-sm">
                     <div>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Total Installed Plugins</span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">{t('ase.pluginManager.totalInstalled', 'Total Installed Plugins')}</span>
                         <h3 className="text-3xl font-extrabold text-white mt-1">{plugins.length}</h3>
                     </div>
                     <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-2xl">
@@ -154,14 +156,14 @@ export default function ASEPluginManager() {
                     {isLoading ? (
                         <div className="h-64 flex flex-col items-center justify-center border border-white/5 bg-slate-900/20 rounded-2xl">
                             <Loader2 className="w-10 h-10 text-amber-400 animate-spin" />
-                            <p className="text-sm text-slate-500 mt-4 font-medium">Scanning server binaries and oxide hooks...</p>
+                            <p className="text-sm text-slate-500 mt-4 font-medium">{t('ase.pluginManager.scanning', 'Scanning server binaries and oxide hooks...')}</p>
                         </div>
                     ) : plugins.length === 0 ? (
                         <div className="h-64 flex flex-col items-center justify-center border border-dashed border-slate-800 bg-slate-900/10 rounded-2xl p-8 text-center">
                             <Package className="w-12 h-12 text-slate-600 mb-4" />
-                            <h4 className="text-white font-bold text-lg">No plugins detected</h4>
+                            <h4 className="text-white font-bold text-lg">{t('ase.pluginManager.noPlugins', 'No plugins detected')}</h4>
                             <p className="text-slate-500 text-sm max-w-sm mt-1">
-                                Create an ArkApi or oxide/plugins directory in your ShooterGame/Binaries/Win64 server folder to drop C# or C++ scripts.
+                                {t('ase.pluginManager.noPluginsDesc', 'Create an ArkApi or oxide/plugins directory in your ShooterGame/Binaries/Win64 server folder to drop C# or C++ scripts.')}
                             </p>
                         </div>
                     ) : (
@@ -199,14 +201,14 @@ export default function ASEPluginManager() {
                                     </div>
 
                                     <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed mt-3">
-                                        {p.description || "No description provided."}
+                                        {p.description || t('ase.pluginManager.noDescription', 'No description provided.')}
                                     </p>
 
                                     <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-4">
-                                        <span className="text-[10px] text-slate-500 font-medium">Author: <strong className="text-slate-300">{p.author}</strong></span>
+                                        <span className="text-[10px] text-slate-500 font-medium">{t('ase.pluginManager.author', 'Author:')} <strong className="text-slate-300">{p.author}</strong></span>
                                         <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
                                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                            Active
+                                            {t('ase.pluginManager.active', 'Active')}
                                         </span>
                                     </div>
                                 </div>
@@ -238,33 +240,33 @@ export default function ASEPluginManager() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="p-3 rounded-2xl bg-black/20 border border-white/5">
-                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Version</span>
+                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">{t('ase.pluginManager.version', 'Version')}</span>
                                     <span className="text-sm font-semibold text-white mt-1 block">v{selectedPlugin.version}</span>
                                 </div>
                                 <div className="p-3 rounded-2xl bg-black/20 border border-white/5">
-                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Source type</span>
+                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">{t('ase.pluginManager.sourceType', 'Source type')}</span>
                                     <span className="text-sm font-semibold text-amber-400 mt-1 block">{selectedPlugin.source}</span>
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Plugin Description</span>
+                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">{t('ase.pluginManager.pluginDescription', 'Plugin Description')}</span>
                                 <div className="p-4 rounded-2xl bg-black/25 border border-white/5 text-xs text-slate-300 leading-relaxed max-h-40 overflow-y-auto">
-                                    {selectedPlugin.description || "This script does not have a parsed description block in its manifest file."}
+                                    {selectedPlugin.description || t('ase.pluginManager.noManifestDescription', 'This script does not have a parsed description block in its manifest file.')}
                                 </div>
                             </div>
 
                             <div className="space-y-2 border-t border-white/5 pt-5">
-                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Author Context</span>
+                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">{t('ase.pluginManager.authorContext', 'Author Context')}</span>
                                 <p className="text-sm text-slate-300 font-medium">{selectedPlugin.author}</p>
                             </div>
                         </div>
                     ) : (
                         <div className="h-96 border border-dashed border-slate-800 rounded-3xl flex flex-col items-center justify-center text-center p-6 bg-slate-900/10">
                             <Plug className="w-10 h-10 text-slate-700 mb-3 animate-pulse" />
-                            <h4 className="text-slate-400 font-bold text-sm">Select a Plugin</h4>
+                            <h4 className="text-slate-400 font-bold text-sm">{t('ase.pluginManager.selectPlugin', 'Select a Plugin')}</h4>
                             <p className="text-slate-600 text-xs mt-1 max-w-xs leading-relaxed">
-                                Pick an active Oxide C# plugin or ArkApi binary DLL from the grid to view developer details and description properties.
+                                {t('ase.pluginManager.selectPluginDesc', 'Pick an active Oxide C# plugin or ArkApi binary DLL from the grid to view developer details and description properties.')}
                             </p>
                         </div>
                     )}

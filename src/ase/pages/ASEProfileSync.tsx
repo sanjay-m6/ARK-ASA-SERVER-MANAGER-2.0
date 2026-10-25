@@ -6,6 +6,7 @@ import {
 import { invoke } from '@tauri-apps/api/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import ServerSelect from '../../components/ui/ServerSelect';
 
 interface ASEServer {
@@ -24,6 +25,7 @@ interface ProfileInfo {
 }
 
 export default function ASEProfileSync() {
+  const { t } = useTranslation();
   const [servers, setServers] = useState<ASEServer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'profile' | 'admin'>('profile');
@@ -69,7 +71,7 @@ export default function ASEProfileSync() {
         }
       } catch (err) {
         console.error('Failed to load ASE servers', err);
-        toast.error('Failed to load server list');
+        toast.error(t('ase.profileSync.loadServersFailed', 'Failed to load server list'));
       } finally {
         setIsLoading(false);
       }
@@ -92,7 +94,7 @@ export default function ASEProfileSync() {
         setProfiles(data);
       } catch (err) {
         console.error(err);
-        toast.error('Failed to retrieve server profile saves');
+        toast.error(t('ase.profileSync.loadSavesFailed', 'Failed to retrieve server profile saves'));
       } finally {
         setIsProfilesLoading(false);
       }
@@ -103,19 +105,19 @@ export default function ASEProfileSync() {
 
   const handleMigrate = async () => {
     if (!sourceServer) {
-      toast.error('Please select a source server');
+      toast.error(t('ase.profileSync.selectSource', 'Please select a source server'));
       return;
     }
     if (!targetServer) {
-      toast.error('Please select a target server');
+      toast.error(t('ase.profileSync.selectTarget', 'Please select a target server'));
       return;
     }
     if (sourceServer === targetServer) {
-      toast.error('Source and target server cannot be the same');
+      toast.error(t('ase.profileSync.sameServer', 'Source and target server cannot be the same'));
       return;
     }
     if (selectedProfiles.length === 0) {
-      toast.error('Please select at least one file to migrate');
+      toast.error(t('ase.profileSync.selectFile', 'Please select at least one file to migrate'));
       return;
     }
 
@@ -126,11 +128,11 @@ export default function ASEProfileSync() {
         targetServerId: targetServer,
         fileNames: selectedProfiles
       });
-      toast.success(`Successfully migrated ${selectedProfiles.length} save files!`);
+      toast.success(t('ase.profileSync.migrated', { defaultValue: 'Successfully migrated {{count}} save files!', count: selectedProfiles.length }));
       setSelectedProfiles([]);
     } catch (err) {
       console.error(err);
-      toast.error(`Migration failed: ${err}`);
+      toast.error(t('ase.profileSync.migrationFailed', { defaultValue: 'Migration failed: {{error}}', error: String(err) }));
     } finally {
       setIsMigrating(false);
     }
@@ -138,15 +140,15 @@ export default function ASEProfileSync() {
 
   const handleSyncAdminLists = async () => {
     if (!adminSourceServer) {
-      toast.error('Please select a source server');
+      toast.error(t('ase.profileSync.selectSource', 'Please select a source server'));
       return;
     }
     if (adminTargetServers.length === 0) {
-      toast.error('Please select at least one target server');
+      toast.error(t('ase.profileSync.selectTargets', 'Please select at least one target server'));
       return;
     }
     if (!syncWhitelist && !syncAdmins && !syncBans) {
-      toast.error('Please select at least one list type to sync');
+      toast.error(t('ase.profileSync.selectListType', 'Please select at least one list type to sync'));
       return;
     }
 
@@ -159,10 +161,10 @@ export default function ASEProfileSync() {
         syncAdmins,
         syncBans
       });
-      toast.success('Successfully synchronized administrative lists!');
+      toast.success(t('ase.profileSync.synced', 'Successfully synchronized administrative lists!'));
     } catch (err) {
       console.error(err);
-      toast.error(`Sync failed: ${err}`);
+      toast.error(t('ase.profileSync.syncFailed', { defaultValue: 'Sync failed: {{error}}', error: String(err) }));
     } finally {
       setIsSyncing(false);
     }
@@ -228,10 +230,10 @@ export default function ASEProfileSync() {
           <div className="p-2.5 bg-amber-500/10 rounded-xl">
             <RefreshCw className="w-6 h-6 text-amber-400" />
           </div>
-          Profile & Settings Sync
+          {t('ase.profileSync.title', 'Profile & Settings Sync')}
         </h1>
         <p className="text-sm text-slate-400 mt-1">
-          Synchronize whitelist files, ban lists, admin settings, player profiles, and tribe saves between your ASE servers.
+          {t('ase.profileSync.subtitle', 'Synchronize whitelist files, ban lists, admin settings, player profiles, and tribe saves between your ASE servers.')}
         </p>
       </div>
 
@@ -246,7 +248,7 @@ export default function ASEProfileSync() {
           }`}
         >
           <Users className="w-4 h-4" />
-          Player Profiles & Tribes
+          {t('ase.profileSync.tabProfiles', 'Player Profiles & Tribes')}
         </button>
         <button
           onClick={() => setActiveTab('admin')}
@@ -257,7 +259,7 @@ export default function ASEProfileSync() {
           }`}
         >
           <Shield className="w-4 h-4" />
-          Settings & Lists Sync
+          {t('ase.profileSync.tabSettings', 'Settings & Lists Sync')}
         </button>
       </div>
 
@@ -275,7 +277,7 @@ export default function ASEProfileSync() {
             <div className="bg-[#0A0F1C]/60 p-6 rounded-2xl border border-white/5 shadow-2xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 items-center backdrop-blur-xl transition-all duration-300">
               {/* Source Server */}
               <div className="lg:col-span-2 space-y-1.5">
-                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">Source Server</span>
+                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">{t('ase.profileSync.sourceServer', 'Source Server')}</span>
                 <ServerSelect
                   value={sourceServer === '' ? null : sourceServer}
                   onChange={val => setSourceServer(val ?? '')}
@@ -292,7 +294,7 @@ export default function ASEProfileSync() {
 
               {/* Target Server */}
               <div className="lg:col-span-2 space-y-1.5">
-                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">Target Server</span>
+                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">{t('ase.profileSync.targetServer', 'Target Server')}</span>
                 <ServerSelect
                   value={targetServer === '' ? null : targetServer}
                   onChange={val => setTargetServer(val ?? '')}
@@ -312,7 +314,7 @@ export default function ASEProfileSync() {
                     type="text"
                     value={profileSearch}
                     onChange={e => setProfileSearch(e.target.value)}
-                    placeholder="Search files by SteamID or TribeID..."
+                    placeholder={t('ase.profileSync.searchPlaceholder', 'Search files by SteamID or TribeID...')}
                     className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-white/5 rounded-xl text-xs focus:outline-none focus:border-amber-500/30 text-white"
                   />
                   <Filter className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
@@ -325,7 +327,7 @@ export default function ASEProfileSync() {
                       profileTypeFilter === 'all' ? 'bg-amber-500/20 text-amber-300' : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    All Files
+                    {t('ase.profileSync.allFiles', 'All Files')}
                   </button>
                   <button
                     onClick={() => setProfileTypeFilter('profile')}
@@ -333,7 +335,7 @@ export default function ASEProfileSync() {
                       profileTypeFilter === 'profile' ? 'bg-amber-500/20 text-amber-300' : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    Player Profiles
+                    {t('ase.profileSync.playerProfiles', 'Player Profiles')}
                   </button>
                   <button
                     onClick={() => setProfileTypeFilter('tribe')}
@@ -341,7 +343,7 @@ export default function ASEProfileSync() {
                       profileTypeFilter === 'tribe' ? 'bg-amber-500/20 text-amber-300' : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    Tribes
+                    {t('ase.profileSync.tribes', 'Tribes')}
                   </button>
                 </div>
               </div>
@@ -350,14 +352,14 @@ export default function ASEProfileSync() {
               {isProfilesLoading ? (
                 <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3">
                   <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-                  <span className="text-xs text-slate-400">Scanning SavedArks directory...</span>
+                  <span className="text-xs text-slate-400">{t('ase.profileSync.scanning', 'Scanning SavedArks directory...')}</span>
                 </div>
               ) : filteredProfiles.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center py-20 text-center gap-3">
                   <AlertCircle className="w-10 h-10 text-slate-500" />
                   <div>
-                    <h4 className="font-bold text-white text-sm">No Save Files Found</h4>
-                    <p className="text-xs text-slate-400 mt-1">Make sure the source server has been started and has active player records.</p>
+                    <h4 className="font-bold text-white text-sm">{t('ase.profileSync.noFiles', 'No Save Files Found')}</h4>
+                    <p className="text-xs text-slate-400 mt-1">{t('ase.profileSync.noFilesDesc', 'Make sure the source server has been started and has active player records.')}</p>
                   </div>
                 </div>
               ) : (
@@ -375,10 +377,10 @@ export default function ASEProfileSync() {
                             )}
                           </button>
                         </th>
-                        <th className="py-3 px-4">Filename / ID</th>
-                        <th className="py-3 px-4">Type</th>
-                        <th className="py-3 px-4">Size</th>
-                        <th className="py-3 px-4">Last Activity</th>
+                        <th className="py-3 px-4">{t('ase.profileSync.colFilename', 'Filename / ID')}</th>
+                        <th className="py-3 px-4">{t('ase.profileSync.colType', 'Type')}</th>
+                        <th className="py-3 px-4">{t('ase.profileSync.colSize', 'Size')}</th>
+                        <th className="py-3 px-4">{t('ase.profileSync.colActivity', 'Last Activity')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 text-xs text-slate-300">
@@ -411,7 +413,7 @@ export default function ASEProfileSync() {
                                   ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                                   : 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
                               }`}>
-                                {p.file_type === 'profile' ? 'Player Profile' : 'Tribe Save'}
+                                {p.file_type === 'profile' ? t('ase.profileSync.playerProfile', 'Player Profile') : t('ase.profileSync.tribeSave', 'Tribe Save')}
                               </span>
                             </td>
                             <td className="py-3.5 px-4 flex items-center gap-1.5">
@@ -448,7 +450,7 @@ export default function ASEProfileSync() {
                     className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-bold rounded-xl transition-all text-xs flex items-center gap-2 disabled:opacity-50"
                   >
                     {isMigrating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                    Migrate Save Files
+                    {t('ase.profileSync.migrate', 'Migrate Save Files')}
                   </button>
                 </motion.div>
               )}
@@ -467,7 +469,7 @@ export default function ASEProfileSync() {
               <div className="lg:col-span-2 space-y-6">
                 {/* Checkbox configs list */}
                 <div className="glass-panel p-6 rounded-2xl space-y-6">
-                  <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider border-b border-white/5 pb-3">Administrative Lists</h3>
+                  <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider border-b border-white/5 pb-3">{t('ase.profileSync.adminLists', 'Administrative Lists')}</h3>
 
                   <div className="space-y-4">
                     {/* Whitelist */}
@@ -483,8 +485,8 @@ export default function ASEProfileSync() {
                         {syncWhitelist && <Check className="w-4 h-4 stroke-[3]" />}
                       </div>
                       <div className="space-y-1">
-                        <span className="font-bold text-white text-sm">Player Whitelist</span>
-                        <p className="text-xs text-slate-400">Synchronize whitelist file (<span className="font-mono text-slate-500 text-[10px]">PlayersExclusiveJoinList.txt</span>) to allow selected players joining.</p>
+                        <span className="font-bold text-white text-sm">{t('ase.profileSync.whitelist', 'Player Whitelist')}</span>
+                        <p className="text-xs text-slate-400">{t('ase.profileSync.whitelistDesc1', 'Synchronize whitelist file')} (<span className="font-mono text-slate-500 text-[10px]">PlayersExclusiveJoinList.txt</span>) {t('ase.profileSync.whitelistDesc2', 'to allow selected players joining.')}</p>
                       </div>
                     </div>
 
@@ -501,8 +503,8 @@ export default function ASEProfileSync() {
                         {syncAdmins && <Check className="w-4 h-4 stroke-[3]" />}
                       </div>
                       <div className="space-y-1">
-                        <span className="font-bold text-white text-sm">Server Admins List</span>
-                        <p className="text-xs text-slate-400">Synchronize cheat permission list (<span className="font-mono text-slate-500 text-[10px]">AllowedCheaterSteamIDs.txt</span>) to grant admin access.</p>
+                        <span className="font-bold text-white text-sm">{t('ase.profileSync.adminsList', 'Server Admins List')}</span>
+                        <p className="text-xs text-slate-400">{t('ase.profileSync.adminsDesc1', 'Synchronize cheat permission list')} (<span className="font-mono text-slate-500 text-[10px]">AllowedCheaterSteamIDs.txt</span>) {t('ase.profileSync.adminsDesc2', 'to grant admin access.')}</p>
                       </div>
                     </div>
 
@@ -519,8 +521,8 @@ export default function ASEProfileSync() {
                         {syncBans && <Check className="w-4 h-4 stroke-[3]" />}
                       </div>
                       <div className="space-y-1">
-                        <span className="font-bold text-white text-sm">Ban List</span>
-                        <p className="text-xs text-slate-400">Synchronize ban records (<span className="font-mono text-slate-500 text-[10px]">BanList.txt</span>) to block problematic players across all nodes.</p>
+                        <span className="font-bold text-white text-sm">{t('ase.profileSync.banList', 'Ban List')}</span>
+                        <p className="text-xs text-slate-400">{t('ase.profileSync.banDesc1', 'Synchronize ban records')} (<span className="font-mono text-slate-500 text-[10px]">BanList.txt</span>) {t('ase.profileSync.banDesc2', 'to block problematic players across all nodes.')}</p>
                       </div>
                     </div>
                   </div>
@@ -531,7 +533,7 @@ export default function ASEProfileSync() {
               <div className="space-y-6">
                 {/* Source server */}
                 <div className="bg-[#0A0F1C]/60 border border-white/5 rounded-2xl p-6 space-y-4 shadow-2xl backdrop-blur-xl">
-                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">Source Server</span>
+                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">{t('ase.profileSync.sourceServer', 'Source Server')}</span>
                   <ServerSelect
                     value={adminSourceServer === '' ? null : adminSourceServer}
                     onChange={val => setAdminSourceServer(val ?? '')}
@@ -543,7 +545,7 @@ export default function ASEProfileSync() {
 
                 {/* Target servers multi-selector */}
                 <div className="bg-[#0A0F1C]/60 border border-white/5 rounded-2xl p-6 space-y-4 shadow-2xl backdrop-blur-xl">
-                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">Target Servers</span>
+                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">{t('ase.profileSync.targetServers', 'Target Servers')}</span>
                   <div className="space-y-2 max-h-[160px] overflow-y-auto">
                     {servers.filter(s => s.id !== adminSourceServer).map(s => {
                       const isSelected = adminTargetServers.includes(s.id);
@@ -571,7 +573,7 @@ export default function ASEProfileSync() {
                       );
                     })}
                     {servers.filter(s => s.id !== adminSourceServer).length === 0 && (
-                      <span className="text-xs text-slate-500 italic block py-2">No other servers available</span>
+                      <span className="text-xs text-slate-500 italic block py-2">{t('ase.profileSync.noOtherServers', 'No other servers available')}</span>
                     )}
                   </div>
                 </div>
@@ -583,7 +585,7 @@ export default function ASEProfileSync() {
                   className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-bold rounded-xl transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                  Sync Administrative Settings
+                  {t('ase.profileSync.syncSettings', 'Sync Administrative Settings')}
                 </button>
               </div>
             </div>

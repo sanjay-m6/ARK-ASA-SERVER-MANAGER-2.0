@@ -287,7 +287,7 @@ export default function Sidebar() {
                   ? "bg-amber-500/20 border-amber-500/40 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
                   : "bg-sky-500/20 border-sky-500/40 text-sky-300 shadow-[0_0_12px_rgba(6,182,212,0.25)]"
               )}
-              title={t('sidebar.switchGame', `Switch to ${activeGame === 'ASA' ? 'ASE' : 'ASA'}`)}
+              title={t('sidebar.switchGame', { defaultValue: 'Switch to {{game}}', game: activeGame === 'ASA' ? 'ASE' : 'ASA' })}
             >
               {activeGame}
             </button>
@@ -343,7 +343,7 @@ export default function Sidebar() {
               <button
                 onClick={() => setSearchQuery('')}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-slate-500 hover:text-slate-300 z-20"
-                title="Clear search"
+                title={t('sidebar.clearSearch', 'Clear search')}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -557,7 +557,7 @@ export default function Sidebar() {
             
             {/* Evolved Mode Switch */}
             <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-300">Show Evolved (ASE)</span>
+              <span className="text-[11px] font-bold text-slate-300">{t('sidebar.showEvolved', 'Show Evolved (ASE)')}</span>
               <button
                 onClick={() => {
                   const newVal = !showAseMode;

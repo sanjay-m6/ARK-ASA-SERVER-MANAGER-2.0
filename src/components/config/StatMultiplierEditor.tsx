@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { User, Bone, Zap, Heart, Wind, Beef, Weight, Sword, Activity, Shield, Brain, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/helpers';
+import { NumberInput } from '../ui/NumberInput';
 
 // Stat definitions with their INI keys and descriptions
 const PLAYER_STATS = [
@@ -83,6 +85,7 @@ interface StatMultiplierEditorProps {
 }
 
 export default function StatMultiplierEditor({ getValue, setValue }: StatMultiplierEditorProps) {
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState<'player' | 'dino'>('player');
     const [activeDinoType, setActiveDinoType] = useState('Wild');
     const [expandedStats, setExpandedStats] = useState<Set<number>>(new Set());
@@ -90,7 +93,8 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
     // Get/set player stat multiplier
     const getPlayerStat = (statId: number) => {
         const key = `PerLevelStatsMultiplier_Player[${statId}]`;
-        return parseFloat(getValue('Game', '/Script/ShooterGame.ShooterGameMode', key, '1.0')) || 1.0;
+        const v = parseFloat(getValue('Game', '/Script/ShooterGame.ShooterGameMode', key, '1.0'));
+        return Number.isFinite(v) ? v : 1.0; // a real 0.0 (stat disabled) must not show as 1.0
     };
 
     const setPlayerStat = (statId: number, value: number) => {
@@ -103,7 +107,8 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
         const prefix = DINO_STAT_TYPES.find(t => t.key === type)?.prefix || 'PerLevelStatsMultiplier_DinoWild';
         const key = `${prefix}[${statId}]`;
         const def = officialDinoDefault(type, statId);
-        return parseFloat(getValue('Game', '/Script/ShooterGame.ShooterGameMode', key, def.toString())) || def;
+        const v = parseFloat(getValue('Game', '/Script/ShooterGame.ShooterGameMode', key, def.toString()));
+        return Number.isFinite(v) ? v : def;
     };
 
     const setDinoStat = (statId: number, type: string, value: number) => {
@@ -183,7 +188,7 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
                         <div>
                             <div className="flex items-center gap-2">
                                 <div className="text-sm font-medium text-white">{name}</div>
-                                {isDisabled && <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded">ASA Disabled</span>}
+                                {isDisabled && <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded">{t('statMultiplierEditor.asaDisabled', 'ASA Disabled')}</span>}
                             </div>
                             <div className="text-xs text-slate-500">{description}</div>
                         </div>
@@ -212,20 +217,18 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
                         <div className="flex items-center gap-4">
                             <input
                                 type="range"
-                                min="0.1"
+                                min="0"
                                 max="10"
                                 step="0.1"
                                 value={value}
                                 onChange={(e) => setValue(parseFloat(e.target.value))}
                                 className="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                             />
-                            <input
-                                type="number"
-                                min="0.1"
-                                max="100"
-                                step="0.1"
+                            <NumberInput
+                                min={0}
+                                max={100}
                                 value={value}
-                                onChange={(e) => setValue(parseFloat(e.target.value) || 1.0)}
+                                onValueChange={setValue}
                                 className="w-20 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-center text-white font-mono text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500"
                             />
                         </div>
@@ -266,7 +269,7 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
                         )}
                     >
                         <User className="w-4 h-4" />
-                        Player Stats
+                        {t('statMultiplierEditor.playerStats', 'Player Stats')}
                     </button>
                     <button
                         onClick={() => setActiveTab('dino')}
@@ -278,29 +281,29 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
                         )}
                     >
                         <Bone className="w-4 h-4" />
-                        Dino Stats
+                        {t('statMultiplierEditor.dinoStats', 'Dino Stats')}
                     </button>
                 </div>
 
                 {/* Preset buttons */}
                 <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                    <span className="text-xs text-slate-500 mr-0.5">Presets:</span>
+                    <span className="text-xs text-slate-500 mr-0.5">{t('statMultiplierEditor.presets', 'Presets:')}</span>
                     {PRESET_BUTTONS.map(btn => (
                         <button
                             key={btn.key}
                             onClick={() => applyPreset(btn.key)}
-                            title={btn.title}
+                            title={t(`statMultiplierEditor.presetButtons.${btn.key}.title`, { defaultValue: btn.title })}
                             aria-pressed={activePreset === btn.key}
                             className={presetButtonClass(btn.tone, activePreset === btn.key)}
                         >
-                            {btn.label}
+                            {t(`statMultiplierEditor.presetButtons.${btn.key}.label`, { defaultValue: btn.label })}
                         </button>
                     ))}
                     <span className="w-px h-5 bg-slate-700 mx-0.5" aria-hidden="true" />
                     <button
                         onClick={() => applyPreset('official')}
                         className="p-1.5 bg-slate-700 hover:bg-slate-600 text-slate-400 hover:text-slate-200 rounded-lg transition-colors"
-                        title="Reset all to Official (vanilla) defaults"
+                        title={t('statMultiplierEditor.resetAll', 'Reset all to Official (vanilla) defaults')}
                     >
                         <RotateCcw className="w-4 h-4" />
                     </button>
@@ -321,8 +324,8 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
                                     : "text-slate-400 hover:text-white hover:bg-white/5"
                             )}
                         >
-                            <div>{type.label}</div>
-                            <div className="text-xs opacity-60">{type.description}</div>
+                            <div>{t(`statMultiplierEditor.dinoTypes.${type.key}.label`, { defaultValue: type.label })}</div>
+                            <div className="text-xs opacity-60">{t(`statMultiplierEditor.dinoTypes.${type.key}.description`, { defaultValue: type.description })}</div>
                         </button>
                     ))}
                 </div>
@@ -333,10 +336,10 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
                 {PLAYER_STATS.map(stat => (
                     renderStatSlider(
                         stat.id,
-                        stat.name,
+                        t(`statMultiplierEditor.stats.${stat.id}.name`, { defaultValue: stat.name }),
                         stat.icon,
                         stat.color,
-                        stat.description,
+                        t(`statMultiplierEditor.stats.${stat.id}.description`, { defaultValue: stat.description }),
                         activeTab === 'player'
                             ? () => getPlayerStat(stat.id)
                             : () => getDinoStat(stat.id, activeDinoType),
@@ -349,13 +352,13 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
 
             {/* Info box */}
             <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
-                <h4 className="text-sm font-medium text-slate-300 mb-2">💡 How Per-Stat Multipliers Work</h4>
+                <h4 className="text-sm font-medium text-slate-300 mb-2">💡 {t('statMultiplierEditor.howItWorks', 'How Per-Stat Multipliers Work')}</h4>
                 <ul className="text-xs text-slate-500 space-y-1">
-                    <li>• <strong className="text-green-400">Above 1.0x</strong> = more points per level</li>
-                    <li>• <strong className="text-red-400">Below 1.0x</strong> = fewer points per level</li>
-                    <li>• <strong className="text-slate-300">1.0x</strong> = flat uniform baseline for every stat (not the same as vanilla)</li>
-                    <li>• <strong className="text-slate-300">Official</strong> = real vanilla defaults (e.g. tamed Health 0.2x, Damage 0.17x)</li>
-                    <li>• Changes are written to <code className="text-purple-400">Game.ini</code></li>
+                    <li>• <strong className="text-green-400">{t('statMultiplierEditor.above', 'Above 1.0x')}</strong> = {t('statMultiplierEditor.aboveDesc', 'more points per level')}</li>
+                    <li>• <strong className="text-red-400">{t('statMultiplierEditor.below', 'Below 1.0x')}</strong> = {t('statMultiplierEditor.belowDesc', 'fewer points per level')}</li>
+                    <li>• <strong className="text-slate-300">1.0x</strong> = {t('statMultiplierEditor.uniformDesc', 'flat uniform baseline for every stat (not the same as vanilla)')}</li>
+                    <li>• <strong className="text-slate-300">{t('statMultiplierEditor.presetButtons.official.label', 'Official')}</strong> = {t('statMultiplierEditor.officialDesc', 'real vanilla defaults (e.g. tamed Health 0.2x, Damage 0.17x)')}</li>
+                    <li>• {t('statMultiplierEditor.writtenTo', 'Changes are written to')} <code className="text-purple-400">Game.ini</code></li>
                 </ul>
             </div>
         </div>

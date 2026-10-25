@@ -147,7 +147,10 @@ const router = createBrowserRouter(
 );
 
 function App() {
-    const [appState, setAppState] = useState<'welcome' | 'app'>('welcome');
+    // Skip the game picker when the user asked to remember their ASA/ASE choice
+    const [appState, setAppState] = useState<'welcome' | 'app'>(() =>
+        useGameStore.getState().rememberGame ? 'app' : 'welcome'
+    );
 
     // Check admin status on mount - just for warning, not blocking
     useEffect(() => {

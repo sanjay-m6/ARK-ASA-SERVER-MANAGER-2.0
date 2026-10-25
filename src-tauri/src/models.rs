@@ -15,6 +15,9 @@ pub enum ServerStatus {
     Updating,
     Restarting,
     Online,
+    #[serde(rename = "startup_timeout")]
+    StartupTimeout,
+    Repairing,
 }
 
 impl ToString for ServerStatus {
@@ -27,6 +30,8 @@ impl ToString for ServerStatus {
             ServerStatus::Updating => "updating".to_string(),
             ServerStatus::Restarting => "restarting".to_string(),
             ServerStatus::Online => "online".to_string(),
+            ServerStatus::StartupTimeout => "startup_timeout".to_string(),
+            ServerStatus::Repairing => "repairing".to_string(),
         }
     }
 }

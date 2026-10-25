@@ -165,7 +165,7 @@ export default function EditClusterDialog({
                             value={clusterName}
                             onChange={e => setClusterName(e.target.value)}
                             className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
-                            placeholder="My Cluster"
+                            placeholder={t('editCluster.namePlaceholder', 'My Cluster')}
                         />
                     </div>
 
@@ -173,7 +173,7 @@ export default function EditClusterDialog({
                     <div>
                         <label className="text-sm font-medium text-slate-300 flex items-center justify-between mb-2">
                             <span>{t('clusterManager.clusterIdString', 'Shared Cluster ID (Cross-Computer Travel)')}</span>
-                            <span className="text-xs text-slate-400 font-normal">Passed as <code className="text-emerald-400 font-mono">-clusterid</code> launch arg</span>
+                            <span className="text-xs text-slate-400 font-normal">{t('editCluster.passedAs', 'Passed as')} <code className="text-emerald-400 font-mono">-clusterid</code> {t('editCluster.launchArg', 'launch arg')}</span>
                         </label>
                         <div className="flex gap-2">
                             <input

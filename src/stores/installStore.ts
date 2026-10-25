@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { listen } from '@tauri-apps/api/event';
-import { invoke } from '@tauri-apps/api/core';
 import type { ServerType } from '../types';
 import { toast } from 'react-hot-toast';
+import i18n from '../i18n';
 import { useServerStore } from './serverStore';
 
 export const normalizePath = (path: string): string => {
@@ -81,7 +81,7 @@ export const useInstallStore = create<InstallStore>((set) => ({
                     serverType,
                     progress: 0,
                     stage: 'preparing',
-                    message: 'Preparing installation...',
+                    message: i18n.t('installStore.preparing', 'Preparing installation...'),
                     isComplete: false,
                     isError: false,
                     logs: [],
@@ -113,14 +113,14 @@ export const useInstallStore = create<InstallStore>((set) => ({
             const toastId = `install-toast-${normalized}`;
             if (progressData.isComplete && !task.isComplete) {
                 const msg = progressData.message && progressData.message !== 'Update complete' 
-                    ? `Server "${task.name}" updated: ${progressData.message}` 
-                    : `Server "${task.name}" updated successfully!`;
+                    ? i18n.t('installStore.updatedWithMessage', { defaultValue: 'Server "{{name}}" updated: {{message}}', name: task.name, message: progressData.message })
+                    : i18n.t('installStore.updatedSuccess', { defaultValue: 'Server "{{name}}" updated successfully!', name: task.name });
                 toast.success(msg, { id: toastId, duration: 5000 });
                 // Force refresh server versions so the "Update Available" warning badge vanishes instantly!
                 useServerStore.getState().fetchAllServerVersions(true);
                 useServerStore.getState().refreshServers();
             } else if (progressData.isError && !task.isError) {
-                toast.error(`Server "${task.name}" installation failed: ${progressData.message || 'Unknown error'}`, { id: toastId, duration: 8000 });
+                toast.error(i18n.t('installStore.installFailed', { defaultValue: 'Server "{{name}}" installation failed: {{error}}', name: task.name, error: progressData.message || i18n.t('installStore.unknownError', 'Unknown error') }), { id: toastId, duration: 8000 });
             } else if (!progressData.isError && task.isError) {
                 // Progress resumed/retried after error — dismiss stale error toast
                 toast.dismiss(toastId);
@@ -155,7 +155,7 @@ export const useInstallStore = create<InstallStore>((set) => ({
                 serverType: matchingServer?.serverType || 'ASA',
                 progress: 0,
                 stage: 'updating',
-                message: 'Updating...',
+                message: i18n.t('installStore.updating', 'Updating...'),
                 isComplete: false,
                 isError: false,
                 logs: [],
@@ -195,24 +195,6 @@ export const useInstallStore = create<InstallStore>((set) => ({
     setViewingPath: (installPath) => set({ currentlyViewingPath: installPath ? normalizePath(installPath) : null }),
 }));
 
-// Helper to write frontend logs to a file in the AppData directory for easy inspection
-const appendDebugLog = async (message: string) => {
-    try {
-        const timestamp = new Date().toISOString();
-        const logLine = `[${timestamp}] ${message}\n`;
-        const logPath = 'C:\\Users\\sanja\\AppData\\Roaming\\com.ark.asaservermanager\\debug_events.log';
-        let currentLogs = '';
-        try {
-            currentLogs = await invoke<string>('read_file_content', { path: logPath });
-        } catch {
-            // File doesn't exist yet, start fresh
-        }
-        await invoke('write_file_content', { path: logPath, content: currentLogs + logLine });
-    } catch (err) {
-        console.error('Failed to write debug log to file:', err);
-    }
-};
-
 // Listeners helper for Tauri events
 let listenersInitialized = false;
 
@@ -220,35 +202,29 @@ export const initializeInstallListeners = () => {
     if (listenersInitialized) return;
     listenersInitialized = true;
 
-    appendDebugLog('initializeInstallListeners called and active');
-
     // Listen for progress updates
     listen<InstallProgressData>('install-progress', (event) => {
-        const { installPath, stage, progress, message, isComplete, isError } = event.payload;
-        appendDebugLog(`install-progress event received: Path=${installPath}, Stage=${stage}, Progress=${progress}%, Message=${message}, Complete=${isComplete}, Error=${isError}`);
-        
+        const { installPath } = event.payload;
+
         if (installPath) {
             useInstallStore.getState().updateProgress(installPath, event.payload);
         } else {
-            appendDebugLog('install-progress payload is missing installPath');
+            console.debug('install-progress payload is missing installPath');
         }
     }).catch((err) => {
-        appendDebugLog(`Error registering install-progress listener: ${err}`);
         console.error(err);
     });
 
     // Listen for console outputs
     listen<ConsoleOutputData>('install-console', (event) => {
-        const { installPath, line, lineType, timestamp } = event.payload;
-        appendDebugLog(`[${timestamp}] install-console event received: Path=${installPath}, Type=${lineType}, Line=${line}`);
-        
+        const { installPath } = event.payload;
+
         if (installPath) {
             useInstallStore.getState().addLog(installPath, event.payload);
         } else {
-            appendDebugLog('install-console payload is missing installPath');
+            console.debug('install-console payload is missing installPath');
         }
     }).catch((err) => {
-        appendDebugLog(`Error registering install-console listener: ${err}`);
         console.error(err);
     });
 };

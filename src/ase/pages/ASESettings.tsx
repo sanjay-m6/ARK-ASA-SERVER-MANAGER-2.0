@@ -102,10 +102,10 @@ export default function ASESettings() {
       await invoke('set_setting', { key: 'ase_discord_bot_token', value: discordToken });
       await invoke('set_setting', { key: 'ase_discord_client_id', value: discordClientId });
       await invoke('set_setting', { key: 'ase_user_config_folder', value: aseUserConfigFolder });
-      toast.success('ASE settings saved successfully'); 
+      toast.success(t('ase.settings.saved', 'ASE settings saved successfully')); 
     } catch (err) {
-      console.error('Failed to save ASE settings', err);
-      toast.error('Failed to save ASE settings');
+      console.error(t('ase.settings.saveFailed', 'Failed to save ASE settings'), err);
+      toast.error(t('ase.settings.saveFailed', 'Failed to save ASE settings'));
     }
   };
 
@@ -115,7 +115,7 @@ export default function ASESettings() {
       if (path) setter(path);
     } catch (error) {
       console.error('Failed to select folder:', error);
-      toast.error('Failed to open folder picker');
+      toast.error(t('ase.settings.pickerFailed', 'Failed to open folder picker'));
     }
   };
 
@@ -127,9 +127,9 @@ export default function ASESettings() {
             <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/20">
               <Settings className="w-6 h-6 text-amber-400" />
             </div>
-            ASE Settings
+            {t('ase.settings.title', 'ASE Settings')}
           </h1>
-          <p className="text-sm text-slate-400 mt-1">ARK: Survival Evolved module configuration</p>
+          <p className="text-sm text-slate-400 mt-1">{t('ase.settings.subtitle', 'ARK: Survival Evolved module configuration')}</p>
         </div>
 
         {(activeTab === 'general' || activeTab === 'api') && (
@@ -138,7 +138,7 @@ export default function ASESettings() {
             className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-white rounded-xl text-sm font-semibold flex items-center gap-2 transition-all shadow-lg shadow-amber-500/20 focus:outline-none"
           >
             <Save className="w-4 h-4" />
-            Save Settings
+            {t('common.saveSettings', 'Save Settings')}
           </button>
         )}
       </div>
@@ -167,7 +167,7 @@ export default function ASESettings() {
         >
           <span className="relative z-10 flex items-center gap-2">
             <Palette className="w-4 h-4" />
-            Appearance & Theme
+            {t('settings.tabs.appearance', 'Appearance & Theme')}
           </span>
         </button>
         <button
@@ -217,9 +217,9 @@ export default function ASESettings() {
         <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
           <div className="glass-panel rounded-2xl p-6 space-y-6">
             <div>
-              <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4">Paths</h3>
+              <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4">{t('ase.settings.paths', 'Paths')}</h3>
               <label className="block mb-4">
-                <span className="text-sm text-slate-300 mb-1 block">Default Install Path</span>
+                <span className="text-sm text-slate-300 mb-1 block">{t('ase.settings.defaultInstallPath', 'Default Install Path')}</span>
                 <div className="flex gap-2">
                   <input 
                     type="text" 
@@ -237,7 +237,7 @@ export default function ASESettings() {
                 </div>
               </label>
               <label className="block">
-                <span className="text-sm text-slate-300 mb-1 block">SteamCMD Path</span>
+                <span className="text-sm text-slate-300 mb-1 block">{t('ase.settings.steamcmdPath', 'SteamCMD Path')}</span>
                 <div className="flex gap-2">
                   <input 
                     type="text" 
@@ -255,14 +255,14 @@ export default function ASESettings() {
                 </div>
               </label>
               <label className="block">
-                <span className="text-sm text-slate-300 mb-1 block">User Config Folder</span>
-                <p className="text-xs text-slate-500 mb-2">Point to a custom folder containing your server INI files (GameUserSettings.ini, Game.ini). When set, configs are read/written from here instead of the server install directory.</p>
+                <span className="text-sm text-slate-300 mb-1 block">{t('ase.settings.userConfigFolder', 'User Config Folder')}</span>
+                <p className="text-xs text-slate-500 mb-2">{t('ase.settings.userConfigDesc', 'Point to a custom folder containing your server INI files (GameUserSettings.ini, Game.ini). When set, configs are read/written from here instead of the server install directory.')}</p>
                 <div className="flex gap-2">
                   <input 
                     type="text" 
                     value={aseUserConfigFolder} 
                     onChange={e => setAseUserConfigFolder(e.target.value)} 
-                    placeholder="Not set — using default server install path"
+                    placeholder={t('ase.settings.notSet', 'Not set — using default server install path')}
                     className="flex-1 px-4 py-3 bg-slate-800/50 border border-white/10 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-amber-500/30 placeholder-slate-500" 
                   />
                   <button 
@@ -277,7 +277,7 @@ export default function ASESettings() {
                       type="button" 
                       onClick={() => setAseUserConfigFolder('')} 
                       className="px-3 py-3 bg-slate-800/50 hover:bg-red-500/10 border border-white/10 hover:border-red-500/20 rounded-xl text-slate-400 hover:text-red-400 transition-all focus:outline-none"
-                      title="Clear and use default"
+                      title={t('settings.customSteamcmdPath.clear', 'Clear and use default')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -286,16 +286,16 @@ export default function ASESettings() {
                 {aseUserConfigFolder && (
                   <p className="mt-2 text-xs text-amber-400/70 flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5" />
-                    Config files will be read from and saved to this folder
+                    {t('ase.settings.configFolderNote', 'Config files will be read from and saved to this folder')}
                   </p>
                 )}
               </label>
             </div>
 
             <div className="border-t border-white/5 pt-6">
-              <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4">General</h3>
+              <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4">{t('common.general', 'General')}</h3>
               <div className="flex items-center justify-between py-3">
-                <span className="text-sm text-slate-300">Auto-update servers on startup</span>
+                <span className="text-sm text-slate-300">{t('ase.settings.autoUpdate', 'Auto-update servers on startup')}</span>
                 <button 
                   onClick={() => setAutoUpdate(!autoUpdate)} 
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all focus:outline-none ${
@@ -310,12 +310,12 @@ export default function ASESettings() {
             </div>
 
             <div className="glass-panel rounded-xl p-4 bg-slate-800/30 border-white/5">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">ASE Module Info</h4>
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t('ase.settings.moduleInfo', 'ASE Module Info')}</h4>
               <div className="space-y-1 text-xs text-slate-500">
-                <p>Steam AppID: <span className="text-white font-mono">376030</span></p>
-                <p>Executable: <span className="text-white font-mono">ShooterGameServer.exe</span></p>
-                <p>Engine: <span className="text-white">Unreal Engine 4</span></p>
-                <p>Mod Platform: <span className="text-white">Steam Workshop</span></p>
+                <p>{t('ase.settings.appId', 'Steam AppID:')} <span className="text-white font-mono">376030</span></p>
+                <p>{t('ase.settings.executable', 'Executable:')} <span className="text-white font-mono">ShooterGameServer.exe</span></p>
+                <p>{t('ase.settings.engine', 'Engine:')} <span className="text-white">Unreal Engine 4</span></p>
+                <p>{t('ase.settings.modPlatform', 'Mod Platform:')} <span className="text-white">Steam Workshop</span></p>
               </div>
             </div>
 
@@ -354,7 +354,7 @@ export default function ASESettings() {
       ) : activeTab === 'api' ? (
         <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
           <div className="glass-panel rounded-2xl p-6 space-y-6">
-            <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider">API Integrations</h3>
+            <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider">{t('ase.settings.apiIntegrations', 'API Integrations')}</h3>
             
             {/* Steam Web API Key Navigation Link */}
             <div 
@@ -367,10 +367,10 @@ export default function ASESettings() {
                 </div>
                 <div className="min-w-0">
                   <span className="text-sm font-bold text-slate-200 block mb-0.5 group-hover:text-amber-400 transition-colors duration-300">
-                    Steam Web API Key
+                    {t('settings.steamApiKey.title', 'Steam Web API Key')}
                   </span>
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    The Steam Web API Key is managed globally. Click here to configure it in the main <span className="text-amber-400/90 font-semibold group-hover:underline">Global Settings</span> page.
+                    {t('ase.settings.steamKeyDesc1', 'The Steam Web API Key is managed globally. Click here to configure it in the main')} <span className="text-amber-400/90 font-semibold group-hover:underline">{t('ase.settings.globalSettings', 'Global Settings')}</span> {t('ase.settings.steamKeyDesc2', 'page.')}
                   </p>
                 </div>
               </div>
@@ -378,30 +378,30 @@ export default function ASESettings() {
                 type="button"
                 className="px-4 py-2.5 bg-amber-500/10 group-hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 group-hover:border-amber-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all self-start sm:self-center hover:scale-[1.03] active:scale-[0.98] shadow-md focus:outline-none flex-shrink-0"
               >
-                Configure API Key <ExternalLink className="w-3.5 h-3.5" />
+                {t('ase.settings.configureKey', 'Configure API Key')} <ExternalLink className="w-3.5 h-3.5" />
               </button>
             </div>
 
             <label className="block mt-4 mb-4">
-              <span className="text-sm text-slate-300 mb-1 block">Discord Bot Token (ASE)</span>
+              <span className="text-sm text-slate-300 mb-1 block">{t('ase.settings.discordToken', 'Discord Bot Token (ASE)')}</span>
               <input 
                 type="password" 
                 value={discordToken} 
                 onChange={e => setDiscordToken(e.target.value)} 
-                placeholder="Enter Discord Bot Token..."
+                placeholder={t('ase.settings.discordTokenPlaceholder', 'Enter Discord Bot Token...')}
                 className="w-full px-4 py-3 bg-slate-800/50 border border-white/10 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-amber-500/30" 
               />
             </label>
             <label className="block">
-              <span className="text-sm text-slate-300 mb-1 block">Discord Client ID (ASE)</span>
+              <span className="text-sm text-slate-300 mb-1 block">{t('ase.settings.discordClientId', 'Discord Client ID (ASE)')}</span>
               <input 
                 type="text" 
                 value={discordClientId} 
                 onChange={e => setDiscordClientId(e.target.value)} 
-                placeholder="Enter Discord Client ID..."
+                placeholder={t('ase.settings.discordClientIdPlaceholder', 'Enter Discord Client ID...')}
                 className="w-full px-4 py-3 bg-slate-800/50 border border-white/10 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-amber-500/30" 
               />
-              <p className="text-xs text-slate-500 mt-2">Required for advanced Discord integration (e.g. cross-chat, status updates). Leave empty if not using Discord features for ASE.</p>
+              <p className="text-xs text-slate-500 mt-2">{t('ase.settings.discordNote', 'Required for advanced Discord integration (e.g. cross-chat, status updates). Leave empty if not using Discord features for ASE.')}</p>
             </label>
           </div>
         </div>

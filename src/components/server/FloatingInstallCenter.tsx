@@ -24,7 +24,7 @@ export default function FloatingInstallCenter() {
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
                     transition={{ type: 'spring', damping: 22, stiffness: 280 }}
                     className="fixed bottom-22 right-6 left-6 sm:bottom-6 sm:right-22 sm:left-auto z-50 w-auto sm:w-96 flex flex-col gap-3 font-sans"
-                    aria-label="Installation Center"
+                    aria-label={t('installCenter.title', 'Installation Center')}
                 >
                     {/* Main Header / Trigger Pill */}
                     <div className="bg-slate-900/85 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4 shadow-2xl transition-all duration-300 hover:shadow-sky-500/15">
@@ -47,7 +47,7 @@ export default function FloatingInstallCenter() {
                                     </h3>
                                     <p className="text-[11px] text-slate-400 font-medium">
                                         {activeCount > 0 
-                                            ? t('installCenter.activeJobs', { count: activeCount, defaultValue: `${activeCount} installs running` })
+                                            ? t('installCenter.activeJobs', { count: activeCount, defaultValue: '{{count}} installs running' })
                                             : hasDraft
                                                 ? t('installCenter.setupDraftActive', '1 setup draft minimized')
                                                 : t('installCenter.allDone', 'All installations complete')
@@ -99,7 +99,7 @@ export default function FloatingInstallCenter() {
                                                         </div>
                                                         <div className="leading-tight">
                                                             <div className="text-xs font-bold text-white truncate max-w-[160px] sm:max-w-[200px] group-hover/draft:text-sky-400 transition-colors">
-                                                                {draftSetup.formData.name || "Unnamed Server Setup"}
+                                                                {draftSetup.formData.name || t('installCenter.unnamedSetup', 'Unnamed Server Setup')}
                                                             </div>
                                                             <div className="text-[10px] text-slate-400 font-medium">
                                                                 {t('installCenter.setupDraft', 'Setup Draft')} • {draftSetup.formData.serverType || "ASA"}
@@ -139,10 +139,10 @@ export default function FloatingInstallCenter() {
                                                         <div className="flex flex-col gap-1">
                                                             <div className="flex items-center justify-between text-[10px]">
                                                                 <span className="text-slate-400 font-medium">
-                                                                    Minimized at Step {draftSetup.step} / {totalSteps}
+                                                                    {t('installCenter.minimizedAtStep', { defaultValue: 'Minimized at Step {{step}} / {{total}}', step: draftSetup.step, total: totalSteps })}
                                                                 </span>
                                                                 <span className="text-sky-400 font-bold group-hover/draft:text-sky-300 transition-colors">
-                                                                    {pct}% Setup
+                                                                    {t('installCenter.setupPercent', { defaultValue: '{{pct}}% Setup', pct })}
                                                                 </span>
                                                             </div>
                                                             <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">

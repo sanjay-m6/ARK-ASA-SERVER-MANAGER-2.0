@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { FolderOpen, File, ChevronRight, ArrowUp } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { useAseServerStore } from '../stores/aseServerStore';
 
 export default function ASEFileManager() {
+  const { t } = useTranslation();
   const { servers, activeServer } = useAseServerStore();
   const [selectedServer, setSelectedServer] = useState<number | null>(() => activeServer?.id || null);
 
@@ -30,7 +32,7 @@ export default function ASEFileManager() {
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-white flex items-center gap-3"><div className="p-2.5 bg-amber-500/10 rounded-xl"><FolderOpen className="w-6 h-6 text-amber-400" /></div>ASE File Manager</h1><p className="text-sm text-slate-400 mt-1">Browse server files and directories</p></div>
+        <div><h1 className="text-2xl font-bold text-white flex items-center gap-3"><div className="p-2.5 bg-amber-500/10 rounded-xl"><FolderOpen className="w-6 h-6 text-amber-400" /></div>{t('ase.fileManager.title', 'ASE File Manager')}</h1><p className="text-sm text-slate-400 mt-1">{t('ase.fileManager.subtitle', 'Browse server files and directories')}</p></div>
 
       </div>
 
@@ -44,7 +46,7 @@ export default function ASEFileManager() {
 
       <div className="glass-panel rounded-2xl p-4">
         {items.length === 0 ? (
-          <div className="text-center py-12"><FolderOpen className="w-12 h-12 text-slate-600 mx-auto mb-2" /><p className="text-slate-500 text-sm">Empty directory</p></div>
+          <div className="text-center py-12"><FolderOpen className="w-12 h-12 text-slate-600 mx-auto mb-2" /><p className="text-slate-500 text-sm">{t('ase.fileManager.empty', 'Empty directory')}</p></div>
         ) : (
           <div className="space-y-1">{items.map(item => (
             <button key={item.path} onClick={() => item.type === 'dir' && setCurrentPath(item.path)} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/[0.03] transition-all text-left focus:outline-none">
@@ -59,7 +61,7 @@ export default function ASEFileManager() {
       {server && (
         <div className="bg-[#0A0F1C]/60 p-4 rounded-xl border border-white/5 shadow-2xl backdrop-blur-xl transition-all duration-300">
           <p className="text-xs text-slate-400 font-mono flex items-center gap-2">
-            <span className="text-amber-400 font-bold uppercase tracking-wider text-[10px]">Install Path:</span>
+            <span className="text-amber-400 font-bold uppercase tracking-wider text-[10px]">{t('ase.fileManager.installPath', 'Install Path:')}</span>
             {server.installPath}
           </p>
         </div>

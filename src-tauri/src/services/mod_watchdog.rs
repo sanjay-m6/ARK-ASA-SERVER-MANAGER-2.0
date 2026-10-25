@@ -167,8 +167,14 @@ impl ModWatchdogService {
                         }
                     }
 
+                    // Resolve the CurseForge API key (DB setting, then env var) without
+                    // holding the DB lock across the await below
+                    let api_key = app_handle
+                        .try_state::<AppState>()
+                        .and_then(|state| crate::services::api_key_manager::ApiKeyManager::get_curseforge_key(&state));
+
                     // Check CurseForge API for updates
-                    match mod_scraper::check_mod_updates(active_mod_ids, None).await {
+                    match mod_scraper::check_mod_updates(active_mod_ids, api_key).await {
                         Ok(updates) => {
                             let mut updated_mods = Vec::new();
                             let mut states = mod_state.lock().await;

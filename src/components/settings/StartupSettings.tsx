@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { ShieldAlert, Play, Clock, LogIn, Monitor, AlertTriangle, Cpu, Minimize2, LogOut, HelpCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useGameStore } from '../../stores/gameStore';
+import { NumberInput } from '../ui/NumberInput';
 
 interface StartupSettingsProps {
     globalAutoStartEnabled: boolean;
@@ -36,6 +38,7 @@ export default function StartupSettings({
     setSilentHeadlessStartup,
 }: StartupSettingsProps) {
     const { t } = useTranslation();
+    const { activeGame, rememberGame, setRememberGame } = useGameStore();
 
     const [closeActionPref, setCloseActionPref] = useState<'ask' | 'tray' | 'exit'>(() => {
         const remember = localStorage.getItem('rememberCloseAction') === 'true';
@@ -93,6 +96,28 @@ export default function StartupSettings({
                         </label>
                     </div>
 
+                    {/* Game Picker on Launch (applied immediately, stored locally) */}
+                    <div className="flex items-center justify-between p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 hover:bg-slate-800/50 transition-colors">
+                        <div>
+                            <h3 className="font-semibold text-white">{t('settings.startup.showGamePicker', 'Show ASA/ASE picker on launch')}</h3>
+                            <p className="text-sm text-slate-400">
+                                {t('settings.startup.showGamePickerDesc', {
+                                    defaultValue: 'When disabled, the app opens directly in the last used game ({{game}}).',
+                                    game: activeGame
+                                })}
+                            </p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={!rememberGame}
+                                onChange={(e) => setRememberGame(!e.target.checked)}
+                                className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-500"></div>
+                        </label>
+                    </div>
+
                     {/* Boot Delay Input */}
                     <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 hover:bg-slate-800/50 transition-colors">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -104,11 +129,11 @@ export default function StartupSettings({
                                 <p className="text-sm text-slate-400 mt-0.5">{t('settings.startup.bootDelayDesc', 'Time in seconds to wait before launching servers to allow network and OS resources to stabilize.')}</p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                                <input
-                                    type="number"
-                                    min="0"
+                                <NumberInput
+                                    integer
+                                    min={0}
                                     value={globalBootDelay}
-                                    onChange={(e) => setGlobalBootDelay(e.target.value)}
+                                    onValueChange={(n) => setGlobalBootDelay(String(n))}
                                     className="w-24 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono focus:outline-none focus:border-sky-500 text-center"
                                 />
                                 <span className="text-slate-400 text-sm font-medium">{t('common.seconds', 'seconds')}</span>
@@ -315,11 +340,11 @@ export default function StartupSettings({
                             </h3>
                             <p className="text-xs text-slate-400 mt-1">{t('settings.startup.maxCrashesDesc', 'Max crash recovery attempts in window.')}</p>
                         </div>
-                        <input
-                            type="number"
-                            min="1"
+                        <NumberInput
+                            integer
+                            min={1}
                             value={loopPreventionMaxCrashes}
-                            onChange={(e) => setLoopPreventionMaxCrashes(e.target.value)}
+                            onValueChange={(n) => setLoopPreventionMaxCrashes(String(n))}
                             className="w-20 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-center focus:outline-none focus:border-red-500"
                         />
                     </div>
@@ -334,11 +359,11 @@ export default function StartupSettings({
                             <p className="text-xs text-slate-400 mt-1">{t('settings.startup.observationWindowDesc', 'Time in minutes to track crash counts.')}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                            <input
-                                type="number"
-                                min="1"
+                            <NumberInput
+                                integer
+                                min={1}
                                 value={loopPreventionTimeWindowMins}
-                                onChange={(e) => setLoopPreventionTimeWindowMins(e.target.value)}
+                                onValueChange={(n) => setLoopPreventionTimeWindowMins(String(n))}
                                 className="w-20 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-center focus:outline-none focus:border-red-500"
                             />
                             <span className="text-slate-400 text-xs font-medium">{t('common.mins', 'mins')}</span>

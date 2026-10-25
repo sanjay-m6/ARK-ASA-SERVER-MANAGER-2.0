@@ -20,6 +20,7 @@ import {
     ArrowRight,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { Server } from '../../types';
 import {
     ArkServerPreset,
@@ -57,6 +58,14 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
     initialTab = 'library',
     onCreateServerFromPreset,
 }) => {
+    const { t } = useTranslation();
+    // Built-in starter templates get translated name/description; user templates keep their own text
+    const isBuiltInPreset = (p: ArkServerPreset) => BUILT_IN_STARTER_PRESETS.some(b => b.id === p.id);
+    const presetName = (p: ArkServerPreset) =>
+        isBuiltInPreset(p) ? t(`serverPresetModal.builtin.${p.id}.name`, { defaultValue: p.name }) : p.name;
+    const presetDescription = (p: ArkServerPreset) =>
+        isBuiltInPreset(p) ? t(`serverPresetModal.builtin.${p.id}.description`, { defaultValue: p.description }) : p.description;
+
     // Active Tab
     const [activeTab, setActiveTab] = useState<'library' | 'export' | 'import'>(initialTab);
 
@@ -112,12 +121,12 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
         if (s) {
             setExportMetadata(prev => ({
                 ...prev,
-                name: `${s.name} Template`,
-                description: `Complete configuration and modpack preset extracted from ${s.name} (${s.config?.mapName || 'Custom Map'}).`,
-                author: 'Server Admin',
+                name: t('serverPresetModal.defaults.name', { defaultValue: '{{server}} Template', server: s.name }),
+                description: t('serverPresetModal.defaults.description', { defaultValue: 'Complete configuration and modpack preset extracted from {{server}} ({{map}}).', server: s.name, map: s.config?.mapName || t('serverPresetModal.defaults.customMap', 'Custom Map') }),
+                author: t('serverPresetModal.defaults.author', 'Server Admin'),
             }));
         }
-    }, [exportServerId, servers]);
+    }, [exportServerId, servers, t]);
 
     // =========================================================================
     // IMPORT TAB STATE
@@ -154,11 +163,13 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
             const matchesGame = selectedGameFilter === 'ALL' || p.serverType === selectedGameFilter;
             const matchesSearch =
                 p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                presetName(p).toLowerCase().includes(searchQuery.toLowerCase()) ||
                 p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                presetDescription(p).toLowerCase().includes(searchQuery.toLowerCase()) ||
                 p.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
             return matchesGame && matchesSearch;
         });
-    }, [allPresets, selectedGameFilter, searchQuery]);
+    }, [allPresets, selectedGameFilter, searchQuery, t]);
 
     // =========================================================================
     // HANDLERS
@@ -167,7 +178,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
     const handleDownloadPreset = async () => {
         const sourceServer = servers.find(s => s.id === exportServerId);
         if (!sourceServer) {
-            toast.error('Please select a valid server to export.');
+            toast.error(t('serverPresetModal.toasts.selectValidServer', 'Please select a valid server to export.'));
             return;
         }
 
@@ -187,12 +198,12 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
 
             const saved = await savePresetToFile(preset);
             if (saved) {
-                toast.success(`Preset "${preset.name}" exported successfully!`);
+                toast.success(t('serverPresetModal.toasts.exported', { defaultValue: 'Preset "{{name}}" exported successfully!', name: preset.name }));
                 saveLocalPreset(preset);
                 setCustomPresets(getLocalPresets());
             }
         } catch (err: any) {
-            toast.error(`Export failed: ${err?.message || err}`);
+            toast.error(t('serverPresetModal.toasts.exportFailed', { defaultValue: 'Export failed: {{error}}', error: err?.message || err }));
         } finally {
             setIsExporting(false);
         }
@@ -217,9 +228,9 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
             });
 
             await navigator.clipboard.writeText(JSON.stringify(preset, null, 2));
-            toast.success('Preset JSON copied to clipboard!');
+            toast.success(t('serverPresetModal.toasts.jsonCopied', 'Preset JSON copied to clipboard!'));
         } catch (err: any) {
-            toast.error(`Failed to copy: ${err?.message || err}`);
+            toast.error(t('serverPresetModal.toasts.copyFailed', { defaultValue: 'Failed to copy: {{error}}', error: err?.message || err }));
         } finally {
             setIsExporting(false);
         }
@@ -245,10 +256,10 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
 
             saveLocalPreset(preset);
             setCustomPresets(getLocalPresets());
-            toast.success(`Saved "${preset.name}" to your local templates library!`);
+            toast.success(t('serverPresetModal.toasts.savedToLibrary', { defaultValue: 'Saved "{{name}}" to your local templates library!', name: preset.name }));
             setActiveTab('library');
         } catch (err: any) {
-            toast.error(`Save failed: ${err?.message || err}`);
+            toast.error(t('serverPresetModal.toasts.saveFailed', { defaultValue: 'Save failed: {{error}}', error: err?.message || err }));
         } finally {
             setIsExporting(false);
         }
@@ -259,25 +270,25 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
             const loaded = await loadPresetFromFile();
             if (loaded) {
                 setImportedPreset(loaded);
-                toast.success(`Loaded preset: ${loaded.name}`);
+                toast.success(t('serverPresetModal.toasts.loaded', { defaultValue: 'Loaded preset: {{name}}', name: loaded.name }));
             }
         } catch (err: any) {
-            toast.error(err?.message || 'Failed to parse preset file');
+            toast.error(err?.message || t('serverPresetModal.toasts.parseFailed', 'Failed to parse preset file'));
         }
     };
 
     const handleParseRawJson = () => {
         try {
             if (!rawJsonInput.trim()) {
-                toast.error('Please paste preset JSON first.');
+                toast.error(t('serverPresetModal.toasts.pasteFirst', 'Please paste preset JSON first.'));
                 return;
             }
             const parsed = parsePresetJson(rawJsonInput);
             setImportedPreset(parsed);
             setShowJsonInput(false);
-            toast.success(`Loaded preset: ${parsed.name}`);
+            toast.success(t('serverPresetModal.toasts.loaded', { defaultValue: 'Loaded preset: {{name}}', name: parsed.name }));
         } catch (err: any) {
-            toast.error(err?.message || 'Invalid JSON format');
+            toast.error(err?.message || t('serverPresetModal.toasts.invalidJson', 'Invalid JSON format'));
         }
     };
 
@@ -286,7 +297,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
         const targetServer = servers.find(s => s.id === serverId);
 
         if (!targetServer) {
-            toast.error('Please select a target server to apply this template to.');
+            toast.error(t('serverPresetModal.toasts.selectTarget', 'Please select a target server to apply this template to.'));
             return;
         }
 
@@ -294,13 +305,13 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
         try {
             const result = await applyPresetToServer(targetServer, presetToApply, importOptions);
             toast.success(
-                `Template "${presetToApply.name}" applied to ${targetServer.name}! ${
-                    result.backupCreated ? '(Config backup saved)' : ''
+                `${t('serverPresetModal.toasts.applied', { defaultValue: 'Template "{{name}}" applied to {{server}}!', name: presetName(presetToApply), server: targetServer.name })} ${
+                    result.backupCreated ? t('serverPresetModal.toasts.backupSaved', '(Config backup saved)') : ''
                 }`
             );
             onClose();
         } catch (err: any) {
-            toast.error(`Failed to apply preset: ${err?.message || err}`);
+            toast.error(t('serverPresetModal.toasts.applyFailed', { defaultValue: 'Failed to apply preset: {{error}}', error: err?.message || err }));
         } finally {
             setIsApplying(false);
         }
@@ -312,20 +323,20 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
 
     const handleDeleteCustomPreset = (presetId: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (confirm('Delete this template from your local library?')) {
+        if (confirm(t('serverPresetModal.confirmDelete', 'Delete this template from your local library?'))) {
             deleteLocalPreset(presetId);
             setCustomPresets(getLocalPresets());
             if (selectedLibraryPreset?.id === presetId) {
                 setSelectedLibraryPreset(null);
             }
-            toast.success('Template removed from library');
+            toast.success(t('serverPresetModal.toasts.removed', 'Template removed from library'));
         }
     };
 
     const handleSaveCustomPresetEdit = () => {
         if (!editingCustomPreset) return;
         if (!editCustomName.trim()) {
-            toast.error('Please enter a template name');
+            toast.error(t('serverPresetModal.toasts.enterName', 'Please enter a template name'));
             return;
         }
         updateLocalPreset(editingCustomPreset.id, {
@@ -341,7 +352,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
             });
         }
         setEditingCustomPreset(null);
-        toast.success(`Template renamed to "${editCustomName.trim()}"`);
+        toast.success(t('serverPresetModal.toasts.renamed', { defaultValue: 'Template renamed to "{{name}}"', name: editCustomName.trim() }));
     };
 
     if (!isOpen) return null;
@@ -377,13 +388,13 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                             </div>
                             <div>
                                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                                    Server Templates & Presets
+                                    {t('serverPresetModal.title', 'Server Templates & Presets')}
                                     <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30">
                                         .arkpreset
                                     </span>
                                 </h2>
                                 <p className="text-xs text-slate-400 mt-0.5">
-                                    Package, share, and 1-click apply server rates, INI configurations, and modpacks.
+                                    {t('serverPresetModal.subtitle', 'Package, share, and 1-click apply server rates, INI configurations, and modpacks.')}
                                 </p>
                             </div>
                         </div>
@@ -401,7 +412,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                     )}
                                 >
                                     <Layers className="w-3.5 h-3.5" />
-                                    <span>Library ({allPresets.length})</span>
+                                    <span>{t('serverPresetModal.tabs.library', { defaultValue: 'Library ({{count}})', count: allPresets.length })}</span>
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('export')}
@@ -413,7 +424,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                     )}
                                 >
                                     <Upload className="w-3.5 h-3.5" />
-                                    <span>Export</span>
+                                    <span>{t('serverPresetModal.tabs.export', 'Export')}</span>
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('import')}
@@ -425,7 +436,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                     )}
                                 >
                                     <Download className="w-3.5 h-3.5" />
-                                    <span>Import & Apply</span>
+                                    <span>{t('serverPresetModal.tabs.import', 'Import & Apply')}</span>
                                     {importedPreset && (
                                         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
                                     )}
@@ -435,7 +446,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                             <button
                                 onClick={onClose}
                                 className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all cursor-pointer shrink-0 ml-1"
-                                aria-label="Close"
+                                aria-label={t('common.close', 'Close')}
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -457,7 +468,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                             type="text"
                                             value={searchQuery}
                                             onChange={e => setSearchQuery(e.target.value)}
-                                            placeholder="Search templates by name, tags, or rates..."
+                                            placeholder={t('serverPresetModal.searchPlaceholder', 'Search templates by name, tags, or rates...')}
                                             className="w-full pl-8.5 pr-8 py-1.5 bg-slate-900/80 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-all"
                                         />
                                         {searchQuery && (
@@ -471,7 +482,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                     </div>
 
                                     <div className="flex items-center gap-2 shrink-0">
-                                        <span className="text-[11px] text-slate-400 font-medium hidden md:inline">Platform:</span>
+                                        <span className="text-[11px] text-slate-400 font-medium hidden md:inline">{t('serverPresetModal.platform', 'Platform:')}</span>
                                         <div className="flex items-center gap-1 bg-slate-900/80 p-0.5 rounded-lg border border-slate-700">
                                             {(['ALL', 'ASA', 'ASE'] as const).map(type => (
                                                 <button
@@ -484,7 +495,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                             : "text-slate-400 hover:text-slate-200"
                                                     )}
                                                 >
-                                                    {type}
+                                                    {type === 'ALL' ? t('serverPresetModal.all', 'ALL') : type}
                                                 </button>
                                             ))}
                                         </div>
@@ -514,7 +525,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center gap-1.5 flex-wrap mb-1">
                                                                 <h3 className="text-sm font-bold text-white group-hover:text-sky-300 transition-colors truncate">
-                                                                    {preset.name}
+                                                                    {presetName(preset)}
                                                                 </h3>
                                                             </div>
                                                             <div className="flex items-center gap-1.5 mb-2">
@@ -528,11 +539,11 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                                 </span>
                                                                 {isBuiltIn ? (
                                                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                                                                        Official
+                                                                        {t('serverPresetModal.official', 'Official')}
                                                                     </span>
                                                                 ) : (
                                                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-violet-500/15 text-violet-400 border border-violet-500/25">
-                                                                        Custom
+                                                                        {t('serverPresetModal.custom', 'Custom')}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -548,14 +559,14 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                                         setEditCustomDesc(preset.description || '');
                                                                     }}
                                                                     className="p-1.5 text-slate-500 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-all cursor-pointer"
-                                                                    title="Rename template"
+                                                                    title={t('serverPresetModal.renameTemplate', 'Rename template')}
                                                                 >
                                                                     <Pencil className="w-3.5 h-3.5" />
                                                                 </button>
                                                                 <button
                                                                     onClick={(e) => handleDeleteCustomPreset(preset.id, e)}
                                                                     className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all cursor-pointer"
-                                                                    title="Delete custom preset"
+                                                                    title={t('serverPresetModal.deleteCustom', 'Delete custom preset')}
                                                                 >
                                                                     <Trash2 className="w-3.5 h-3.5" />
                                                                 </button>
@@ -564,7 +575,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                     </div>
 
                                                     <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed min-h-[32px]">
-                                                        {preset.description}
+                                                        {presetDescription(preset)}
                                                     </p>
 
                                                     {/* Rates Micro-Grid (Game Telemetry Cards) */}
@@ -575,15 +586,15 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                                 <span className="text-xs font-bold text-emerald-400">{r.xpMultiplier}x</span>
                                                             </div>
                                                             <div className="bg-slate-900/80 border border-slate-800 rounded-lg py-1 px-1 text-center">
-                                                                <span className="text-[9px] text-slate-400 block font-medium">Tame</span>
+                                                                <span className="text-[9px] text-slate-400 block font-medium">{t('serverPresetModal.rates.tame', 'Tame')}</span>
                                                                 <span className="text-xs font-bold text-sky-400">{r.tamingSpeedMultiplier}x</span>
                                                             </div>
                                                             <div className="bg-slate-900/80 border border-slate-800 rounded-lg py-1 px-1 text-center">
-                                                                <span className="text-[9px] text-slate-400 block font-medium">Harvest</span>
+                                                                <span className="text-[9px] text-slate-400 block font-medium">{t('serverPresetModal.rates.harvest', 'Harvest')}</span>
                                                                 <span className="text-xs font-bold text-amber-400">{r.harvestAmountMultiplier}x</span>
                                                             </div>
                                                             <div className="bg-slate-900/80 border border-slate-800 rounded-lg py-1 px-1 text-center">
-                                                                <span className="text-[9px] text-slate-400 block font-medium">Mature</span>
+                                                                <span className="text-[9px] text-slate-400 block font-medium">{t('serverPresetModal.rates.mature', 'Mature')}</span>
                                                                 <span className="text-xs font-bold text-purple-400">{r.babyMatureSpeedMultiplier}x</span>
                                                             </div>
                                                         </div>
@@ -591,8 +602,8 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
 
                                                     {/* Meta Info */}
                                                     <div className="flex items-center justify-between text-[11px] text-slate-500 mb-3">
-                                                        <span className="truncate max-w-[120px]">By {preset.author}</span>
-                                                        <span>{preset.mods.length > 0 ? `${preset.mods.length} Mods` : 'Vanilla'}</span>
+                                                        <span className="truncate max-w-[120px]">{t('serverPresetModal.byAuthor', { defaultValue: 'By {{author}}', author: preset.author })}</span>
+                                                        <span>{preset.mods.length > 0 ? t('serverPresetModal.modsCount', { defaultValue: '{{count}} Mods', count: preset.mods.length }) : t('serverPresetModal.vanilla', 'Vanilla')}</span>
                                                     </div>
                                                 </div>
 
@@ -613,12 +624,12 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                         {isSelected ? (
                                                             <>
                                                                 <Check className="w-3.5 h-3.5" />
-                                                                <span>Selected</span>
+                                                                <span>{t('serverPresetModal.selected', 'Selected')}</span>
                                                             </>
                                                         ) : (
                                                             <>
                                                                 <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-                                                                <span>Select Template</span>
+                                                                <span>{t('serverPresetModal.selectTemplate', 'Select Template')}</span>
                                                             </>
                                                         )}
                                                     </button>
@@ -626,7 +637,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                     <button
                                                         onClick={() => savePresetToFile(preset)}
                                                         className="p-2 bg-slate-900/80 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700/60 rounded-xl transition-all active:scale-95 cursor-pointer"
-                                                        title="Export .arkpreset file"
+                                                        title={t('serverPresetModal.exportFile', 'Export .arkpreset file')}
                                                     >
                                                         <Download className="w-3.5 h-3.5" />
                                                     </button>
@@ -649,13 +660,13 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                             </div>
                                             <div>
                                                 <div className="text-xs font-bold text-white flex items-center gap-2">
-                                                    <span>Ready to Apply: {selectedLibraryPreset.name}</span>
+                                                    <span>{t('serverPresetModal.readyToApply', { defaultValue: 'Ready to Apply: {{name}}', name: presetName(selectedLibraryPreset) })}</span>
                                                     <span className="text-[10px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-400 font-mono">
                                                         {selectedLibraryPreset.serverType}
                                                     </span>
                                                 </div>
                                                 <p className="text-[11px] text-slate-400">
-                                                    Apply INIs & rules to an existing server, or deploy a new server instance.
+                                                    {t('serverPresetModal.readyToApplyDesc', 'Apply INIs & rules to an existing server, or deploy a new server instance.')}
                                                 </p>
                                             </div>
                                         </div>
@@ -683,7 +694,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                 className="flex-1 md:flex-none px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
                                             >
                                                 <CheckCircle2 className="w-3.5 h-3.5" />
-                                                <span>{isApplying ? 'Applying...' : 'Apply to Server'}</span>
+                                                <span>{isApplying ? t('serverPresetModal.applying', 'Applying...') : t('serverPresetModal.applyToServer', 'Apply to Server')}</span>
                                             </button>
 
                                             {onCreateServerFromPreset && (
@@ -695,7 +706,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                     className="px-3.5 py-2 bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30 font-bold text-xs rounded-xl transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
                                                 >
                                                     <ArrowRight className="w-3.5 h-3.5" />
-                                                    <span>New Server</span>
+                                                    <span>{t('serverPresetModal.newServer', 'New Server')}</span>
                                                 </button>
                                             )}
 
@@ -703,7 +714,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                 onClick={() => setActiveTab('import')}
                                                 className="px-3 py-2 text-slate-400 hover:text-white text-xs hover:underline cursor-pointer"
                                             >
-                                                Customize Options →
+                                                {t('serverPresetModal.customizeOptions', 'Customize Options →')}
                                             </button>
                                         </div>
                                     </motion.div>
@@ -720,7 +731,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                                         <ServerIcon className="w-3.5 h-3.5 text-sky-400" />
-                                        Select Source Server to Package:
+                                        {t('serverPresetModal.selectSource', 'Select Source Server to Package:')}
                                     </label>
                                     <select
                                         value={exportServerId}
@@ -729,7 +740,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                     >
                                         {servers.map(s => (
                                             <option key={s.id} value={s.id}>
-                                                {s.name} ({s.serverType}) — Map: {s.config?.mapName || 'Default'} [Status: {s.status}]
+                                                {t('serverPresetModal.serverOption', { defaultValue: '{{name}} ({{type}}) — Map: {{map}} [Status: {{status}}]', name: s.name, type: s.serverType, map: s.config?.mapName || t('serverPresetModal.defaultMap', 'Default'), status: s.status })}
                                             </option>
                                         ))}
                                     </select>
@@ -739,39 +750,39 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50">
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-semibold text-slate-300">
-                                            Template Name:
+                                            {t('serverPresetModal.templateNameLabel', 'Template Name:')}
                                         </label>
                                         <input
                                             type="text"
                                             value={exportMetadata.name}
                                             onChange={e => setExportMetadata({ ...exportMetadata, name: e.target.value })}
-                                            placeholder="e.g., My Community 5x Small Tribes"
+                                            placeholder={t('serverPresetModal.namePlaceholder', 'e.g., My Community 5x Small Tribes')}
                                             className="w-full px-3.5 py-2 bg-slate-900/90 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500"
                                         />
                                     </div>
 
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-semibold text-slate-300">
-                                            Author / Community:
+                                            {t('serverPresetModal.authorLabel', 'Author / Community:')}
                                         </label>
                                         <input
                                             type="text"
                                             value={exportMetadata.author}
                                             onChange={e => setExportMetadata({ ...exportMetadata, author: e.target.value })}
-                                            placeholder="e.g., ArkAdmin / Apex Gaming"
+                                            placeholder={t('serverPresetModal.authorPlaceholder', 'e.g., ArkAdmin / Apex Gaming')}
                                             className="w-full px-3.5 py-2 bg-slate-900/90 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500"
                                         />
                                     </div>
 
                                     <div className="sm:col-span-2 space-y-1.5">
                                         <label className="text-xs font-semibold text-slate-300">
-                                            Description & Playstyle Notes:
+                                            {t('serverPresetModal.descriptionLabel', 'Description & Playstyle Notes:')}
                                         </label>
                                         <textarea
                                             rows={2}
                                             value={exportMetadata.description}
                                             onChange={e => setExportMetadata({ ...exportMetadata, description: e.target.value })}
-                                            placeholder="Provide brief notes on rates, rules, or featured mods..."
+                                            placeholder={t('serverPresetModal.descriptionPlaceholder', 'Provide brief notes on rates, rules, or featured mods...')}
                                             className="w-full px-3.5 py-2 bg-slate-900/90 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500 resize-none"
                                         />
                                     </div>
@@ -779,13 +790,13 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                     <div className="sm:col-span-2 space-y-1.5">
                                         <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
                                             <Tag className="w-3.5 h-3.5 text-slate-400" />
-                                            Tags (comma-separated):
+                                            {t('serverPresetModal.tagsLabel', 'Tags (comma-separated):')}
                                         </label>
                                         <input
                                             type="text"
                                             value={exportMetadata.tags}
                                             onChange={e => setExportMetadata({ ...exportMetadata, tags: e.target.value })}
-                                            placeholder="PvE, 5x Rates, Fast Breeding, Crossplay"
+                                            placeholder={t('serverPresetModal.tagsPlaceholder', 'PvE, 5x Rates, Fast Breeding, Crossplay')}
                                             className="w-full px-3.5 py-2 bg-slate-900/90 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500"
                                         />
                                     </div>
@@ -793,15 +804,15 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
 
                                 {/* Components Inclusions */}
                                 <div className="space-y-2">
-                                    <span className="text-xs font-bold text-slate-300">Components to Include in Preset:</span>
+                                    <span className="text-xs font-bold text-slate-300">{t('serverPresetModal.componentsLabel', 'Components to Include in Preset:')}</span>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                                         {[
-                                            { key: 'includeGameUserSettings', label: 'GameUserSettings.ini', desc: 'Difficulty, rates, structure limits, PvP/PvE rules' },
-                                            { key: 'includeGameIni', label: 'Game.ini', desc: 'Breeding speeds, engram unlocks, stat multipliers, dino curves' },
-                                            { key: 'includeMods', label: 'Installed Modpack List', desc: 'All active CurseForge / Workshop mod IDs & load order' },
-                                            { key: 'includeLaunchArgs', label: 'Launch Flags & Custom Arguments', desc: 'Extra command-line flags and parameters' },
-                                            { key: 'includeServerSettings', label: 'Server Settings', desc: 'Max player count, crossplay, and BattlEye status' },
-                                            { key: 'includePasswords', label: 'Include Passwords (Private)', desc: 'Admin and server passwords (OFF by default for sharing)' },
+                                            { key: 'includeGameUserSettings', label: 'GameUserSettings.ini', desc: t('serverPresetModal.components.gus', 'Difficulty, rates, structure limits, PvP/PvE rules') },
+                                            { key: 'includeGameIni', label: 'Game.ini', desc: t('serverPresetModal.components.gameIni', 'Breeding speeds, engram unlocks, stat multipliers, dino curves') },
+                                            { key: 'includeMods', label: t('serverPresetModal.components.modsLabel', 'Installed Modpack List'), desc: t('serverPresetModal.components.mods', 'All active CurseForge / Workshop mod IDs & load order') },
+                                            { key: 'includeLaunchArgs', label: t('serverPresetModal.components.launchArgsLabel', 'Launch Flags & Custom Arguments'), desc: t('serverPresetModal.components.launchArgs', 'Extra command-line flags and parameters') },
+                                            { key: 'includeServerSettings', label: t('serverPresetModal.components.serverSettingsLabel', 'Server Settings'), desc: t('serverPresetModal.components.serverSettings', 'Max player count, crossplay, and BattlEye status') },
+                                            { key: 'includePasswords', label: t('serverPresetModal.components.passwordsLabel', 'Include Passwords (Private)'), desc: t('serverPresetModal.components.passwords', 'Admin and server passwords (OFF by default for sharing)') },
                                         ].map(item => (
                                             <label
                                                 key={item.key}
@@ -830,7 +841,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                     <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-amber-400 text-xs">
                                         <ShieldAlert className="w-4 h-4 shrink-0" />
                                         <span>
-                                            Warning: "Include Passwords" is enabled. Do not share this file publicly if it contains sensitive administrative credentials.
+                                            {t('serverPresetModal.passwordsWarning', 'Warning: "Include Passwords" is enabled. Do not share this file publicly if it contains sensitive administrative credentials.')}
                                         </span>
                                     </div>
                                 )}
@@ -843,7 +854,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                         className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-sky-500/20 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
                                     >
                                         <Download className="w-4 h-4" />
-                                        <span>Download .arkpreset File</span>
+                                        <span>{t('serverPresetModal.download', 'Download .arkpreset File')}</span>
                                     </button>
 
                                     <button
@@ -852,7 +863,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                         className="flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 font-bold text-xs rounded-xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                                     >
                                         <FolderCheck className="w-4 h-4" />
-                                        <span>Save to Library</span>
+                                        <span>{t('serverPresetModal.saveToLibrary', 'Save to Library')}</span>
                                     </button>
 
                                     <button
@@ -861,7 +872,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                         className="flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                                     >
                                         <Copy className="w-4 h-4" />
-                                        <span>Copy JSON</span>
+                                        <span>{t('serverPresetModal.copyJson', 'Copy JSON')}</span>
                                     </button>
                                 </div>
                             </div>
@@ -883,10 +894,10 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                 <Upload className="w-6 h-6" />
                                             </div>
                                             <span className="text-sm font-bold text-white mb-1">
-                                                Click to Browse or Select .arkpreset / .json File
+                                                {t('serverPresetModal.browseFile', 'Click to Browse or Select .arkpreset / .json File')}
                                             </span>
                                             <span className="text-xs text-slate-400 max-w-sm">
-                                                Opens native file selector to load your exported server preset or community template.
+                                                {t('serverPresetModal.browseFileDesc', 'Opens native file selector to load your exported server preset or community template.')}
                                             </span>
                                         </div>
 
@@ -895,7 +906,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                 onClick={() => setShowJsonInput(!showJsonInput)}
                                                 className="text-xs text-sky-400 hover:text-sky-300 font-semibold hover:underline cursor-pointer"
                                             >
-                                                {showJsonInput ? 'Hide Raw JSON Paste' : 'Or paste preset JSON directly →'}
+                                                {showJsonInput ? t('serverPresetModal.hideJson', 'Hide Raw JSON Paste') : t('serverPresetModal.pasteJson', 'Or paste preset JSON directly →')}
                                             </button>
                                         </div>
 
@@ -905,14 +916,14 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                     rows={5}
                                                     value={rawJsonInput}
                                                     onChange={e => setRawJsonInput(e.target.value)}
-                                                    placeholder="Paste preset JSON code here..."
+                                                    placeholder={t('serverPresetModal.jsonPlaceholder', 'Paste preset JSON code here...')}
                                                     className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 resize-none"
                                                 />
                                                 <button
                                                     onClick={handleParseRawJson}
                                                     className="w-full py-2 bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
                                                 >
-                                                    Parse & Load JSON
+                                                    {t('serverPresetModal.parseJson', 'Parse & Load JSON')}
                                                 </button>
                                             </div>
                                         )}
@@ -925,7 +936,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                 <div>
                                                     <div className="flex items-center gap-2 flex-wrap">
                                                         <h3 className="text-base font-bold text-white">
-                                                            {importedPreset.name}
+                                                            {presetName(importedPreset)}
                                                         </h3>
                                                         <span className={cn(
                                                             "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
@@ -942,10 +953,10 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                         )}
                                                     </div>
                                                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                                                        {importedPreset.description || 'No description provided.'}
+                                                        {presetDescription(importedPreset) || t('serverPresetModal.noDescription', 'No description provided.')}
                                                     </p>
                                                     <span className="text-[11px] text-slate-500 block mt-1">
-                                                        Created by {importedPreset.author}
+                                                        {t('serverPresetModal.createdBy', { defaultValue: 'Created by {{author}}', author: importedPreset.author })}
                                                     </span>
                                                 </div>
 
@@ -953,7 +964,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                     onClick={() => setImportedPreset(null)}
                                                     className="px-3 py-1.5 text-xs text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/60 rounded-xl transition-all cursor-pointer"
                                                 >
-                                                    Change File
+                                                    {t('serverPresetModal.changeFile', 'Change File')}
                                                 </button>
                                             </div>
 
@@ -961,19 +972,19 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                             {importedPreset.ratesSummary && (
                                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-700/50">
                                                     <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-center">
-                                                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">XP Rate</span>
+                                                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">{t('serverPresetModal.rates.xpRate', 'XP Rate')}</span>
                                                         <span className="text-sm font-bold text-emerald-400">{importedPreset.ratesSummary.xpMultiplier}x</span>
                                                     </div>
                                                     <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-center">
-                                                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">Taming</span>
+                                                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">{t('serverPresetModal.rates.taming', 'Taming')}</span>
                                                         <span className="text-sm font-bold text-sky-400">{importedPreset.ratesSummary.tamingSpeedMultiplier}x</span>
                                                     </div>
                                                     <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-center">
-                                                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">Harvest</span>
+                                                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">{t('serverPresetModal.rates.harvest', 'Harvest')}</span>
                                                         <span className="text-sm font-bold text-amber-400">{importedPreset.ratesSummary.harvestAmountMultiplier}x</span>
                                                     </div>
                                                     <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-center">
-                                                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">Breeding</span>
+                                                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">{t('serverPresetModal.rates.breeding', 'Breeding')}</span>
                                                         <span className="text-sm font-bold text-purple-400">{importedPreset.ratesSummary.babyMatureSpeedMultiplier}x</span>
                                                     </div>
                                                 </div>
@@ -981,8 +992,8 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
 
                                             {/* Mod & Config Indicator */}
                                             <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-700/50">
-                                                <span>Included Mods: <strong className="text-white">{importedPreset.mods.length}</strong></span>
-                                                <span>Configs: {importedPreset.configs.gameUserSettings ? 'GameUserSettings ✓' : ''} {importedPreset.configs.gameIni ? 'Game.ini ✓' : ''}</span>
+                                                <span>{t('serverPresetModal.includedMods', 'Included Mods:')} <strong className="text-white">{importedPreset.mods.length}</strong></span>
+                                                <span>{t('serverPresetModal.configs', 'Configs:')} {importedPreset.configs.gameUserSettings ? 'GameUserSettings ✓' : ''} {importedPreset.configs.gameIni ? 'Game.ini ✓' : ''}</span>
                                             </div>
                                         </div>
 
@@ -991,7 +1002,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                             <div className="space-y-1.5">
                                                 <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                                                     <ServerIcon className="w-3.5 h-3.5 text-sky-400" />
-                                                    Apply to Existing Server:
+                                                    {t('serverPresetModal.applyToExisting', 'Apply to Existing Server:')}
                                                 </label>
                                                 <select
                                                     value={importTargetServerId}
@@ -1002,7 +1013,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                         .filter(s => s.serverType === importedPreset.serverType)
                                                         .map(s => (
                                                             <option key={s.id} value={s.id}>
-                                                                {s.name} ({s.serverType}) — Map: {s.config?.mapName || 'Default'} [Status: {s.status}]
+                                                                {t('serverPresetModal.serverOption', { defaultValue: '{{name}} ({{type}}) — Map: {{map}} [Status: {{status}}]', name: s.name, type: s.serverType, map: s.config?.mapName || t('serverPresetModal.defaultMap', 'Default'), status: s.status })}
                                                             </option>
                                                         ))}
                                                 </select>
@@ -1017,7 +1028,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                         onChange={e => setImportOptions({ ...importOptions, applyConfigs: e.target.checked })}
                                                         className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-0 cursor-pointer"
                                                     />
-                                                    <span>Write INI Configurations</span>
+                                                    <span>{t('serverPresetModal.options.writeIni', 'Write INI Configurations')}</span>
                                                 </label>
 
                                                 <label className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-300 cursor-pointer">
@@ -1027,7 +1038,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                         onChange={e => setImportOptions({ ...importOptions, applyMods: e.target.checked })}
                                                         className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-0 cursor-pointer"
                                                     />
-                                                    <span>Queue & Install Missing Mods</span>
+                                                    <span>{t('serverPresetModal.options.installMods', 'Queue & Install Missing Mods')}</span>
                                                 </label>
 
                                                 <label className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-300 cursor-pointer">
@@ -1037,7 +1048,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                         onChange={e => setImportOptions({ ...importOptions, createBackupFirst: e.target.checked })}
                                                         className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-0 cursor-pointer"
                                                     />
-                                                    <span className="text-emerald-400 font-medium">Automatic INI Backup (Recommended)</span>
+                                                    <span className="text-emerald-400 font-medium">{t('serverPresetModal.options.backup', 'Automatic INI Backup (Recommended)')}</span>
                                                 </label>
 
                                                 <label className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-300 cursor-pointer">
@@ -1047,7 +1058,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                         onChange={e => setImportOptions({ ...importOptions, applyServerSettings: e.target.checked })}
                                                         className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-0 cursor-pointer"
                                                     />
-                                                    <span>Apply Rules & Max Players</span>
+                                                    <span>{t('serverPresetModal.options.applyRules', 'Apply Rules & Max Players')}</span>
                                                 </label>
                                             </div>
 
@@ -1059,7 +1070,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                     className="w-full sm:flex-1 py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                                                 >
                                                     <CheckCircle2 className="w-4 h-4" />
-                                                    <span>{isApplying ? 'Applying Configuration...' : 'Apply Template to Selected Server'}</span>
+                                                    <span>{isApplying ? t('serverPresetModal.applyingConfig', 'Applying Configuration...') : t('serverPresetModal.applyTemplate', 'Apply Template to Selected Server')}</span>
                                                 </button>
 
                                                 {onCreateServerFromPreset && (
@@ -1071,7 +1082,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                                         className="w-full sm:w-auto py-3 px-4 bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30 font-bold text-xs rounded-xl transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
                                                     >
                                                         <ArrowRight className="w-4 h-4" />
-                                                        <span>Create New Server from Template</span>
+                                                        <span>{t('serverPresetModal.createFromTemplate', 'Create New Server from Template')}</span>
                                                     </button>
                                                 )}
                                             </div>
@@ -1090,7 +1101,7 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-bold text-white flex items-center gap-2">
                                     <Pencil className="w-4 h-4 text-sky-400" />
-                                    Rename Template
+                                    {t('serverPresetModal.renameTitle', 'Rename Template')}
                                 </h3>
                                 <button
                                     onClick={() => setEditingCustomPreset(null)}
@@ -1102,27 +1113,27 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                             <div className="space-y-3">
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                        Template Name
+                                        {t('serverPresetModal.templateName', 'Template Name')}
                                     </label>
                                     <input
                                         type="text"
                                         value={editCustomName}
                                         onChange={e => setEditCustomName(e.target.value)}
                                         className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500"
-                                        placeholder="Template Name"
+                                        placeholder={t('serverPresetModal.templateName', 'Template Name')}
                                         autoFocus
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                        Description
+                                        {t('common.description', 'Description')}
                                     </label>
                                     <input
                                         type="text"
                                         value={editCustomDesc}
                                         onChange={e => setEditCustomDesc(e.target.value)}
                                         className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500"
-                                        placeholder="Description"
+                                        placeholder={t('common.description', 'Description')}
                                     />
                                 </div>
                                 <div className="flex items-center gap-2 pt-2">
@@ -1130,13 +1141,13 @@ export const ServerPresetModal: React.FC<ServerPresetModalProps> = ({
                                         onClick={() => setEditingCustomPreset(null)}
                                         className="flex-1 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 rounded-xl"
                                     >
-                                        Cancel
+                                        {t('common.cancel', 'Cancel')}
                                     </button>
                                     <button
                                         onClick={handleSaveCustomPresetEdit}
                                         className="flex-1 py-2 text-xs font-bold text-white bg-gradient-to-r from-sky-500 to-blue-600 rounded-xl hover:shadow-lg hover:shadow-sky-500/20"
                                     >
-                                        Save Changes
+                                        {t('common.saveChanges', 'Save Changes')}
                                     </button>
                                 </div>
                             </div>

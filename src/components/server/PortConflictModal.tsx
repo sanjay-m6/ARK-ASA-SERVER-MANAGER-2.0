@@ -99,7 +99,7 @@ export default function PortConflictModal({
                     <div className="bg-slate-950/60 rounded-xl border border-white/10 overflow-hidden shadow-inner">
                         <div className="px-4 py-2.5 bg-slate-900/80 border-b border-white/5 flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
                             <span>{t('serverManager.conflicts.detectedConflicts', 'Detected Conflicts')}</span>
-                            <span className="text-[10px] font-mono text-slate-500">{result.conflicts.length} Total</span>
+                            <span className="text-[10px] font-mono text-slate-500">{t('serverManager.conflicts.total', { defaultValue: '{{count}} Total', count: result.conflicts.length })}</span>
                         </div>
                         <div className="divide-y divide-white/5 max-h-40 overflow-y-auto">
                             {result.conflicts.map((conflict, idx) => (
@@ -110,7 +110,7 @@ export default function PortConflictModal({
                                         </div>
                                         <div>
                                             <div className="font-semibold text-xs text-white">
-                                                {conflict.port_type} Port <span className="font-mono text-cyan-400">({conflict.port_number})</span>
+                                                {t('serverManager.conflicts.portLabel', { defaultValue: '{{type}} Port', type: conflict.port_type })} <span className="font-mono text-cyan-400">({conflict.port_number})</span>
                                             </div>
                                             <div className="text-[11px] text-slate-400 mt-0.5">
                                                 {conflict.conflicting_server_name 
@@ -139,20 +139,20 @@ export default function PortConflictModal({
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2 text-xs font-bold text-sky-400 uppercase tracking-wider">
                                     <Wand2 className="w-4 h-4 text-sky-400" />
-                                    <span>Recommended Auto-Port Allocation</span>
+                                    <span>{t('serverManager.conflicts.recommended', 'Recommended Auto-Port Allocation')}</span>
                                 </div>
                                 <span className="px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 text-[10px] font-bold uppercase border border-sky-500/30">
-                                    Conflict-Free
+                                    {t('serverManager.conflicts.conflictFree', 'Conflict-Free')}
                                 </span>
                             </div>
 
                             <div className="grid grid-cols-3 gap-2 pt-1">
                                 <div className="bg-slate-900/80 p-2 rounded-lg border border-sky-500/20 text-center">
-                                    <div className="text-[10px] font-medium text-slate-400 uppercase">Game</div>
+                                    <div className="text-[10px] font-medium text-slate-400 uppercase">{t('serverManager.conflicts.game', 'Game')}</div>
                                     <div className="text-xs font-bold font-mono text-emerald-400">{suggestedPorts.gamePort}</div>
                                 </div>
                                 <div className="bg-slate-900/80 p-2 rounded-lg border border-sky-500/20 text-center">
-                                    <div className="text-[10px] font-medium text-slate-400 uppercase">Query</div>
+                                    <div className="text-[10px] font-medium text-slate-400 uppercase">{t('serverManager.conflicts.query', 'Query')}</div>
                                     <div className="text-xs font-bold font-mono text-cyan-400">{suggestedPorts.queryPort}</div>
                                 </div>
                                 <div className="bg-slate-900/80 p-2 rounded-lg border border-sky-500/20 text-center">
@@ -189,7 +189,7 @@ export default function PortConflictModal({
                             className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-sky-500/25 transition-all hover:scale-[1.02] active:scale-95"
                         >
                             <Wand2 className="w-4 h-4 text-white" />
-                            <span>Auto-Fix Ports & Start</span>
+                            <span>{t('serverManager.conflicts.autoFixStart', 'Auto-Fix Ports & Start')}</span>
                         </button>
                     )}
                 </div>

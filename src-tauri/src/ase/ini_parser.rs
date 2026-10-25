@@ -50,6 +50,17 @@ impl IniDocument {
         for raw_line in normalized.lines() {
             let trimmed = raw_line.trim();
 
+            // A section header always ends a multi-line value. Without this, a single entry
+            // with an unbalanced '(' swallowed every following section as "continuation"
+            // lines, making all later keys invisible to the reader (and reset on save).
+            if paren_depth > 0
+                && trimmed.starts_with('[')
+                && trimmed.ends_with(']')
+                && !trimmed.contains('=')
+            {
+                paren_depth = 0;
+            }
+
             // If we're inside a multi-line value (open parens), accumulate as Continuation
             if paren_depth > 0 {
                 // Count parens on this continuation line

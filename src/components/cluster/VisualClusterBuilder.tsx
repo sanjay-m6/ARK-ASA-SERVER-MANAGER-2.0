@@ -5,6 +5,7 @@ import { Network, Server as ServerIcon, Link2, Unlink, Move, ZoomIn, ZoomOut, Pl
 import { cn } from '../../utils/helpers';
 import { Server, Cluster } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 /** Matches the backend ServerHealthInfo struct from discord_panel.rs */
 interface ServerHealthInfo {
@@ -70,6 +71,13 @@ function getMapColor(mapName: string): string {
 }
 
 export default function VisualClusterBuilder({ cluster, servers, allServers, onAddServer, onRemoveServer, onStartServer, onStopServer }: VisualClusterBuilderProps) {
+    const { t } = useTranslation();
+    const statusLabel = (status: string) =>
+        status === 'running' || status === 'online'
+            ? t('common.online', 'Online').toUpperCase()
+            : status === 'stopped'
+                ? t('common.offline', 'Offline').toUpperCase()
+                : t(`visualClusterBuilder.status.${status}`, status).toUpperCase();
     const canvasRef = useRef<HTMLDivElement>(null);
     const [nodes, setNodes] = useState<ClusterNode[]>([]);
     const [dragging, setDragging] = useState<number | null>(null);
@@ -249,13 +257,13 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                 </div>
                 <div>
                     <div className="flex items-center gap-2">
-                        <span className="text-[var(--text-primary)] font-bold text-sm block leading-none tracking-wide">Cluster Topology</span>
+                        <span className="text-[var(--text-primary)] font-bold text-sm block leading-none tracking-wide">{t('visualClusterBuilder.title', 'Cluster Topology')}</span>
                         {isFullscreen && (
                             <span className="px-2 py-0.5 rounded-md bg-pink-500/15 text-pink-400 border border-pink-500/30 text-[10px] font-bold uppercase">{cluster.name}</span>
                         )}
                     </div>
                     <span className="text-[var(--text-muted)] text-[10px] uppercase tracking-wider block mt-1">
-                        {isFullscreen ? 'Interactive Network Map • Fullscreen View' : 'Interactive Network Map'}
+                        {isFullscreen ? t('visualClusterBuilder.subtitleFullscreen', 'Interactive Network Map • Fullscreen View') : t('visualClusterBuilder.subtitle', 'Interactive Network Map')}
                     </span>
                 </div>
             </div>
@@ -264,25 +272,25 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
             <div className="hidden md:flex items-center gap-2">
                 <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                     <Wifi className="w-3 h-3 text-emerald-400" />
-                    <span className="text-[10px] font-bold text-emerald-400">{onlineCount} Online</span>
+                    <span className="text-[10px] font-bold text-emerald-400">{t('visualClusterBuilder.onlineCount', { defaultValue: '{{count}} Online', count: onlineCount })}</span>
                 </div>
                 <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--surface-hover)] border border-[var(--border)]">
                     <WifiOff className="w-3 h-3 text-[var(--text-muted)]" />
-                    <span className="text-[10px] font-bold text-[var(--text-secondary)]">{offlineCount} Offline</span>
+                    <span className="text-[10px] font-bold text-[var(--text-secondary)]">{t('visualClusterBuilder.offlineCount', { defaultValue: '{{count}} Offline', count: offlineCount })}</span>
                 </div>
                 <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20">
                     <Users className="w-3 h-3 text-sky-400" />
-                    <span className="text-[10px] font-bold text-sky-400">{totalPlayers} Players</span>
+                    <span className="text-[10px] font-bold text-sky-400">{t('visualClusterBuilder.playersCount', { defaultValue: '{{count}} Players', count: totalPlayers })}</span>
                 </div>
                 <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
                     <Globe className="w-3 h-3 text-indigo-400" />
-                    <span className="text-[10px] font-bold text-indigo-400">{nodes.length} Nodes</span>
+                    <span className="text-[10px] font-bold text-indigo-400">{t('visualClusterBuilder.nodesCount', { defaultValue: '{{count}} Nodes', count: nodes.length })}</span>
                 </div>
                 {(cluster.clusterPath.startsWith('\\\\') || cluster.clusterPath.startsWith('//') || cluster.clusterPath.includes(':')) && (
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20" title={`Cluster storage path: ${cluster.clusterPath}`}>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20" title={t('visualClusterBuilder.storagePath', { defaultValue: 'Cluster storage path: {{path}}', path: cluster.clusterPath })}>
                         <HardDrive className="w-3 h-3 text-purple-400" />
                         <span className="text-[10px] font-bold text-purple-300">
-                            {cluster.clusterPath.startsWith('\\\\') || cluster.clusterPath.startsWith('//') ? 'Network Share' : 'Custom Path'}
+                            {cluster.clusterPath.startsWith('\\\\') || cluster.clusterPath.startsWith('//') ? t('visualClusterBuilder.networkShare', 'Network Share') : t('visualClusterBuilder.customPath', 'Custom Path')}
                         </span>
                     </div>
                 )}
@@ -293,7 +301,7 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                 <button
                     onClick={resetView}
                     className="p-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] rounded-xl text-[var(--text-secondary)] hover:text-sky-400 transition-all border border-[var(--border)] shadow-inner cursor-pointer"
-                    title="Auto-Center & Reset Zoom (100%)"
+                    title={t('visualClusterBuilder.resetView', 'Auto-Center & Reset Zoom (100%)')}
                 >
                     <Focus className="w-3.5 h-3.5" />
                 </button>
@@ -301,7 +309,7 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                 <button
                     onClick={() => setZoom(z => Math.max(0.3, z - 0.1))}
                     className="p-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-[var(--border)] shadow-inner cursor-pointer"
-                    title="Zoom Out"
+                    title={t('visualClusterBuilder.zoomOut', 'Zoom Out')}
                 >
                     <ZoomOut className="w-3.5 h-3.5" />
                 </button>
@@ -310,7 +318,7 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                 <button
                     onClick={() => setZoom(z => Math.min(2.0, z + 0.1))}
                     className="p-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-[var(--border)] shadow-inner cursor-pointer"
-                    title="Zoom In"
+                    title={t('visualClusterBuilder.zoomIn', 'Zoom In')}
                 >
                     <ZoomIn className="w-3.5 h-3.5" />
                 </button>
@@ -320,15 +328,15 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                         <button
                             onClick={() => setIsMaximized(false)}
                             className="px-3 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 rounded-xl transition-all shadow-inner ml-1 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
-                            title="Exit Fullscreen (Esc)"
+                            title={t('visualClusterBuilder.exitFullscreenEsc', 'Exit Fullscreen (Esc)')}
                         >
                             <Minimize2 className="w-3.5 h-3.5" />
-                            <span>Exit Fullscreen</span>
+                            <span>{t('visualClusterBuilder.exitFullscreen', 'Exit Fullscreen')}</span>
                         </button>
                         <button
                             onClick={() => setIsMaximized(false)}
                             className="p-2 bg-[var(--surface-hover)] hover:bg-rose-500/20 text-[var(--text-secondary)] hover:text-rose-400 rounded-xl transition-all border border-[var(--border)] hover:border-rose-500/30 shadow-inner cursor-pointer"
-                            title="Close (Esc)"
+                            title={t('visualClusterBuilder.closeEsc', 'Close (Esc)')}
                         >
                             <X className="w-3.5 h-3.5" />
                         </button>
@@ -337,7 +345,7 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                     <button
                         onClick={() => setIsMaximized(true)}
                         className="p-2 rounded-xl transition-all border shadow-inner bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-sky-400 border-[var(--border)] cursor-pointer"
-                        title="Maximize Interactive Map (Fullscreen)"
+                        title={t('visualClusterBuilder.maximize', 'Maximize Interactive Map (Fullscreen)')}
                     >
                         <Maximize2 className="w-3.5 h-3.5" />
                     </button>
@@ -474,7 +482,7 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                                     "text-[7px] font-extrabold px-2 py-[2px] rounded-full uppercase tracking-[0.08em] mt-0.5",
                                     isActive ? "bg-green-500/20 text-green-400 shadow-[0_0_8px_rgba(34,197,94,0.3)]" : isCrashed ? "bg-red-500/20 text-red-400" : "bg-slate-800/80 text-slate-500"
                                 )}>
-                                    {node.status === 'running' || node.status === 'online' ? 'ONLINE' : node.status === 'stopped' ? 'OFFLINE' : node.status.toUpperCase()}
+                                    {statusLabel(node.status)}
                                 </div>
 
                                 {/* Top Right Activity Indicator */}
@@ -494,7 +502,7 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                             {/* Label underneath */}
                             <div className="absolute top-[80px] left-1/2 -translate-x-1/2 text-center pointer-events-none w-[140px]">
                                 <p className="text-[11px] font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] truncate">{node.name}</p>
-                                <p className="text-[9px] text-slate-500 drop-shadow-md truncate font-medium">{(node.mapName || 'Unknown').replace('_WP', '')}</p>
+                                <p className="text-[9px] text-slate-500 drop-shadow-md truncate font-medium">{(node.mapName && node.mapName !== 'Unknown' ? node.mapName : t('visualClusterBuilder.unknown', 'Unknown')).replace('_WP', '')}</p>
                             </div>
 
                             {/* Hover / Select Popover Tooltip */}
@@ -524,7 +532,7 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                                                     isActive ? "bg-green-500/15 text-green-400" : isCrashed ? "bg-red-500/15 text-red-400" : "bg-[var(--surface-hover)] text-[var(--text-muted)]"
                                                 )}>
                                                     <div className={cn("w-1.5 h-1.5 rounded-full", isActive ? "bg-green-500" : isCrashed ? "bg-red-500" : "bg-slate-400")} />
-                                                    {node.status === 'running' || node.status === 'online' ? 'ONLINE' : node.status === 'stopped' ? 'OFFLINE' : node.status.toUpperCase()}
+                                                    {statusLabel(node.status)}
                                                 </div>
                                             </div>
 
@@ -536,12 +544,12 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                                                 </div>
                                                 <div className="flex items-center gap-1">
                                                     <Hash className="w-2.5 h-2.5 text-[var(--text-muted)]" />
-                                                    <span className="text-[var(--text-secondary)]">Game:</span>
+                                                    <span className="text-[var(--text-secondary)]">{t('visualClusterBuilder.game', 'Game:')}</span>
                                                     <span className="text-[var(--text-primary)] font-mono font-medium">{node.ports.gamePort}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1">
                                                     <Hash className="w-2.5 h-2.5 text-[var(--text-muted)]" />
-                                                    <span className="text-[var(--text-secondary)]">Query:</span>
+                                                    <span className="text-[var(--text-secondary)]">{t('visualClusterBuilder.query', 'Query:')}</span>
                                                     <span className="text-[var(--text-primary)] font-mono font-medium">{node.ports.queryPort}</span>
                                                 </div>
                                                 {isActive && (
@@ -559,7 +567,7 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                                                         <div className="flex items-center gap-1.5 text-emerald-400">
                                                             <Users className="w-3 h-3"/>
                                                             <span className="font-bold">{node.players}/{node.maxPlayers}</span>
-                                                            <span className="text-[var(--text-muted)]">Players</span>
+                                                            <span className="text-[var(--text-muted)]">{t('common.players', 'Players')}</span>
                                                         </div>
                                                         <div className="flex items-center gap-1.5 text-amber-400">
                                                             <Clock className="w-3 h-3"/>
@@ -571,7 +579,7 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                                                     <>
                                                         <div className="col-span-2 flex items-center gap-1.5 text-[var(--text-muted)]">
                                                             <Users className="w-3 h-3"/>
-                                                            <span className="font-medium">0/{node.maxPlayers} Players</span>
+                                                            <span className="font-medium">0/{node.maxPlayers} {t('common.players', 'Players')}</span>
                                                         </div>
                                                     </>
                                                 )}
@@ -581,19 +589,19 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                                             <div className="flex items-center gap-1.5">
                                                 {(node.status === 'stopped' || node.status === 'crashed') && onStartServer && (
                                                     <button onClick={(e) => { e.stopPropagation(); onStartServer(node.serverId); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/30 rounded-xl shadow-inner text-[10px] font-bold transition-all cursor-pointer">
-                                                        <Play className="w-3 h-3" /> Start
+                                                        <Play className="w-3 h-3" /> {t('common.start', 'Start')}
                                                     </button>
                                                 )}
                                                 {(node.status === 'running' || node.status === 'online') && onStopServer && (
                                                     <button onClick={(e) => { e.stopPropagation(); onStopServer(node.serverId); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl shadow-inner text-[10px] font-bold transition-all cursor-pointer">
-                                                        <Square className="w-3 h-3" /> Stop
+                                                        <Square className="w-3 h-3" /> {t('common.stop', 'Stop')}
                                                     </button>
                                                 )}
                                                 {onRemoveServer && (
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); onRemoveServer(node.serverId); }}
                                                         className="flex items-center justify-center w-8 h-8 bg-[var(--surface-hover)] hover:bg-red-500/20 text-[var(--text-secondary)] hover:text-red-400 border border-[var(--border)] hover:border-red-500/30 rounded-xl transition-all cursor-pointer"
-                                                        title="Unlink from Cluster"
+                                                        title={t('visualClusterBuilder.unlink', 'Unlink from Cluster')}
                                                     >
                                                         <Unlink className="w-3 h-3" />
                                                     </button>
@@ -616,7 +624,7 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
             <div className="px-5 py-3.5 border-t border-[var(--border)] bg-[var(--surface)] backdrop-blur flex items-center gap-4">
                 <span className="text-xs text-[var(--text-muted)] flex items-center gap-1.5 font-bold uppercase tracking-wider">
                     <Move className="w-3.5 h-3.5" />
-                    Add Node
+                    {t('visualClusterBuilder.addNode', 'Add Node')}
                 </span>
                 <div className="h-5 w-px bg-[var(--border)]" />
                 <div className="flex flex-wrap gap-2">

@@ -244,9 +244,9 @@ export default function TitleBar() {
         <div 
           title={
             runningServers > 0
-              ? t('titleBar.statusOnlineTooltip', `Game Server Status: ${runningServers} active server instance(s) running`, { count: runningServers })
+              ? t('titleBar.statusOnlineTooltip', { defaultValue: 'Game Server Status: {{count}} active server instance(s) running', count: runningServers })
               : totalServers > 0
-              ? t('titleBar.statusStandbyTooltip', `Game Server Status: All ${totalServers} configured servers are currently stopped (Standby)`, { count: totalServers })
+              ? t('titleBar.statusStandbyTooltip', { defaultValue: 'Game Server Status: All {{count}} configured servers are currently stopped (Standby)', count: totalServers })
               : t('titleBar.statusOfflineTooltip', 'Game Server Status: No game servers created or running currently (Offline)')
           }
           className={`flex items-center gap-2 px-2.5 py-1 rounded-full border shadow-sm transition-all cursor-help ${

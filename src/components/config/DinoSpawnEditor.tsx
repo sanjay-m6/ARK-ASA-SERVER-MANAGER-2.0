@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, ShieldAlert, ArrowRight, Dna } from 'lucide-react';
 import { VANILLA_CREATURES } from '../../ase/data/creatures';
 
@@ -30,6 +31,7 @@ export const stringifyReplacements = (replacements: NPCReplacement[]): string =>
 };
 
 export function DinoSpawnEditor({ value, onChange }: DinoSpawnEditorProps) {
+  const { t } = useTranslation();
   const replacements = useMemo(() => parseReplacements(value), [value]);
 
   const updateReplacement = (idx: number, newRep: NPCReplacement) => {
@@ -58,16 +60,16 @@ export function DinoSpawnEditor({ value, onChange }: DinoSpawnEditorProps) {
         <div>
           <h3 className="font-medium text-white flex items-center">
             <Dna className="w-5 h-5 mr-2 text-primary-400" />
-            Dino Spawn Replacements
+            {t('dinoSpawnEditor.title', 'Dino Spawn Replacements')}
           </h3>
-          <p className="text-sm text-gray-400">Replace one type of dinosaur with another, or remove it entirely.</p>
+          <p className="text-sm text-gray-400">{t('dinoSpawnEditor.subtitle', 'Replace one type of dinosaur with another, or remove it entirely.')}</p>
         </div>
         <button
           onClick={addReplacement}
           className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white rounded flex items-center text-sm font-medium transition-colors"
         >
           <Plus className="w-4 h-4 mr-1" />
-          Add Replacement
+          {t('dinoSpawnEditor.addReplacement', 'Add Replacement')}
         </button>
       </div>
 
@@ -77,19 +79,19 @@ export function DinoSpawnEditor({ value, onChange }: DinoSpawnEditorProps) {
             <button
               onClick={() => removeReplacement(idx)}
               className="absolute top-2 right-2 p-1.5 text-gray-500 hover:text-red-400 hover:bg-gray-700 rounded transition-colors md:relative md:top-0 md:right-0 md:ml-auto"
-              title="Remove override"
+              title={t('dinoSpawnEditor.removeOverride', 'Remove override')}
             >
               <Trash2 className="w-4 h-4" />
             </button>
             
             <div className="w-full md:flex-1 space-y-1">
-              <label className="block text-xs font-medium text-gray-400">Replace (Original Creature)</label>
+              <label className="block text-xs font-medium text-gray-400">{t('dinoSpawnEditor.replaceOriginal', 'Replace (Original Creature)')}</label>
               <select
                 className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-primary-500"
                 value={rep.FromClassName}
                 onChange={(e) => updateReplacement(idx, { ...rep, FromClassName: e.target.value })}
               >
-                <option value="">Select a creature...</option>
+                <option value="">{t('dinoSpawnEditor.selectCreature', 'Select a creature...')}</option>
                 {sortedCreatures.map(c => (
                   <option key={c.className + '-from'} value={c.className}>{c.name}</option>
                 ))}
@@ -101,13 +103,13 @@ export function DinoSpawnEditor({ value, onChange }: DinoSpawnEditorProps) {
             </div>
 
             <div className="w-full md:flex-1 space-y-1">
-              <label className="block text-xs font-medium text-gray-400">With (Replacement Creature)</label>
+              <label className="block text-xs font-medium text-gray-400">{t('dinoSpawnEditor.withReplacement', 'With (Replacement Creature)')}</label>
               <select
                 className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-primary-500"
                 value={rep.ToClassName}
                 onChange={(e) => updateReplacement(idx, { ...rep, ToClassName: e.target.value })}
               >
-                <option value="">[ Remove Entirely ]</option>
+                <option value="">{t('dinoSpawnEditor.removeEntirely', '[ Remove Entirely ]')}</option>
                 {sortedCreatures.map(c => (
                   <option key={c.className + '-to'} value={c.className}>{c.name}</option>
                 ))}
@@ -118,12 +120,12 @@ export function DinoSpawnEditor({ value, onChange }: DinoSpawnEditorProps) {
         {replacements.length === 0 && (
           <div className="text-center py-8 bg-gray-800/50 border border-gray-700 border-dashed rounded-lg">
             <ShieldAlert className="w-8 h-8 mx-auto text-gray-500 mb-2" />
-            <p className="text-gray-400">No dinosaur replacements configured.</p>
+            <p className="text-gray-400">{t('dinoSpawnEditor.empty', 'No dinosaur replacements configured.')}</p>
             <button
               onClick={addReplacement}
               className="mt-3 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded text-sm transition-colors"
             >
-              Add First Replacement
+              {t('dinoSpawnEditor.addFirst', 'Add First Replacement')}
             </button>
           </div>
         )}

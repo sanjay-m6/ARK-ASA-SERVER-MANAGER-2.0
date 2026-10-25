@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { ASE_MAPS } from '../../data/aseMaps';
 import { MODDED_MAP_PRESETS } from '../../../data/moddedMapRegistry';
+import { NumberInput } from '../../../components/ui/NumberInput';
 
 
 interface Props {
@@ -268,7 +269,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                             }`}
                         >
                             <Settings className="w-4 h-4" />
-                            Interactive Settings
+                            {t('ase.importServer.tabSettings', 'Interactive Settings')}
                         </button>
                         <button
                             onClick={() => setActiveTab('diagnostics')}
@@ -279,7 +280,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                             }`}
                         >
                             <AlertTriangle className="w-4 h-4" />
-                            Pre-Import Diagnostics
+                            {t('ase.importServer.tabDiagnostics', 'Pre-Import Diagnostics')}
                             {hasAnyConflict && (
                                 <span className="w-2 h-2 rounded-full bg-rose-500 absolute top-2.5 right-1.5 animate-pulse" />
                             )}
@@ -293,7 +294,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                             }`}
                         >
                             <Terminal className="w-4 h-4" />
-                            Raw Config Inspector
+                            {t('ase.importServer.tabRaw', 'Raw Config Inspector')}
                         </button>
                     </div>
                 )}
@@ -345,7 +346,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                     {isPreviewing && (
                         <div className="flex items-center justify-center gap-3 p-8 bg-slate-900/30 border border-slate-800 rounded-xl">
                             <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
-                            <span className="text-sm text-slate-300 font-medium">Inspecting ARK directory, resolving script variables, and parsing configs...</span>
+                            <span className="text-sm text-slate-300 font-medium">{t('ase.importServer.inspecting', 'Inspecting ARK directory, resolving script variables, and parsing configs...')}</span>
                         </div>
                     )}
 
@@ -363,7 +364,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                 <div className="space-y-6 animate-fadeIn">
                                     <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
                                         <Eye className="w-4 h-4 text-amber-400" />
-                                        Interactive Configuration Overrides
+                                        {t('ase.importServer.overrides', 'Interactive Configuration Overrides')}
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
@@ -371,12 +372,12 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                         <div className="bg-slate-900/35 border border-slate-800/80 p-5 rounded-xl space-y-4">
                                             <h3 className="text-xs font-bold text-amber-400/80 uppercase tracking-widest flex items-center gap-1.5 border-b border-slate-800 pb-2">
                                                 <Layers className="w-3.5 h-3.5" />
-                                                General Identity
+                                                {t('ase.importServer.generalIdentity', 'General Identity')}
                                             </h3>
 
                                             <div>
                                                 <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
-                                                    <label className="text-xs font-medium text-slate-300">Map Name</label>
+                                                    <label className="text-xs font-medium text-slate-300">{t('ase.importServer.mapName', 'Map Name')}</label>
                                                     {renderConfidenceBadge('mapName')}
                                                 </div>
                                                 <input
@@ -394,14 +395,14 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                 <div className="mt-1.5 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-start gap-1.5 text-[11px] text-amber-300">
                                                     <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
                                                     <span>
-                                                        Map name may not sync perfectly from imports. Please verify the detected map and select/type the correct name manually if needed.
+                                                        {t('ase.importServer.mapWarning', 'Map name may not sync perfectly from imports. Please verify the detected map and select/type the correct name manually if needed.')}
                                                     </span>
                                                 </div>
                                             </div>
 
                                             <div>
                                                 <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
-                                                    <label className="text-xs font-medium text-slate-300">In-Game Server Session Name</label>
+                                                    <label className="text-xs font-medium text-slate-300">{t('ase.importServer.sessionName', 'In-Game Server Session Name')}</label>
                                                     {renderConfidenceBadge('sessionName')}
                                                 </div>
                                                 <input
@@ -414,13 +415,14 @@ export default function ASEImportServerDialog({ onClose }: Props) {
 
                                             <div>
                                                 <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
-                                                    <label className="text-xs font-medium text-slate-300">Max Player Limit</label>
+                                                    <label className="text-xs font-medium text-slate-300">{t('ase.importServer.maxPlayers', 'Max Player Limit')}</label>
                                                     {renderConfidenceBadge('maxPlayers')}
                                                 </div>
-                                                <input
-                                                    type="number"
+                                                <NumberInput
+                                                    integer
+                                                    min={1}
                                                     value={editableMaxPlayers}
-                                                    onChange={(e) => setEditableMaxPlayers(Number(e.target.value))}
+                                                    onValueChange={setEditableMaxPlayers}
                                                     className="w-full px-3 py-2 bg-slate-950/40 border border-slate-800 rounded-lg text-white text-sm focus:ring-1 focus:ring-amber-500/50 font-mono"
                                                 />
                                             </div>
@@ -430,19 +432,21 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                         <div className="bg-slate-900/35 border border-slate-800/80 p-5 rounded-xl space-y-4">
                                             <h3 className="text-xs font-bold text-amber-400/80 uppercase tracking-widest flex items-center gap-1.5 border-b border-slate-800 pb-2">
                                                 <Wifi className="w-3.5 h-3.5" />
-                                                Connection & Networking
+                                                {t('ase.importServer.networking', 'Connection & Networking')}
                                             </h3>
 
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div>
                                                     <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
-                                                        <label className="text-xs font-medium text-slate-300">Game Port</label>
+                                                        <label className="text-xs font-medium text-slate-300">{t('ase.importServer.gamePort', 'Game Port')}</label>
                                                         {renderConfidenceBadge('gamePort')}
                                                     </div>
-                                                    <input
-                                                        type="number"
+                                                    <NumberInput
+                                                        integer
+                                                        min={1}
+                                                        max={65535}
                                                         value={editableGamePort}
-                                                        onChange={(e) => setEditableGamePort(Number(e.target.value))}
+                                                        onValueChange={setEditableGamePort}
                                                         className={`w-full px-3 py-2 bg-slate-950/40 border rounded-lg text-white font-mono text-sm focus:ring-1 focus:ring-amber-500/50 ${
                                                             gamePortConflict ? 'border-rose-500/50 text-rose-300' : 'border-slate-800'
                                                         }`}
@@ -450,13 +454,15 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                 </div>
                                                 <div>
                                                     <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
-                                                        <label className="text-xs font-medium text-slate-300">Query Port</label>
+                                                        <label className="text-xs font-medium text-slate-300">{t('ase.importServer.queryPort', 'Query Port')}</label>
                                                         {renderConfidenceBadge('queryPort')}
                                                     </div>
-                                                    <input
-                                                        type="number"
+                                                    <NumberInput
+                                                        integer
+                                                        min={1}
+                                                        max={65535}
                                                         value={editableQueryPort}
-                                                        onChange={(e) => setEditableQueryPort(Number(e.target.value))}
+                                                        onValueChange={setEditableQueryPort}
                                                         className={`w-full px-3 py-2 bg-slate-950/40 border rounded-lg text-white font-mono text-sm focus:ring-1 focus:ring-amber-500/50 ${
                                                             queryPortConflict ? 'border-rose-500/50 text-rose-300' : 'border-slate-800'
                                                         }`}
@@ -466,13 +472,15 @@ export default function ASEImportServerDialog({ onClose }: Props) {
 
                                             <div>
                                                 <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
-                                                    <label className="text-xs font-medium text-slate-300">RCON Console Port</label>
+                                                    <label className="text-xs font-medium text-slate-300">{t('ase.importServer.rconPort', 'RCON Console Port')}</label>
                                                     {renderConfidenceBadge('rconPort')}
                                                 </div>
-                                                <input
-                                                    type="number"
+                                                <NumberInput
+                                                    integer
+                                                    min={1}
+                                                    max={65535}
                                                     value={editableRconPort}
-                                                    onChange={(e) => setEditableRconPort(Number(e.target.value))}
+                                                    onValueChange={setEditableRconPort}
                                                     className={`w-full px-3 py-2 bg-slate-950/40 border rounded-lg text-white font-mono text-sm focus:ring-1 focus:ring-amber-500/50 ${
                                                         rconPortConflict ? 'border-rose-500/50 text-rose-300' : 'border-slate-800'
                                                     }`}
@@ -481,8 +489,8 @@ export default function ASEImportServerDialog({ onClose }: Props) {
 
                                             <div className="flex items-center justify-between pt-1">
                                                 <div>
-                                                    <label className="text-xs font-medium text-slate-300 block">Enable RCON console</label>
-                                                    <span className="text-[10px] text-slate-500">Allows remote administrator controls</span>
+                                                    <label className="text-xs font-medium text-slate-300 block">{t('ase.importServer.enableRcon', 'Enable RCON console')}</label>
+                                                    <span className="text-[10px] text-slate-500">{t('ase.importServer.enableRconDesc', 'Allows remote administrator controls')}</span>
                                                 </div>
                                                 <input
                                                     type="checkbox"
@@ -497,12 +505,12 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                         <div className="bg-slate-900/35 border border-slate-800/80 p-5 rounded-xl space-y-4">
                                             <h3 className="text-xs font-bold text-amber-400/80 uppercase tracking-widest flex items-center gap-1.5 border-b border-slate-800 pb-2">
                                                 <Shield className="w-3.5 h-3.5" />
-                                                Passwords & Security
+                                                {t('ase.importServer.security', 'Passwords & Security')}
                                             </h3>
 
                                             <div>
                                                 <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
-                                                    <label className="text-xs font-medium text-slate-300">Admin Console Password</label>
+                                                    <label className="text-xs font-medium text-slate-300">{t('ase.importServer.adminPassword', 'Admin Console Password')}</label>
                                                     {renderConfidenceBadge('adminPassword')}
                                                 </div>
                                                 <input
@@ -510,13 +518,13 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                     value={editableAdminPassword}
                                                     onChange={(e) => setEditableAdminPassword(e.target.value)}
                                                     className="w-full px-3 py-2 bg-slate-950/40 border border-slate-800 rounded-lg text-white text-sm focus:ring-1 focus:ring-amber-500/50 font-mono"
-                                                    placeholder="Set admin password..."
+                                                    placeholder={t('ase.importServer.adminPasswordPlaceholder', 'Set admin password...')}
                                                 />
                                             </div>
 
                                             <div>
                                                 <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
-                                                    <label className="text-xs font-medium text-slate-300">Server Password (Join key)</label>
+                                                    <label className="text-xs font-medium text-slate-300">{t('ase.importServer.serverPassword', 'Server Password (Join key)')}</label>
                                                     {renderConfidenceBadge('serverPassword')}
                                                 </div>
                                                 <input
@@ -524,7 +532,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                     value={editableServerPassword}
                                                     onChange={(e) => setEditableServerPassword(e.target.value)}
                                                     className="w-full px-3 py-2 bg-slate-950/40 border border-slate-800 rounded-lg text-white text-sm focus:ring-1 focus:ring-amber-500/50 font-mono"
-                                                    placeholder="Optional private server join password..."
+                                                    placeholder={t('ase.importServer.serverPasswordPlaceholder', 'Optional private server join password...')}
                                                 />
                                             </div>
                                         </div>
@@ -533,12 +541,12 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                         <div className="bg-slate-900/35 border border-slate-800/80 p-5 rounded-xl space-y-4">
                                             <h3 className="text-xs font-bold text-amber-400/80 uppercase tracking-widest flex items-center gap-1.5 border-b border-slate-800 pb-2">
                                                 <Package className="w-3.5 h-3.5" />
-                                                Mods & Clustering
+                                                {t('ase.importServer.modsCluster', 'Mods & Clustering')}
                                             </h3>
 
                                             <div>
                                                 <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
-                                                    <label className="text-xs font-medium text-slate-300">Cluster ID</label>
+                                                    <label className="text-xs font-medium text-slate-300">{t('ase.importServer.clusterId', 'Cluster ID')}</label>
                                                     {renderConfidenceBadge('clusterId')}
                                                 </div>
                                                 <input
@@ -546,13 +554,13 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                     value={editableClusterId}
                                                     onChange={(e) => setEditableClusterId(e.target.value)}
                                                     className="w-full px-3 py-2 bg-slate-950/40 border border-slate-800 rounded-lg text-white text-sm focus:ring-1 focus:ring-amber-500/50 font-mono"
-                                                    placeholder="Optional Cluster ID string..."
+                                                    placeholder={t('ase.importServer.clusterIdPlaceholder', 'Optional Cluster ID string...')}
                                                 />
                                             </div>
 
                                             <div>
                                                 <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
-                                                    <label className="text-xs font-medium text-slate-300">Active Mod IDs (Comma-separated)</label>
+                                                    <label className="text-xs font-medium text-slate-300">{t('ase.importServer.activeMods', 'Active Mod IDs (Comma-separated)')}</label>
                                                     {renderConfidenceBadge('activeMods')}
                                                 </div>
                                                 <input
@@ -560,7 +568,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                     value={editableActiveMods}
                                                     onChange={(e) => setEditableActiveMods(e.target.value)}
                                                     className="w-full px-3 py-2 bg-slate-950/40 border border-slate-800 rounded-lg text-white text-sm focus:ring-1 focus:ring-amber-500/50 font-mono"
-                                                    placeholder="e.g. 7316447, 8432322..."
+                                                    placeholder={t('ase.importServer.activeModsPlaceholder', 'e.g. 7316447, 8432322...')}
                                                 />
                                             </div>
                                         </div>
@@ -570,26 +578,26 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                             <div className="bg-slate-900/35 border border-slate-800/80 p-5 rounded-xl space-y-4 col-span-1 md:col-span-2">
                                                 <h3 className="text-xs font-bold text-amber-400/80 uppercase tracking-widest flex items-center gap-1.5 border-b border-slate-800 pb-2">
                                                     <Layers className="w-3.5 h-3.5" />
-                                                    World Save Directory State (ASE)
+                                                    {t('ase.importServer.saveState', 'World Save Directory State (ASE)')}
                                                 </h3>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
                                                     <div className="bg-slate-950/45 p-3 rounded-lg border border-slate-900 flex flex-col justify-center">
-                                                        <span className="text-slate-500 block text-[10px] uppercase font-semibold mb-1">Total Active Players</span>
-                                                        <span className="text-sm font-bold text-slate-100 font-mono">{preview.playerCount} profiles</span>
+                                                        <span className="text-slate-500 block text-[10px] uppercase font-semibold mb-1">{t('ase.importServer.totalPlayers', 'Total Active Players')}</span>
+                                                        <span className="text-sm font-bold text-slate-100 font-mono">{t('ase.importServer.profilesCount', { defaultValue: '{{count}} profiles', count: preview.playerCount })}</span>
                                                     </div>
                                                     <div className="bg-slate-950/45 p-3 rounded-lg border border-slate-900 flex flex-col justify-center">
-                                                        <span className="text-slate-500 block text-[10px] uppercase font-semibold mb-1">Active Tribes</span>
-                                                        <span className="text-sm font-bold text-slate-100 font-mono">{preview.tribeCount} tribes</span>
+                                                        <span className="text-slate-500 block text-[10px] uppercase font-semibold mb-1">{t('ase.importServer.activeTribes', 'Active Tribes')}</span>
+                                                        <span className="text-sm font-bold text-slate-100 font-mono">{t('ase.importServer.tribesCount', { defaultValue: '{{count}} tribes', count: preview.tribeCount })}</span>
                                                     </div>
                                                     <div className="bg-slate-950/45 p-3 rounded-lg border border-slate-900 flex flex-col justify-center col-span-1 sm:col-span-2 md:col-span-1">
-                                                        <span className="text-slate-500 block text-[10px] uppercase font-semibold mb-1">Map Save File Size</span>
+                                                        <span className="text-slate-500 block text-[10px] uppercase font-semibold mb-1">{t('ase.importServer.saveSize', 'Map Save File Size')}</span>
                                                         <span className="text-sm font-bold text-slate-100 font-mono">
                                                             {(preview.saveFileSize / (1024 * 1024)).toFixed(2)} MB
                                                         </span>
                                                     </div>
                                                     {preview.saveLastModified && (
                                                         <div className="bg-slate-950/45 p-3 rounded-lg border border-slate-900 col-span-1 sm:col-span-2 md:col-span-3 flex justify-between items-center">
-                                                            <span className="text-slate-500 text-[10px] uppercase font-semibold">World Last Save Execution</span>
+                                                            <span className="text-slate-500 text-[10px] uppercase font-semibold">{t('ase.importServer.lastSave', 'World Last Save Execution')}</span>
                                                             <span className="text-xs text-slate-300 font-mono font-medium">
                                                                 {new Date(preview.saveLastModified).toLocaleString()}
                                                             </span>
@@ -605,7 +613,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                         <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl space-y-1.5">
                                             <div className="text-xs font-semibold text-yellow-400 flex items-center gap-1 mb-1">
                                                 <AlertTriangle className="w-4 h-4" />
-                                                Warning Notifications
+                                                {t('ase.importServer.warnings', 'Warning Notifications')}
                                             </div>
                                             {preview.warnings.map((w, i) => (
                                                 <div key={i} className="flex items-start gap-2 text-xs text-yellow-300/80">
@@ -624,7 +632,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                     <div className="flex items-center justify-between gap-2 text-sm font-semibold text-slate-200">
                                         <div className="flex items-center gap-2">
                                             <AlertTriangle className="w-4 h-4 text-amber-500" />
-                                            Pre-Import Diagnostics Suite
+                                            {t('ase.importServer.diagSuite', 'Pre-Import Diagnostics Suite')}
                                         </div>
                                     </div>
 
@@ -633,28 +641,28 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                         <div className="p-5 bg-rose-500/10 border border-rose-500/30 rounded-xl space-y-4">
                                             <div className="flex items-center gap-2 text-sm font-bold text-rose-400">
                                                 <AlertTriangle className="w-5 h-5" />
-                                                Critical Port Conflict Detected!
+                                                {t('ase.importServer.conflictTitle', 'Critical Port Conflict Detected!')}
                                             </div>
                                             <p className="text-xs text-rose-300/90 leading-relaxed">
-                                                One or more of the detected/edited networking ports are currently assigned to another server profile in the ARK manager. Starting both servers concurrently will cause collision crashes.
+                                                {t('ase.importServer.conflictDesc', 'One or more of the detected/edited networking ports are currently assigned to another server profile in the ARK manager. Starting both servers concurrently will cause collision crashes.')}
                                             </p>
                                             <div className="space-y-1.5 bg-slate-950/30 p-3 rounded-lg border border-slate-900/30">
                                                 {gamePortConflict && (
                                                     <div className="text-xs text-rose-300 flex items-center gap-2">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                                        <span>Game Port <b>{editableGamePort}</b> is currently used by another profile.</span>
+                                                        <span>{t('ase.importServer.gamePort', 'Game Port')} <b>{editableGamePort}</b> {t('ase.importServer.portInUse', 'is currently used by another profile.')}</span>
                                                     </div>
                                                 )}
                                                 {queryPortConflict && (
                                                     <div className="text-xs text-rose-300 flex items-center gap-2">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                                        <span>Query Port <b>{editableQueryPort}</b> is currently used by another profile.</span>
+                                                        <span>{t('ase.importServer.queryPort', 'Query Port')} <b>{editableQueryPort}</b> {t('ase.importServer.portInUse', 'is currently used by another profile.')}</span>
                                                     </div>
                                                 )}
                                                 {rconPortConflict && (
                                                     <div className="text-xs text-rose-300 flex items-center gap-2">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                                        <span>RCON Console Port <b>{editableRconPort}</b> is currently used by another profile.</span>
+                                                        <span>{t('ase.importServer.rconPort', 'RCON Console Port')} <b>{editableRconPort}</b> {t('ase.importServer.portInUse', 'is currently used by another profile.')}</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -664,7 +672,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                     className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold shadow transition-all flex items-center gap-1.5 hover:shadow-lg hover:shadow-rose-600/10 active:scale-95"
                                                 >
                                                     <Wifi className="w-3.5 h-3.5" />
-                                                    Auto-Resolve Port Conflicts
+                                                    {t('ase.importServer.autoResolve', 'Auto-Resolve Port Conflicts')}
                                                 </button>
                                             </div>
                                         </div>
@@ -672,9 +680,9 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                         <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-start gap-3">
                                             <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
                                             <div>
-                                                <div className="text-sm font-bold text-emerald-400">All Ports Clear & Available</div>
+                                                <div className="text-sm font-bold text-emerald-400">{t('ase.importServer.portsClear', 'All Ports Clear & Available')}</div>
                                                 <p className="text-xs text-emerald-300/80 mt-1">
-                                                    No port binding collisions detected with any registered servers. The server can safely run on these ports.
+                                                    {t('ase.importServer.portsClearDesc', 'No port binding collisions detected with any registered servers. The server can safely run on these ports.')}
                                                 </p>
                                             </div>
                                         </div>
@@ -685,12 +693,12 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                         <div className="bg-slate-900/30 border border-slate-800/80 rounded-xl p-5 space-y-3">
                                             <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider pb-2 border-b border-slate-800 flex items-center gap-1.5">
                                                 <Server className="w-3.5 h-3.5 text-amber-400" />
-                                                Cluster Connection Diagnostics (ASE)
+                                                {t('ase.importServer.clusterDiag', 'Cluster Connection Diagnostics (ASE)')}
                                             </h3>
                                             {sameClusterServers.length > 0 ? (
                                                 <div className="space-y-2">
                                                     <p className="text-xs text-slate-400">
-                                                        This server will successfully link with the following active cluster profiles sharing the Cluster ID <b className="text-amber-400 font-mono">'{editableClusterId}'</b>:
+                                                        {t('ase.importServer.clusterLinks', 'This server will successfully link with the following active cluster profiles sharing the Cluster ID')} <b className="text-amber-400 font-mono">'{editableClusterId}'</b>:
                                                     </p>
                                                     <div className="flex flex-wrap gap-2 pt-1">
                                                         {sameClusterServers.map(s => (
@@ -703,7 +711,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                 </div>
                                             ) : (
                                                 <p className="text-xs text-slate-500 leading-relaxed">
-                                                    No other registered servers are currently assigned to Cluster ID <b className="text-slate-400 font-mono">'{editableClusterId}'</b>. This server will act as the cluster origin mapping node.
+                                                    {t('ase.importServer.clusterNone', 'No other registered servers are currently assigned to Cluster ID')} <b className="text-slate-400 font-mono">'{editableClusterId}'</b>. {t('ase.importServer.clusterOrigin', 'This server will act as the cluster origin mapping node.')}
                                                 </p>
                                             )}
                                         </div>
@@ -714,27 +722,27 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                         const importedKeys = Object.keys(preview.importedValues || {}).map(k => k.toLowerCase());
                                         const categories = [
                                             {
-                                                name: 'General Configuration',
+                                                name: t('ase.importServer.catGeneral', 'General Configuration'),
                                                 keys: ['sessionname', 'maxplayers', 'serverpassword', 'serveradminpassword'],
                                                 icon: Server
                                             },
                                             {
-                                                name: 'Breeding & Maturation',
+                                                name: t('ase.importServer.catBreeding', 'Breeding & Maturation'),
                                                 keys: ['egghatchspeedmultiplier', 'babymaturespeedmultiplier', 'babycuddleintervalmultiplier', 'babyimprintamountmultiplier', 'matingintervalmultiplier'],
                                                 icon: Layers
                                             },
                                             {
-                                                name: 'XP & Leveling Multipliers',
+                                                name: t('ase.importServer.catXp', 'XP & Leveling Multipliers'),
                                                 keys: ['xpmultiplier', 'killxpmultiplier', 'harvestxpmultiplier', 'craftxpmultiplier'],
                                                 icon: Package
                                             },
                                             {
-                                                name: 'Environment & Spoiling',
+                                                name: t('ase.importServer.catEnvironment', 'Environment & Spoiling'),
                                                 keys: ['daycyclespeedscale', 'spoilingtimemultiplier', 'cropgrowthespeedmultiplier', 'layeggintervalmultiplier'],
                                                 icon: MapPin
                                             },
                                             {
-                                                name: 'Engram & Crafting Overrides',
+                                                name: t('ase.importServer.catEngrams', 'Engram & Crafting Overrides'),
                                                 keys: ['overridenamedengramentries', 'configoverrideitemcraftingcosts'],
                                                 icon: Terminal
                                             }
@@ -743,7 +751,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                         return (
                                             <div className="bg-slate-900/30 border border-slate-800/80 rounded-xl p-5 space-y-4 animate-fadeIn">
                                                 <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider pb-2 border-b border-slate-800">
-                                                    Import Validation Checklist
+                                                    {t('ase.importServer.checklist', 'Import Validation Checklist')}
                                                 </h3>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                                                     {categories.map((cat) => {
@@ -764,7 +772,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                                         {cat.name}
                                                                     </span>
                                                                     <span className="text-[10px] text-slate-450">
-                                                                        {hasAny ? `✓ ${matchedCount} settings found` : 'Not configured'}
+                                                                        {hasAny ? `✓ ${t('ase.importServer.settingsFound', { defaultValue: '{{count}} settings found', count: matchedCount })}` : t('ase.importServer.notConfigured', 'Not configured')}
                                                                     </span>
                                                                 </div>
                                                             </div>
@@ -780,16 +788,16 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                         <div className="p-5 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-3 animate-fadeIn">
                                             <div className="flex items-center gap-2 text-sm font-bold text-amber-400">
                                                 <AlertTriangle className="w-4.5 h-4.5" />
-                                                Missing Configurations Report (Falling Back to Defaults)
+                                                {t('ase.importServer.missingTitle', 'Missing Configurations Report (Falling Back to Defaults)')}
                                             </div>
                                             <p className="text-xs text-slate-400 leading-relaxed">
-                                                The following settings were not detected in the imported configuration files. The server will initialize these parameters using standard game defaults:
+                                                {t('ase.importServer.missingDesc', 'The following settings were not detected in the imported configuration files. The server will initialize these parameters using standard game defaults:')}
                                             </p>
                                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-[150px] overflow-y-auto pr-2 scrollbar-thin">
                                                 {preview.missingSettings.map((key) => (
                                                     <div key={key} className="px-2.5 py-1.5 rounded-lg bg-slate-950/45 border border-slate-900/60 text-[11px] text-slate-350 font-mono flex items-center justify-between">
                                                         <span className="truncate pr-1">{key}</span>
-                                                        <span className="text-[9px] text-slate-500 font-sans uppercase font-bold shrink-0">default</span>
+                                                        <span className="text-[9px] text-slate-500 font-sans uppercase font-bold shrink-0">{t('ase.importServer.default', 'default')}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -800,19 +808,19 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                     {preview.importedValues && Object.keys(preview.importedValues).length > 0 && (
                                         <div className="bg-slate-900/30 border border-slate-800/80 rounded-xl p-5 space-y-3 animate-fadeIn">
                                             <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider pb-2 border-b border-slate-800 flex items-center justify-between">
-                                                <span>Source vs Value Mapping</span>
+                                                <span>{t('ase.importServer.mapping', 'Source vs Value Mapping')}</span>
                                                 <span className="text-[10px] text-slate-400 normal-case font-normal">
-                                                    Showing {Object.keys(preview.importedValues).length} imported parameters
+                                                    {t('ase.importServer.showingParams', { defaultValue: 'Showing {{count}} imported parameters', count: Object.keys(preview.importedValues).length })}
                                                 </span>
                                             </h3>
                                             <div className="border border-slate-800 rounded-xl overflow-hidden max-h-[300px] overflow-y-auto scrollbar-thin">
                                                 <table className="w-full text-left text-xs border-collapse">
                                                     <thead>
                                                         <tr className="bg-slate-950/60 text-slate-400 border-b border-slate-800 font-semibold sticky top-0 backdrop-blur-md">
-                                                            <th className="py-2.5 px-4">Parameter Key</th>
-                                                            <th className="py-2.5 px-4">Imported Value</th>
-                                                            <th className="py-2.5 px-4">Origin File</th>
-                                                            <th className="py-2.5 px-4 text-right">Confidence</th>
+                                                            <th className="py-2.5 px-4">{t('ase.importServer.colKey', 'Parameter Key')}</th>
+                                                            <th className="py-2.5 px-4">{t('ase.importServer.colValue', 'Imported Value')}</th>
+                                                            <th className="py-2.5 px-4">{t('ase.importServer.colOrigin', 'Origin File')}</th>
+                                                            <th className="py-2.5 px-4 text-right">{t('ase.importServer.colConfidence', 'Confidence')}</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-800/40 text-slate-300 font-mono">
@@ -832,7 +840,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                             return (
                                                                 <tr key={key} className="hover:bg-slate-800/25 transition-colors">
                                                                     <td className="py-2 px-4 text-slate-200 font-semibold text-[11px] truncate max-w-[180px]">{key}</td>
-                                                                    <td className="py-2 px-4 text-[11px] truncate max-w-[200px]" title={val}>{val || <em className="text-slate-500 font-sans">empty</em>}</td>
+                                                                    <td className="py-2 px-4 text-[11px] truncate max-w-[200px]" title={val}>{val || <em className="text-slate-500 font-sans">{t('ase.importServer.empty', 'empty')}</em>}</td>
                                                                     <td className="py-2 px-4 text-[11px] text-slate-450 truncate max-w-[150px]">{source}</td>
                                                                     <td className="py-2 px-4 text-right">
                                                                         <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold font-sans border ${confidenceBadgeBg}`}>
@@ -851,7 +859,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                     {/* Directory structure & file diagnostics */}
                                     <div className="bg-slate-900/30 border border-slate-800/80 rounded-xl p-5 space-y-4">
                                         <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider pb-2 border-b border-slate-800">
-                                            Path & Binary Validation Checks
+                                            {t('ase.importServer.pathChecks', 'Path & Binary Validation Checks')}
                                         </h3>
 
                                         <div className="space-y-3.5">
@@ -863,11 +871,11 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                     <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
                                                 )}
                                                 <div>
-                                                    <div className="font-semibold text-slate-200">GameUserSettings.ini Check</div>
+                                                    <div className="font-semibold text-slate-200">{t('ase.importServer.gusCheck', 'GameUserSettings.ini Check')}</div>
                                                     <div className="text-slate-400 mt-0.5">
                                                         {preview.rawIniGus 
-                                                            ? `File detected successfully (${(preview.rawIniGus.length / 1024).toFixed(1)} KB)` 
-                                                            : 'GameUserSettings.ini is missing! Default values will be generated.'
+                                                            ? t('ase.importServer.gusOk', { defaultValue: 'File detected successfully ({{size}} KB)', size: (preview.rawIniGus.length / 1024).toFixed(1) }) 
+                                                            : t('ase.importServer.gusMissing', 'GameUserSettings.ini is missing! Default values will be generated.')
                                                         }
                                                     </div>
                                                 </div>
@@ -881,11 +889,11 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                     <AlertCircle className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
                                                 )}
                                                 <div>
-                                                    <div className="font-semibold text-slate-200">Game.ini Custom Gameplay Multipliers</div>
+                                                    <div className="font-semibold text-slate-200">{t('ase.importServer.gameIniCheck', 'Game.ini Custom Gameplay Multipliers')}</div>
                                                     <div className="text-slate-400 mt-0.5">
                                                         {preview.rawIniGame 
-                                                            ? `Game.ini detected and will be imported (${(preview.rawIniGame.length / 1024).toFixed(1)} KB)` 
-                                                            : 'No Game.ini custom multipliers detected. Default rates will apply.'
+                                                            ? t('ase.importServer.gameIniOk', { defaultValue: 'Game.ini detected and will be imported ({{size}} KB)', size: (preview.rawIniGame.length / 1024).toFixed(1) }) 
+                                                            : t('ase.importServer.gameIniMissing', 'No Game.ini custom multipliers detected. Default rates will apply.')
                                                         }
                                                     </div>
                                                 </div>
@@ -899,11 +907,11 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                     <AlertCircle className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
                                                 )}
                                                 <div>
-                                                    <div className="font-semibold text-slate-200">Dedicated Server Launch Script Check</div>
+                                                    <div className="font-semibold text-slate-200">{t('ase.importServer.scriptCheck', 'Dedicated Server Launch Script Check')}</div>
                                                     <div className="text-slate-400 mt-0.5">
                                                         {preview.detectedCommand 
-                                                            ? 'Startup script resolved successfully. Variables and launch command mapped.' 
-                                                            : 'No startup launch script (.bat, .ps1, or .sh) found in directories.'
+                                                            ? t('ase.importServer.scriptOk', 'Startup script resolved successfully. Variables and launch command mapped.') 
+                                                            : t('ase.importServer.scriptMissing', 'No startup launch script (.bat, .ps1, or .sh) found in directories.')
                                                         }
                                                     </div>
                                                 </div>
@@ -918,7 +926,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                 <div className="space-y-4 animate-fadeIn flex flex-col h-[45vh]">
                                     <div className="flex items-center gap-2 text-sm font-semibold text-slate-200 flex-shrink-0">
                                         <Terminal className="w-4 h-4 text-amber-500" />
-                                        Configuration Inspector Console
+                                        {t('ase.importServer.inspectorConsole', 'Configuration Inspector Console')}
                                     </div>
 
                                     {/* Raw Sub-Navigation */}
@@ -951,7 +959,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                     : 'text-slate-400 hover:text-slate-200'
                                             }`}
                                         >
-                                            Resolved Command Line
+                                            {t('ase.importServer.resolvedCmd', 'Resolved Command Line')}
                                         </button>
                                     </div>
 
@@ -959,27 +967,27 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                     <div className="flex-1 bg-slate-950/70 border border-slate-800/80 rounded-xl overflow-hidden p-4 font-mono text-xs text-slate-300 flex flex-col">
                                         {rawSubTab === 'gus' && (
                                             <pre className="flex-1 overflow-auto whitespace-pre select-text select-all scrollbar-thin">
-                                                {preview.rawIniGus || '; No GameUserSettings.ini file content detected.'}
+                                                {preview.rawIniGus || t('ase.importServer.noGusContent', '; No GameUserSettings.ini file content detected.')}
                                             </pre>
                                         )}
                                         {rawSubTab === 'game' && (
                                             <pre className="flex-1 overflow-auto whitespace-pre select-text select-all scrollbar-thin">
-                                                {preview.rawIniGame || '; No Game.ini file content detected.'}
+                                                {preview.rawIniGame || t('ase.importServer.noGameContent', '; No Game.ini file content detected.')}
                                             </pre>
                                         )}
                                         {rawSubTab === 'command' && (
                                             <div className="flex-1 overflow-auto space-y-4 select-text">
                                                 <div>
-                                                    <span className="text-[10px] text-amber-400 font-bold block mb-1 uppercase tracking-wider">Matched startup line:</span>
+                                                    <span className="text-[10px] text-amber-400 font-bold block mb-1 uppercase tracking-wider">{t('ase.importServer.matchedLine', 'Matched startup line:')}</span>
                                                     <div className="bg-slate-900 border border-slate-800 p-3 rounded-lg text-slate-200 break-all select-all font-mono">
-                                                        {preview.detectedCommand || 'No command line resolved from startup script files.'}
+                                                        {preview.detectedCommand || t('ase.importServer.noCommand', 'No command line resolved from startup script files.')}
                                                     </div>
                                                 </div>
                                                 {preview.detectedCommand && (
                                                     <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
-                                                        <span className="text-[10px] text-emerald-400 font-bold block uppercase tracking-wider">Success</span>
+                                                        <span className="text-[10px] text-emerald-400 font-bold block uppercase tracking-wider">{t('ase.importServer.success', 'Success')}</span>
                                                         <p className="text-[11px] text-slate-400 mt-1">
-                                                            This launch arguments string was parsed using our startup variables state machine. Inline environment variables have been fully replaced.
+                                                            {t('ase.importServer.parsedDesc', 'This launch arguments string was parsed using our startup variables state machine. Inline environment variables have been fully replaced.')}
                                                         </p>
                                                     </div>
                                                 )}

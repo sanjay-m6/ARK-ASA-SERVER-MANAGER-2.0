@@ -77,7 +77,7 @@ export default function PushModUpdatesModal({
     };
 
     const formatDate = (isoStr?: string) => {
-        if (!isoStr) return 'Unknown';
+        if (!isoStr) return t('pushModUpdates.unknown', 'Unknown');
         try {
             const d = new Date(isoStr);
             return d.toLocaleDateString(undefined, {
@@ -125,7 +125,7 @@ export default function PushModUpdatesModal({
             }
         } catch (err: unknown) {
             console.error('Failed to push mod updates:', err);
-            const errorMsg = typeof err === 'string' ? err : (err as Error)?.message || 'Failed to push updates';
+            const errorMsg = typeof err === 'string' ? err : (err as Error)?.message || t('pushModUpdates.pushFailed', 'Failed to push updates');
             toast.error(errorMsg);
         } finally {
             setIsPushing(false);
@@ -161,7 +161,7 @@ export default function PushModUpdatesModal({
                                 </span>
                             </div>
                             <p className="text-xs text-slate-400 mt-0.5">
-                                {serverName} &bull; {selectedModIds.size} of {modsToUpdate.length} mod(s) selected
+                                {serverName} &bull; {t('pushModUpdates.selectedOf', { selected: selectedModIds.size, total: modsToUpdate.length, defaultValue: `${selectedModIds.size} of ${modsToUpdate.length} mod(s) selected` })}
                             </p>
                         </div>
                     </div>
@@ -182,9 +182,9 @@ export default function PushModUpdatesModal({
                         <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3">
                             <Shield className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
                             <div className="text-xs">
-                                <span className="font-bold text-emerald-300 block mb-0.5">Rollback Protection</span>
+                                <span className="font-bold text-emerald-300 block mb-0.5">{t('pushModUpdates.rollbackTitle', 'Rollback Protection')}</span>
                                 <span className="text-slate-300 leading-relaxed">
-                                    Current files will be backed up into <code className="text-emerald-400 font-mono">ModBackups/</code> before updating.
+                                    {t('pushModUpdates.rollbackDescA', 'Current files will be backed up into')} <code className="text-emerald-400 font-mono">ModBackups/</code> {t('pushModUpdates.rollbackDescB', 'before updating.')}
                                 </span>
                             </div>
                         </div>
@@ -192,9 +192,9 @@ export default function PushModUpdatesModal({
                         <div className="p-3.5 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-start gap-3">
                             <Sparkles className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
                             <div className="text-xs">
-                                <span className="font-bold text-sky-300 block mb-0.5">Fresh Pak Purge</span>
+                                <span className="font-bold text-sky-300 block mb-0.5">{t('pushModUpdates.purgeTitle', 'Fresh Pak Purge')}</span>
                                 <span className="text-slate-300 leading-relaxed">
-                                    Clears stale mod cache in <code className="text-sky-400 font-mono">ShooterGame/Mods/</code> to prevent crash-on-boot.
+                                    {t('pushModUpdates.purgeDescA', 'Clears stale mod cache in')} <code className="text-sky-400 font-mono">ShooterGame/Mods/</code> {t('pushModUpdates.purgeDescB', 'to prevent crash-on-boot.')}
                                 </span>
                             </div>
                         </div>
@@ -204,7 +204,7 @@ export default function PushModUpdatesModal({
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                                Mods to Update ({selectedModIds.size}/{modsToUpdate.length})
+                                {t('pushModUpdates.modsToUpdate', 'Mods to Update')} ({selectedModIds.size}/{modsToUpdate.length})
                             </label>
                             <button
                                 type="button"
@@ -214,12 +214,12 @@ export default function PushModUpdatesModal({
                                 {selectedModIds.size === modsToUpdate.length ? (
                                     <>
                                         <Square className="w-3.5 h-3.5" />
-                                        <span>Deselect All</span>
+                                        <span>{t('common.deselectAll', 'Deselect All')}</span>
                                     </>
                                 ) : (
                                     <>
                                         <CheckSquare className="w-3.5 h-3.5" />
-                                        <span>Select All</span>
+                                        <span>{t('common.selectAll', 'Select All')}</span>
                                     </>
                                 )}
                             </button>
@@ -274,14 +274,14 @@ export default function PushModUpdatesModal({
                                                         </span>
                                                     )}
                                                     {mod.latestUpdatedAt && (
-                                                        <span>Updated: {formatDate(mod.latestUpdatedAt)}</span>
+                                                        <span>{t('pushModUpdates.updatedAt', { date: formatDate(mod.latestUpdatedAt), defaultValue: `Updated: ${formatDate(mod.latestUpdatedAt)}` })}</span>
                                                     )}
                                                 </div>
                                             </div>
                                         </div>
 
                                         <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold shrink-0">
-                                            Update Available
+                                            {t('pushModUpdates.updateAvailable', 'Update Available')}
                                         </span>
                                     </div>
                                 );
@@ -295,7 +295,7 @@ export default function PushModUpdatesModal({
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <RefreshCw className="w-4 h-4 text-sky-400" />
-                                    <span className="text-sm font-bold text-white">Restart Server to Apply Immediately</span>
+                                    <span className="text-sm font-bold text-white">{t('pushModUpdates.restartToApply', 'Restart Server to Apply Immediately')}</span>
                                 </div>
                                 <input
                                     type="checkbox"
@@ -309,11 +309,11 @@ export default function PushModUpdatesModal({
                             {restartServer ? (
                                 <div className="space-y-3 pt-2 border-t border-white/5 text-xs text-slate-300">
                                     <p className="leading-relaxed">
-                                        The manager will send in-game warning broadcasts via RCON, safely save the world (<code className="text-emerald-400 font-mono">saveworld</code>), gracefully stop, clear cache, and reboot.
+                                        {t('pushModUpdates.restartDescA', 'The manager will send in-game warning broadcasts via RCON, safely save the world')} (<code className="text-emerald-400 font-mono">saveworld</code>), {t('pushModUpdates.restartDescB', 'gracefully stop, clear cache, and reboot.')}
                                     </p>
 
                                     <div className="flex items-center gap-3">
-                                        <span className="text-slate-400 font-medium">In-Game Warning Countdown:</span>
+                                        <span className="text-slate-400 font-medium">{t('pushModUpdates.countdownLabel', 'In-Game Warning Countdown:')}</span>
                                         <div className="flex items-center gap-1.5">
                                             {[0, 1, 3, 5].map((mins) => (
                                                 <button
@@ -327,7 +327,7 @@ export default function PushModUpdatesModal({
                                                             : "bg-slate-800 text-slate-400 hover:text-white"
                                                     )}
                                                 >
-                                                    {mins === 0 ? 'Immediate' : `${mins} min`}
+                                                    {mins === 0 ? t('pushModUpdates.immediate', 'Immediate') : `${mins} min`}
                                                 </button>
                                             ))}
                                         </div>
@@ -336,7 +336,7 @@ export default function PushModUpdatesModal({
                             ) : (
                                 <div className="pt-2 border-t border-white/5 text-xs text-amber-300/90 flex items-center gap-2">
                                     <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-                                    <span>Server will NOT restart now. Stale cache is wiped; updates take effect on next server boot.</span>
+                                    <span>{t('pushModUpdates.noRestart', 'Server will NOT restart now. Stale cache is wiped; updates take effect on next server boot.')}</span>
                                 </div>
                             )}
                         </div>
@@ -344,10 +344,10 @@ export default function PushModUpdatesModal({
                         <div className="p-4 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2 text-xs text-slate-300">
                             <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
                                 <CheckCircle2 className="w-4 h-4" />
-                                <span>Server is Offline & Ready</span>
+                                <span>{t('pushModUpdates.offlineReady', 'Server is Offline & Ready')}</span>
                             </div>
                             <p className="leading-relaxed">
-                                Pushing updates will purge outdated pak cache and update your local configurations. The server will download the latest mod files upon next startup.
+                                {t('pushModUpdates.offlineDesc', 'Pushing updates will purge outdated pak cache and update your local configurations. The server will download the latest mod files upon next startup.')}
                             </p>
                         </div>
                     )}

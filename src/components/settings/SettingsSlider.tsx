@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '../../utils/helpers';
+import { NumberInput } from '../ui/NumberInput';
 
 interface SettingsSliderProps {
     label: React.ReactNode;
@@ -37,16 +38,10 @@ export function SettingsSlider({
             <div className="flex justify-between items-center mb-2">
                 <label className="text-white font-medium">{label}</label>
                 <div className="flex items-center gap-2">
-                    <input
-                        type="number"
-                        min={min}
-                        // Allow typing any number, don't clamp via max attribute on number input
-                        step={step}
+                    {/* No min/max: the slider range is only a visual guide, any value can be typed (e.g. 0.01) */}
+                    <NumberInput
                         value={value}
-                        onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            if (!isNaN(val)) onChange(val);
-                        }}
+                        onValueChange={onChange}
                         className={cn(
                             "bg-[#1a1a2e] border-2 rounded-lg px-2 py-1.5 w-24 text-right font-mono focus:outline-none focus:border-orange-500 focus:shadow-[0_0_15px_rgba(249,115,22,0.2)] transition-all",
                             isModified

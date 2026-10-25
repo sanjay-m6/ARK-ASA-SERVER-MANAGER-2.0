@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/helpers';
 
 interface CopilotSuggestionsProps {
@@ -7,11 +8,12 @@ interface CopilotSuggestionsProps {
 }
 
 export default function CopilotSuggestions({ suggestions, onSelect, disabled }: CopilotSuggestionsProps) {
+    const { t } = useTranslation();
     if (suggestions.length === 0) return null;
 
     return (
         <div className="px-3 py-2 border-b border-white/5">
-            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">💡 Suggestions</p>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">💡 {t('copilot.suggestions', 'Suggestions')}</p>
             <div className="flex flex-wrap gap-1.5">
                 {suggestions.slice(0, 4).map((suggestion) => (
                     <button

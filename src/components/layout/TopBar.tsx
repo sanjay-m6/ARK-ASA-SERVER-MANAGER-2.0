@@ -97,7 +97,7 @@ export default function TopBar() {
         try {
             const result = await manualCheckForUpdates();
             if (result.available && result.update) {
-                toast.success(t('settings.updatesTab.updateAvailable', `Update v${result.update.version} is available!`));
+                toast.success(t('settings.updatesTab.updateAvailable', { defaultValue: 'Update v{{version}} is available!', version: result.update.version }));
                 window.dispatchEvent(new Event('show-update-banner'));
             } else if (result.error) {
                 toast.error(result.error);
@@ -160,10 +160,10 @@ export default function TopBar() {
                                 )}></div>
                                 <div className="flex flex-col items-start leading-tight">
                                     <span className="text-[9px] font-black uppercase tracking-wider text-sky-400 flex items-center gap-1">
-                                        {t('common.editingTarget', 'EDITING TARGET')}
+                                        {t('topBar.editingTarget', 'EDITING TARGET')}
                                     </span>
                                     <span className="text-xs font-extrabold text-[var(--text-primary)] max-w-[150px] truncate">
-                                        {activeServer ? activeServer.name : t('common.noActiveServer', 'No Active Server')}
+                                        {activeServer ? activeServer.name : t('topBar.noActiveServer', 'No Active Server')}
                                     </span>
                                 </div>
                                 {activeServer && (
@@ -195,7 +195,7 @@ export default function TopBar() {
                                             </div>
                                             <div>
                                                 <h3 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                                                    {t('common.serverSwitcher', 'Server Switcher')}
+                                                    {t('topBar.serverSwitcher', 'Server Switcher')}
                                                     <span className={cn(
                                                         "text-[9px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider",
                                                         isASE ? "bg-amber-500/15 border-amber-500/30 text-amber-300" : "bg-sky-500/15 border-sky-500/30 text-sky-300"
@@ -203,7 +203,7 @@ export default function TopBar() {
                                                         {isASE ? 'ASE' : 'ASA'}
                                                     </span>
                                                 </h3>
-                                                <p className="text-[10px] text-slate-400 font-medium mt-0.5">{t('common.selectServerInstance', 'Select a server instance to edit settings')}</p>
+                                                <p className="text-[10px] text-slate-400 font-medium mt-0.5">{t('topBar.selectServerInstance', 'Select a server instance to edit settings')}</p>
                                             </div>
                                         </div>
                                         <span className="text-[10px] font-mono bg-slate-900 border border-slate-800 text-sky-400 px-2.5 py-0.5 rounded-full font-black shadow-inner">
@@ -308,7 +308,7 @@ export default function TopBar() {
                                                                         } else {
                                                                             useServerStore.getState().setActiveServer(srv);
                                                                         }
-                                                                        toast.success(`Active Server: ${srv.name} (Port: ${getGamePort(srv)})`, {
+                                                                        toast.success(t('topBar.activeServerToast', { defaultValue: 'Active Server: {{name}} (Port: {{port}})', name: srv.name, port: getGamePort(srv) }), {
                                                                             icon: '⚙️',
                                                                             style: { background: '#0f172a', color: '#fff', border: '1px solid #38bdf8' }
                                                                         });
@@ -341,7 +341,7 @@ export default function TopBar() {
                                                                                 )}
                                                                             </div>
                                                                             <span className="text-[10px] font-mono text-slate-400 truncate mt-0.5">
-                                                                                Port: <strong className="text-slate-300">{getGamePort(srv)}</strong> | Map: <strong className="text-slate-300">{getMapName(srv)}</strong>
+                                                                                {t('common.port', 'Port')}: <strong className="text-slate-300">{getGamePort(srv)}</strong> | {t('topBar.map', 'Map')}: <strong className="text-slate-300">{getMapName(srv)}</strong>
                                                                             </span>
                                                                         </div>
                                                                     </div>
@@ -354,7 +354,7 @@ export default function TopBar() {
                                                                             ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
                                                                             : "bg-slate-800 text-slate-400 border-slate-700"
                                                                     )}>
-                                                                        {srv.status || 'stopped'}
+                                                                        {t(`serverManager.serverStatus.${srv.status || 'stopped'}`, { defaultValue: srv.status || 'stopped' })}
                                                                     </span>
                                                                 </button>
                                                             )}
@@ -381,7 +381,7 @@ export default function TopBar() {
                                                     )}
                                                 >
                                                     <Plus className="w-4 h-4 stroke-[3]" />
-                                                    <span>{t('dashboard.installServer', 'Create New Server')}</span>
+                                                    <span>{t('topBar.createNewServer', 'Create New Server')}</span>
                                                 </button>
                                             )}
                                         </Menu.Item>
@@ -400,9 +400,9 @@ export default function TopBar() {
                     <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('dashboard.publicIpAddress', 'IP')}:</span>
                     <div className="flex items-center">
                         {isLoadingIp ? (
-                            <div className="flex items-center gap-1.5 text-[var(--text-secondary)]"><Loader2 className="w-3 h-3 animate-spin" /> <span className="text-xs font-mono">Detecting...</span></div>
+                            <div className="flex items-center gap-1.5 text-[var(--text-secondary)]"><Loader2 className="w-3 h-3 animate-spin" /> <span className="text-xs font-mono">{t('topBar.detecting', 'Detecting...')}</span></div>
                         ) : isErrorIp ? (
-                            <span className="text-xs font-mono text-[var(--text-secondary)] italic flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors" onClick={() => refetchIp()} title="Click to retry">
+                            <span className="text-xs font-mono text-[var(--text-secondary)] italic flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors" onClick={() => refetchIp()} title={t('topBar.clickToRetry', 'Click to retry')}>
                                 <AlertCircle className="w-3 h-3 text-amber-400" /> N/A
                             </span>
                         ) : (
@@ -430,7 +430,7 @@ export default function TopBar() {
                                 ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
                                 : "bg-cyan-500/10 border-cyan-500/30 text-cyan-400"
                         )}>
-                            Beta
+                            {t('topBar.beta', 'Beta')}
                         </span>
                     )}
                     <button
@@ -459,7 +459,7 @@ export default function TopBar() {
                     return (
                         <div className="flex items-center gap-2 h-10 px-3.5 rounded-xl border backdrop-blur-md shadow-sm transition-all duration-300 bg-emerald-500/10 border-emerald-500/30 text-emerald-400 animate-in fade-in duration-300">
                             <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse"></div>
-                            <span className="text-xs font-bold tracking-wider uppercase">ONLINE</span>
+                            <span className="text-xs font-bold tracking-wider uppercase">{t('topBar.online', 'ONLINE')}</span>
                         </div>
                     );
                 })()}
@@ -504,7 +504,7 @@ export default function TopBar() {
                             >
                                 <Menu.Items className="absolute right-0 mt-2 w-60 origin-top-right rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-2xl focus:outline-none overflow-hidden z-50 p-2 max-h-[380px] overflow-y-auto">
                                     <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border)] mb-1 flex items-center justify-between">
-                                        <span>Select Language</span>
+                                        <span>{t('settings.language.selectLanguage', 'Select Language')}</span>
                                         <Globe className="w-3.5 h-3.5 text-sky-400" />
                                     </div>
                                     {supportedLanguages.map((lang) => {
@@ -580,9 +580,9 @@ export default function TopBar() {
                             >
                                 <Menu.Items className="absolute right-0 mt-2 w-80 origin-top-right rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-2xl focus:outline-none overflow-hidden z-50">
                                     <div className="p-4 bg-[var(--surface)] border-b border-[var(--border)] flex justify-between items-center">
-                                        <h3 className="font-bold text-[var(--text-primary)] text-sm">Notifications</h3>
+                                        <h3 className="font-bold text-[var(--text-primary)] text-sm">{t('topBar.notifications', 'Notifications')}</h3>
                                         <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider bg-[var(--surface-hover)] px-2 py-0.5 rounded-full">
-                                            {updateAvailable ? '1 New' : 'Zero'}
+                                            {updateAvailable ? t('topBar.oneNew', '1 New') : t('topBar.zero', 'None')}
                                         </span>
                                     </div>
                                     <div className="max-h-[300px] overflow-y-auto">
@@ -599,13 +599,13 @@ export default function TopBar() {
                                                             </div>
                                                             <div className="flex-1">
                                                                 <div className="flex justify-between items-start mb-1">
-                                                                    <h4 className="font-bold text-sky-500 text-sm leading-tight">New Version {updateAvailable.version} Available</h4>
+                                                                    <h4 className="font-bold text-sky-500 text-sm leading-tight">{t('topBar.newVersionAvailable', { defaultValue: 'New Version {{version}} Available', version: updateAvailable.version })}</h4>
                                                                 </div>
                                                                 <p className="text-xs text-[var(--text-secondary)] line-clamp-2 mt-1 mb-3">
-                                                                    {updateAvailable.body || "A new update is available to download and install."}
+                                                                    {updateAvailable.body || t('topBar.newUpdateBody', 'A new update is available to download and install.')}
                                                                 </p>
                                                                 <button className="w-full py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-sky-500/20 transition-all uppercase tracking-wide cursor-pointer">
-                                                                    Review & Update
+                                                                    {t('topBar.reviewAndUpdate', 'Review & Update')}
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -615,8 +615,8 @@ export default function TopBar() {
                                         ) : (
                                             <div className="p-8 text-center flex flex-col items-center justify-center text-[var(--text-muted)]">
                                                 <Bell className="w-8 h-8 opacity-40 mb-3" />
-                                                <p className="text-sm font-bold text-[var(--text-primary)]">You're all caught up!</p>
-                                                <p className="text-xs text-[var(--text-secondary)] mt-1">Version v{appVersion} is up to date.</p>
+                                                <p className="text-sm font-bold text-[var(--text-primary)]">{t('topBar.allCaughtUp', "You're all caught up!")}</p>
+                                                <p className="text-xs text-[var(--text-secondary)] mt-1">{t('topBar.upToDate', { defaultValue: 'Version v{{version}} is up to date.', version: appVersion })}</p>
                                             </div>
                                         )}
                                     </div>

@@ -3,6 +3,7 @@ import { Flame, Info, Check, TrendingUp, Table, ChevronLeft, ChevronRight, Spark
 import { AseGameConfig } from '../../types/ase.types';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../../utils/helpers';
+import { useTranslation } from 'react-i18next';
 
 interface AseLevelGeneratorProps {
   config: AseGameConfig;
@@ -93,6 +94,7 @@ const GeneratorSlider: React.FC<GeneratorSliderProps> = ({
 };
 
 export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) {
+  const { t } = useTranslation();
   const [target, setTarget] = useState<GeneratorTarget>('player');
   const [maxLevel, setMaxLevel] = useState<number>(105);
   const [baseXp, setBaseXp] = useState<number>(10);
@@ -230,7 +232,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
     updatedConfig.levelExperienceRampOverrides = combinedOverrides;
 
     onChange(updatedConfig);
-    toast.success(`${target === 'player' ? 'Player' : 'Dino'} XP Ramp applied successfully!`);
+    toast.success(target === 'player' ? t('ase.levelGenerator.playerRampApplied', 'Player XP Ramp applied successfully!') : t('ase.levelGenerator.dinoRampApplied', 'Dino XP Ramp applied successfully!'));
   };
 
   const applyDinoLevel = (level: number) => {
@@ -240,7 +242,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
       overrideOfficialDifficulty: parseFloat(difficulty),
       difficultyOffset: 1.0
     });
-    toast.success(`Wild Dino Max Level set to ${level}`);
+    toast.success(t('ase.levelGenerator.wildLevelSet', { defaultValue: 'Wild Dino Max Level set to {{level}}', level }));
   };
 
   const paginatedData = useMemo(() => {
@@ -265,7 +267,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
       setMaxLevel(target === 'player' ? 80 : 60);
     }
     setPage(0);
-    toast.success(`Applied ${preset} preset curve settings!`);
+    toast.success(t('ase.levelGenerator.presetApplied', { defaultValue: 'Applied {{preset}} preset curve settings!', preset: t(`ase.levelGenerator.presets.${preset}`) }));
   };
 
   return (
@@ -273,10 +275,10 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
       <div className="flex flex-col gap-2">
         <h3 className="text-xl font-bold text-white flex items-center gap-2">
           <Flame className="w-5 h-5 text-amber-500" />
-          Level & XP Generator
+          {t('ase.levelGenerator.title', 'Level & XP Generator')}
         </h3>
         <p className="text-slate-400 text-sm">
-          Generate custom experience ramps for players and dinos, or configure maximum wild dino levels.
+          {t('ase.levelGenerator.subtitle', 'Generate custom experience ramps for players and dinos, or configure maximum wild dino levels.')}
         </p>
       </div>
 
@@ -287,8 +289,8 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
             {/* Target & Presets Row */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-4">
               <div>
-                <h4 className="text-base font-bold text-slate-200">Custom Experience Curve</h4>
-                <p className="text-xs text-slate-400 mt-1">Configure target and rate coefficients</p>
+                <h4 className="text-base font-bold text-slate-200">{t('ase.levelGenerator.customCurve', 'Custom Experience Curve')}</h4>
+                <p className="text-xs text-slate-400 mt-1">{t('ase.levelGenerator.customCurveDesc', 'Configure target and rate coefficients')}</p>
               </div>
 
               {/* Target Selector */}
@@ -301,7 +303,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
                     target === 'player' ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20" : "text-slate-400 hover:text-slate-200"
                   )}
                 >
-                  Players
+                  {t('ase.levelGenerator.players', 'Players')}
                 </button>
                 <button
                   type="button"
@@ -311,16 +313,16 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
                     target === 'dino' ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20" : "text-slate-400 hover:text-slate-200"
                   )}
                 >
-                  Tamed Dinos
+                  {t('ase.levelGenerator.tamedDinos', 'Tamed Dinos')}
                 </button>
               </div>
             </div>
 
             {/* Presets Button Group */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-slate-400 mr-2 font-semibold">Presets:</span>
+              <span className="text-xs text-slate-400 mr-2 font-semibold">{t('ase.levelGenerator.presetsLabel', 'Presets:')}</span>
               {['official', 'high', 'brutal'].map((preset) => {
-                const label = preset === 'official' ? 'Official Scale' : preset === 'high' ? 'High-Rate' : 'Brutal Curve';
+                const label = preset === 'official' ? t('ase.levelGenerator.presets.official', 'Official Scale') : preset === 'high' ? t('ase.levelGenerator.presets.high', 'High-Rate') : t('ase.levelGenerator.presets.brutal', 'Brutal Curve');
                 return (
                   <button
                     key={preset}
@@ -337,7 +339,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
             {/* Custom Input Sliders */}
             <div className="space-y-5">
               <GeneratorSlider
-                label="Max Level Limit"
+                label={t('ase.levelGenerator.maxLevel', 'Max Level Limit')}
                 min={5}
                 max={500}
                 step={1}
@@ -346,7 +348,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
               />
 
               <GeneratorSlider
-                label="Base XP Multiplier"
+                label={t('ase.levelGenerator.baseXp', 'Base XP Multiplier')}
                 min={1}
                 max={100}
                 step={1}
@@ -355,7 +357,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
               />
 
               <GeneratorSlider
-                label="Exponential Curve Exponent"
+                label={t('ase.levelGenerator.exponent', 'Exponential Curve Exponent')}
                 min={1.0}
                 max={4.0}
                 step={0.05}
@@ -372,7 +374,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition-all shadow-lg shadow-amber-500/10 active:scale-[0.98] focus:outline-none"
           >
             <Check className="w-4 h-4" />
-            Apply {target === 'player' ? 'Player' : 'Dino'} XP Ramp
+            {target === 'player' ? t('ase.levelGenerator.applyPlayerRamp', 'Apply Player XP Ramp') : t('ase.levelGenerator.applyDinoRamp', 'Apply Dino XP Ramp')}
           </button>
         </div>
 
@@ -381,7 +383,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
           <div>
             <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5 mb-3">
               <TrendingUp className="w-4 h-4 text-amber-500" />
-              XP Curve Visualization
+              {t('ase.levelGenerator.curveViz', 'XP Curve Visualization')}
             </h4>
 
             {/* SVG Line Chart */}
@@ -418,7 +420,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
                   )}
                 </svg>
               ) : (
-                <span className="text-xs text-slate-500">Insufficient levels data</span>
+                <span className="text-xs text-slate-500">{t('ase.levelGenerator.insufficient', 'Insufficient levels data')}</span>
               )}
             </div>
           </div>
@@ -427,22 +429,22 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
           <div className="space-y-3">
             <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
               <Table className="w-4 h-4 text-amber-500" />
-              Level Progression Table
+              {t('ase.levelGenerator.progressionTable', 'Level Progression Table')}
             </h4>
 
             <div className="bg-[#0a0f1d]/40 border border-white/10 rounded-xl overflow-hidden">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-white/10 text-[10px] text-slate-400 uppercase font-black tracking-wider bg-slate-950/40">
-                    <th className="py-2.5 px-2 whitespace-nowrap">Level</th>
-                    <th className="py-2.5 px-2 whitespace-nowrap">XP Required</th>
-                    <th className="py-2.5 px-2 text-right whitespace-nowrap">Total XP</th>
+                    <th className="py-2.5 px-2 whitespace-nowrap">{t('ase.levelGenerator.colLevel', 'Level')}</th>
+                    <th className="py-2.5 px-2 whitespace-nowrap">{t('ase.levelGenerator.colXpRequired', 'XP Required')}</th>
+                    <th className="py-2.5 px-2 text-right whitespace-nowrap">{t('ase.levelGenerator.colTotalXp', 'Total XP')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.03] text-xs font-medium text-slate-350">
                   {paginatedData.map((d) => (
                     <tr key={d.level} className="hover:bg-white/[0.01]">
-                      <td className="py-2 px-2 font-bold text-slate-300 font-mono whitespace-nowrap">Lvl {d.level}</td>
+                      <td className="py-2 px-2 font-bold text-slate-300 font-mono whitespace-nowrap">{t('ase.levelGenerator.lvl', { defaultValue: 'Lvl {{level}}', level: d.level })}</td>
                       <td className="py-2 px-2 font-mono whitespace-nowrap">{d.xpNeeded.toLocaleString()}</td>
                       <td className="py-2 px-2 text-right font-mono font-semibold text-amber-400 whitespace-nowrap">{d.totalXp.toLocaleString()}</td>
                     </tr>
@@ -452,7 +454,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
 
               {/* Table Pagination Controls */}
               <div className="flex items-center justify-between border-t border-white/10 px-4 py-2.5 bg-[#0a0f1d]/60 text-slate-400 text-[10px] font-bold">
-                <span>Page {page + 1} of {maxPage || 1}</span>
+                <span>{t('ase.levelGenerator.pageOf', { defaultValue: 'Page {{page}} of {{total}}', page: page + 1, total: maxPage || 1 })}</span>
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
@@ -481,12 +483,12 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3 glass-panel rounded-2xl p-6 flex flex-col justify-between gap-6">
           <div>
-            <h4 className="text-base font-bold text-slate-200">Wild Dino Max Level</h4>
+            <h4 className="text-base font-bold text-slate-200">{t('ase.levelGenerator.wildMaxLevel', 'Wild Dino Max Level')}</h4>
             <p className="text-xs text-slate-455 mt-1 mb-6">
-              Automatically calculates the required Official Difficulty settings to achieve this maximum wild dino level on spawn.
+              {t('ase.levelGenerator.wildMaxLevelDesc', 'Automatically calculates the required Official Difficulty settings to achieve this maximum wild dino level on spawn.')}
             </p>
             <GeneratorSlider
-              label="Dino Level Target"
+              label={t('ase.levelGenerator.dinoLevelTarget', 'Dino Level Target')}
               min={30}
               max={600}
               step={30}
@@ -500,7 +502,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition-all shadow-lg shadow-amber-500/10 active:scale-[0.98] focus:outline-none"
           >
             <Check className="w-4 h-4" />
-            Apply Wild Dino Difficulty
+            {t('ase.levelGenerator.applyWild', 'Apply Wild Dino Difficulty')}
           </button>
         </div>
 
@@ -508,21 +510,21 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
         <div className="lg:col-span-2 glass-panel rounded-2xl p-6 flex flex-col gap-4">
           <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-amber-500" />
-            Formula Parameters
+            {t('ase.levelGenerator.formulaParams', 'Formula Parameters')}
           </h4>
 
           <div className="space-y-3.5 text-xs text-slate-400 leading-relaxed font-medium">
             <div>
-              <span className="text-slate-200 font-semibold block mb-0.5">XP Progression Math</span>
-              XP is generated dynamically per level using: <code className="bg-[#0a0f1d]/80 px-1.5 py-0.5 rounded border border-white/10 text-[10px] text-amber-400 font-mono">BaseXP * Level ^ Exponent</code>
+              <span className="text-slate-200 font-semibold block mb-0.5">{t('ase.levelGenerator.mathTitle', 'XP Progression Math')}</span>
+              {t('ase.levelGenerator.mathDesc', 'XP is generated dynamically per level using:')} <code className="bg-[#0a0f1d]/80 px-1.5 py-0.5 rounded border border-white/10 text-[10px] text-amber-400 font-mono">BaseXP * Level ^ Exponent</code>
             </div>
             <div>
-              <span className="text-slate-200 font-semibold block mb-0.5">Dual-Ramp Injection</span>
-              Applies distinct overrides for players (first array line) and dinos (second array line) in Game.ini.
+              <span className="text-slate-200 font-semibold block mb-0.5">{t('ase.levelGenerator.dualRamp', 'Dual-Ramp Injection')}</span>
+              {t('ase.levelGenerator.dualRampDesc', 'Applies distinct overrides for players (first array line) and dinos (second array line) in Game.ini.')}
             </div>
             <div>
-              <span className="text-slate-200 font-semibold block mb-0.5">Difficulty Offset Calculation</span>
-              Dino spawns use <code className="bg-[#0a0f1d]/80 px-1.5 py-0.5 rounded border border-white/10 text-[10px] text-amber-400 font-mono">Difficulty = Level / 30</code>. A target level of 150 yields a difficulty parameter of 5.0.
+              <span className="text-slate-200 font-semibold block mb-0.5">{t('ase.levelGenerator.diffCalc', 'Difficulty Offset Calculation')}</span>
+              {t('ase.levelGenerator.diffDesc1', 'Dino spawns use')} <code className="bg-[#0a0f1d]/80 px-1.5 py-0.5 rounded border border-white/10 text-[10px] text-amber-400 font-mono">Difficulty = Level / 30</code>. {t('ase.levelGenerator.diffDesc2', 'A target level of 150 yields a difficulty parameter of 5.0.')}
             </div>
           </div>
         </div>
@@ -531,8 +533,8 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
       <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex gap-3 text-sm text-amber-200/90">
         <Info className="w-5 h-5 shrink-0 text-amber-400" />
         <div>
-          <strong className="block mb-1 text-amber-300">Important System Details</strong>
-          Applying these curves will write detailed configurations to your <code className="bg-amber-950/60 border border-amber-500/20 px-1.5 py-0.5 rounded text-amber-300 font-mono text-xs">Game.ini</code> file. Experience curves are computed up to the defined level limits.
+          <strong className="block mb-1 text-amber-300">{t('ase.levelGenerator.important', 'Important System Details')}</strong>
+          {t('ase.levelGenerator.importantDesc1', 'Applying these curves will write detailed configurations to your')} <code className="bg-amber-950/60 border border-amber-500/20 px-1.5 py-0.5 rounded text-amber-300 font-mono text-xs">Game.ini</code> {t('ase.levelGenerator.importantDesc2', 'file. Experience curves are computed up to the defined level limits.')}
         </div>
       </div>
     </div>

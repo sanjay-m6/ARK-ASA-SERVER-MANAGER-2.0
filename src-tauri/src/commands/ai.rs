@@ -671,7 +671,7 @@ pub async fn ai_chat(
     }
 
     let api_resp: AiApiResponse = serde_json::from_str(&response_text)
-        .map_err(|e| format!("Failed to parse API response: {} — raw: {}", e, &response_text[..200.min(response_text.len())]))?;
+        .map_err(|e| format!("Failed to parse API response: {} — raw: {}", e, response_text.chars().take(200).collect::<String>()))?;
 
     let choice = api_resp
         .choices

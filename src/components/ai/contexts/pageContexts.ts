@@ -2,6 +2,8 @@
 // Each route maps to a specialized personality, tools list, and dynamic suggestions
 
 export interface PageCopilotConfig {
+    /** Stable id used for i18n keys (copilot.pages.<id>.*) */
+    id: string;
     name: string;
     icon: string;
     personality: string;
@@ -30,6 +32,7 @@ Respond as a concise, expert copilot.`;
 
 export const PAGE_CONTEXTS: Record<string, PageCopilotConfig> = {
     '/dashboard': {
+        id: 'dashboard',
         name: 'Operations Copilot',
         icon: '📊',
         accentColor: 'cyan',
@@ -47,6 +50,7 @@ You can see all server statuses and system metrics.`,
     },
 
     '/servers': {
+        id: 'servers',
         name: 'Server Ops Copilot',
         icon: '🖥️',
         accentColor: 'emerald',
@@ -63,6 +67,7 @@ You can diagnose port conflicts, launch parameter issues, and crash recovery.`,
     },
 
     '/rcon': {
+        id: 'rcon',
         name: 'Command Copilot',
         icon: '🎮',
         accentColor: 'cyan',
@@ -80,6 +85,7 @@ You know all ARK RCON commands including cheat commands, admin commands, and scr
     },
 
     '/scheduler': {
+        id: 'scheduler',
         name: 'Automation Copilot',
         icon: '📅',
         accentColor: 'rose',
@@ -97,6 +103,7 @@ You detect conflicts and suggest optimal timing.`,
     },
 
     '/mods': {
+        id: 'mods',
         name: 'Mod Intel Copilot',
         icon: '🧩',
         accentColor: 'pink',
@@ -113,6 +120,7 @@ You know about mod compatibility, load order, popular mods, and mod-related cras
     },
 
     '/config': {
+        id: 'config',
         name: 'INI Specialist',
         icon: '⚙️',
         accentColor: 'violet',
@@ -130,6 +138,7 @@ You can generate complete presets for PvP, PvE, Hardcore, and custom playstyles.
     },
 
     '/clusters': {
+        id: 'clusters',
         name: 'Cluster Architect',
         icon: '🌐',
         accentColor: 'sky',
@@ -146,6 +155,7 @@ shared inventories, and transfer settings between maps.`,
     },
 
     '/backups': {
+        id: 'backups',
         name: 'Data Protection Copilot',
         icon: '💾',
         accentColor: 'amber',
@@ -162,6 +172,7 @@ and ensure data safety for ARK server saves.`,
     },
 
     '/logs': {
+        id: 'logs',
         name: 'Diagnostics Copilot',
         icon: '📋',
         accentColor: 'orange',
@@ -178,6 +189,7 @@ and identify performance issues from log data.`,
     },
 
     '/tools/ai': {
+        id: 'aiTools',
         name: 'Infinity AI',
         icon: '✨',
         accentColor: 'cyan',
@@ -193,6 +205,7 @@ You can control servers, manage configs, execute RCON commands, handle backups, 
     },
 
     '/tools/advanced': {
+        id: 'advanced',
         name: 'Advanced Config Copilot',
         icon: '🔧',
         accentColor: 'slate',
@@ -207,6 +220,7 @@ server monitoring, and advanced process management settings.`,
     },
 
     '/hardware': {
+        id: 'hardware',
         name: 'Performance Copilot',
         icon: '🖥️',
         accentColor: 'violet',
@@ -222,6 +236,7 @@ and troubleshoot performance bottlenecks for ARK servers.`,
     },
 
     '/tools/discord': {
+        id: 'discord',
         name: 'Integration Copilot',
         icon: '🤖',
         accentColor: 'indigo',
@@ -237,6 +252,7 @@ and manage Discord-to-game communication bridges.`,
     },
 
     '/tools/plugins': {
+        id: 'plugins',
         name: 'Plugin Copilot',
         icon: '🔌',
         accentColor: 'teal',
@@ -251,6 +267,7 @@ You help users discover, install, configure, and troubleshoot plugins.`,
     },
 
     '/tools/files': {
+        id: 'files',
         name: 'File Copilot',
         icon: '📁',
         accentColor: 'slate',
@@ -266,6 +283,7 @@ and manage server directory structure.`,
     },
 
     '/tools/tribe-logs': {
+        id: 'tribeLogs',
         name: 'Tribe Analyst',
         icon: '🏰',
         accentColor: 'amber',
@@ -281,6 +299,7 @@ and monitor player behavior patterns.`,
     },
 
     '/tools/upnp': {
+        id: 'upnp',
         name: 'Network Copilot',
         icon: '🌐',
         accentColor: 'cyan',
@@ -296,6 +315,7 @@ and diagnose network connectivity issues for ARK servers.`,
     },
 
     '/settings': {
+        id: 'settings',
         name: 'Setup Copilot',
         icon: '⚙️',
         accentColor: 'slate',
@@ -313,6 +333,7 @@ language preferences, and troubleshoot setup issues.`,
 
 // Fallback for any unrecognized routes
 export const DEFAULT_COPILOT_CONFIG: PageCopilotConfig = {
+    id: 'default',
     name: 'Infinity Copilot',
     icon: '🤖',
     accentColor: 'cyan',

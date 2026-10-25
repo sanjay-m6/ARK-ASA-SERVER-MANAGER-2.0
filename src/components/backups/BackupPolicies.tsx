@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { BackupPolicy } from '../../types';
 import { getPlatformInfo } from '../../platform/platform';
 import { cn } from '../../utils/helpers';
+import { NumberInput } from '../ui/NumberInput';
 
 interface BackupPoliciesProps {
     serverId: number | null;
@@ -94,7 +95,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                     backupBeforeRestart: true,
                     compressionEnabled: true,
                 });
-                toast.success('Applied High Protection Preset (Hourly Backups)');
+                toast.success(t('backupPolicies.appliedHigh', 'Applied High Protection Preset (Hourly Backups)'));
                 break;
             case 'balanced':
                 setPolicy({
@@ -108,7 +109,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                     backupBeforeRestart: true,
                     compressionEnabled: true,
                 });
-                toast.success('Applied Balanced Preset (6-Hour Backups)');
+                toast.success(t('backupPolicies.appliedBalanced', 'Applied Balanced Preset (6-Hour Backups)'));
                 break;
             case 'storage_saver':
                 setPolicy({
@@ -122,7 +123,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                     backupBeforeRestart: true,
                     compressionEnabled: true,
                 });
-                toast.success('Applied Storage Saver Preset (Daily Backups)');
+                toast.success(t('backupPolicies.appliedStorage', 'Applied Storage Saver Preset (Daily Backups)'));
                 break;
             case 'on_event':
                 setPolicy({
@@ -136,7 +137,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                     backupBeforeRestart: true,
                     compressionEnabled: true,
                 });
-                toast.success('Applied On-Event Preset (Pre-Restart & Pre-Update)');
+                toast.success(t('backupPolicies.appliedOnEvent', 'Applied On-Event Preset (Pre-Restart & Pre-Update)'));
                 break;
             case 'custom':
                 break;
@@ -171,10 +172,10 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                 includeMods: targets.mods,
                 compress: policy?.compressionEnabled ?? true,
             });
-            toast.success('Automated backup created successfully!');
+            toast.success(t('backupPolicies.backupCreated', 'Automated backup created successfully!'));
         } catch (err) {
             console.error("Failed to create backup:", err);
-            toast.error('Failed to execute automated backup: ' + (err instanceof Error ? err.message : String(err)));
+            toast.error(t('backupPolicies.backupFailed', { error: err instanceof Error ? err.message : String(err), defaultValue: 'Failed to execute automated backup: {{error}}' }));
         } finally {
             setIsTriggeringNow(false);
         }
@@ -182,7 +183,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
 
     const handleTestWebhook = async () => {
         if (!policy?.discordWebhook) {
-            toast.error('Please enter a Discord Webhook URL first.');
+            toast.error(t('backupPolicies.enterWebhookFirst', 'Please enter a Discord Webhook URL first.'));
             return;
         }
         setIsTestingWebhook(true);
@@ -192,20 +193,20 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     embeds: [{
-                        title: '✅ ASA Server Manager - Backup Notification',
-                        description: 'Automated Backup System notification test completed successfully!',
+                        title: `✅ ASA Server Manager - ${t('backupPolicies.webhookTestTitle', 'Backup Notification')}`,
+                        description: t('backupPolicies.webhookTestDesc', 'Automated Backup System notification test completed successfully!'),
                         color: 5814783,
                         timestamp: new Date().toISOString(),
                     }]
                 })
             });
             if (resp.ok) {
-                toast.success('Discord notification test sent!');
+                toast.success(t('backupPolicies.webhookTestSent', 'Discord notification test sent!'));
             } else {
-                toast.error('Discord API returned status ' + resp.status);
+                toast.error(t('backupPolicies.webhookStatus', { status: resp.status, defaultValue: 'Discord API returned status {{status}}' }));
             }
         } catch (err) {
-            toast.error('Failed to send webhook test: ' + (err instanceof Error ? err.message : String(err)));
+            toast.error(t('backupPolicies.webhookTestFailed', { error: err instanceof Error ? err.message : String(err), defaultValue: 'Failed to send webhook test: {{error}}' }));
         } finally {
             setIsTestingWebhook(false);
         }
@@ -214,16 +215,16 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
     const handleBrowseBackupDir = async () => {
         try {
             const selected = await invoke<string | null>('select_folder', {
-                title: 'Select Backup Storage Location',
+                title: t('backupPolicies.selectLocation', 'Select Backup Storage Location'),
             });
             if (selected) {
                 setPolicy({ ...policy!, customBackupDir: selected });
                 setActivePreset('custom');
-                toast.success(`Backup location set to: ${selected}`);
+                toast.success(t('backupPolicies.locationSet', { path: selected, defaultValue: `Backup location set to: ${selected}` }));
             }
         } catch (err) {
             console.error('Failed to select folder:', err);
-            toast.error('Failed to select backup directory');
+            toast.error(t('backupPolicies.selectDirFailed', 'Failed to select backup directory'));
         }
     };
 
@@ -231,7 +232,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
         if (!policy) return;
         setPolicy({ ...policy, customBackupDir: undefined });
         setActivePreset('custom');
-        toast.success('Backup location reset to default');
+        toast.success(t('backupPolicies.locationReset', 'Backup location reset to default'));
     };
 
     if (!serverId) return null;
@@ -257,12 +258,12 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                                Automated Backup System
+                                {t('backupPolicies.systemTitle', 'Automated Backup System')}
                                 <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                                    v2.0 Advanced
+                                    {t('backupPolicies.versionBadge', 'v2.0 Advanced')}
                                 </span>
                             </h2>
-                            <p className="text-slate-400 text-sm">Configure automated backup schedules, retention policies, and presets</p>
+                            <p className="text-slate-400 text-sm">{t('backupPolicies.systemSubtitle', 'Configure automated backup schedules, retention policies, and presets')}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -272,11 +273,11 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-medium rounded-lg shadow-md transition-all text-sm"
                         >
                             {isTriggeringNow ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />}
-                            Backup Now
+                            {t('backupPolicies.backupNow', 'Backup Now')}
                         </button>
 
                         <label className="flex items-center gap-3 cursor-pointer bg-slate-900/60 px-4 py-2 rounded-lg border border-slate-700">
-                            <span className="text-slate-200 font-medium text-sm">Enable Automation</span>
+                            <span className="text-slate-200 font-medium text-sm">{t('backupPolicies.enable', 'Enable Automation')}</span>
                             <div className="relative">
                                 <input
                                     type="checkbox"
@@ -294,7 +295,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                 <div className="mb-8">
                     <div className="flex items-center gap-2 mb-3">
                         <Sparkles className="w-4 h-4 text-amber-400" />
-                        <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Automated Backup Presets</h3>
+                        <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">{t('backupPolicies.presetsTitle', 'Automated Backup Presets')}</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                         {/* High Protection */}
@@ -310,13 +311,13 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                             <div className="flex items-center justify-between mb-1.5">
                                 <div className="flex items-center gap-1.5 font-bold text-sm text-purple-300">
                                     <Zap className="w-4 h-4 text-purple-400" />
-                                    High Protection
+                                    {t('backupPolicies.presetHigh', 'High Protection')}
                                 </div>
                                 {activePreset === 'high_protection' && <Check className="w-4 h-4 text-purple-400" />}
                             </div>
-                            <p className="text-xs text-slate-400 mb-2">Hourly backups, 30 days retention, 100GB quota.</p>
+                            <p className="text-xs text-slate-400 mb-2">{t('backupPolicies.presetHighDesc', 'Hourly backups, 30 days retention, 100GB quota.')}</p>
                             <span className="inline-block text-[10px] font-semibold px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded border border-purple-500/30">
-                                Best for PvP / Active
+                                {t('backupPolicies.presetHighTag', 'Best for PvP / Active')}
                             </span>
                         </button>
 
@@ -333,13 +334,13 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                             <div className="flex items-center justify-between mb-1.5">
                                 <div className="flex items-center gap-1.5 font-bold text-sm text-blue-300">
                                     <ShieldCheck className="w-4 h-4 text-blue-400" />
-                                    Balanced
+                                    {t('backupPolicies.presetBalanced', 'Balanced')}
                                 </div>
                                 {activePreset === 'balanced' && <Check className="w-4 h-4 text-blue-400" />}
                             </div>
-                            <p className="text-xs text-slate-400 mb-2">Every 6 hours, 14 days retention, 50GB quota.</p>
+                            <p className="text-xs text-slate-400 mb-2">{t('backupPolicies.presetBalancedDesc', 'Every 6 hours, 14 days retention, 50GB quota.')}</p>
                             <span className="inline-block text-[10px] font-semibold px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded border border-blue-500/30">
-                                Recommended
+                                {t('backupPolicies.presetBalancedTag', 'Recommended')}
                             </span>
                         </button>
 
@@ -356,13 +357,13 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                             <div className="flex items-center justify-between mb-1.5">
                                 <div className="flex items-center gap-1.5 font-bold text-sm text-green-300">
                                     <HardDrive className="w-4 h-4 text-green-400" />
-                                    Storage Saver
+                                    {t('backupPolicies.presetStorage', 'Storage Saver')}
                                 </div>
                                 {activePreset === 'storage_saver' && <Check className="w-4 h-4 text-green-400" />}
                             </div>
-                            <p className="text-xs text-slate-400 mb-2">Daily backups, 7 days retention, 20GB quota.</p>
+                            <p className="text-xs text-slate-400 mb-2">{t('backupPolicies.presetStorageDesc', 'Daily backups, 7 days retention, 20GB quota.')}</p>
                             <span className="inline-block text-[10px] font-semibold px-2 py-0.5 bg-green-500/20 text-green-300 rounded border border-green-500/30">
-                                Low Disk Usage
+                                {t('backupPolicies.presetStorageTag', 'Low Disk Usage')}
                             </span>
                         </button>
 
@@ -379,13 +380,13 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                             <div className="flex items-center justify-between mb-1.5">
                                 <div className="flex items-center gap-1.5 font-bold text-sm text-amber-300">
                                     <Clock className="w-4 h-4 text-amber-400" />
-                                    On Event
+                                    {t('backupPolicies.presetOnEvent', 'On Event')}
                                 </div>
                                 {activePreset === 'on_event' && <Check className="w-4 h-4 text-amber-400" />}
                             </div>
-                            <p className="text-xs text-slate-400 mb-2">Backups before Server Restart & Update.</p>
+                            <p className="text-xs text-slate-400 mb-2">{t('backupPolicies.presetOnEventDesc', 'Backups before Server Restart & Update.')}</p>
                             <span className="inline-block text-[10px] font-semibold px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded border border-amber-500/30">
-                                Pre-Maintenance
+                                {t('backupPolicies.presetOnEventTag', 'Pre-Maintenance')}
                             </span>
                         </button>
 
@@ -402,13 +403,13 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                             <div className="flex items-center justify-between mb-1.5">
                                 <div className="flex items-center gap-1.5 font-bold text-sm text-indigo-300">
                                     <Sliders className="w-4 h-4 text-indigo-400" />
-                                    Custom Config
+                                    {t('backupPolicies.presetCustom', 'Custom Config')}
                                 </div>
                                 {activePreset === 'custom' && <Check className="w-4 h-4 text-indigo-400" />}
                             </div>
-                            <p className="text-xs text-slate-400 mb-2">Fully customized interval, targets and retention.</p>
+                            <p className="text-xs text-slate-400 mb-2">{t('backupPolicies.presetCustomDesc', 'Fully customized interval, targets and retention.')}</p>
                             <span className="inline-block text-[10px] font-semibold px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30">
-                                Manual Control
+                                {t('backupPolicies.presetCustomTag', 'Manual Control')}
                             </span>
                         </button>
                     </div>
@@ -421,27 +422,27 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-white flex items-center gap-2 border-b border-slate-700/50 pb-2">
                             <Clock className="w-5 h-5 text-amber-400" />
-                            Schedule & Triggers
+                            {t('backupPolicies.scheduleTriggers', 'Schedule & Triggers')}
                         </h3>
 
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-1">
-                                    Backup Interval (Hours)
+                                    {t('backupPolicies.intervalLabel', 'Backup Interval (Hours)')}
                                 </label>
                                 <div className="flex items-center gap-3">
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="720"
+                                    <NumberInput
+                                        integer
+                                        min={1}
+                                        max={720}
                                         value={policy.intervalHours}
-                                        onChange={(e) => {
-                                            setPolicy({ ...policy, intervalHours: parseInt(e.target.value) || 24 });
+                                        onValueChange={(n) => {
+                                            setPolicy({ ...policy, intervalHours: n });
                                             setActivePreset('custom');
                                         }}
                                         className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500"
                                     />
-                                    <span className="text-slate-400 text-sm whitespace-nowrap">hrs</span>
+                                    <span className="text-slate-400 text-sm whitespace-nowrap">{t('backupPolicies.hrs', 'hrs')}</span>
                                 </div>
                                 <div className="flex gap-2 mt-2">
                                     {[1, 3, 6, 12, 24, 48].map((h) => (
@@ -466,8 +467,8 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
 
                             <label className="flex items-center justify-between p-3.5 bg-slate-900/50 border border-slate-700/50 rounded-xl cursor-pointer hover:border-purple-500/50 transition-colors">
                                 <div>
-                                    <span className="text-white font-medium block text-sm">Backup Before Server Update</span>
-                                    <span className="text-xs text-slate-400">Creates a restore point automatically prior to steamcmd update</span>
+                                    <span className="text-white font-medium block text-sm">{t('backupPolicies.beforeServerUpdate', 'Backup Before Server Update')}</span>
+                                    <span className="text-xs text-slate-400">{t('backupPolicies.beforeServerUpdateDesc', 'Creates a restore point automatically prior to steamcmd update')}</span>
                                 </div>
                                 <input
                                     type="checkbox"
@@ -482,8 +483,8 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
 
                             <label className="flex items-center justify-between p-3.5 bg-slate-900/50 border border-slate-700/50 rounded-xl cursor-pointer hover:border-purple-500/50 transition-colors">
                                 <div>
-                                    <span className="text-white font-medium block text-sm">Backup Before Scheduled Restart</span>
-                                    <span className="text-xs text-slate-400">Generates snapshot during automated maintenance restarts</span>
+                                    <span className="text-white font-medium block text-sm">{t('backupPolicies.beforeScheduledRestart', 'Backup Before Scheduled Restart')}</span>
+                                    <span className="text-xs text-slate-400">{t('backupPolicies.beforeScheduledRestartDesc', 'Generates snapshot during automated maintenance restarts')}</span>
                                 </div>
                                 <input
                                     type="checkbox"
@@ -499,7 +500,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                             {/* Target Scope */}
                             <div className="pt-2">
                                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                                    Backup Targets
+                                    {t('backupPolicies.targets', 'Backup Targets')}
                                 </label>
                                 <div className="grid grid-cols-2 gap-2">
                                     <label className="flex items-center gap-2 p-2.5 bg-slate-900/50 border border-slate-800 rounded-lg cursor-pointer text-xs text-slate-200">
@@ -509,7 +510,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                                             onChange={(e) => setTargets({ ...targets, saves: e.target.checked })}
                                             className="rounded border-slate-700 text-purple-500"
                                         />
-                                        Save Games (.ark)
+                                        {t('backupPolicies.targetSaves', 'Save Games (.ark)')}
                                     </label>
                                     <label className="flex items-center gap-2 p-2.5 bg-slate-900/50 border border-slate-800 rounded-lg cursor-pointer text-xs text-slate-200">
                                         <input
@@ -518,7 +519,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                                             onChange={(e) => setTargets({ ...targets, configs: e.target.checked })}
                                             className="rounded border-slate-700 text-purple-500"
                                         />
-                                        INI Configurations
+                                        {t('backupPolicies.targetConfigs', 'INI Configurations')}
                                     </label>
                                     <label className="flex items-center gap-2 p-2.5 bg-slate-900/50 border border-slate-800 rounded-lg cursor-pointer text-xs text-slate-200">
                                         <input
@@ -527,7 +528,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                                             onChange={(e) => setTargets({ ...targets, mods: e.target.checked })}
                                             className="rounded border-slate-700 text-purple-500"
                                         />
-                                        Mods Data & Cache
+                                        {t('backupPolicies.targetMods', 'Mods Data & Cache')}
                                     </label>
                                     <label className="flex items-center gap-2 p-2.5 bg-slate-900/50 border border-slate-800 rounded-lg cursor-pointer text-xs text-slate-200">
                                         <input
@@ -536,7 +537,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                                             onChange={(e) => setTargets({ ...targets, logs: e.target.checked })}
                                             className="rounded border-slate-700 text-purple-500"
                                         />
-                                        Server Logs & Chat
+                                        {t('backupPolicies.targetLogs', 'Server Logs & Chat')}
                                     </label>
                                 </div>
                             </div>
@@ -547,67 +548,65 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-white flex items-center gap-2 border-b border-slate-700/50 pb-2">
                             <HardDrive className="w-5 h-5 text-blue-400" />
-                            Retention & Storage Limits
+                            {t('backupPolicies.retentionLimits', 'Retention & Storage Limits')}
                         </h3>
 
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-1">
-                                    Retention Duration (Days)
+                                    {t('backupPolicies.retentionDuration', 'Retention Duration (Days)')}
                                 </label>
-                                <input
-                                    type="number"
-                                    min="1"
+                                <NumberInput
+                                    integer
+                                    min={1}
                                     value={policy.retentionDays}
-                                    onChange={(e) => {
-                                        setPolicy({ ...policy, retentionDays: parseInt(e.target.value) || 7 });
+                                    onValueChange={(n) => {
+                                        setPolicy({ ...policy, retentionDays: n });
                                         setActivePreset('custom');
                                     }}
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500"
                                 />
-                                <p className="text-xs text-slate-500 mt-1">Backups older than this will be automatically pruned</p>
+                                <p className="text-xs text-slate-500 mt-1">{t('backupPolicies.retentionDurationDesc', 'Backups older than this will be automatically pruned')}</p>
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-1">
-                                    Max Backup Count Keep
+                                    {t('backupPolicies.maxCountKeep', 'Max Backup Count Keep')}
                                 </label>
-                                <input
-                                    type="number"
-                                    min="1"
+                                <NumberInput
+                                    integer
+                                    min={1}
                                     value={policy.retentionCount}
-                                    onChange={(e) => {
-                                        setPolicy({ ...policy, retentionCount: parseInt(e.target.value) || 10 });
+                                    onValueChange={(n) => {
+                                        setPolicy({ ...policy, retentionCount: n });
                                         setActivePreset('custom');
                                     }}
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500"
                                 />
-                                <p className="text-xs text-slate-500 mt-1">Maximum number of recent backups stored simultaneously</p>
+                                <p className="text-xs text-slate-500 mt-1">{t('backupPolicies.maxCountKeepDesc', 'Maximum number of recent backups stored simultaneously')}</p>
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-1">
-                                    Disk Quota Allocation (GB)
+                                    {t('backupPolicies.diskQuota', 'Disk Quota Allocation (GB)')}
                                 </label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    step="0.5"
+                                <NumberInput
+                                    min={1}
                                     value={policy.storageQuotaGb}
-                                    onChange={(e) => {
-                                        setPolicy({ ...policy, storageQuotaGb: parseFloat(e.target.value) || 50.0 });
+                                    onValueChange={(n) => {
+                                        setPolicy({ ...policy, storageQuotaGb: n });
                                         setActivePreset('custom');
                                     }}
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500"
                                 />
-                                <p className="text-xs text-slate-500 mt-1">Prevents server disk space exhaustion by enforcing hard storage limits</p>
+                                <p className="text-xs text-slate-500 mt-1">{t('backupPolicies.diskQuotaDesc', 'Prevents server disk space exhaustion by enforcing hard storage limits')}</p>
                             </div>
 
                             {/* Backup Storage Directory */}
                             <div className="pt-2 border-t border-slate-700/40">
                                 <div className="flex items-center justify-between mb-1.5">
                                     <label className="block text-sm font-medium text-slate-300">
-                                        Backup Storage Location
+                                        {t('backupPolicies.storageLocation', 'Backup Storage Location')}
                                     </label>
                                     <span className={cn(
                                         "text-[10px] font-bold px-2 py-0.5 rounded-full border",
@@ -615,7 +614,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                                             ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
                                             : "bg-blue-500/20 text-blue-300 border-blue-500/30"
                                     )}>
-                                        {policy.customBackupDir ? 'Custom Path' : 'Default Path'}
+                                        {policy.customBackupDir ? t('backupPolicies.customPath', 'Custom Path') : t('backupPolicies.defaultPath', 'Default Path')}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -633,25 +632,25 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                                         type="button"
                                         onClick={handleBrowseBackupDir}
                                         className="flex items-center gap-1.5 px-3 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 border border-blue-500/40 rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
-                                        title="Browse for folder"
+                                        title={t('backupPolicies.browseForFolder', 'Browse for folder')}
                                     >
                                         <FolderOpen className="w-3.5 h-3.5 text-blue-400" />
-                                        Browse
+                                        {t('common.browse', 'Browse')}
                                     </button>
                                     {policy.customBackupDir && (
                                         <button
                                             type="button"
                                             onClick={handleResetBackupDir}
                                             className="flex items-center gap-1.5 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-xs font-medium transition-all whitespace-nowrap"
-                                            title="Reset to default location"
+                                            title={t('backupPolicies.resetLocation', 'Reset to default location')}
                                         >
                                             <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-                                            Reset
+                                            {t('common.reset', 'Reset')}
                                         </button>
                                     )}
                                 </div>
                                 <p className="text-xs text-slate-500 mt-1">
-                                    Target root folder on disk where all backup archives for this server will be saved.
+                                    {t('backupPolicies.storageLocationDesc', 'Target root folder on disk where all backup archives for this server will be saved.')}
                                 </p>
                             </div>
                         </div>
@@ -661,14 +660,14 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                     <div className="space-y-4 md:col-span-2 border-t border-slate-700/50 pt-6">
                         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                             <Server className="w-5 h-5 text-green-400" />
-                            Compression & Discord Alert Notifications
+                            {t('backupPolicies.compressionDiscord', 'Compression & Discord Alert Notifications')}
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <label className="flex items-center justify-between p-3.5 bg-slate-900/50 border border-slate-700/50 rounded-xl cursor-pointer hover:border-green-500/50 transition-colors">
                                 <div>
-                                    <span className="text-white font-medium block text-sm">ZIP Compression</span>
-                                    <span className="text-xs text-slate-400">Compresses backup files into high-ratio .zip archives to save disk space</span>
+                                    <span className="text-white font-medium block text-sm">{t('backupPolicies.zipCompression', 'ZIP Compression')}</span>
+                                    <span className="text-xs text-slate-400">{t('backupPolicies.zipCompressionDesc', 'Compresses backup files into high-ratio .zip archives to save disk space')}</span>
                                 </div>
                                 <input
                                     type="checkbox"
@@ -680,8 +679,8 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
 
                             <label className="flex items-center justify-between p-3.5 bg-slate-900/50 border border-slate-700/50 rounded-xl cursor-pointer hover:border-sky-500/50 transition-colors">
                                 <div>
-                                    <span className="text-white font-medium block text-sm">Cloud Sync Enable</span>
-                                    <span className="text-xs text-slate-400">Automatically syncs fresh backup snapshots to Cloud Storage</span>
+                                    <span className="text-white font-medium block text-sm">{t('backupPolicies.cloudSyncEnable', 'Cloud Sync Enable')}</span>
+                                    <span className="text-xs text-slate-400">{t('backupPolicies.cloudSyncEnableDesc', 'Automatically syncs fresh backup snapshots to Cloud Storage')}</span>
                                 </div>
                                 <input
                                     type="checkbox"
@@ -696,7 +695,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                         <div className="mt-4 p-4 bg-slate-900/40 border border-slate-700/60 rounded-xl space-y-2">
                             <label className="block text-sm font-semibold text-slate-200 flex items-center gap-2">
                                 <Bell className="w-4 h-4 text-indigo-400" />
-                                Discord Backup Notification Webhook (Optional)
+                                {t('backupPolicies.webhookLabel', 'Discord Backup Notification Webhook (Optional)')}
                             </label>
                             <div className="flex gap-2">
                                 <input
@@ -712,7 +711,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                                     disabled={isTestingWebhook}
                                     className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg border border-slate-700 flex items-center gap-1.5 shrink-0"
                                 >
-                                    {isTestingWebhook ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Test'}
+                                    {isTestingWebhook ? <Loader2 className="w-4 h-4 animate-spin" /> : t('backupPolicies.test', 'Test')}
                                 </button>
                             </div>
                         </div>
@@ -734,8 +733,8 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
             <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4 flex items-start gap-3">
                 <Info className="w-5 h-5 text-purple-400 mt-0.5 shrink-0" />
                 <div className="text-sm text-purple-200">
-                    <p className="font-semibold text-purple-300 mb-1">Automated Policy Execution Active</p>
-                    <p>The system background scheduler automatically executes backups according to the active interval, applies retention cleanup to prevent disk bloat, and triggers notifications whenever maintenance events run.</p>
+                    <p className="font-semibold text-purple-300 mb-1">{t('backupPolicies.executionActive', 'Automated Policy Execution Active')}</p>
+                    <p>{t('backupPolicies.executionActiveDesc', 'The system background scheduler automatically executes backups according to the active interval, applies retention cleanup to prevent disk bloat, and triggers notifications whenever maintenance events run.')}</p>
                 </div>
             </div>
         </div>

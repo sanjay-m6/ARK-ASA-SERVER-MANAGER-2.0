@@ -1532,7 +1532,7 @@ export async function rconBroadcast(serverId: number, message: string): Promise<
 }
 
 export async function rconCommand(serverId: number, command: string): Promise<string> {
-    return await invoke('rcon_command', { serverId, command });
+    return await invoke('rcon_send_command', { serverId, command });
 }
 
 // Crash Doctor & Map Recovery

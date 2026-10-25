@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useTranslation, Trans } from 'react-i18next';
 import { useServerStore } from '../../stores/serverStore';
 import { updateServerSettings, optimizeMemory, setProcessPriority, toggleEcoMode, startServer, restartServer } from '../../utils/tauri';
 import { 
@@ -62,7 +63,14 @@ const COMMON_FLAGS: FlagDefinition[] = [
   { flag: '-activeevent=Thanksgiving', label: 'Turkey Trial', desc: 'Activates the Thanksgiving event.', category: 'events' },
 ];
 
+// i18n key slug for a launch flag (e.g. '-activeevent=Easter' -> 'activeevent_Easter')
+const flagSlug = (flag: string) => flag.replace(/^-/, '').replace(/=/g, '_');
+
 export default function AdvancedPage() {
+    const { t } = useTranslation();
+    const flagLabel = (f: FlagDefinition) => t(`advanced.flagDefs.${flagSlug(f.flag)}.label`, f.label);
+    const flagDesc = (f: FlagDefinition) => t(`advanced.flagDefs.${flagSlug(f.flag)}.desc`, f.desc);
+    const categoryLabel = (cat: string) => t(`advanced.cat${cat.charAt(0).toUpperCase()}${cat.slice(1)}`, cat);
     const location = useLocation();
     const { servers, refreshServers, activeServer } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(() => activeServer?.id || null);
@@ -125,10 +133,10 @@ export default function AdvancedPage() {
             await refreshServers();
             setOriginalArgs(customArgs);
             loadedServerIdRef.current = selectedServerId;
-            toast.success('Boot Launch Parameters saved successfully');
+            toast.success(t('advanced.savedSuccess', 'Boot Launch Parameters saved successfully'));
         } catch (err) {
             console.error('Failed to save boot launch parameters:', err);
-            toast.error(`Failed to save settings: ${err}`);
+            toast.error(t('advanced.saveFailed', { error: String(err), defaultValue: `Failed to save settings: ${err}` }));
         } finally {
             setIsLoading(false);
         }
@@ -136,7 +144,7 @@ export default function AdvancedPage() {
 
     const handleExecute = async () => {
         if (!selectedServerId) {
-            toast.error('No server selected');
+            toast.error(t('advanced.noServerSelected', 'No server selected'));
             return;
         }
         setIsExecuting(true);
@@ -154,18 +162,18 @@ export default function AdvancedPage() {
             const isRunning = currentSrv?.status === 'running' || currentSrv?.status === 'online' || currentSrv?.status === 'starting';
 
             if (isRunning) {
-                toast.loading('Restarting server with updated boot parameters...', { id: 'execute-server-toast' });
+                toast.loading(t('advanced.restarting', 'Restarting server with updated boot parameters...'), { id: 'execute-server-toast' });
                 await restartServer(selectedServerId);
-                toast.success('Server restart initiated with custom boot parameters!', { id: 'execute-server-toast' });
+                toast.success(t('advanced.restartInitiated', 'Server restart initiated with custom boot parameters!'), { id: 'execute-server-toast' });
             } else {
-                toast.loading('Launching server with custom boot parameters...', { id: 'execute-server-toast' });
+                toast.loading(t('advanced.launching', 'Launching server with custom boot parameters...'), { id: 'execute-server-toast' });
                 await startServer(selectedServerId);
-                toast.success('Server executed successfully with custom boot parameters!', { id: 'execute-server-toast' });
+                toast.success(t('advanced.launched', 'Server executed successfully with custom boot parameters!'), { id: 'execute-server-toast' });
             }
             await refreshServers();
         } catch (err) {
             console.error('Failed to execute server:', err);
-            toast.error(`Execution failed: ${err}`, { id: 'execute-server-toast' });
+            toast.error(t('advanced.executionFailed', { error: String(err), defaultValue: `Execution failed: ${err}` }), { id: 'execute-server-toast' });
         } finally {
             setIsExecuting(false);
         }
@@ -175,10 +183,10 @@ export default function AdvancedPage() {
         setIsOptimizing(true);
         try {
             await optimizeMemory();
-            toast.success('Memory vacuumed & optimized successfully');
+            toast.success(t('advanced.memoryOptimized', 'Memory vacuumed & optimized successfully'));
         } catch (err) {
             console.error(err);
-            toast.error('Failed to optimize memory');
+            toast.error(t('advanced.memoryOptimizeFailed', 'Failed to optimize memory'));
         } finally {
             setIsOptimizing(false);
         }
@@ -188,10 +196,10 @@ export default function AdvancedPage() {
         try {
             await setProcessPriority(high);
             setHighPriority(high);
-            toast.success(`Process priority set to ${high ? 'High' : 'Normal'}`);
+            toast.success(high ? t('advanced.prioritySetHigh', 'Process priority set to High') : t('advanced.prioritySetNormal', 'Process priority set to Normal'));
         } catch (err) {
             console.error(err);
-            toast.error('Failed to change process priority');
+            toast.error(t('advanced.priorityFailed', 'Failed to change process priority'));
         }
     };
 
@@ -200,10 +208,10 @@ export default function AdvancedPage() {
             const nextState = !ecoModeActive;
             await toggleEcoMode(nextState);
             setEcoModeActive(nextState);
-            toast.success(nextState ? 'Ultra Eco Mode Enabled' : 'Eco Mode Disabled');
+            toast.success(nextState ? t('advanced.ecoEnabled', 'Ultra Eco Mode Enabled') : t('advanced.ecoDisabled', 'Eco Mode Disabled'));
         } catch (err) {
             console.error(err);
-            toast.error('Failed to toggle Eco Mode');
+            toast.error(t('advanced.ecoFailed', 'Failed to toggle Eco Mode'));
         }
     };
 
@@ -254,7 +262,7 @@ export default function AdvancedPage() {
             }
         });
         setCustomArgs(current);
-        toast.success(`Applied ${name} profile`);
+        toast.success(t('advanced.appliedPreset', { name, defaultValue: `Applied ${name} profile` }));
     };
 
     const currentServer = useMemo(() => {
@@ -267,10 +275,12 @@ export default function AdvancedPage() {
             const matchesSearch = !searchQuery || 
                 f.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
                 f.flag.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                f.desc.toLowerCase().includes(searchQuery.toLowerCase());
+                f.desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                flagLabel(f).toLowerCase().includes(searchQuery.toLowerCase()) ||
+                flagDesc(f).toLowerCase().includes(searchQuery.toLowerCase());
             return matchesCat && matchesSearch;
         });
-    }, [selectedCategory, searchQuery]);
+    }, [selectedCategory, searchQuery, t]);
 
     const assembledCommandLine = useMemo(() => {
         if (!currentServer) return 'ArkAscendedServer.exe TheIsland_WP?listen';
@@ -297,15 +307,15 @@ export default function AdvancedPage() {
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">Boot Launch Parameters</h1>
+                            <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">{t('advanced.title', 'Boot Launch Parameters')}</h1>
                             {isDirty && (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">
-                                    Unsaved Changes
+                                    {t('advanced.unsavedChanges', 'Unsaved Changes')}
                                 </span>
                             )}
                         </div>
                         <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                            Manage command-line switches, performance flags, and execution priority
+                            {t('advanced.subtitle', 'Manage command-line switches, performance flags, and execution priority')}
                         </p>
                     </div>
                 </div>
@@ -329,7 +339,7 @@ export default function AdvancedPage() {
                             className="bg-transparent text-sm text-[var(--text-primary)] font-medium outline-none cursor-pointer pr-2"
                         >
                             {servers.length === 0 ? (
-                                <option value="" className="bg-[var(--card-background)] text-[var(--text-primary)]">No servers available</option>
+                                <option value="" className="bg-[var(--card-background)] text-[var(--text-primary)]">{t('advanced.noServersAvailable', 'No servers available')}</option>
                             ) : (
                                 servers.map(s => (
                                     <option key={s.id} value={s.id} className="bg-[var(--card-background)] text-[var(--text-primary)]">
@@ -345,10 +355,10 @@ export default function AdvancedPage() {
                         <button
                             onClick={() => setCustomArgs(originalArgs)}
                             className="px-3 py-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl text-xs font-semibold transition-all border border-[var(--border)] flex items-center gap-1.5 cursor-pointer"
-                            title="Discard unsaved changes"
+                            title={t('advanced.discardTitle', 'Discard unsaved changes')}
                         >
                             <RotateCcw className="w-3.5 h-3.5" />
-                            Discard
+                            {t('advanced.discard', 'Discard')}
                         </button>
                     )}
 
@@ -363,7 +373,7 @@ export default function AdvancedPage() {
                         } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        <span>{isLoading ? 'Saving...' : 'Save Parameters'}</span>
+                        <span>{isLoading ? t('advanced.saving', 'Saving...') : t('advanced.saveParameters', 'Save Parameters')}</span>
                     </button>
 
                     {/* Execute Button */}
@@ -371,10 +381,10 @@ export default function AdvancedPage() {
                         onClick={handleExecute}
                         disabled={isExecuting || !selectedServerId}
                         className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow-lg shadow-emerald-950/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        title="Execute server directly with configured boot parameters"
+                        title={t('advanced.executeTitle', 'Execute server directly with configured boot parameters')}
                     >
                         {isExecuting ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Play className="w-4 h-4 fill-white text-white" />}
-                        <span>{isExecuting ? 'Executing...' : 'Execute Server'}</span>
+                        <span>{isExecuting ? t('advanced.executing', 'Executing...') : t('advanced.executeServer', 'Execute Server')}</span>
                     </button>
                 </div>
             </div>
@@ -389,16 +399,20 @@ export default function AdvancedPage() {
                         </div>
                         <div>
                             <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                                Boot Command Line Safety & Override Matrix
+                                {t('advanced.safetyBannerTitle', 'Boot Command Line Safety & Override Matrix')}
                             </h3>
                             <p className="text-xs text-[var(--text-secondary)] mt-1 leading-relaxed">
-                                Parameters added here are directly passed to <code className="text-red-400 font-mono bg-[var(--surface)] px-1.5 py-0.5 rounded border border-red-500/30">ArkAscendedServer.exe</code> on boot. Use visual flag toggles below to prevent syntax typos.
+                                <Trans
+                                    i18nKey="advanced.safetyBannerDescRich"
+                                    defaults="Parameters added here are directly passed to <0>ArkAscendedServer.exe</0> on boot. Use visual flag toggles below to prevent syntax typos."
+                                    components={[<code className="text-red-400 font-mono bg-[var(--surface)] px-1.5 py-0.5 rounded border border-red-500/30" />]}
+                                />
                             </p>
                         </div>
                     </div>
                     {activeFlagCount > 0 && (
                         <div className="px-3 py-1.5 bg-red-500/15 border border-red-500/30 rounded-xl text-right flex-shrink-0">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 block">Active Switches</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 block">{t('advanced.activeSwitches', 'Active Switches')}</span>
                             <span className="text-sm font-mono font-black text-[var(--text-primary)]">{activeFlagCount} Flags</span>
                         </div>
                     )}
@@ -416,26 +430,26 @@ export default function AdvancedPage() {
                     <div className="flex items-center justify-between">
                         <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                             <Terminal className="w-4 h-4 text-emerald-400" />
-                            Raw Custom Arguments & Command Inspector
+                            {t('advanced.rawInspectorTitle', 'Raw Custom Arguments & Command Inspector')}
                         </h2>
                         {customArgs.trim() && (
                             <button
                                 onClick={() => setCustomArgs('')}
                                 className="text-xs text-[var(--text-muted)] hover:text-red-400 transition-colors flex items-center gap-1 cursor-pointer"
                             >
-                                <Eraser className="w-3.5 h-3.5" /> Clear All Flags
+                                <Eraser className="w-3.5 h-3.5" /> {t('advanced.clearAll', 'Clear All Flags')}
                             </button>
                         )}
                     </div>
 
                     {/* Tag & Text Launch Args Editor */}
                     <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-[var(--text-primary)]">Custom Launch Arguments</label>
+                        <label className="text-xs font-semibold text-[var(--text-primary)]">{t('advanced.customArgsLabel', 'Custom Launch Arguments')}</label>
                         <LaunchArgsEditor
                             value={customArgs}
                             onChange={setCustomArgs}
                             accentColor="red"
-                            placeholder="e.g. -NoBattlEye -ForceAllowCaveFlyers (toggle flags below to add)"
+                            placeholder={t('advanced.customArgsPlaceholder', 'e.g. -NoBattlEye -ForceAllowCaveFlyers (toggle flags below to add)')}
                         />
                     </div>
 
@@ -446,7 +460,11 @@ export default function AdvancedPage() {
                             <div className="text-xs">
                                 <p className="font-bold text-amber-400">Conditional -mods= configuration detected</p>
                                 <p className="text-amber-500/90 mt-0.5">
-                                    If active mods are enabled in the Mod Manager, any manual <code className="font-mono bg-amber-500/20 px-1 rounded">-mods=</code> here will be automatically formatted at boot time.
+                                    <Trans
+                                        i18nKey="advanced.modsNote"
+                                        defaults="If active mods are enabled in the Mod Manager, any manual <0>-mods=</0> here will be automatically formatted at boot time."
+                                        components={[<code className="font-mono bg-amber-500/20 px-1 rounded" />]}
+                                    />
                                 </p>
                             </div>
                         </div>
@@ -459,7 +477,7 @@ export default function AdvancedPage() {
                                 <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
                                 <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                                <span className="text-xs font-mono text-[var(--text-muted)] ml-2">Boot Executable Command Line</span>
+                                <span className="text-xs font-mono text-[var(--text-muted)] ml-2">{t('advanced.bootCommandLine', 'Boot Executable Command Line')}</span>
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
                                 <button
@@ -472,16 +490,16 @@ export default function AdvancedPage() {
                                     ) : (
                                         <Play className="w-3.5 h-3.5 fill-white text-white" />
                                     )}
-                                    Execute Server
+                                    {t('advanced.executeServer', 'Execute Server')}
                                 </button>
                                 <button
                                     onClick={() => {
                                         navigator.clipboard.writeText(assembledCommandLine);
-                                        toast.success('Full command line copied to clipboard');
+                                        toast.success(t('advanced.commandCopied', 'Full command line copied to clipboard'));
                                     }}
                                     className="px-2.5 py-1.5 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-primary)] rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-[var(--border)] cursor-pointer"
                                 >
-                                    <Copy className="w-3.5 h-3.5" /> Copy Command
+                                    <Copy className="w-3.5 h-3.5" /> {t('advanced.copyCommand', 'Copy Command')}
                                 </button>
                                 <button
                                     onClick={() => {
@@ -490,11 +508,11 @@ export default function AdvancedPage() {
                                         const win64Path = `${pathStr.replace(/\\/g, '/')}/ShooterGame/Binaries/Win64`;
                                         const batContent = `@echo off\r\n:: Auto-generated launch script by ARK ASA Server Manager\r\ntitle ASA Server - ${server?.name || 'Server'}\r\ncd /d "${win64Path}"\r\n"ArkAscendedServer.exe" ${assembledCommandLine}\r\npause\r\n`;
                                         navigator.clipboard.writeText(batContent);
-                                        toast.success('Copied start_server.bat script to clipboard! (Also auto-generated in server folder on boot)');
+                                        toast.success(t('advanced.batCopied', 'Copied start_server.bat script to clipboard! (Also auto-generated in server folder on boot)'));
                                     }}
                                     className="px-2.5 py-1.5 bg-violet-600/20 hover:bg-violet-600/30 text-violet-400 border border-violet-500/30 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
                                 >
-                                    <FileText className="w-3.5 h-3.5 text-violet-400" /> Copy .bat Script
+                                    <FileText className="w-3.5 h-3.5 text-violet-400" /> {t('advanced.copyBatScript', 'Copy .bat Script')}
                                 </button>
                             </div>
                         </div>
@@ -509,45 +527,45 @@ export default function AdvancedPage() {
                     <div className="flex items-center justify-between">
                         <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                             <Sparkles className="w-4 h-4 text-amber-400" />
-                            One-Click Parameter Presets
+                            {t('advanced.presetsTitle', 'One-Click Parameter Presets')}
                         </h2>
-                        <span className="text-xs text-[var(--text-secondary)]">Click to append optimized flag profiles</span>
+                        <span className="text-xs text-[var(--text-secondary)]">{t('advanced.presetsSubtitle', 'Click to append optimized flag profiles')}</span>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         {/* Preset 1: Max Performance */}
                         <button
-                            onClick={() => applyTuningPreset('-structurememopts -StructureStasisGrid -NoMemoryBias -lowmemory -nomansky', 'Max Performance')}
+                            onClick={() => applyTuningPreset('-structurememopts -StructureStasisGrid -NoMemoryBias -lowmemory -nomansky', t('advanced.presetMaxPerfName', 'Max Performance'))}
                             className="p-3.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-amber-500/40 rounded-xl text-left transition-all group flex items-start gap-3 cursor-pointer shadow-sm"
                         >
                             <Zap className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                             <div>
-                                <h4 className="text-xs font-bold text-[var(--text-primary)] group-hover:text-amber-400 transition-colors">⚡ Max Performance Profile</h4>
-                                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">RAM & mesh stasis tuning (-structurememopts -nomansky -lowmemory)</p>
+                                <h4 className="text-xs font-bold text-[var(--text-primary)] group-hover:text-amber-400 transition-colors">⚡ {t('advanced.presetMaxPerf', 'Max Performance Profile')}</h4>
+                                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{t('advanced.presetMaxPerfDesc', 'RAM & mesh stasis tuning (-structurememopts -nomansky -lowmemory)')}</p>
                             </div>
                         </button>
 
                         {/* Preset 2: Hardened PvP */}
                         <button
-                            onClick={() => applyTuningPreset('-NoBattlEye -AdditionalDupeProtection -ValidateItemDinoSpawns -PreventUploadDinos', 'Hardened Security')}
+                            onClick={() => applyTuningPreset('-NoBattlEye -AdditionalDupeProtection -ValidateItemDinoSpawns -PreventUploadDinos', t('advanced.presetHardenedName', 'Hardened Security'))}
                             className="p-3.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-red-500/40 rounded-xl text-left transition-all group flex items-start gap-3 cursor-pointer shadow-sm"
                         >
                             <Shield className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                             <div>
-                                <h4 className="text-xs font-bold text-[var(--text-primary)] group-hover:text-red-400 transition-colors">🛡️ Hardened Security & Anti-Dupe</h4>
-                                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">Strict spawn validation & dupe prevention flags</p>
+                                <h4 className="text-xs font-bold text-[var(--text-primary)] group-hover:text-red-400 transition-colors">🛡️ {t('advanced.presetHardenedSecurity', 'Hardened Security & Anti-Dupe')}</h4>
+                                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{t('advanced.presetHardenedSecurityDesc', 'Strict spawn validation & dupe prevention flags')}</p>
                             </div>
                         </button>
 
                         {/* Preset 3: Cave Flyer Unlocked */}
                         <button
-                            onClick={() => applyTuningPreset('-ForceAllowCaveFlyers', 'Cave Flyers Unlocked')}
+                            onClick={() => applyTuningPreset('-ForceAllowCaveFlyers', t('advanced.presetCaveFlyerName', 'Cave Flyers Unlocked'))}
                             className="p-3.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-emerald-500/40 rounded-xl text-left transition-all group flex items-start gap-3 cursor-pointer shadow-sm"
                         >
                             <Globe className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                             <div>
-                                <h4 className="text-xs font-bold text-[var(--text-primary)] group-hover:text-emerald-400 transition-colors">🦅 Cave Flyer Unlocked</h4>
-                                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">Force allow mounting & flying in cave volumes</p>
+                                <h4 className="text-xs font-bold text-[var(--text-primary)] group-hover:text-emerald-400 transition-colors">🦅 {t('advanced.presetCaveFlyer', 'Cave Flyer Unlocked')}</h4>
+                                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{t('advanced.presetCaveFlyerDesc', 'Force allow mounting & flying in cave volumes')}</p>
                             </div>
                         </button>
                     </div>
@@ -556,7 +574,7 @@ export default function AdvancedPage() {
                     <div className="pt-2 border-t border-[var(--border)]">
                         <div className="text-xs font-semibold text-[var(--text-muted)] mb-2.5 flex items-center gap-1.5">
                             <Flame className="w-3.5 h-3.5 text-orange-400" />
-                            Modded Map Launch Presets
+                            {t('advanced.moddedMapsPresets', 'Modded Map Launch Presets')}
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             {MODDED_MAP_PRESETS.filter(p => p.serverType === 'ASA').map(preset => {
@@ -567,12 +585,12 @@ export default function AdvancedPage() {
                                         onClick={() => {
                                             if (!preset.mapModId) return;
                                             if (hasPreset) {
-                                                toast('Map preset already applied', { icon: '✓' });
+                                                toast(t('advanced.mapPresetAlreadyApplied', 'Map preset already applied'), { icon: '✓' });
                                                 return;
                                             }
                                             const newArgs = buildLaunchArgs(preset, customArgs);
                                             setCustomArgs(newArgs);
-                                            toast.success(`${preset.name} launch parameters applied`);
+                                            toast.success(t('advanced.mapPresetApplied', { name: preset.name, defaultValue: `${preset.name} launch parameters applied` }));
                                         }}
                                         className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all text-xs cursor-pointer ${
                                             hasPreset 
@@ -586,9 +604,9 @@ export default function AdvancedPage() {
                                             {preset.author && <span className="text-[10px] text-[var(--text-muted)] font-normal">({preset.author})</span>}
                                         </div>
                                         {hasPreset ? (
-                                            <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full font-bold">Active</span>
+                                            <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full font-bold">{t('advanced.active', 'Active')}</span>
                                         ) : (
-                                            <span className="text-[10px] text-orange-400 font-mono">+ Apply</span>
+                                            <span className="text-[10px] text-orange-400 font-mono">{t('advanced.apply', '+ Apply')}</span>
                                         )}
                                     </button>
                                 );
@@ -603,10 +621,10 @@ export default function AdvancedPage() {
                         <div>
                             <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                                 <Settings2 className="w-4 h-4 text-red-400" />
-                                Visual Parameter Matrix
+                                {t('advanced.matrixTitle', 'Visual Parameter Matrix')}
                             </h2>
                             <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                                Toggle standard server switches directly into your boot configuration
+                                {t('advanced.matrixSubtitle', 'Toggle standard server switches directly into your boot configuration')}
                             </p>
                         </div>
 
@@ -616,7 +634,7 @@ export default function AdvancedPage() {
                                 <Filter className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
                                 <input
                                     type="text"
-                                    placeholder="Filter parameters..."
+                                    placeholder={t('advanced.filterPlaceholder', 'Filter parameters...')}
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl pl-8 pr-3 py-1.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-red-500 outline-none w-44"
@@ -634,7 +652,7 @@ export default function AdvancedPage() {
                                                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                                         }`}
                                     >
-                                        {cat}
+                                        {categoryLabel(cat)}
                                     </button>
                                 ))}
                             </div>
@@ -674,14 +692,14 @@ export default function AdvancedPage() {
                                                 <Check className="w-3 h-3 stroke-[3]" />
                                             </div>
                                         </div>
-                                        <h4 className="text-xs font-bold text-[var(--text-primary)] mt-2">{f.label}</h4>
-                                        <p className="text-[11px] text-[var(--text-secondary)] mt-1 leading-snug">{f.desc}</p>
+                                        <h4 className="text-xs font-bold text-[var(--text-primary)] mt-2">{flagLabel(f)}</h4>
+                                        <p className="text-[11px] text-[var(--text-secondary)] mt-1 leading-snug">{flagDesc(f)}</p>
                                     </div>
 
                                     <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] pt-2 border-t border-[var(--border)] mt-1">
-                                        <span className="uppercase tracking-wider font-semibold">{f.category}</span>
+                                        <span className="uppercase tracking-wider font-semibold">{categoryLabel(f.category)}</span>
                                         <span className={`font-bold uppercase tracking-wider ${active ? 'text-red-400' : 'text-[var(--text-muted)]'}`}>
-                                            {active ? 'Enabled' : 'Disabled'}
+                                            {active ? t('advanced.enabled', 'Enabled') : t('advanced.disabled', 'Disabled')}
                                         </span>
                                     </div>
                                 </button>
@@ -695,10 +713,10 @@ export default function AdvancedPage() {
                     <div>
                         <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                             <Zap className="w-4 h-4 text-amber-400" />
-                            Server Manager Performance & Hardware Optimizer
+                            {t('advanced.optimizerTitle', 'Server Manager Performance & Hardware Optimizer')}
                         </h2>
                         <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                            Real-time memory vacuuming, process scheduling priority, and eco-mode controls
+                            {t('advanced.optimizerSubtitle', 'Real-time memory vacuuming, process scheduling priority, and eco-mode controls')}
                         </p>
                     </div>
 
@@ -708,11 +726,11 @@ export default function AdvancedPage() {
                             <div>
                                 <div className="flex items-center justify-between mb-1">
                                     <h3 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                                        <Activity className="w-3.5 h-3.5 text-sky-400" /> Memory Vacuum
+                                        <Activity className="w-3.5 h-3.5 text-sky-400" /> {t('advanced.memoryVacuum', 'Memory Vacuum')}
                                     </h3>
                                 </div>
                                 <p className="text-[11px] text-[var(--text-secondary)]">
-                                    Force garbage collection to trim unused background RAM allocation.
+                                    {t('advanced.memoryVacuumDesc', 'Force garbage collection to trim unused background RAM allocation.')}
                                 </p>
                             </div>
                             <button
@@ -721,7 +739,7 @@ export default function AdvancedPage() {
                                 className="w-full py-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-primary)] rounded-xl transition-all border border-[var(--border)] text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                             >
                                 {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eraser className="w-3.5 h-3.5" />}
-                                Optimize System RAM
+                                {t('advanced.optimizeRam', 'Optimize System RAM')}
                             </button>
                         </div>
 
@@ -730,11 +748,11 @@ export default function AdvancedPage() {
                             <div>
                                 <div className="flex items-center justify-between mb-1">
                                     <h3 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                                        <BarChart2 className="w-3.5 h-3.5 text-amber-400" /> Process Priority
+                                        <BarChart2 className="w-3.5 h-3.5 text-amber-400" /> {t('advanced.processPriority', 'Process Priority')}
                                     </h3>
                                 </div>
                                 <p className="text-[11px] text-[var(--text-secondary)]">
-                                    Raise manager CPU scheduling thread priority under heavy cluster load.
+                                    {t('advanced.processPriorityDesc', 'Raise manager CPU scheduling thread priority under heavy cluster load.')}
                                 </p>
                             </div>
                             <div className="flex gap-2">
@@ -746,7 +764,7 @@ export default function AdvancedPage() {
                                             : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:text-[var(--text-primary)]'
                                     }`}
                                 >
-                                    Normal
+                                    {t('advanced.priorityNormal', 'Normal')}
                                 </button>
                                 <button
                                     onClick={() => handleSetPriority(true)}
@@ -756,7 +774,7 @@ export default function AdvancedPage() {
                                             : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20'
                                     }`}
                                 >
-                                    High Priority
+                                    {t('advanced.priorityHigh', 'High Priority')}
                                 </button>
                             </div>
                         </div>
@@ -766,12 +784,12 @@ export default function AdvancedPage() {
                             <div>
                                 <div className="flex items-center justify-between mb-1">
                                     <h3 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                                        <Leaf className="w-3.5 h-3.5 text-emerald-400" /> Ultra Eco Mode
+                                        <Leaf className="w-3.5 h-3.5 text-emerald-400" /> {t('advanced.ultraEcoMode', 'Ultra Eco Mode')}
                                     </h3>
                                     <span className="text-[9px] font-mono bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20 font-bold">&lt;50MB RAM</span>
                                 </div>
                                 <p className="text-[11px] text-[var(--text-secondary)]">
-                                    Aggressively trims memory footprint when running idle in background.
+                                    {t('advanced.ultraEcoModeDesc', 'Aggressively trims memory footprint when running idle in background.')}
                                 </p>
                             </div>
                             <button
@@ -783,7 +801,7 @@ export default function AdvancedPage() {
                                 }`}
                             >
                                 {ecoModeActive ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Leaf className="w-3.5 h-3.5" />}
-                                {ecoModeActive ? 'Eco Mode Active' : 'Enable Eco Mode'}
+                                {ecoModeActive ? t('advanced.ecoModeActive', 'Eco Mode Active') : t('advanced.enableEcoMode', 'Enable Eco Mode')}
                             </button>
                         </div>
                     </div>

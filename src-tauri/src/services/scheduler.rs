@@ -158,6 +158,9 @@ impl SchedulerService {
 
         // 6. Process Steam Auto-Updates (Only when auto_update setting is enabled)
         Self::process_auto_updates(app_handle, time).await;
+
+        // 7. Scheduled routines (opening hours, maintenance, events)
+        crate::services::routines::process_due_routines(app_handle, time).await;
     }
 
     async fn process_ase_tasks(app_handle: &AppHandle, time: DateTime<Local>) {
@@ -1254,7 +1257,7 @@ impl SchedulerService {
         Some((backup, install_path_buf))
     }
 
-    fn is_due(cron_expr: &str, time: &DateTime<Local>) -> bool {
+    pub(crate) fn is_due(cron_expr: &str, time: &DateTime<Local>) -> bool {
         // Simple Cron Parser matching the one in commands/scheduler.rs validation logic
         // Format: minute hour day month weekday
         let parts: Vec<&str> = cron_expr.split_whitespace().collect();

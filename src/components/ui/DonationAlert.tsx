@@ -135,7 +135,7 @@ export default function DonationAlert() {
                         <button
                             onClick={handleClose}
                             className="absolute top-4 right-4 p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer"
-                            aria-label="Close"
+                            aria-label={t('common.close', 'Close')}
                         >
                             <X className="w-5 h-5" />
                         </button>

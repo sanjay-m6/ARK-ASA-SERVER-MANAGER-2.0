@@ -168,7 +168,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
         e.stopPropagation();
         navigator.clipboard.writeText(id);
         setCopiedId(id);
-        toast.success(`Copied Mod ID: ${id}`);
+        toast.success(t('modManager.copiedModId', { id, defaultValue: `Copied Mod ID: ${id}` }));
         setTimeout(() => setCopiedId(null), 2000);
     };
 
@@ -183,7 +183,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
 
         const mapArg = modInfo.mapArgument || detectMapArgumentFromMod(modInfo);
         setInstallingModId(modInfo.id);
-        const toastId = toast.loading(`Installing & configuring ${modInfo.name}...`);
+        const toastId = toast.loading(t('modMapHub.installing', { name: modInfo.name, defaultValue: `Installing & configuring ${modInfo.name}...` }));
 
         try {
             // 1. Install mod into server database
@@ -204,11 +204,11 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
             // 3. Notify parent to select this map argument & apply launch configs
             onMapInstalledAndSelected(mapArg, modInfo.id);
 
-            toast.success(`Successfully installed and activated ${modInfo.name}!`, { id: toastId });
+            toast.success(t('modMapHub.installedActivated', { name: modInfo.name, defaultValue: `Successfully installed and activated ${modInfo.name}!` }), { id: toastId });
             onClose();
         } catch (err: any) {
             console.error('Failed to install mod map:', err);
-            toast.error(`Installation failed: ${err.message || err}`, { id: toastId });
+            toast.error(t('modMapHub.installFailed', { error: String(err.message || err), defaultValue: `Installation failed: ${err.message || err}` }), { id: toastId });
         } finally {
             setInstallingModId(null);
         }
@@ -217,7 +217,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
     // Handler to activate an already installed map
     const handleActivateInstalled = (mapArg: string, modId?: string) => {
         onMapInstalledAndSelected(mapArg, modId);
-        toast.success(`Active map changed to: ${mapArg}`);
+        toast.success(t('modMapHub.activeMapChanged', { map: mapArg, defaultValue: `Active map changed to: ${mapArg}` }));
         onClose();
     };
 
@@ -232,7 +232,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
         const modId = match ? match[0] : input;
 
         setIsDirectInstalling(true);
-        const toastId = toast.loading(`Resolving CurseForge Mod ID ${modId}...`);
+        const toastId = toast.loading(t('modMapHub.resolving', { id: modId, defaultValue: `Resolving CurseForge Mod ID ${modId}...` }));
         try {
             // Check if matches known preset
             const knownPreset = MODDED_MAP_PRESETS.find(p => p.mapModId === modId);
@@ -250,12 +250,12 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
             }
 
             onMapInstalledAndSelected(mapArg, modId);
-            toast.success(`Successfully installed & activated map (ID: ${modId})!`, { id: toastId });
+            toast.success(t('modMapHub.mapInstalledActivated', { id: modId, defaultValue: `Successfully installed & activated map (ID: ${modId})!` }), { id: toastId });
             setDirectIdInput('');
             onClose();
         } catch (err: any) {
             console.error('Direct install failed:', err);
-            toast.error(`Install failed: ${err.message || err}`, { id: toastId });
+            toast.error(t('modMapHub.installFailed', { error: String(err.message || err), defaultValue: `Installation failed: ${err.message || err}` }), { id: toastId });
         } finally {
             setIsDirectInstalling(false);
         }
@@ -277,13 +277,13 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h2 className="text-xl font-bold text-white tracking-tight">ASA Modded Maps Hub</h2>
+                                <h2 className="text-xl font-bold text-white tracking-tight">{t('modMapHub.title', 'ASA Modded Maps Hub')}</h2>
                                 <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                    1-Click Install
+                                    {t('modMapHub.oneClickInstall', '1-Click Install')}
                                 </span>
                             </div>
                             <p className="text-xs text-slate-400 mt-0.5">
-                                Discover, install, and switch to community modded maps instantly with automatic launch configuration.
+                                {t('modMapHub.subtitle', 'Discover, install, and switch to community modded maps instantly with automatic launch configuration.')}
                             </p>
                         </div>
                     </div>
@@ -306,7 +306,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Search popular maps, authors, or map arguments..."
+                                placeholder={t('modMapHub.searchPlaceholder', 'Search popular maps, authors, or map arguments...')}
                                 className="w-full pl-10 pr-4 py-2 bg-slate-950/70 border border-white/10 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
                             />
                             {searchQuery && (
@@ -326,7 +326,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                                 type="text"
                                 value={directIdInput}
                                 onChange={(e) => setDirectIdInput(e.target.value)}
-                                placeholder="CurseForge Mod ID or URL..."
+                                placeholder={t('modMapHub.idPlaceholder', 'CurseForge Mod ID or URL...')}
                                 className="w-48 sm:w-56 px-3 py-2 bg-slate-950/70 border border-amber-500/30 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors font-mono"
                             />
                             <button
@@ -339,7 +339,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                                 ) : (
                                     <Download className="w-3.5 h-3.5" />
                                 )}
-                                <span>Install ID</span>
+                                <span>{t('modMapHub.installId', 'Install ID')}</span>
                             </button>
                         </form>
                     </div>
@@ -356,7 +356,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                                     : "bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700"
                             )}
                         >
-                            All Maps ({asaPresets.length})
+                            {t('modMapHub.allMaps', 'All Maps')} ({asaPresets.length})
                         </button>
                         <button
                             type="button"
@@ -368,7 +368,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                                     : "bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700"
                             )}
                         >
-                            Popular Presets
+                            {t('modMapHub.popularPresets', 'Popular Presets')}
                         </button>
                         <button
                             type="button"
@@ -380,7 +380,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                                     : "bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700"
                             )}
                         >
-                            <span>Installed on Server</span>
+                            <span>{t('modMapHub.installedOnServer', 'Installed on Server')}</span>
                             <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/30 text-emerald-200 text-[10px] font-mono">
                                 {installedMods.filter(isModLikelyMap).length}
                             </span>
@@ -396,7 +396,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                             )}
                         >
                             <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                            <span>CurseForge Live Search</span>
+                            <span>{t('modMapHub.cfLiveSearch', 'CurseForge Live Search')}</span>
                         </button>
                     </div>
                 </div>
@@ -409,7 +409,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                             {isSearchingCf ? (
                                 <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                                     <Loader2 className="w-8 h-8 text-purple-400 animate-spin mb-3" />
-                                    <p className="text-sm font-medium">Searching CurseForge for ARK: Survival Ascended maps...</p>
+                                    <p className="text-sm font-medium">{t('modMapHub.searching', 'Searching CurseForge for ARK: Survival Ascended maps...')}</p>
                                 </div>
                             ) : cfResults.length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -457,11 +457,11 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                                                     <div className="p-3.5 space-y-2 text-xs">
                                                         {mod.author && (
                                                             <div className="text-[11px] text-slate-400">
-                                                                Author: <span className="text-slate-200 font-medium">{mod.author}</span>
+                                                                {t('modManager.author', 'Author')}: <span className="text-slate-200 font-medium">{mod.author}</span>
                                                             </div>
                                                         )}
                                                         <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
-                                                            {mod.description || 'Custom modded map available via CurseForge.'}
+                                                            {mod.description || t('modMapHub.defaultDesc', 'Custom modded map available via CurseForge.')}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -471,7 +471,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                                                     {active ? (
                                                         <div className="w-full py-2 bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 select-none">
                                                             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                                            <span>Active Server Map</span>
+                                                            <span>{t('modMapHub.activeServerMap', 'Active Server Map')}</span>
                                                         </div>
                                                     ) : installed ? (
                                                         <button
@@ -480,7 +480,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                                                             className="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-emerald-500/40 text-emerald-300 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                                                         >
                                                             <Check className="w-4 h-4 text-emerald-400" />
-                                                            <span>Set as Active Map</span>
+                                                            <span>{t('modMapHub.setActiveMap', 'Set as Active Map')}</span>
                                                         </button>
                                                     ) : (
                                                         <button
@@ -492,12 +492,12 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                                                             {isInstalling ? (
                                                                 <>
                                                                     <Loader2 className="w-4 h-4 animate-spin" />
-                                                                    <span>Installing...</span>
+                                                                    <span>{t('modMapHub.installingShort', 'Installing...')}</span>
                                                                 </>
                                                             ) : (
                                                                 <>
                                                                     <Download className="w-4 h-4" />
-                                                                    <span>1-Click Install & Activate</span>
+                                                                    <span>{t('modMapHub.installActivate', '1-Click Install & Activate')}</span>
                                                                 </>
                                                             )}
                                                         </button>
@@ -510,8 +510,8 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                             ) : (
                                 <div className="text-center py-16 text-slate-500 space-y-2">
                                     <MapPin className="w-10 h-10 mx-auto opacity-30 text-purple-400" />
-                                    <p className="text-sm text-slate-400 font-medium">No CurseForge maps found matching "{searchQuery}"</p>
-                                    <p className="text-xs text-slate-500">Try searching for map names like "Bjarnheim", "Amissa", "Forglar", or paste a Mod ID.</p>
+                                    <p className="text-sm text-slate-400 font-medium">{t('modMapHub.noCfResults', { query: searchQuery, defaultValue: `No CurseForge maps found matching "${searchQuery}"` })}</p>
+                                    <p className="text-xs text-slate-500">{t('modMapHub.noCfResultsHint', 'Try searching for map names like "Bjarnheim", "Amissa", "Forglar", or paste a Mod ID.')}</p>
                                 </div>
                             )}
                         </div>
@@ -578,7 +578,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                                                                             type="button"
                                                                             onClick={(e) => handleCopyId(preset.mapModId!, e)}
                                                                             className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
-                                                                            title="Copy Mod ID"
+                                                                            title={t('modManager.copyModId', 'Copy Mod ID')}
                                                                         >
                                                                             <span>ID: {preset.mapModId}</span>
                                                                             {copiedId === preset.mapModId ? (
@@ -597,17 +597,17 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                                                     <div className="p-3.5 space-y-2 text-xs">
                                                         <div className="flex items-center justify-between text-[11px]">
                                                             <span className="text-slate-400">
-                                                                Author: <span className="text-slate-200 font-semibold">{preset.author}</span>
+                                                                {t('modManager.author', 'Author')}: <span className="text-slate-200 font-semibold">{preset.author}</span>
                                                             </span>
                                                             {installed ? (
                                                                 <span className="text-emerald-400 font-medium flex items-center gap-1">
                                                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                                                    Installed
+                                                                    {t('modManager.installedBadge', 'Installed')}
                                                                 </span>
                                                             ) : (
                                                                 <span className="text-amber-400 font-medium flex items-center gap-1">
                                                                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                                                                    Not Installed
+                                                                    {t('modMapHub.notInstalled', 'Not Installed')}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -622,7 +622,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                                                     {active ? (
                                                         <div className="w-full py-2 bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 select-none shadow-sm">
                                                             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                                            <span>Active Server Map</span>
+                                                            <span>{t('modMapHub.activeServerMap', 'Active Server Map')}</span>
                                                         </div>
                                                     ) : installed ? (
                                                         <button
@@ -631,7 +631,7 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                                                             className="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-emerald-500/40 text-emerald-300 hover:text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                                                         >
                                                             <Check className="w-4 h-4 text-emerald-400" />
-                                                            <span>Set as Active Map</span>
+                                                            <span>{t('modMapHub.setActiveMap', 'Set as Active Map')}</span>
                                                         </button>
                                                     ) : (
                                                         <button
@@ -649,12 +649,12 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                                                             {isInstalling ? (
                                                                 <>
                                                                     <Loader2 className="w-4 h-4 animate-spin" />
-                                                                    <span>Installing Mod...</span>
+                                                                    <span>{t('modMapHub.installingMod', 'Installing Mod...')}</span>
                                                                 </>
                                                             ) : (
                                                                 <>
                                                                     <Download className="w-4 h-4" />
-                                                                    <span>1-Click Install & Activate</span>
+                                                                    <span>{t('modMapHub.installActivate', '1-Click Install & Activate')}</span>
                                                                 </>
                                                             )}
                                                         </button>
@@ -667,8 +667,8 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                             ) : (
                                 <div className="text-center py-16 text-slate-500 space-y-2">
                                     <MapPin className="w-10 h-10 mx-auto opacity-30 text-emerald-400" />
-                                    <p className="text-sm text-slate-400 font-medium">No modded maps found</p>
-                                    <p className="text-xs text-slate-500">Try adjusting your search query or switch to the CurseForge tab.</p>
+                                    <p className="text-sm text-slate-400 font-medium">{t('modMapHub.noMaps', 'No modded maps found')}</p>
+                                    <p className="text-xs text-slate-500">{t('modMapHub.noMapsHint', 'Try adjusting your search query or switch to the CurseForge tab.')}</p>
                                 </div>
                             )}
                         </div>
@@ -679,14 +679,14 @@ export const ModMapHubModal: React.FC<ModMapHubModalProps> = ({
                 <div className="p-3.5 px-6 border-t border-white/10 bg-slate-950/60 flex items-center justify-between text-[11px] text-slate-400 flex-shrink-0">
                     <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                        <span>Installing a modded map automatically registers the mod and configures <code className="text-emerald-400">-MapModID</code> on server startup.</span>
+                        <span>{t('modMapHub.footerA', 'Installing a modded map automatically registers the mod and configures')} <code className="text-emerald-400">-MapModID</code> {t('modMapHub.footerB', 'on server startup.')}</span>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
                         className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors cursor-pointer"
                     >
-                        Close
+                        {t('common.close', 'Close')}
                     </button>
                 </div>
             </div>

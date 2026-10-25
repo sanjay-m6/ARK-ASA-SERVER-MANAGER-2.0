@@ -87,7 +87,7 @@ export default function ClusterManager() {
             fetchClusters();
         } catch (error) {
             console.error('Failed to create cluster:', error);
-            const errStr = typeof error === 'string' ? error : (error as any)?.message || 'Unknown error';
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || t('ase.clusterManager.unknownError', 'Unknown error');
             toast.error(t('clusterManager.createFailed', { error: errStr, defaultValue: `Failed to create cluster: ${errStr}` }));
         }
     };
@@ -103,7 +103,7 @@ export default function ClusterManager() {
             fetchClusters();
         } catch (error) {
             console.error('Failed to delete cluster:', error);
-            const errStr = typeof error === 'string' ? error : (error as any)?.message || 'Unknown error';
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || t('ase.clusterManager.unknownError', 'Unknown error');
             toast.error(t('clusterManager.deleteFailed', { error: errStr, defaultValue: `Failed to delete cluster: ${errStr}` }));
         }
     };
@@ -116,7 +116,7 @@ export default function ClusterManager() {
             refreshServers();
         } catch (error) {
             console.error('Failed to start cluster:', error);
-            const errStr = typeof error === 'string' ? error : (error as any)?.message || 'Failed to start cluster';
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || t('ase.clusterManager.startFailed', 'Failed to start cluster');
             toast.error(errStr);
         } finally {
             setStartingCluster(null);
@@ -131,7 +131,7 @@ export default function ClusterManager() {
             refreshServers();
         } catch (error) {
             console.error('Failed to stop cluster:', error);
-            const errStr = typeof error === 'string' ? error : (error as any)?.message || 'Failed to stop cluster';
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || t('ase.clusterManager.stopFailed', 'Failed to stop cluster');
             toast.error(errStr);
         } finally {
             setStoppingCluster(null);
@@ -186,7 +186,7 @@ export default function ClusterManager() {
         try {
             await toggleAseClusterCrossChat(clusterId, !currentStatus);
             setCrossChatStatus(prev => ({ ...prev, [clusterId]: !currentStatus }));
-            toast.success(t('clusterManager.crossChatToggled', { status: !currentStatus ? 'enabled' : 'disabled' }));
+            toast.success(t('clusterManager.crossChatToggled', { status: (!currentStatus ? t('common.enabled', 'Enabled') : t('common.disabled', 'Disabled')).toLowerCase() }));
         } catch (error) {
             console.error('Failed to toggle cross-chat:', error);
             toast.error(t('clusterManager.crossChatFailed'));
@@ -409,7 +409,7 @@ export default function ClusterManager() {
                                                 ? "bg-pink-600/20 hover:bg-pink-600/30 text-pink-400"
                                                 : "bg-slate-700/50 hover:bg-slate-600/50 text-slate-400"
                                         )}
-                                        title="Cross-Server Chat (Experimental)"
+                                        title={t('clusterManager.crossChatTooltip', 'Cross-Server Chat (Experimental)')}
                                     >
                                         <MessageCircle className="w-4 h-4" />
                                         <span>{t('clusterManager.chat')}</span>

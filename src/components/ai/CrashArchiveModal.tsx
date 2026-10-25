@@ -3,8 +3,10 @@ import { useCrashNotificationStore } from '../../stores/crashNotificationStore';
 import { X, Search, FileDown, Trash2, Calendar, HardDrive, Cpu, AlertTriangle, ShieldCheck, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 export default function CrashArchiveModal() {
+    const { t } = useTranslation();
     const { archive, isArchiveOpen, setArchiveOpen, clearArchive } = useCrashNotificationStore();
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<'All' | 'Resolved' | 'Archived'>('All');
@@ -25,16 +27,16 @@ export default function CrashArchiveModal() {
             document.body.appendChild(downloadAnchor);
             downloadAnchor.click();
             downloadAnchor.remove();
-            toast.success('Crash history exported successfully!');
+            toast.success(t('crashArchive.exported', 'Crash history exported successfully!'));
         } catch {
-            toast.error('Failed to export crash history.');
+            toast.error(t('crashArchive.exportFailed', 'Failed to export crash history.'));
         }
     };
 
     const handleClearHistory = () => {
-        if (confirm('Are you sure you want to clear the entire crash history archive? This cannot be undone.')) {
+        if (confirm(t('crashArchive.clearConfirm', 'Are you sure you want to clear the entire crash history archive? This cannot be undone.'))) {
             clearArchive();
-            toast.success('Crash history archive cleared.');
+            toast.success(t('crashArchive.cleared', 'Crash history archive cleared.'));
         }
     };
 
@@ -77,8 +79,8 @@ export default function CrashArchiveModal() {
                             <Cpu className="w-5 h-5 animate-pulse" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-white">AI Co-Pilot Crash Archive</h2>
-                            <p className="text-[11px] text-slate-400 font-medium">Review and inspect historical crash events and automated diagnoses</p>
+                            <h2 className="text-lg font-black text-white">{t('crashArchive.title', 'AI Co-Pilot Crash Archive')}</h2>
+                            <p className="text-[11px] text-slate-400 font-medium">{t('crashArchive.subtitle', 'Review and inspect historical crash events and automated diagnoses')}</p>
                         </div>
                     </div>
                     
@@ -97,7 +99,7 @@ export default function CrashArchiveModal() {
                         <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
                         <input
                             type="text"
-                            placeholder="Search server name, type, root cause..."
+                            placeholder={t('crashArchive.searchPlaceholder', 'Search server name, type, root cause...')}
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 transition-colors"
@@ -111,27 +113,27 @@ export default function CrashArchiveModal() {
                             onChange={(e) => setStatusFilter(e.target.value as any)}
                             className="bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 py-2 px-3 focus:outline-none focus:border-cyan-500/50"
                         >
-                            <option value="All">All Statuses</option>
-                            <option value="Resolved">Resolved</option>
-                            <option value="Archived">Archived (Dismissed)</option>
+                            <option value="All">{t('crashArchive.allStatuses', 'All Statuses')}</option>
+                            <option value="Resolved">{t('crashArchive.status.Resolved', 'Resolved')}</option>
+                            <option value="Archived">{t('crashArchive.archivedDismissed', 'Archived (Dismissed)')}</option>
                         </select>
 
                         <button
                             onClick={handleExportJson}
                             disabled={archive.length === 0}
                             className="flex items-center gap-1.5 py-2 px-3.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-slate-300 hover:text-white border border-slate-800 rounded-xl text-xs font-bold transition-all hover:scale-[1.02]"
-                            title="Export to JSON"
+                            title={t('crashArchive.exportTitle', 'Export to JSON')}
                         >
-                            <FileDown className="w-3.5 h-3.5" /> Export JSON
+                            <FileDown className="w-3.5 h-3.5" /> {t('crashArchive.exportJson', 'Export JSON')}
                         </button>
 
                         <button
                             onClick={handleClearHistory}
                             disabled={archive.length === 0}
                             className="flex items-center gap-1.5 py-2 px-3.5 bg-rose-950/30 hover:bg-rose-950/50 disabled:opacity-50 text-rose-400 hover:text-rose-300 border border-rose-500/20 rounded-xl text-xs font-bold transition-all hover:scale-[1.02]"
-                            title="Clear Archive"
+                            title={t('crashArchive.clearArchive', 'Clear Archive')}
                         >
-                            <Trash2 className="w-3.5 h-3.5" /> Clear History
+                            <Trash2 className="w-3.5 h-3.5" /> {t('crashArchive.clearHistory', 'Clear History')}
                         </button>
                     </div>
                 </div>
@@ -144,8 +146,8 @@ export default function CrashArchiveModal() {
                                 <HelpCircle className="w-8 h-8" />
                             </div>
                             <div>
-                                <h3 className="font-bold text-white text-sm">No Crashes Logged</h3>
-                                <p className="text-xs text-slate-400 max-w-[280px] mt-1">Crashes that are resolved or dismissed will appear here for future inspection.</p>
+                                <h3 className="font-bold text-white text-sm">{t('crashArchive.empty', 'No Crashes Logged')}</h3>
+                                <p className="text-xs text-slate-400 max-w-[280px] mt-1">{t('crashArchive.emptyDesc', 'Crashes that are resolved or dismissed will appear here for future inspection.')}</p>
                             </div>
                         </div>
                     ) : (
@@ -192,7 +194,7 @@ export default function CrashArchiveModal() {
                                                             <HardDrive className="w-3.5 h-3.5" />
                                                             {item.executableName}
                                                         </span>
-                                                        <span>Occurrences: <strong className="text-white font-bold">{item.occurrences}</strong></span>
+                                                        <span>{t('crashArchive.occurrences', 'Occurrences')}: <strong className="text-white font-bold">{item.occurrences}</strong></span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -203,7 +205,7 @@ export default function CrashArchiveModal() {
                                                         ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                                                         : 'bg-slate-800 text-slate-400 border-slate-700/60'
                                                 }`}>
-                                                    {item.status}
+                                                    {t(`crashArchive.status.${item.status}`, item.status)}
                                                 </span>
                                             </div>
                                         </div>
@@ -220,7 +222,7 @@ export default function CrashArchiveModal() {
                                                 >
                                                     <div className="p-4 flex flex-col gap-4 text-xs">
                                                         <div className="flex flex-col gap-1 text-[11px]">
-                                                            <span className="text-slate-400 font-semibold">Crash Reason / Exception:</span>
+                                                            <span className="text-slate-400 font-semibold">{t('crashArchive.crashReason', 'Crash Reason / Exception:')}</span>
                                                             <span className="text-red-400 font-bold bg-slate-900 border border-slate-800 px-2 py-0.5 rounded w-max">
                                                                 {item.crashReason} ({item.exceptionType})
                                                             </span>
@@ -230,31 +232,31 @@ export default function CrashArchiveModal() {
                                                             <div className="flex flex-col gap-3 bg-slate-900/40 border border-slate-800/80 p-3.5 rounded-xl">
                                                                 <div className="flex items-center justify-between border-b border-slate-800/40 pb-1.5">
                                                                     <span className="font-extrabold text-cyan-400 flex items-center gap-1.5">
-                                                                        <Cpu className="w-4 h-4" /> AI Diagnosis Summary
+                                                                        <Cpu className="w-4 h-4" /> {t('crashArchive.diagnosisSummary', 'AI Diagnosis Summary')}
                                                                     </span>
                                                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                                                                        {item.diagnosis.confidenceScore}% Confidence
+                                                                        {t('crashArchive.confidence', { defaultValue: '{{score}}% Confidence', score: item.diagnosis.confidenceScore })}
                                                                     </span>
                                                                 </div>
 
                                                                 <div className="text-[11px] flex flex-col gap-1">
-                                                                    <span className="text-slate-400 font-semibold">Root Cause:</span>
+                                                                    <span className="text-slate-400 font-semibold">{t('crashArchive.rootCause', 'Root Cause:')}</span>
                                                                     <span className="text-slate-200 font-medium leading-relaxed">{item.diagnosis.rootCause}</span>
                                                                 </div>
 
                                                                 <div className="text-[11px] flex flex-col gap-1">
-                                                                    <span className="text-slate-400 font-semibold">Recommended Fix:</span>
+                                                                    <span className="text-slate-400 font-semibold">{t('crashArchive.recommendedFix', 'Recommended Fix:')}</span>
                                                                     <span className="text-slate-200 font-medium leading-relaxed bg-slate-950/60 p-2.5 rounded border border-slate-800 block whitespace-pre-wrap font-mono">
                                                                         {item.diagnosis.recommendedFix}
                                                                     </span>
                                                                 </div>
                                                             </div>
                                                         ) : (
-                                                            <div className="text-slate-500 italic text-[11px]">No diagnosis generated.</div>
+                                                            <div className="text-slate-500 italic text-[11px]">{t('crashArchive.noDiagnosis', 'No diagnosis generated.')}</div>
                                                         )}
 
                                                         <div className="flex flex-col gap-1">
-                                                            <span className="text-slate-400 font-semibold text-[11px]">Log Trace / Exception Dump:</span>
+                                                            <span className="text-slate-400 font-semibold text-[11px]">{t('crashArchive.logTrace', 'Log Trace / Exception Dump:')}</span>
                                                             <pre className="bg-slate-950 border border-slate-800 p-3 rounded-lg text-[10px] text-slate-300 font-mono overflow-x-auto max-h-36 theme-scrollbar select-text">
                                                                 {item.stackTrace}
                                                             </pre>
@@ -276,7 +278,7 @@ export default function CrashArchiveModal() {
                         onClick={() => setArchiveOpen(false)}
                         className="py-1.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all"
                     >
-                        Close Archive
+                        {t('crashArchive.close', 'Close Archive')}
                     </button>
                 </div>
             </motion.div>

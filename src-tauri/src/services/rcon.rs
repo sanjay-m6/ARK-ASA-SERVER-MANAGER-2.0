@@ -378,7 +378,7 @@ impl RconService {
                         "[RCON] Response body for '{}' on server {}: {:?}",
                         command_owned,
                         server_id,
-                        &response[..response.len().min(500)]
+                        response.chars().take(500).collect::<String>()
                     );
                     Ok(RconResponse {
                         success: true,
@@ -773,10 +773,8 @@ impl RconService {
                     }
                 };
 
-                if servers_to_poll.is_empty() {
-                    // Clear player intelligence for all servers when none are running
-                    continue;
-                }
+                // Note: no early `continue` when servers_to_poll is empty — Step 3 must
+                // still run so sessions are cleaned up after the last server stops.
 
                 // Step 2: For each running server, auto-connect if needed, then poll ListPlayers
                 for (server_id, address, rcon_port, password) in &servers_to_poll {

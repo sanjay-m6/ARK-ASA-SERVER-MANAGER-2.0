@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { NumberInput } from '../ui/NumberInput';
 interface EngramOverride {
     EngramClassName: string;
     EngramHidden: boolean;
@@ -55,6 +57,7 @@ interface EngramOverridesEditorProps {
 }
 
 export function EngramOverridesEditor({ value, onChange }: EngramOverridesEditorProps) {
+    const { t } = useTranslation();
     const [entries, setEntries] = useState<EngramOverride[]>([]);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [editForm, setEditForm] = useState<EngramOverride | null>(null);
@@ -130,7 +133,7 @@ export function EngramOverridesEditor({ value, onChange }: EngramOverridesEditor
                     className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 rounded-lg transition-colors text-sm font-medium border border-emerald-500/30"
                 >
                     <Plus className="w-4 h-4" />
-                    Add Engram Override
+                    {t('engramOverridesEditor.addOverride', 'Add Engram Override')}
                 </button>
             </div>
 
@@ -140,7 +143,7 @@ export function EngramOverridesEditor({ value, onChange }: EngramOverridesEditor
                         {editingIndex === idx && editForm ? (
                             <div className="p-4 space-y-4 bg-[#1a1a2e]">
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-400 mb-1">Engram Class Name</label>
+                                    <label className="block text-xs font-medium text-slate-400 mb-1">{t('engramOverridesEditor.className', 'Engram Class Name')}</label>
                                     <input
                                         type="text"
                                         value={editForm.EngramClassName}
@@ -150,20 +153,22 @@ export function EngramOverridesEditor({ value, onChange }: EngramOverridesEditor
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs font-medium text-slate-400 mb-1">Points Cost</label>
-                                        <input
-                                            type="number"
+                                        <label className="block text-xs font-medium text-slate-400 mb-1">{t('engramOverridesEditor.pointsCost', 'Points Cost')}</label>
+                                        <NumberInput
+                                            integer
+                                            min={0}
                                             value={editForm.EngramPointsCost}
-                                            onChange={(e) => setEditForm({ ...editForm, EngramPointsCost: parseInt(e.target.value) || 0 })}
+                                            onValueChange={(n) => setEditForm({ ...editForm, EngramPointsCost: n })}
                                             className="w-full bg-[#0d0d1a] border border-[#2d2d44] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-violet-500"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium text-slate-400 mb-1">Level Requirement</label>
-                                        <input
-                                            type="number"
+                                        <label className="block text-xs font-medium text-slate-400 mb-1">{t('engramOverridesEditor.levelRequirement', 'Level Requirement')}</label>
+                                        <NumberInput
+                                            integer
+                                            min={0}
                                             value={editForm.EngramLevelRequirement}
-                                            onChange={(e) => setEditForm({ ...editForm, EngramLevelRequirement: parseInt(e.target.value) || 1 })}
+                                            onValueChange={(n) => setEditForm({ ...editForm, EngramLevelRequirement: n })}
                                             className="w-full bg-[#0d0d1a] border border-[#2d2d44] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-violet-500"
                                         />
                                     </div>
@@ -180,7 +185,7 @@ export function EngramOverridesEditor({ value, onChange }: EngramOverridesEditor
                                             <div className="w-5 h-5 border-2 border-slate-600 rounded bg-slate-900 peer-checked:bg-violet-500 peer-checked:border-violet-500 transition-all"></div>
                                             <Check className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
                                         </div>
-                                        <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">Hidden</span>
+                                        <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">{t('engramOverridesEditor.hidden', 'Hidden')}</span>
                                     </label>
 
                                     <label className="flex items-center gap-2 cursor-pointer group">
@@ -194,7 +199,7 @@ export function EngramOverridesEditor({ value, onChange }: EngramOverridesEditor
                                             <div className="w-5 h-5 border-2 border-slate-600 rounded bg-slate-900 peer-checked:bg-violet-500 peer-checked:border-violet-500 transition-all"></div>
                                             <Check className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
                                         </div>
-                                        <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">Remove Prerequisites</span>
+                                        <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">{t('engramOverridesEditor.removePrereqs', 'Remove Prerequisites')}</span>
                                     </label>
                                 </div>
                                 <div className="flex justify-end gap-2 pt-2 border-t border-[#2d2d44]">
@@ -202,13 +207,13 @@ export function EngramOverridesEditor({ value, onChange }: EngramOverridesEditor
                                         onClick={handleCancelEdit}
                                         className="px-3 py-1.5 text-sm font-medium text-slate-400 hover:text-white transition-colors"
                                     >
-                                        Cancel
+                                        {t('common.cancel', 'Cancel')}
                                     </button>
                                     <button
                                         onClick={handleSaveEdit}
                                         className="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-lg transition-colors"
                                     >
-                                        Save
+                                        {t('common.save', 'Save')}
                                     </button>
                                 </div>
                             </div>
@@ -217,10 +222,10 @@ export function EngramOverridesEditor({ value, onChange }: EngramOverridesEditor
                                 <div className="flex flex-col">
                                     <span className="text-sm font-bold text-violet-400">{entry.EngramClassName}</span>
                                     <div className="flex items-center gap-4 mt-1 text-xs text-slate-400">
-                                        <span>Cost: <span className="text-white">{entry.EngramPointsCost}</span></span>
-                                        <span>Level: <span className="text-white">{entry.EngramLevelRequirement}</span></span>
-                                        {entry.EngramHidden && <span className="text-rose-400 font-medium">Hidden</span>}
-                                        {entry.RemoveEngramPreReq && <span className="text-amber-400 font-medium">No Pre-reqs</span>}
+                                        <span>{t('engramOverridesEditor.costLabel', 'Cost:')} <span className="text-white">{entry.EngramPointsCost}</span></span>
+                                        <span>{t('engramOverridesEditor.levelLabel', 'Level:')} <span className="text-white">{entry.EngramLevelRequirement}</span></span>
+                                        {entry.EngramHidden && <span className="text-rose-400 font-medium">{t('engramOverridesEditor.hidden', 'Hidden')}</span>}
+                                        {entry.RemoveEngramPreReq && <span className="text-amber-400 font-medium">{t('engramOverridesEditor.noPrereqs', 'No Pre-reqs')}</span>}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -243,7 +248,7 @@ export function EngramOverridesEditor({ value, onChange }: EngramOverridesEditor
                 ))}
                 {entries.length === 0 && (
                     <div className="text-center py-6 text-sm text-slate-500 bg-[#151525] border border-[#2d2d44] border-dashed rounded-xl">
-                        No engram overrides configured. Click add to create one.
+                        {t('engramOverridesEditor.empty', 'No engram overrides configured. Click add to create one.')}
                     </div>
                 )}
             </div>

@@ -3,16 +3,18 @@ import { useTauriEvent } from '../../hooks/useTauriEvent';
 import { Shield, AlertTriangle, Save, RefreshCw, Activity, Terminal, Globe, Loader2, Check } from 'lucide-react';
 import { AntiCheatConfig, ViolationEvent, getAntiCheatConfig, saveAntiCheatConfig, getAntiCheatLogs, syncBanlist, type BanlistSyncResult } from '../../utils/tauri';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/helpers';
 
-// Sensitivity Mapping
+// Sensitivity Mapping (value -> translation key suffix / English fallback)
 const SENSITIVITY_MAP = {
-    0.5: 'Strict (High)',
-    1.0: 'Normal',
-    2.0: 'Relaxed (Low)'
+    0.5: { key: 'strictHigh', label: 'Strict (High)' },
+    1.0: { key: 'normal', label: 'Normal' },
+    2.0: { key: 'relaxedLow', label: 'Relaxed (Low)' }
 };
 
 export default function AntiCheatDashboard({ serverId }: { serverId: number | null }) {
+    const { t } = useTranslation();
     const [config, setConfig] = useState<AntiCheatConfig>({
         enabled: false,
         sensitivity: 1.0,
@@ -69,7 +71,7 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
             setLogs(logData);
         } catch (error) {
             console.error(error);
-            toast.error('Failed to load Anti-Cheat data');
+            toast.error(t('antiCheatDashboard.toasts.loadFailed', 'Failed to load Anti-Cheat data'));
         } finally {
             setIsLoading(false);
         }
@@ -80,15 +82,15 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
         setIsSaving(true);
         try {
             await saveAntiCheatConfig(serverId, config);
-            toast.success('Anti-Cheat Configuration Saved');
+            toast.success(t('antiCheatDashboard.toasts.saved', 'Anti-Cheat Configuration Saved'));
         } catch (error) {
-            toast.error('Failed to save configuration');
+            toast.error(t('antiCheatDashboard.toasts.saveFailed', 'Failed to save configuration'));
         } finally {
             setIsSaving(false);
         }
     };
 
-    if (!serverId) return <div className="text-slate-400">Select a server first.</div>;
+    if (!serverId) return <div className="text-slate-400">{t('antiCheatDashboard.selectServer', 'Select a server first.')}</div>;
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto p-6">
@@ -106,15 +108,15 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                             <Shield className={cn("w-6 h-6", config.enabled ? "text-white" : "text-slate-500")} />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-bold text-white">Anti-Cheat System</h2>
-                            <p className="text-slate-400 text-sm">Real-time behavioral monitoring and enforcement</p>
+                            <h2 className="text-2xl font-bold text-white">{t('antiCheatDashboard.title', 'Anti-Cheat System')}</h2>
+                            <p className="text-slate-400 text-sm">{t('antiCheatDashboard.subtitle', 'Real-time behavioral monitoring and enforcement')}</p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-4">
                         <label className="flex items-center gap-3 cursor-pointer">
                             <span className={cn("font-semibold transition-colors", config.enabled ? "text-emerald-400" : "text-slate-400")}>
-                                {config.enabled ? 'SYSTEM ACTIVE' : 'SYSTEM DISABLED'}
+                                {config.enabled ? t('antiCheatDashboard.systemActive', 'SYSTEM ACTIVE') : t('antiCheatDashboard.systemDisabled', 'SYSTEM DISABLED')}
                             </span>
                             <div className="relative">
                                 <input
@@ -132,7 +134,7 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                             className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl shadow-lg shadow-violet-500/20 transition-all active:scale-95 disabled:opacity-50"
                         >
                             <Save className="w-4 h-4" />
-                            {isSaving ? 'Saving...' : 'Save Config'}
+                            {isSaving ? t('antiCheatDashboard.saving', 'Saving...') : t('antiCheatDashboard.saveConfig', 'Save Config')}
                         </button>
                     </div>
                 </div>
@@ -144,15 +146,18 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                     <div className="glass-panel p-6 rounded-2xl border border-slate-700/50 bg-[#12121f]">
                         <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                             <Activity className="w-5 h-5 text-indigo-400" />
-                            Detection Sensitivity
+                            {t('antiCheatDashboard.detectionSensitivity', 'Detection Sensitivity')}
                         </h3>
 
                         <div className="space-y-6">
                             <div>
                                 <div className="flex justify-between text-sm mb-2">
-                                    <span className="text-slate-400">Level</span>
+                                    <span className="text-slate-400">{t('antiCheatDashboard.level', 'Level')}</span>
                                     <span className="text-indigo-400 font-mono font-bold">
-                                        {SENSITIVITY_MAP[config.sensitivity as keyof typeof SENSITIVITY_MAP] || config.sensitivity}
+                                        {(() => {
+                                            const s = SENSITIVITY_MAP[config.sensitivity as keyof typeof SENSITIVITY_MAP];
+                                            return s ? t(`antiCheatDashboard.sensitivity.${s.key}`, s.label) : config.sensitivity;
+                                        })()}
                                     </span>
                                 </div>
                                 <input
@@ -169,15 +174,15 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                                     className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                                 />
                                 <div className="flex justify-between text-xs text-slate-500 mt-2">
-                                    <span>Strict</span>
-                                    <span>Normal</span>
-                                    <span>Relaxed</span>
+                                    <span>{t('antiCheatDashboard.sensitivity.strict', 'Strict')}</span>
+                                    <span>{t('antiCheatDashboard.sensitivity.normal', 'Normal')}</span>
+                                    <span>{t('antiCheatDashboard.sensitivity.relaxed', 'Relaxed')}</span>
                                 </div>
                             </div>
 
                             <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-200">
                                 <AlertTriangle className="w-3 h-3 inline mr-1 mb-0.5" />
-                                Higher sensitivity means strict enforcement but increases false positives.
+                                {t('antiCheatDashboard.sensitivityWarning', 'Higher sensitivity means strict enforcement but increases false positives.')}
                             </div>
                         </div>
                     </div>
@@ -185,7 +190,7 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                     <div className="glass-panel p-6 rounded-2xl border border-slate-700/50 bg-[#12121f]">
                         <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                             <Shield className="w-5 h-5 text-red-400" />
-                            Enforcement Actions
+                            {t('antiCheatDashboard.enforcementActions', 'Enforcement Actions')}
                         </h3>
 
                         <div className="space-y-3">
@@ -198,8 +203,8 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                                     className="w-5 h-5 rounded border-slate-600 text-indigo-600 focus:ring-indigo-500 bg-slate-700"
                                 />
                                 <div className="flex flex-col">
-                                    <span className="text-slate-200 font-medium text-sm">Log Only (Passive)</span>
-                                    <span className="text-slate-500 text-xs">Record violations but take no action.</span>
+                                    <span className="text-slate-200 font-medium text-sm">{t('antiCheatDashboard.logOnly', 'Log Only (Passive)')}</span>
+                                    <span className="text-slate-500 text-xs">{t('antiCheatDashboard.logOnlyDesc', 'Record violations but take no action.')}</span>
                                 </div>
                             </label>
 
@@ -211,8 +216,8 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                                     className="w-5 h-5 rounded border-slate-600 text-indigo-600 focus:ring-indigo-500 bg-slate-700"
                                 />
                                 <div className="flex flex-col">
-                                    <span className="text-slate-200 font-medium text-sm">Discord Alerts</span>
-                                    <span className="text-slate-500 text-xs">Send notifications to admin channel.</span>
+                                    <span className="text-slate-200 font-medium text-sm">{t('antiCheatDashboard.discordAlerts', 'Discord Alerts')}</span>
+                                    <span className="text-slate-500 text-xs">{t('antiCheatDashboard.discordAlertsDesc', 'Send notifications to admin channel.')}</span>
                                 </div>
                             </label>
 
@@ -224,8 +229,8 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                                     className="w-5 h-5 rounded border-slate-600 text-indigo-600 focus:ring-indigo-500 bg-slate-700"
                                 />
                                 <div className="flex flex-col">
-                                    <span className="text-slate-200 font-medium text-sm">Auto-Kick</span>
-                                    <span className="text-slate-500 text-xs text-red-400">Violators will be disconnected.</span>
+                                    <span className="text-slate-200 font-medium text-sm">{t('antiCheatDashboard.autoKick', 'Auto-Kick')}</span>
+                                    <span className="text-slate-500 text-xs text-red-400">{t('antiCheatDashboard.autoKickDesc', 'Violators will be disconnected.')}</span>
                                 </div>
                             </label>
 
@@ -237,8 +242,8 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                                     className="w-5 h-5 rounded border-slate-600 text-indigo-600 focus:ring-indigo-500 bg-slate-700"
                                 />
                                 <div className="flex flex-col">
-                                    <span className="text-slate-200 font-medium text-sm">Auto-Ban</span>
-                                    <span className="text-slate-500 text-xs text-red-500 font-bold">Permanent removal from cluster.</span>
+                                    <span className="text-slate-200 font-medium text-sm">{t('antiCheatDashboard.autoBan', 'Auto-Ban')}</span>
+                                    <span className="text-slate-500 text-xs text-red-500 font-bold">{t('antiCheatDashboard.autoBanDesc', 'Permanent removal from cluster.')}</span>
                                 </div>
                             </label>
                         </div>
@@ -249,7 +254,7 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                 <div className="glass-panel p-6 rounded-2xl border border-slate-700/50 bg-[#12121f]">
                     <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                         <Activity className="w-5 h-5 text-emerald-400" />
-                        Mesh Protection
+                        {t('antiCheatDashboard.meshProtection', 'Mesh Protection')}
                     </h3>
 
                     <div className="space-y-4">
@@ -261,8 +266,8 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                                 className="w-5 h-5 rounded border-slate-600 text-emerald-600 focus:ring-emerald-500 bg-slate-700"
                             />
                             <div className="flex flex-col">
-                                <span className="text-slate-200 font-medium text-sm">Enable Mesh Detection</span>
-                                <span className="text-slate-500 text-xs">Prevent structures under the map.</span>
+                                <span className="text-slate-200 font-medium text-sm">{t('antiCheatDashboard.enableMesh', 'Enable Mesh Detection')}</span>
+                                <span className="text-slate-500 text-xs">{t('antiCheatDashboard.enableMeshDesc', 'Prevent structures under the map.')}</span>
                             </div>
                         </label>
 
@@ -270,7 +275,7 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                             <div className="space-y-3 pl-2 border-l-2 border-slate-700 ml-2">
                                 <div>
                                     <div className="flex justify-between text-sm mb-1">
-                                        <span className="text-slate-400">Sensitivity Threshold</span>
+                                        <span className="text-slate-400">{t('antiCheatDashboard.sensitivityThreshold', 'Sensitivity Threshold')}</span>
                                         <span className="text-emerald-400 font-mono">{(config.mesh_protection.threshold * 100).toFixed(0)}%</span>
                                     </div>
                                     <input
@@ -290,7 +295,7 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                                         onChange={(e) => setConfig({ ...config, mesh_protection: { ...config.mesh_protection, notify_player: e.target.checked } })}
                                         className="rounded border-slate-600 text-emerald-600 bg-slate-700"
                                     />
-                                    Notify Player on Violation
+                                    {t('antiCheatDashboard.notifyPlayer', 'Notify Player on Violation')}
                                 </label>
                             </div>
                         )}
@@ -301,7 +306,7 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                 <div className="glass-panel p-6 rounded-2xl border border-slate-700/50 bg-[#12121f]">
                     <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                         <Terminal className="w-5 h-5 text-amber-400" />
-                        Command Auto-Ban
+                        {t('antiCheatDashboard.commandAutoBan', 'Command Auto-Ban')}
                     </h3>
 
                     <div className="space-y-4">
@@ -313,15 +318,15 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                                 className="w-5 h-5 rounded border-slate-600 text-amber-600 focus:ring-amber-500 bg-slate-700"
                             />
                             <div className="flex flex-col">
-                                <span className="text-slate-200 font-medium text-sm">Enable Command Protection</span>
-                                <span className="text-slate-500 text-xs">Auto-ban for prohibited commands.</span>
+                                <span className="text-slate-200 font-medium text-sm">{t('antiCheatDashboard.enableCommand', 'Enable Command Protection')}</span>
+                                <span className="text-slate-500 text-xs">{t('antiCheatDashboard.enableCommandDesc', 'Auto-ban for prohibited commands.')}</span>
                             </div>
                         </label>
 
                         {config.command_protection.enabled && (
                             <div className="space-y-3">
                                 <div>
-                                    <label className="block text-xs text-slate-400 mb-1">Blacklisted Commands (comma separated)</label>
+                                    <label className="block text-xs text-slate-400 mb-1">{t('antiCheatDashboard.blacklistedCommands', 'Blacklisted Commands (comma separated)')}</label>
                                     <textarea
                                         value={config.command_protection.blacklisted_commands.join(', ')}
                                         onChange={(e) => setConfig({
@@ -336,7 +341,7 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-slate-400 mb-1">Admin Whitelist (Steam IDs, comma separated)</label>
+                                    <label className="block text-xs text-slate-400 mb-1">{t('antiCheatDashboard.adminWhitelist', 'Admin Whitelist (Steam IDs, comma separated)')}</label>
                                     <textarea
                                         value={config.command_protection.whitelist_admin_ids.join(', ')}
                                         onChange={(e) => setConfig({
@@ -359,14 +364,14 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                 <div className="glass-panel p-6 rounded-2xl border border-slate-700/50 bg-[#12121f]">
                     <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                         <Globe className="w-5 h-5 text-cyan-400" />
-                        Global Ban-list Sync
+                        {t('antiCheatDashboard.banlistSync', 'Global Ban-list Sync')}
                     </h3>
 
-                    <p className="text-slate-400 text-sm mb-4">Merge a remote community ban list into this server's BanList.txt</p>
+                    <p className="text-slate-400 text-sm mb-4">{t('antiCheatDashboard.banlistSyncDesc', "Merge a remote community ban list into this server's BanList.txt")}</p>
 
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <label className="block text-xs text-slate-400">Ban List URL</label>
+                            <label className="block text-xs text-slate-400">{t('antiCheatDashboard.banlistUrl', 'Ban List URL')}</label>
                             <input
                                 type="url"
                                 value={banlistUrl}
@@ -383,9 +388,9 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                                 try {
                                     const result = await syncBanlist(serverId, banlistUrl.trim());
                                     setLastSyncResult(result);
-                                    toast.success(`Ban list synced! ${result.new_bans_added} new bans added.`);
+                                    toast.success(t('antiCheatDashboard.toasts.synced', { defaultValue: 'Ban list synced! {{count}} new bans added.', count: result.new_bans_added }));
                                 } catch (error) {
-                                    toast.error(`Sync failed: ${error}`);
+                                    toast.error(t('antiCheatDashboard.toasts.syncFailed', { defaultValue: 'Sync failed: {{error}}', error: String(error) }));
                                 } finally {
                                     setIsSyncing(false);
                                 }
@@ -394,22 +399,22 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 rounded-xl transition-all disabled:opacity-50"
                         >
                             {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
-                            <span>{isSyncing ? 'Syncing...' : 'Sync Ban List'}</span>
+                            <span>{isSyncing ? t('antiCheatDashboard.syncing', 'Syncing...') : t('antiCheatDashboard.syncBanList', 'Sync Ban List')}</span>
                         </button>
 
                         {lastSyncResult && (
                             <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-sm">
                                 <div className="flex items-center gap-2 text-emerald-400 mb-1">
                                     <Check className="w-4 h-4" />
-                                    <span className="font-bold">Last Sync Successful</span>
+                                    <span className="font-bold">{t('antiCheatDashboard.lastSyncSuccess', 'Last Sync Successful')}</span>
                                 </div>
-                                <p className="text-slate-400 text-xs">+{lastSyncResult.new_bans_added} new bans • {lastSyncResult.total_bans} total</p>
+                                <p className="text-slate-400 text-xs">{t('antiCheatDashboard.syncSummary', { defaultValue: '+{{added}} new bans • {{total}} total', added: lastSyncResult.new_bans_added, total: lastSyncResult.total_bans })}</p>
                             </div>
                         )}
 
                         <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200">
                             <AlertTriangle className="w-3 h-3 inline mr-1 mb-0.5" />
-                            Syncing merges bans — existing entries are never removed. A server restart may be needed.
+                            {t('antiCheatDashboard.syncNote', 'Syncing merges bans — existing entries are never removed. A server restart may be needed.')}
                         </div>
                     </div>
                 </div>
@@ -421,12 +426,12 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-bold text-white flex items-center gap-2">
                             <Terminal className="w-5 h-5 text-slate-400" />
-                            Live Violation Feed
+                            {t('antiCheatDashboard.liveFeed', 'Live Violation Feed')}
                         </h3>
                         <button
                             onClick={loadData}
                             className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors"
-                            title="Refresh Logs"
+                            title={t('antiCheatDashboard.refreshLogs', 'Refresh Logs')}
                         >
                             <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
                         </button>
@@ -436,7 +441,7 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                         {logs.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-slate-500">
                                 <Shield className="w-12 h-12 mb-3 opacity-20" />
-                                <p>No violations recorded.</p>
+                                <p>{t('antiCheatDashboard.noViolations', 'No violations recorded.')}</p>
                             </div>
                         ) : (
                             logs.map((log, idx) => (

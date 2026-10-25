@@ -121,10 +121,19 @@ ARK Server Manager 2.0 is designed as a secure, high-performance hybrid desktop 
 ### Local Setup
 To run the server manager locally for development:
 
-1. **Prerequisites:**
+1. **Prerequisites (Windows):**
    * Node.js (v18+)
-   * Rust (v1.75+)
-   * Tauri CLI (installed via `cargo install tauri-cli`)
+   * Rust (v1.75+) with the **MSVC** toolchain (the default `windows-gnu` toolchain does not build this project):
+     ```bash
+     rustup toolchain install stable-x86_64-pc-windows-msvc
+     rustup default stable-x86_64-pc-windows-msvc
+     ```
+   * Visual Studio Build Tools with the **C++ workload** (MSVC compiler + Windows SDK):
+     ```bash
+     curl -L -o vs_BuildTools.exe https://aka.ms/vs/17/release/vs_BuildTools.exe
+     ./vs_BuildTools.exe --wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended
+     ```
+   * The Tauri CLI is already a dev dependency (`npm run tauri`), no global install needed.
 
 2. **Clone the repository:**
    ```bash
@@ -137,12 +146,22 @@ To run the server manager locally for development:
    npm install
    ```
 
-4. **Launch in development mode:**
+4. **Launch in development mode** (run the terminal **as Administrator** — firewall and process control require it):
    ```bash
    npm run tauri dev
    ```
+   The first build compiles the Rust backend and takes several minutes; later runs are fast. Use the app window that opens (not `http://localhost:1420` in a browser — the backend is only available inside the app window).
 
-5. **Build the production package:**
+   > ⚠️ The dev build shares its data with an installed copy of the app (`%APPDATA%\com.ark.asaservermanager`). Back it up before testing.
+
+5. **Checks (types, tests, Rust):**
+   ```bash
+   npx tsc --noEmit
+   npm test
+   cd src-tauri && cargo check
+   ```
+
+6. **Build the production package:**
    ```bash
    npm run tauri build
    ```

@@ -51,11 +51,11 @@ export default function ASETribeLogViewer() {
             const result = await getAseTribeLogs(selectedServerId, 500);
             setLogResult(result);
             if (result.entries.length === 0) {
-                toast('No active tribe log entries parsed for this ASE server.', { icon: '📜' });
+                toast(t('ase.tribeLog.noEntriesToast', 'No active tribe log entries parsed for this ASE server.'), { icon: '📜' });
             }
         } catch (error) {
             console.error('Failed to load ASE tribe logs:', error);
-            toast.error(`Failed to load tribe logs: ${error}`);
+            toast.error(t('ase.tribeLog.loadFailed', { defaultValue: 'Failed to load tribe logs: {{error}}', error: String(error) }));
         } finally {
             setIsLoading(false);
         }
@@ -96,7 +96,7 @@ export default function ASETribeLogViewer() {
                         {t('tribeLog.title', 'ASE Tribe Log Viewer')}
                     </h1>
                     <p className="text-slate-400 mt-2 text-lg">
-                        Parse and monitor the tribe logs from your Ark: Survival Evolved servers.
+                        {t('ase.tribeLog.subtitle', 'Parse and monitor the tribe logs from your Ark: Survival Evolved servers.')}
                     </p>
                 </div>
 
@@ -107,7 +107,7 @@ export default function ASETribeLogViewer() {
                         className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-slate-950 rounded-2xl transition-all duration-300 shadow-lg shadow-amber-500/20 text-xs font-black uppercase tracking-wider hover:scale-[1.02] active:scale-[0.98] h-[42px] cursor-pointer disabled:opacity-50"
                     >
                         <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
-                        <span>Refresh Logs</span>
+                        <span>{t('ase.tribeLog.refresh', 'Refresh Logs')}</span>
                     </button>
                 </div>
             </div>
@@ -120,7 +120,7 @@ export default function ASETribeLogViewer() {
                             <ScrollText className="w-6 h-6 text-amber-400" />
                         </div>
                         <div>
-                            <p className="text-slate-400 text-sm">Total Entries</p>
+                            <p className="text-slate-400 text-sm">{t('tribeLog.totalEntries', 'Total Entries')}</p>
                             <p className="text-2xl font-bold text-white">{logResult.totalParsed}</p>
                         </div>
                     </div>
@@ -129,7 +129,7 @@ export default function ASETribeLogViewer() {
                             <Skull className="w-6 h-6 text-red-400" />
                         </div>
                         <div>
-                            <p className="text-slate-400 text-sm">Deaths</p>
+                            <p className="text-slate-400 text-sm">{t('tribeLog.deaths', 'Deaths')}</p>
                             <p className="text-2xl font-bold text-white">{(typeCounts['member_killed'] || 0) + (typeCounts['killed'] || 0)}</p>
                         </div>
                     </div>
@@ -138,7 +138,7 @@ export default function ASETribeLogViewer() {
                             <Heart className="w-6 h-6 text-pink-400" />
                         </div>
                         <div>
-                            <p className="text-slate-400 text-sm">Tames</p>
+                            <p className="text-slate-400 text-sm">{t('tribeLog.tames', 'Tames')}</p>
                             <p className="text-2xl font-bold text-white">{typeCounts['tamed'] || 0}</p>
                         </div>
                     </div>
@@ -147,7 +147,7 @@ export default function ASETribeLogViewer() {
                             <Hammer className="w-6 h-6 text-amber-400" />
                         </div>
                         <div>
-                            <p className="text-slate-400 text-sm">Structures Destroyed</p>
+                            <p className="text-slate-400 text-sm">{t('ase.tribeLog.structuresDestroyed', 'Structures Destroyed')}</p>
                             <p className="text-2xl font-bold text-white">{(typeCounts['destroyed'] || 0) + (typeCounts['demolished'] || 0)}</p>
                         </div>
                     </div>
@@ -162,7 +162,7 @@ export default function ASETribeLogViewer() {
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Filter tribe events by keyword..."
+                        placeholder={t('ase.tribeLog.filterPlaceholder', 'Filter tribe events by keyword...')}
                         className="w-full bg-slate-800/50 border border-slate-700 rounded-lg pl-10 pr-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                 </div>
@@ -176,7 +176,7 @@ export default function ASETribeLogViewer() {
                                 : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:text-white'
                         )}
                     >
-                        All Events
+                        {t('ase.tribeLog.allEvents', 'All Events')}
                     </button>
                     {Object.entries(EVENT_CONFIG).filter(([key]) => typeCounts[key]).map(([key, cfg]) => {
                         const Icon = cfg.icon;
@@ -192,7 +192,7 @@ export default function ASETribeLogViewer() {
                                     )}
                             >
                                 <Icon className={cn("w-3.5 h-3.5", cfg.color)} />
-                                <span>{cfg.label}</span>
+                                <span>{t(`ase.tribeLog.events.${key}`, cfg.label)}</span>
                                 <span className="ml-1 text-xs opacity-60">{typeCounts[key]}</span>
                             </button>
                         );
@@ -208,8 +208,8 @@ export default function ASETribeLogViewer() {
             ) : filteredEntries.length === 0 ? (
                 <div className="text-center py-16 bg-slate-900/20 rounded-2xl border-dashed border-2 border-slate-800">
                     <ScrollText className="w-16 h-16 text-slate-700 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-slate-400">No events matched filters</h3>
-                    <p className="text-slate-600 mt-2">Active logs will refresh dynamically as players interact on the server.</p>
+                    <h3 className="text-xl font-semibold text-slate-400">{t('ase.tribeLog.noMatch', 'No events matched filters')}</h3>
+                    <p className="text-slate-600 mt-2">{t('ase.tribeLog.noMatchDesc', 'Active logs will refresh dynamically as players interact on the server.')}</p>
                 </div>
             ) : (
                 <div className="space-y-6">
@@ -218,10 +218,10 @@ export default function ASETribeLogViewer() {
                             {/* Day Header */}
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="px-3 py-1 bg-amber-500/10 text-amber-300 rounded-lg text-sm font-bold border border-amber-500/20">
-                                    Day {day}
+                                    {t('ase.tribeLog.day', { defaultValue: 'Day {{day}}', day })}
                                 </div>
                                 <div className="flex-1 h-px bg-slate-800"></div>
-                                <span className="text-xs text-slate-500">{groupedByDay[day].length} events</span>
+                                <span className="text-xs text-slate-500">{t('ase.tribeLog.eventsCount', { defaultValue: '{{count}} events', count: groupedByDay[day].length })}</span>
                             </div>
 
                             {/* Events */}
@@ -255,7 +255,7 @@ export default function ASETribeLogViewer() {
                                                             entry.eventType === 'member_killed' ? 'bg-red-500/20 text-red-300' :
                                                             entry.eventType === 'tamed' ? 'bg-pink-500/20 text-pink-300' :
                                                             'bg-slate-800 text-slate-400'
-                                                        )}>{cfg.label}</span>
+                                                        )}>{t(`ase.tribeLog.events.${EVENT_CONFIG[entry.eventType] ? entry.eventType : 'other'}`, cfg.label)}</span>
                                                         {entry.timestamp && (
                                                             <span className="text-xs text-slate-500 font-mono">{entry.timestamp}</span>
                                                         )}

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import i18n from '../i18n';
 import { ModCategory, ModCategoryMap, DEFAULT_MOD_CATEGORIES } from '../types/mod-organization';
 
 interface ModOrganizationStore {
@@ -273,7 +274,7 @@ export const useModOrganizationStore = create<ModOrganizationStore>((set, get) =
     try {
       parsed = JSON.parse(raw);
     } catch (e) {
-      throw new Error('Invalid format or share link. Please verify the URL or JSON content.');
+      throw new Error(i18n.t('modOrganization.invalidShare', 'Invalid format or share link. Please verify the URL or JSON content.'));
     }
 
     const importedCategories: ModCategory[] = parsed.customCategories || parsed.categories || [];

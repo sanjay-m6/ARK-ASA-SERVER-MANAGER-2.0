@@ -75,11 +75,11 @@ export default function CrashDoctorModal({
             }));
         } catch (err: any) {
             console.error('Crash diagnosis failed:', err);
-            toast.error(typeof err === 'string' ? err : err?.message || 'Failed to diagnose server');
+            toast.error(typeof err === 'string' ? err : err?.message || t('crashDoctor.diagnoseFailed', 'Failed to diagnose server'));
         } finally {
             setLoading(false);
         }
-    }, [serverId]);
+    }, [serverId, t]);
 
     useEffect(() => {
         if (isOpen && serverId) {
@@ -119,7 +119,7 @@ export default function CrashDoctorModal({
             }
         } catch (err: any) {
             console.error('Server repair error:', err);
-            toast.error(typeof err === 'string' ? err : err?.message || 'Failed to recover server');
+            toast.error(typeof err === 'string' ? err : err?.message || t('crashDoctor.recoverFailed', 'Failed to recover server'));
         } finally {
             setRepairing(false);
         }
@@ -146,7 +146,7 @@ export default function CrashDoctorModal({
                                 )}
                             </div>
                             <p className="text-xs text-slate-400 font-medium mt-0.5">
-                                {serverName || report?.server_name} &bull; Map: <span className="text-slate-200 font-semibold">{report?.map_name || 'Loading...'}</span>
+                                {serverName || report?.server_name} &bull; {t('crashDoctor.mapLabel', 'Map:')} <span className="text-slate-200 font-semibold">{report?.map_name || t('common.loading', 'Loading...')}</span>
                             </p>
                         </div>
                     </div>
@@ -305,7 +305,7 @@ export default function CrashDoctorModal({
                                                     issue.severity === 'high' ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
                                                     "bg-sky-500/20 text-sky-400 border border-sky-500/30"
                                                 )}>
-                                                    {issue.severity}
+                                                    {t(`crashDoctor.severity.${issue.severity}`, issue.severity)}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <h5 className="text-xs font-bold text-slate-200">{issue.title}</h5>

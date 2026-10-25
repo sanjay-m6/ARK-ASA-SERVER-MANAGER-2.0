@@ -15,9 +15,10 @@ import {
     ClusterCrossChatConfig
 } from '../../utils/tauri';
 import toast from 'react-hot-toast';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 
 import { useServerStore } from '../../stores/serverStore';
+import { NumberInput } from '../ui/NumberInput';
 
 interface CrossChatConfigDialogProps {
     isOpen: boolean;
@@ -111,10 +112,10 @@ export default function CrossChatConfigDialog({
             const updatedCount = await applyLaccModToCluster(cluster.id);
             await useServerStore.getState().refreshServers();
             setIsLaccInstalled(true);
-            toast.success(`LACC Mod ID (928795) applied to ${updatedCount} servers in cluster!`);
+            toast.success(t('crossChatConfig.laccApplied', { defaultValue: 'LACC Mod ID (928795) applied to {{count}} servers in cluster!', count: updatedCount }));
         } catch (error) {
             console.error('Failed to apply LACC mod:', error);
-            toast.error(`Failed to apply mod: ${error}`);
+            toast.error(t('crossChatConfig.applyModFailed', { defaultValue: 'Failed to apply mod: {{error}}', error: String(error) }));
         } finally {
             setIsApplyingMod(false);
         }
@@ -125,10 +126,10 @@ export default function CrossChatConfigDialog({
         try {
             const count = await installCrosschatAscendedPlugin(cluster.id, config);
             setIsPluginInstalled(true);
-            toast.success(`CrosschatAscended plugin installed & configured on ${count} servers!`);
+            toast.success(t('crossChatConfig.pluginInstalled', { defaultValue: 'CrosschatAscended plugin installed & configured on {{count}} servers!', count }));
         } catch (error) {
             console.error('Failed to install AsaCrossChat plugin:', error);
-            toast.error(`Plugin setup failed: ${error}`);
+            toast.error(t('crossChatConfig.pluginSetupFailed', { defaultValue: 'Plugin setup failed: {{error}}', error: String(error) }));
         } finally {
             setIsInstallingPlugin(false);
         }
@@ -136,15 +137,15 @@ export default function CrossChatConfigDialog({
 
     const handleTestMysql = async () => {
         if (!config.host.trim() || !config.port) {
-            toast.error('Please enter a valid Host and Port first.');
+            toast.error(t('crossChatConfig.enterHostPort', 'Please enter a valid Host and Port first.'));
             return;
         }
         setIsTestingConn(true);
         try {
             await testMysqlConnection(config.host, config.port);
-            toast.success(`Successfully reached MySQL service at ${config.host}:${config.port}!`);
+            toast.success(t('crossChatConfig.mysqlReached', { defaultValue: 'Successfully reached MySQL service at {{address}}!', address: `${config.host}:${config.port}` }));
         } catch (error) {
-            toast.error(`Database reachability check failed: ${error}`);
+            toast.error(t('crossChatConfig.reachabilityFailed', { defaultValue: 'Database reachability check failed: {{error}}', error: String(error) }));
         } finally {
             setIsTestingConn(false);
         }
@@ -154,7 +155,7 @@ export default function CrossChatConfigDialog({
         const sql = `CREATE DATABASE IF NOT EXISTS \`${config.dbName || 'test'}\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\nUSE \`${config.dbName || 'test'}\`;\nCREATE TABLE IF NOT EXISTS \`chat_logs\` (\n  \`id\` INT AUTO_INCREMENT PRIMARY KEY,\n  \`server_key\` VARCHAR(64) NOT NULL,\n  \`player_name\` VARCHAR(128) NOT NULL,\n  \`message\` TEXT NOT NULL,\n  \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`;
         navigator.clipboard.writeText(sql);
         setSqlCopied(true);
-        toast.success('MySQL utf8mb4 schema script copied to clipboard!');
+        toast.success(t('crossChatConfig.sqlCopied', 'MySQL utf8mb4 schema script copied to clipboard!'));
         setTimeout(() => setSqlCopied(false), 3000);
     };
 
@@ -184,7 +185,7 @@ export default function CrossChatConfigDialog({
             await saveClusterCrossChatConfig(cluster.id, updatedConfig);
             await toggleClusterCrossChat(cluster.id, isEnabled);
 
-            toast.success('Cross-chat mode and settings saved successfully!');
+            toast.success(t('crossChatConfig.saved', 'Cross-chat mode and settings saved successfully!'));
             onSaved(isEnabled);
             onClose();
         } catch (error) {
@@ -211,19 +212,19 @@ export default function CrossChatConfigDialog({
                         </div>
                         <div>
                             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                Cross-Server Chat Setup
+                                {t('crossChatConfig.title', 'Cross-Server Chat Setup')}
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                                     {cluster.name}
                                 </span>
                             </h3>
-                            <p className="text-xs text-slate-400">Choose the optimal cross-chat mechanism for your ARK cluster</p>
+                            <p className="text-xs text-slate-400">{t('crossChatConfig.subtitle', 'Choose the optimal cross-chat mechanism for your ARK cluster')}</p>
                         </div>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        title="Close Dialog (Esc)"
-                        aria-label="Close dialog"
+                        title={t('crossChatConfig.closeDialogEsc', 'Close Dialog (Esc)')}
+                        aria-label={t('crossChatConfig.closeDialog', 'Close dialog')}
                         className="p-2 bg-slate-800/80 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-white/10 hover:border-red-500/30 rounded-xl transition-all shadow-md group shrink-0"
                     >
                         <X className="w-5 h-5 group-hover:scale-110 transition-transform" />
@@ -237,9 +238,9 @@ export default function CrossChatConfigDialog({
                         <div>
                             <h4 className="text-sm font-bold text-white flex items-center gap-2">
                                 <Sparkles className="w-4 h-4 text-emerald-400" />
-                                Enable Cross-Server Chat
+                                {t('crossChatConfig.enable', 'Enable Cross-Server Chat')}
                             </h4>
-                            <p className="text-xs text-slate-400 mt-0.5">Relay global chat messages across all maps in this cluster</p>
+                            <p className="text-xs text-slate-400 mt-0.5">{t('crossChatConfig.enableDesc', 'Relay global chat messages across all maps in this cluster')}</p>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">
                             <input
@@ -255,7 +256,7 @@ export default function CrossChatConfigDialog({
                     {/* Mode Selection Tabs */}
                     <div>
                         <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">
-                            Select Cross-Chat Method
+                            {t('crossChatConfig.selectMethod', 'Select Cross-Chat Method')}
                         </label>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             {/* Tab 1: CurseForge Mod (LACC) */}
@@ -273,17 +274,17 @@ export default function CrossChatConfigDialog({
                                     <Layers className="w-5 h-5 text-emerald-400" />
                                     {isLaccInstalled ? (
                                         <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                                            <CheckCircle2 className="w-2.5 h-2.5" /> Mod Active
+                                            <CheckCircle2 className="w-2.5 h-2.5" /> {t('crossChatConfig.modActive', 'Mod Active')}
                                         </span>
                                     ) : (
                                         <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                            Recommended
+                                            {t('crossChatConfig.recommended', 'Recommended')}
                                         </span>
                                     )}
                                 </div>
                                 <div>
-                                    <div className="font-bold text-sm text-white">CurseForge Mod</div>
-                                    <div className="text-[11px] text-slate-400 mt-1">LACC Mod ID: 928795. Works on PC + Xbox + PS5 Crossplay.</div>
+                                    <div className="font-bold text-sm text-white">{t('crossChatConfig.curseforgeMod', 'CurseForge Mod')}</div>
+                                    <div className="text-[11px] text-slate-400 mt-1">{t('crossChatConfig.laccShortDesc', 'LACC Mod ID: 928795. Works on PC + Xbox + PS5 Crossplay.')}</div>
                                 </div>
                             </button>
 
@@ -302,17 +303,17 @@ export default function CrossChatConfigDialog({
                                     <Database className="w-5 h-5 text-sky-400" />
                                     {isPluginInstalled ? (
                                         <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                                            <CheckCircle2 className="w-2.5 h-2.5" /> Installed
+                                            <CheckCircle2 className="w-2.5 h-2.5" /> {t('crossChatConfig.installed', 'Installed')}
                                         </span>
                                     ) : (
                                         <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                                            Advanced
+                                            {t('crossChatConfig.advanced', 'Advanced')}
                                         </span>
                                     )}
                                 </div>
                                 <div>
-                                    <div className="font-bold text-sm text-white">AsaApi Plugin</div>
-                                    <div className="text-[11px] text-slate-400 mt-1">CrosschatAscended via MySQL database sync.</div>
+                                    <div className="font-bold text-sm text-white">{t('crossChatConfig.asaApiPlugin', 'AsaApi Plugin')}</div>
+                                    <div className="text-[11px] text-slate-400 mt-1">{t('crossChatConfig.asaApiShortDesc', 'CrosschatAscended via MySQL database sync.')}</div>
                                 </div>
                             </button>
 
@@ -330,12 +331,12 @@ export default function CrossChatConfigDialog({
                                 <div className="flex items-center justify-between mb-2">
                                     <Terminal className="w-5 h-5 text-purple-400" />
                                     <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                                        Vanilla
+                                        {t('crossChatConfig.vanilla', 'Vanilla')}
                                     </span>
                                 </div>
                                 <div>
-                                    <div className="font-bold text-sm text-white">Native RCON</div>
-                                    <div className="text-[11px] text-slate-400 mt-1">Built-in Manager engine. 0 Mods / 0 Plugins needed.</div>
+                                    <div className="font-bold text-sm text-white">{t('crossChatConfig.nativeRcon', 'Native RCON')}</div>
+                                    <div className="text-[11px] text-slate-400 mt-1">{t('crossChatConfig.nativeShortDesc', 'Built-in Manager engine. 0 Mods / 0 Plugins needed.')}</div>
                                 </div>
                             </button>
                         </div>
@@ -350,10 +351,10 @@ export default function CrossChatConfigDialog({
                                     <div className="flex-1">
                                         <div className="flex items-center justify-between">
                                             <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                                                LACC Mod (In-Game Cross-Chat & Discord)
+                                                {t('crossChatConfig.laccTitle', 'LACC Mod (In-Game Cross-Chat & Discord)')}
                                                 {isLaccInstalled && (
                                                     <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold rounded-full flex items-center gap-1">
-                                                        <CheckCircle2 className="w-3 h-3" /> Mod Active
+                                                        <CheckCircle2 className="w-3 h-3" /> {t('crossChatConfig.modActive', 'Mod Active')}
                                                     </span>
                                                 )}
                                             </h4>
@@ -362,12 +363,12 @@ export default function CrossChatConfigDialog({
                                                 onClick={() => openUrl('https://docudex.am-s.app/LACC/servers/config/')}
                                                 className="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 hover:underline cursor-pointer"
                                             >
-                                                <span>Official Documentation</span>
+                                                <span>{t('crossChatConfig.officialDocs', 'Official Documentation')}</span>
                                                 <ExternalLink className="w-3 h-3" />
                                             </button>
                                         </div>
                                         <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                                            LACC (Lily & Azure's Cluster Chat, Mod ID <strong>928795</strong>) runs directly inside the Unreal Engine server process. It relays chat across PC, PlayStation 5, and Xbox through a shared Discord channel webhook or LACC bot without requiring database setup.
+                                            <Trans i18nKey="crossChatConfig.laccDesc" defaults="LACC (Lily &amp; Azure's Cluster Chat, Mod ID <b>928795</b>) runs directly inside the Unreal Engine server process. It relays chat across PC, PlayStation 5, and Xbox through a shared Discord channel webhook or LACC bot without requiring database setup." components={{ b: <strong /> }} />
                                         </p>
                                     </div>
                                 </div>
@@ -375,14 +376,14 @@ export default function CrossChatConfigDialog({
                                 {isLaccInstalled && (
                                     <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 text-xs text-emerald-300">
                                         <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                                        <span><strong>Mod ID 928795</strong> is currently included in your cluster server launch parameters.</span>
+                                        <span><Trans i18nKey="crossChatConfig.laccIncluded" defaults="<b>Mod ID 928795</b> is currently included in your cluster server launch parameters." components={{ b: <strong /> }} /></span>
                                     </div>
                                 )}
 
                                 <div className="pt-2 border-t border-white/5 flex items-center justify-between">
                                     <div>
-                                        <div className="text-xs font-mono text-emerald-400 font-bold">CurseForge Mod ID: 928795</div>
-                                        <div className="text-[11px] text-slate-500">Auto-appends to active mods list for all cluster servers</div>
+                                        <div className="text-xs font-mono text-emerald-400 font-bold">{t('crossChatConfig.curseforgeModId', 'CurseForge Mod ID: 928795')}</div>
+                                        <div className="text-[11px] text-slate-500">{t('crossChatConfig.autoAppends', 'Auto-appends to active mods list for all cluster servers')}</div>
                                     </div>
                                     <button
                                         type="button"
@@ -402,7 +403,7 @@ export default function CrossChatConfigDialog({
                                         ) : (
                                             <Wand2 className="w-4 h-4" />
                                         )}
-                                        <span>{isLaccInstalled ? 'Re-Apply LACC Mod ID' : 'Auto-Add LACC Mod ID'}</span>
+                                        <span>{isLaccInstalled ? t('crossChatConfig.reapplyLacc', 'Re-Apply LACC Mod ID') : t('crossChatConfig.autoAddLacc', 'Auto-Add LACC Mod ID')}</span>
                                     </button>
                                 </div>
                             </div>
@@ -416,9 +417,9 @@ export default function CrossChatConfigDialog({
                                 >
                                     <div className="flex items-center gap-2.5">
                                         <BookOpen className="w-4 h-4 text-emerald-400" />
-                                        <span className="text-xs font-bold text-white">LACC Configuration & Discord Integration Guide</span>
+                                        <span className="text-xs font-bold text-white">{t('crossChatConfig.laccGuide', 'LACC Configuration & Discord Integration Guide')}</span>
                                         <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-[10px] rounded font-semibold border border-emerald-500/30">
-                                            How It Works
+                                            {t('crossChatConfig.howItWorks', 'How It Works')}
                                         </span>
                                     </div>
                                     {showLaccGuide ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
@@ -430,36 +431,36 @@ export default function CrossChatConfigDialog({
                                             <div className="p-3 bg-slate-950 border border-white/5 rounded-xl space-y-1.5">
                                                 <div className="font-bold text-emerald-400 flex items-center gap-1.5">
                                                     <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-[10px]">1</span>
-                                                    Install Mod ID
+                                                    {t('crossChatConfig.laccStep1', 'Install Mod ID')}
                                                 </div>
                                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                                    Click <strong>Auto-Add LACC Mod ID</strong> above to add <code>928795</code> to your servers' launch arguments so the game client and server download it automatically.
+                                                    <Trans i18nKey="crossChatConfig.laccStep1Desc" defaults="Click <b>Auto-Add LACC Mod ID</b> above to add <c>928795</c> to your servers' launch arguments so the game client and server download it automatically." components={{ b: <strong />, c: <code /> }} />
                                                 </p>
                                             </div>
 
                                             <div className="p-3 bg-slate-950 border border-white/5 rounded-xl space-y-1.5">
                                                 <div className="font-bold text-emerald-400 flex items-center gap-1.5">
                                                     <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-[10px]">2</span>
-                                                    Create Discord Webhook
+                                                    {t('crossChatConfig.laccStep2', 'Create Discord Webhook')}
                                                 </div>
                                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                                    In your Discord server, create a dedicated cross-chat channel, go to <strong>Channel Settings → Integrations → Webhooks</strong>, and copy the Webhook URL.
+                                                    <Trans i18nKey="crossChatConfig.laccStep2Desc" defaults="In your Discord server, create a dedicated cross-chat channel, go to <b>Channel Settings → Integrations → Webhooks</b>, and copy the Webhook URL." components={{ b: <strong /> }} />
                                                 </p>
                                             </div>
 
                                             <div className="p-3 bg-slate-950 border border-white/5 rounded-xl space-y-1.5">
                                                 <div className="font-bold text-emerald-400 flex items-center gap-1.5">
                                                     <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-[10px]">3</span>
-                                                    Configure INI
+                                                    {t('crossChatConfig.laccStep3', 'Configure INI')}
                                                 </div>
                                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                                    In each server's <code>GameUserSettings.ini</code>, add the <code>[LACC]</code> section with your webhook URL and map name as documented.
+                                                    <Trans i18nKey="crossChatConfig.laccStep3Desc" defaults="In each server's <c>GameUserSettings.ini</c>, add the <c>[LACC]</c> section with your webhook URL and map name as documented." components={{ c: <code /> }} />
                                                 </p>
                                             </div>
                                         </div>
 
                                         <div className="p-3 bg-slate-950 border border-white/5 rounded-xl space-y-2">
-                                            <div className="text-[11px] font-bold text-emerald-400">Example GameUserSettings.ini [LACC] Section:</div>
+                                            <div className="text-[11px] font-bold text-emerald-400">{t('crossChatConfig.laccExample', 'Example GameUserSettings.ini [LACC] Section:')}</div>
                                             <pre className="p-2.5 bg-slate-900 rounded-lg text-[11px] font-mono text-emerald-300 overflow-x-auto border border-white/5">
 {`[LACC]
 ServerWebhookURL=https://discord.com/api/webhooks/your_webhook_id/your_token
@@ -468,7 +469,7 @@ ShowServerName=True
 EnableDiscordRelay=True`}
                                             </pre>
                                             <p className="text-[11px] text-slate-400 leading-relaxed">
-                                                For full configuration options (such as Discord Bot token, role mentions, and cluster keys), visit the <a href="https://docudex.am-s.app/LACC/servers/config/" target="_blank" rel="noreferrer" onClick={(e) => { e.preventDefault(); openUrl('https://docudex.am-s.app/LACC/servers/config/'); }} className="text-emerald-400 underline font-semibold hover:text-emerald-300">official LACC server config guide</a>.
+                                                <Trans i18nKey="crossChatConfig.laccFullOptions" defaults="For full configuration options (such as Discord Bot token, role mentions, and cluster keys), visit the <a>official LACC server config guide</a>." components={{ a: <a href="https://docudex.am-s.app/LACC/servers/config/" target="_blank" rel="noreferrer" onClick={(e) => { e.preventDefault(); openUrl('https://docudex.am-s.app/LACC/servers/config/'); }} className="text-emerald-400 underline font-semibold hover:text-emerald-300" /> }} />
                                             </p>
                                         </div>
                                     </div>
@@ -489,9 +490,9 @@ EnableDiscordRelay=True`}
                                 >
                                     <div className="flex items-center gap-2.5">
                                         <BookOpen className="w-4 h-4 text-sky-400" />
-                                        <span className="text-xs font-bold text-white">CrosschatAscended (by Pelayori) — Installation Guide</span>
+                                        <span className="text-xs font-bold text-white">{t('crossChatConfig.pluginGuide', 'CrosschatAscended (by Pelayori) — Installation Guide')}</span>
                                         <span className="px-2 py-0.5 bg-sky-500/20 text-sky-300 text-[10px] rounded font-semibold border border-sky-500/30">
-                                            Setup Instructions
+                                            {t('crossChatConfig.setupInstructions', 'Setup Instructions')}
                                         </span>
                                     </div>
                                     {showGuide ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
@@ -503,30 +504,30 @@ EnableDiscordRelay=True`}
                                             <div className="p-3 bg-slate-950 border border-white/5 rounded-xl space-y-1">
                                                 <div className="font-bold text-sky-400 flex items-center gap-1.5">
                                                     <span className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center text-[10px]">1</span>
-                                                    Create MySQL DB
+                                                    {t('crossChatConfig.pluginStep1', 'Create MySQL DB')}
                                                 </div>
                                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                                    Create a MySQL / MariaDB database using <code>utf8mb4_unicode_ci</code> encoding to support all languages and emojis natively.
+                                                    <Trans i18nKey="crossChatConfig.pluginStep1Desc" defaults="Create a MySQL / MariaDB database using <c>utf8mb4_unicode_ci</c> encoding to support all languages and emojis natively." components={{ c: <code /> }} />
                                                 </p>
                                             </div>
 
                                             <div className="p-3 bg-slate-950 border border-white/5 rounded-xl space-y-1">
                                                 <div className="font-bold text-sky-400 flex items-center gap-1.5">
                                                     <span className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center text-[10px]">2</span>
-                                                    Auto-Install Plugin
+                                                    {t('crossChatConfig.pluginStep2', 'Auto-Install Plugin')}
                                                 </div>
                                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                                    Click <strong>Auto-Install Plugin Files</strong> below. Manager provisions files directly to <code>ArkApi/Plugins/AsaCrossChat/</code>.
+                                                    <Trans i18nKey="crossChatConfig.pluginStep2Desc" defaults="Click <b>Auto-Install Plugin Files</b> below. Manager provisions files directly to <c>ArkApi/Plugins/AsaCrossChat/</c>." components={{ b: <strong />, c: <code /> }} />
                                                 </p>
                                             </div>
 
                                             <div className="p-3 bg-slate-950 border border-white/5 rounded-xl space-y-1">
                                                 <div className="font-bold text-sky-400 flex items-center gap-1.5">
                                                     <span className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center text-[10px]">3</span>
-                                                    Verify & Enable
+                                                    {t('crossChatConfig.pluginStep3', 'Verify & Enable')}
                                                 </div>
                                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                                    Click <strong>Test Database Reachability</strong> to confirm connection, then hit <strong>Save & Enable</strong> below!
+                                                    <Trans i18nKey="crossChatConfig.pluginStep3Desc" defaults="Click <b>Test Database Reachability</b> to confirm connection, then hit <b>Save &amp; Enable</b> below!" components={{ b: <strong /> }} />
                                                 </p>
                                             </div>
                                         </div>
@@ -539,18 +540,18 @@ EnableDiscordRelay=True`}
                                 <div className="flex items-center justify-between">
                                     <h4 className="text-sm font-bold text-white flex items-center gap-2">
                                         <Database className="w-4 h-4 text-sky-400" />
-                                        MySQL Database Credentials
+                                        {t('crossChatConfig.mysqlCredentials', 'MySQL Database Credentials')}
                                     </h4>
                                     {isPluginInstalled && (
                                         <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-full flex items-center gap-1.5">
-                                            <CheckCircle2 className="w-3.5 h-3.5" /> Installed & Configured
+                                            <CheckCircle2 className="w-3.5 h-3.5" /> {t('crossChatConfig.installedConfigured', 'Installed & Configured')}
                                         </span>
                                     )}
                                 </div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs text-slate-400 mb-1">Database Host</label>
+                                        <label className="block text-xs text-slate-400 mb-1">{t('crossChatConfig.dbHost', 'Database Host')}</label>
                                         <input
                                             type="text"
                                             value={config.host}
@@ -560,17 +561,19 @@ EnableDiscordRelay=True`}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs text-slate-400 mb-1">Database Port</label>
-                                        <input
-                                            type="number"
+                                        <label className="block text-xs text-slate-400 mb-1">{t('crossChatConfig.dbPort', 'Database Port')}</label>
+                                        <NumberInput
+                                            integer
+                                            min={1}
+                                            max={65535}
                                             value={config.port}
-                                            onChange={(e) => setConfig({ ...config, port: parseInt(e.target.value) || 3306 })}
+                                            onValueChange={(n) => setConfig({ ...config, port: n })}
                                             placeholder="3306"
                                             className="w-full px-3.5 py-2 bg-slate-900 border border-white/10 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs text-slate-400 mb-1">Database User</label>
+                                        <label className="block text-xs text-slate-400 mb-1">{t('crossChatConfig.dbUser', 'Database User')}</label>
                                         <input
                                             type="text"
                                             value={config.user}
@@ -580,7 +583,7 @@ EnableDiscordRelay=True`}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs text-slate-400 mb-1">Database Password</label>
+                                        <label className="block text-xs text-slate-400 mb-1">{t('crossChatConfig.dbPassword', 'Database Password')}</label>
                                         <input
                                             type="password"
                                             value={config.pass}
@@ -590,7 +593,7 @@ EnableDiscordRelay=True`}
                                         />
                                     </div>
                                     <div className="sm:col-span-2">
-                                        <label className="block text-xs text-slate-400 mb-1">Database Name</label>
+                                        <label className="block text-xs text-slate-400 mb-1">{t('crossChatConfig.dbName', 'Database Name')}</label>
                                         <input
                                             type="text"
                                             value={config.dbName}
@@ -610,7 +613,7 @@ EnableDiscordRelay=True`}
                                             className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-white/10 transition-colors disabled:opacity-50"
                                         >
                                             {isTestingConn ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wifi className="w-3.5 h-3.5 text-sky-400" />}
-                                            <span>Test Database Reachability</span>
+                                            <span>{t('crossChatConfig.testReachability', 'Test Database Reachability')}</span>
                                         </button>
                                         <button
                                             type="button"
@@ -618,7 +621,7 @@ EnableDiscordRelay=True`}
                                             className="flex items-center gap-2 px-3.5 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-xl text-xs font-semibold transition-colors"
                                         >
                                             {sqlCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                                            <span>Copy utf8mb4 SQL Schema</span>
+                                            <span>{t('crossChatConfig.copySql', 'Copy utf8mb4 SQL Schema')}</span>
                                         </button>
                                     </div>
 
@@ -636,12 +639,12 @@ EnableDiscordRelay=True`}
                                                 ) : (
                                                     <Sparkles className="w-4 h-4 text-sky-400" />
                                                 )}
-                                                {isPluginInstalled ? 'Plugin Configured & Installed' : '1-Click Plugin Setup'}
+                                                {isPluginInstalled ? t('crossChatConfig.pluginConfigured', 'Plugin Configured & Installed') : t('crossChatConfig.oneClickSetup', '1-Click Plugin Setup')}
                                             </div>
                                             <div className="text-[11px] text-slate-400 mt-0.5">
                                                 {isPluginInstalled
-                                                    ? 'Plugin files exist in ArkApi/Plugins/AsaCrossChat/ across all cluster servers.'
-                                                    : 'Automatically creates AsaCrossChat/PluginInfo.json & config.json in ArkApi/Plugins/ for all servers.'}
+                                                    ? t('crossChatConfig.pluginFilesExist', 'Plugin files exist in ArkApi/Plugins/AsaCrossChat/ across all cluster servers.')
+                                                    : t('crossChatConfig.pluginAutoCreates', 'Automatically creates AsaCrossChat/PluginInfo.json & config.json in ArkApi/Plugins/ for all servers.')}
                                             </div>
                                         </div>
                                         <button
@@ -662,7 +665,7 @@ EnableDiscordRelay=True`}
                                             ) : (
                                                 <Wand2 className="w-3.5 h-3.5" />
                                             )}
-                                            <span>{isPluginInstalled ? 'Re-Install Plugin Files' : 'Auto-Install Plugin Files'}</span>
+                                            <span>{isPluginInstalled ? t('crossChatConfig.reinstallPlugin', 'Re-Install Plugin Files') : t('crossChatConfig.autoInstallPlugin', 'Auto-Install Plugin Files')}</span>
                                         </button>
                                     </div>
                                 </div>
@@ -675,13 +678,13 @@ EnableDiscordRelay=True`}
                         <div className="bg-slate-950/60 rounded-xl border border-purple-500/20 p-5 space-y-3">
                             <h4 className="text-sm font-bold text-white flex items-center gap-2">
                                 <Terminal className="w-4 h-4 text-purple-400" />
-                                Built-in Manager RCON Relay
+                                {t('crossChatConfig.nativeTitle', 'Built-in Manager RCON Relay')}
                             </h4>
                             <p className="text-xs text-slate-400 leading-relaxed">
-                                Uses the application's background engine to read in-game chat logs and broadcast messages to all cluster servers via RCON. Requires zero mods, zero plugins, and zero external databases.
+                                {t('crossChatConfig.nativeDesc', "Uses the application's background engine to read in-game chat logs and broadcast messages to all cluster servers via RCON. Requires zero mods, zero plugins, and zero external databases.")}
                             </p>
                             <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl text-[11px] text-purple-300">
-                                ✨ <strong>Auto-Flag Injection</strong>: ARK Server Manager will automatically include <code>-servergamelog</code> when launching your cluster servers so in-game chat entries are captured cleanly.
+                                ✨ <Trans i18nKey="crossChatConfig.nativeAutoFlag" defaults="<b>Auto-Flag Injection</b>: ARK Server Manager will automatically include <c>-servergamelog</c> when launching your cluster servers so in-game chat entries are captured cleanly." components={{ b: <strong />, c: <code /> }} />
                             </div>
                         </div>
                     )}
@@ -691,10 +694,10 @@ EnableDiscordRelay=True`}
                         <div className="space-y-0.5">
                             <h4 className="text-sm font-bold text-white flex items-center gap-2">
                                 <BellOff className="w-4 h-4 text-amber-400" />
-                                Disable World Save Notifications in Cross-Chat
+                                {t('crossChatConfig.hideWorldSave', 'Disable World Save Notifications in Cross-Chat')}
                             </h4>
                             <p className="text-xs text-slate-400">
-                                Automatically suppress <code className="text-amber-300 font-mono">[MapName] World Save Complete</code> messages from being broadcast into in-game cross-chat during map saves.
+                                <Trans i18nKey="crossChatConfig.hideWorldSaveDesc" defaults="Automatically suppress <c>[MapName] World Save Complete</c> messages from being broadcast into in-game cross-chat during map saves." components={{ c: <code className="text-amber-300 font-mono" /> }} />
                             </p>
                         </div>
                         <button
@@ -719,15 +722,15 @@ EnableDiscordRelay=True`}
                         <div>
                             <h4 className="text-sm font-bold text-white flex items-center gap-2">
                                 <Tag className="w-4 h-4 text-emerald-400" />
-                                Map & Server Cross-Chat Display Names
+                                {t('crossChatConfig.displayNames', 'Map & Server Cross-Chat Display Names')}
                             </h4>
                             <p className="text-xs text-slate-400 mt-1">
-                                Customize the map prefix displayed in in-game chat when messages are relayed across cluster servers (e.g. <code className="text-emerald-400">[Island]</code> or <code className="text-emerald-400">[Ragnarok]</code> instead of full server names).
+                                <Trans i18nKey="crossChatConfig.displayNamesDesc" defaults="Customize the map prefix displayed in in-game chat when messages are relayed across cluster servers (e.g. <c>[Island]</c> or <c>[Ragnarok]</c> instead of full server names)." components={{ c: <code className="text-emerald-400" /> }} />
                             </p>
                         </div>
 
                         {clusterServers.length === 0 ? (
-                            <p className="text-xs text-slate-500 italic">No servers linked to this cluster yet.</p>
+                            <p className="text-xs text-slate-500 italic">{t('crossChatConfig.noServers', 'No servers linked to this cluster yet.')}</p>
                         ) : (
                             <div className="space-y-3">
                                 {clusterServers.map((srv) => {
@@ -740,9 +743,9 @@ EnableDiscordRelay=True`}
                                             <div className="min-w-0 flex-1">
                                                 <div className="text-xs font-bold text-white truncate">{srv.name}</div>
                                                 <div className="text-[11px] font-mono text-slate-400 flex items-center gap-2 mt-0.5">
-                                                    <span>Map: <span className="text-sky-300">{mapName || 'Unknown'}</span></span>
+                                                    <span>{t('crossChatConfig.mapLabel', 'Map:')} <span className="text-sky-300">{mapName || t('crossChatConfig.unknown', 'Unknown')}</span></span>
                                                     <span>•</span>
-                                                    <span>Port: <span className="text-slate-300">{gamePort || 'Auto'}</span></span>
+                                                    <span>{t('crossChatConfig.portLabel', 'Port:')} <span className="text-slate-300">{gamePort || t('crossChatConfig.auto', 'Auto')}</span></span>
                                                 </div>
                                             </div>
 
@@ -772,7 +775,7 @@ EnableDiscordRelay=True`}
                         onClick={onClose}
                         className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors"
                     >
-                        Cancel
+                        {t('common.cancel', 'Cancel')}
                     </button>
                     <button
                         type="button"
@@ -781,7 +784,7 @@ EnableDiscordRelay=True`}
                         className="flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50"
                     >
                         {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                        <span>Save & Enable</span>
+                        <span>{t('crossChatConfig.saveEnable', 'Save & Enable')}</span>
                     </button>
                 </div>
             </div>

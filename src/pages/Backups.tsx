@@ -81,9 +81,9 @@ export default function Backups() {
             await invoke('save_backup_policy', { policy: updated });
             setIsAutoEnabled(enabled);
             if (intervalHours) setAutoInterval(intervalHours);
-            toast.success(enabled ? `Auto Backup Enabled (${intervalHours ?? updated.intervalHours}h interval)` : 'Auto Backup Disabled');
+            toast.success(enabled ? t('backups.autoEnabledToast', { hours: intervalHours ?? updated.intervalHours, defaultValue: `Auto Backup Enabled (${intervalHours ?? updated.intervalHours}h interval)` }) : t('backups.autoDisabledToast', 'Auto Backup Disabled'));
         } catch (err) {
-            toast.error('Failed to update Auto Backup policy');
+            toast.error(t('backups.autoPolicyFailed', 'Failed to update Auto Backup policy'));
         }
     };
 
@@ -301,7 +301,7 @@ export default function Backups() {
                             )}
                         >
                             <LayoutList className="w-3.5 h-3.5" />
-                            Dashboard
+                            {t('backups.tabDashboard', 'Dashboard')}
                         </button>
                         <button
                             onClick={() => setActiveTab('browser')}
@@ -313,7 +313,7 @@ export default function Backups() {
                             )}
                         >
                             <HardDrive className="w-3.5 h-3.5" />
-                            Browser
+                            {t('backups.tabBrowser', 'Browser')}
                         </button>
                         <button
                             onClick={() => setActiveTab('policies')}
@@ -325,7 +325,7 @@ export default function Backups() {
                             )}
                         >
                             <Shield className="w-3.5 h-3.5" />
-                            Policies
+                            {t('backups.tabPolicies', 'Policies')}
                         </button>
 
                     </div>
@@ -345,7 +345,7 @@ export default function Backups() {
                                 )}
                             >
                                 <Sparkles className={cn("w-4 h-4", isAutoEnabled ? "text-purple-400 animate-pulse" : "text-[var(--text-muted)]")} />
-                                <span>{isAutoEnabled ? `Auto: ON (${autoInterval}h)` : 'Auto Backup: OFF'}</span>
+                                <span>{isAutoEnabled ? t('backups.autoOnShort', { hours: autoInterval, defaultValue: `Auto: ON (${autoInterval}h)` }) : t('backups.autoOff', 'Auto Backup: OFF')}</span>
                                 <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", showAutoMenu && "rotate-180")} />
                             </button>
 
@@ -353,9 +353,9 @@ export default function Backups() {
                             {showAutoMenu && (
                                 <div className="absolute right-0 mt-2 w-64 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 space-y-2 backdrop-blur-md">
                                     <div className="flex items-center justify-between px-2 py-1.5 border-b border-[var(--border)]">
-                                        <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">Automated Backup</span>
+                                        <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">{t('backups.automatedBackup', 'Automated Backup')}</span>
                                         <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border", isAutoEnabled ? "bg-purple-500/20 text-purple-300 border-purple-500/30" : "bg-[var(--surface-active)] text-[var(--text-muted)] border-[var(--border)]")}>
-                                            {isAutoEnabled ? 'ACTIVE' : 'DISABLED'}
+                                            {isAutoEnabled ? t('backups.activeUpper', 'ACTIVE') : t('backups.disabledUpper', 'DISABLED')}
                                         </span>
                                     </div>
 
@@ -371,11 +371,11 @@ export default function Backups() {
                                                 : "bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-500/20 hover:bg-purple-500"
                                         )}
                                     >
-                                        <span>{isAutoEnabled ? 'Disable Auto Backup' : '⚡ Enable Auto Backup Now'}</span>
+                                        <span>{isAutoEnabled ? t('backups.disableAuto', 'Disable Auto Backup') : `⚡ ${t('backups.enableAutoNow', 'Enable Auto Backup Now')}`}</span>
                                     </button>
 
                                     <div className="pt-1 border-t border-[var(--border)] space-y-1">
-                                        <span className="text-[10px] font-semibold text-[var(--text-muted)] px-2 uppercase tracking-wider block">Quick Presets</span>
+                                        <span className="text-[10px] font-semibold text-[var(--text-muted)] px-2 uppercase tracking-wider block">{t('backups.quickPresets', 'Quick Presets')}</span>
                                         <button
                                             onClick={() => {
                                                 handleToggleAutoBackup(true, 1);
@@ -383,8 +383,8 @@ export default function Backups() {
                                             }}
                                             className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] transition-colors flex items-center justify-between"
                                         >
-                                            <span>⚡ High Protection</span>
-                                            <span className="text-[10px] text-[var(--text-muted)]">1 Hour</span>
+                                            <span>⚡ {t('backups.presetHigh', 'High Protection')}</span>
+                                            <span className="text-[10px] text-[var(--text-muted)]">{t('backups.oneHour', '1 Hour')}</span>
                                         </button>
                                         <button
                                             onClick={() => {
@@ -393,8 +393,8 @@ export default function Backups() {
                                             }}
                                             className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] transition-colors flex items-center justify-between"
                                         >
-                                            <span>🛡️ Balanced</span>
-                                            <span className="text-[10px] text-[var(--text-muted)]">6 Hours</span>
+                                            <span>🛡️ {t('backups.presetBalanced', 'Balanced')}</span>
+                                            <span className="text-[10px] text-[var(--text-muted)]">{t('backups.hoursCount', { count: 6, defaultValue: '6 Hours' })}</span>
                                         </button>
                                         <button
                                             onClick={() => {
@@ -403,8 +403,8 @@ export default function Backups() {
                                             }}
                                             className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] transition-colors flex items-center justify-between"
                                         >
-                                            <span>💾 Storage Saver</span>
-                                            <span className="text-[10px] text-[var(--text-muted)]">24 Hours</span>
+                                            <span>💾 {t('backups.presetStorage', 'Storage Saver')}</span>
+                                            <span className="text-[10px] text-[var(--text-muted)]">{t('backups.hoursCount', { count: 24, defaultValue: '24 Hours' })}</span>
                                         </button>
                                     </div>
 
@@ -415,7 +415,7 @@ export default function Backups() {
                                         }}
                                         className="w-full text-center py-2 text-xs font-bold text-purple-400 hover:text-purple-300 transition-colors border-t border-[var(--border)] pt-2 block"
                                     >
-                                        Configure Full Policies →
+                                        {t('backups.configurePolicies', 'Configure Full Policies')} →
                                     </button>
                                 </div>
                             )}
@@ -585,7 +585,7 @@ export default function Backups() {
                         </div>
                         <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-2">{t('backups.noBackups', 'No backups found')}</h3>
                         <p className="text-[var(--text-muted)] max-w-md mx-auto mb-6 text-sm">
-                            Protect your server saves, player data, and map progress with automated backup schedules & instant restore points.
+                            {t('backups.emptyDesc', 'Protect your server saves, player data, and map progress with automated backup schedules & instant restore points.')}
                         </p>
 
                         <div className="flex flex-wrap items-center justify-center gap-3">
@@ -595,7 +595,7 @@ export default function Backups() {
                                 className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-semibold rounded-xl shadow-lg shadow-amber-500/20 transition-all text-sm"
                             >
                                 {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                                Create First Backup
+                                {t('backups.createFirstBtn', 'Create First Backup')}
                             </button>
                             
                             <button
@@ -603,7 +603,7 @@ export default function Backups() {
                                 className="flex items-center gap-2 px-5 py-2.5 bg-purple-600/30 hover:bg-purple-600/40 text-purple-300 font-semibold rounded-xl border border-purple-500/40 transition-all text-sm"
                             >
                                 <Settings className="w-4 h-4 text-purple-400" />
-                                Setup Automated Policy Presets
+                                {t('backups.setupPresets', 'Setup Automated Policy Presets')}
                             </button>
                         </div>
                     </div>
@@ -633,7 +633,7 @@ export default function Backups() {
                                         <div className="glass-panel px-4 py-2 rounded-xl border border-[var(--border)] flex items-center gap-4 bg-[var(--surface)]">
                                             <div>
                                                 <p className="text-[var(--text-primary)] font-bold text-lg leading-none">{date}</p>
-                                                <p className="text-[var(--text-muted)] text-xs mt-1 font-medium">{dayBackups.length} snapshot{dayBackups.length !== 1 ? 's' : ''}</p>
+                                                <p className="text-[var(--text-muted)] text-xs mt-1 font-medium">{t('backups.snapshotCount', { count: dayBackups.length, defaultValue: `${dayBackups.length} snapshot(s)` })}</p>
                                             </div>
                                             <div className="h-6 w-px bg-[var(--border)]" />
                                             <span className="text-xs font-semibold px-2.5 py-1 bg-amber-500/10 text-amber-300 rounded-lg border border-amber-500/20">
@@ -667,17 +667,17 @@ export default function Backups() {
                                                                             : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
                                                                 )}>
                                                                     <Sparkles className="w-3.5 h-3.5" />
-                                                                    {backup.backupType}
+                                                                    {t(`backups.type.${backup.backupType}`, backup.backupType)}
                                                                 </div>
 
                                                                 <div>
                                                                     <div className="flex items-center gap-2">
                                                                         <h4 className="font-bold text-[var(--text-primary)] text-base">
-                                                                            {isManual ? 'Manual Server Snapshot' : 'Automated Scheduled Backup'}
+                                                                            {isManual ? t('backups.manualSnapshot', 'Manual Server Snapshot') : t('backups.automatedScheduled', 'Automated Scheduled Backup')}
                                                                         </h4>
                                                                         {backup.verified && (
                                                                             <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                                                                                <CheckCircle className="w-3.5 h-3.5" /> Verified
+                                                                                <CheckCircle className="w-3.5 h-3.5" /> {t('backups.verified', 'Verified')}
                                                                             </span>
                                                                         )}
                                                                     </div>
@@ -703,7 +703,7 @@ export default function Backups() {
                                                                     title={t('backups.preview')}
                                                                 >
                                                                     <Eye className="w-4 h-4 text-[var(--text-muted)]" />
-                                                                    <span className="hidden sm:inline">Preview</span>
+                                                                    <span className="hidden sm:inline">{t('backups.previewShort', 'Preview')}</span>
                                                                 </button>
                                                                 
                                                                 <button
@@ -712,7 +712,7 @@ export default function Backups() {
                                                                     title={t('backups.verify')}
                                                                 >
                                                                     <Shield className="w-4 h-4 text-blue-400" />
-                                                                    <span className="hidden sm:inline">Verify</span>
+                                                                    <span className="hidden sm:inline">{t('backups.verifyShort', 'Verify')}</span>
                                                                 </button>
 
                                                                 <button
@@ -726,7 +726,7 @@ export default function Backups() {
                                                                 <button
                                                                     onClick={() => handleDelete(backup.id)}
                                                                     className="p-2 bg-[var(--surface-hover)] hover:bg-rose-500/20 hover:text-rose-400 text-[var(--text-muted)] rounded-xl border border-[var(--border)] transition-all"
-                                                                    title="Delete Backup"
+                                                                    title={t('backups.deleteBackup', 'Delete Backup')}
                                                                 >
                                                                     <Trash2 className="w-4 h-4" />
                                                                 </button>
@@ -735,11 +735,11 @@ export default function Backups() {
 
                                                         {/* Content scope tags */}
                                                         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border)]">
-                                                            <span className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mr-1">Targets:</span>
-                                                            {backup.includesConfigs && <span className="px-2.5 py-0.5 bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[10px] font-bold rounded-md tracking-wider">CONFIGS</span>}
-                                                            {backup.includesSaves && <span className="px-2.5 py-0.5 bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold rounded-md tracking-wider">SAVES</span>}
-                                                            {backup.includesMods && <span className="px-2.5 py-0.5 bg-blue-500/15 text-blue-300 border border-blue-500/30 text-[10px] font-bold rounded-md tracking-wider">MODS</span>}
-                                                            {backup.includesCluster && <span className="px-2.5 py-0.5 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold rounded-md tracking-wider">CLUSTER</span>}
+                                                            <span className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mr-1">{t('backups.targets', 'Targets:')}</span>
+                                                            {backup.includesConfigs && <span className="px-2.5 py-0.5 bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[10px] font-bold rounded-md tracking-wider">{t('backups.tagConfigs', 'CONFIGS')}</span>}
+                                                            {backup.includesSaves && <span className="px-2.5 py-0.5 bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold rounded-md tracking-wider">{t('backups.tagSaves', 'SAVES')}</span>}
+                                                            {backup.includesMods && <span className="px-2.5 py-0.5 bg-blue-500/15 text-blue-300 border border-blue-500/30 text-[10px] font-bold rounded-md tracking-wider">{t('backups.tagMods', 'MODS')}</span>}
+                                                            {backup.includesCluster && <span className="px-2.5 py-0.5 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold rounded-md tracking-wider">{t('backups.tagCluster', 'CLUSTER')}</span>}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -765,14 +765,14 @@ export default function Backups() {
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
-                                                <h3 className="font-bold text-[var(--text-primary)] text-base capitalize">{backup.backupType === 'manual' ? t('backups.manual') : t('backups.auto')} Server Backup</h3>
+                                                <h3 className="font-bold text-[var(--text-primary)] text-base capitalize">{backup.backupType === 'manual' ? t('backups.manualServerBackup', 'Manual Server Backup') : t('backups.autoServerBackup', 'Auto Server Backup')}</h3>
                                                 {backup.verified ? (
                                                     <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                                                        <CheckCircle className="w-3.5 h-3.5" /> Verified
+                                                        <CheckCircle className="w-3.5 h-3.5" /> {t('backups.verified', 'Verified')}
                                                     </span>
                                                 ) : (
                                                     <span className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] bg-[var(--surface-hover)] px-2 py-0.5 rounded-md border border-[var(--border)]">
-                                                        <XCircle className="w-3.5 h-3.5" /> Unverified
+                                                        <XCircle className="w-3.5 h-3.5" /> {t('backups.unverified', 'Unverified')}
                                                     </span>
                                                 )}
                                             </div>
@@ -801,7 +801,7 @@ export default function Backups() {
                                             title={t('backups.preview')}
                                         >
                                             <Eye className="w-4 h-4 text-[var(--text-muted)]" />
-                                            <span className="hidden sm:inline">Preview</span>
+                                            <span className="hidden sm:inline">{t('backups.previewShort', 'Preview')}</span>
                                         </button>
                                         
                                         <button
@@ -810,7 +810,7 @@ export default function Backups() {
                                             title={t('backups.verify')}
                                         >
                                             <Shield className="w-4 h-4 text-blue-400" />
-                                            <span className="hidden sm:inline">Verify</span>
+                                            <span className="hidden sm:inline">{t('backups.verifyShort', 'Verify')}</span>
                                         </button>
 
                                         <button
@@ -824,7 +824,7 @@ export default function Backups() {
                                         <button
                                             onClick={() => handleDelete(backup.id)}
                                             className="p-2 bg-[var(--surface-hover)] hover:bg-rose-500/20 hover:text-rose-400 text-[var(--text-muted)] rounded-xl border border-[var(--border)] transition-all"
-                                            title="Delete Backup"
+                                            title={t('backups.deleteBackup', 'Delete Backup')}
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>

@@ -8,14 +8,17 @@ import aseLogo from '../../assets/ASE.png';
 
 export default function WelcomeOverlay({ onComplete }: { onComplete: () => void }) {
     const { t } = useTranslation();
-    const { setActiveGame, setShowAseMode } = useGameStore();
+    const { setActiveGame, setShowAseMode, setRememberGame } = useGameStore();
     const [hoveredCard, setHoveredCard] = useState<'ASE' | 'ASA' | null>(null);
     const [selectedGame, setSelectedGame] = useState<'ASE' | 'ASA' | null>(null);
+    // Remember the choice by default so the picker is skipped on the next launch
+    const [remember, setRemember] = useState(true);
 
     const handleSelectGame = (game: 'ASE' | 'ASA') => {
         setSelectedGame(game);
         setActiveGame(game);
         setShowAseMode(game === 'ASE');
+        setRememberGame(remember);
         
         // Update URL path to load the correct route upon mounting
         const targetPath = game === 'ASE' ? '/ase/dashboard' : '/dashboard';
@@ -90,7 +93,7 @@ export default function WelcomeOverlay({ onComplete }: { onComplete: () => void 
                             onMouseEnter={() => !selectedGame && setHoveredCard('ASE')}
                             onMouseLeave={() => !selectedGame && setHoveredCard(null)}
                             onClick={() => !selectedGame && handleSelectGame('ASE')}
-                            aria-label="Select ARK: Survival Evolved"
+                            aria-label={t('welcome.selectGameAria', { defaultValue: 'Select {{game}}', game: 'ARK: Survival Evolved' })}
                             className={`welcome-card welcome-card-ase group relative flex-1 rounded-2xl cursor-pointer text-left transition-all duration-300 border overflow-hidden shadow-2xl backdrop-blur-2xl ${
                                 selectedGame === 'ASE' ? 'selected' : ''
                             }`}
@@ -137,7 +140,7 @@ export default function WelcomeOverlay({ onComplete }: { onComplete: () => void 
                                     </div>
                                     <div className="min-w-0">
                                         <div className="text-[11px] font-bold tracking-widest uppercase text-amber-400 mb-1">
-                                            Classic Engine
+                                            {t('welcome.classicEngine', 'Classic Engine')}
                                         </div>
                                         <h2 className="text-lg font-bold text-white leading-tight truncate drop-shadow-sm">
                                             ARK: Survival Evolved
@@ -181,7 +184,7 @@ export default function WelcomeOverlay({ onComplete }: { onComplete: () => void 
                             onMouseEnter={() => !selectedGame && setHoveredCard('ASA')}
                             onMouseLeave={() => !selectedGame && setHoveredCard(null)}
                             onClick={() => !selectedGame && handleSelectGame('ASA')}
-                            aria-label="Select ARK: Survival Ascended"
+                            aria-label={t('welcome.selectGameAria', { defaultValue: 'Select {{game}}', game: 'ARK: Survival Ascended' })}
                             className={`welcome-card welcome-card-asa group relative flex-1 rounded-2xl cursor-pointer text-left transition-all duration-300 border overflow-hidden shadow-2xl backdrop-blur-2xl ${
                                 selectedGame === 'ASA' ? 'selected' : ''
                             }`}
@@ -265,10 +268,22 @@ export default function WelcomeOverlay({ onComplete }: { onComplete: () => void 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.6, delay: 0.4 }}
-                        className="mt-10 flex items-center gap-2 text-[11px] text-slate-400 font-medium"
+                        className="mt-10 flex flex-col items-center gap-4"
                     >
-                        <Zap className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>System Ready</span>
+                        <label className="flex items-center gap-2 text-xs text-slate-300 font-medium cursor-pointer select-none">
+                            <input
+                                type="checkbox"
+                                checked={remember}
+                                onChange={(e) => setRemember(e.target.checked)}
+                                disabled={!!selectedGame}
+                                className="w-4 h-4 rounded accent-sky-500 cursor-pointer"
+                            />
+                            {t('welcome.rememberChoice', 'Remember my choice and skip this screen next time')}
+                        </label>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium">
+                            <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>{t('welcome.systemReady', 'System Ready')}</span>
+                        </div>
                     </motion.div>
                 </div>
             </motion.div>

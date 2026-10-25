@@ -9,11 +9,15 @@ interface GameStore {
     setSidebarCollapsed: (collapsed: boolean) => void;
     showAseMode: boolean;
     setShowAseMode: (show: boolean) => void;
+    /** Skip the ASA/ASE picker on startup and open the last chosen game directly */
+    rememberGame: boolean;
+    setRememberGame: (remember: boolean) => void;
 }
 
 const stored = localStorage.getItem('ark-active-game') as GameMode | null;
 const storedCollapsed = localStorage.getItem('ark-sidebar-collapsed') === 'true';
 const storedShowAse = localStorage.getItem('ark-show-ase-mode');
+const storedRemember = localStorage.getItem('ark-remember-game') === 'true';
 
 export const useGameStore = create<GameStore>((set) => ({
     activeGame: stored === 'ASE' ? 'ASE' : 'ASA',
@@ -30,5 +34,11 @@ export const useGameStore = create<GameStore>((set) => ({
     setShowAseMode: (show) => {
         localStorage.setItem('ark-show-ase-mode', show ? 'true' : 'false');
         set({ showAseMode: show });
+    },
+    // Only meaningful once a game has been chosen at least once
+    rememberGame: storedRemember && stored !== null,
+    setRememberGame: (remember) => {
+        localStorage.setItem('ark-remember-game', remember ? 'true' : 'false');
+        set({ rememberGame: remember });
     },
 }));

@@ -6,28 +6,30 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 // Sub-component to show live human-readable elapsed time
 function LastSeenTimer({ timestamp }: { timestamp: number }) {
-    const [text, setText] = useState('just now');
+    const { t } = useTranslation();
+    const [text, setText] = useState(() => t('crashNotif.justNow', 'just now'));
 
     useEffect(() => {
         const update = () => {
             const diff = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
             if (diff < 5) {
-                setText('just now');
+                setText(t('crashNotif.justNow', 'just now'));
             } else if (diff < 60) {
-                setText(`${diff} seconds ago`);
+                setText(t('crashNotif.secondsAgo', { count: diff, defaultValue: '{{count}} seconds ago' }));
             } else {
                 const mins = Math.floor(diff / 60);
-                setText(`${mins} minute${mins > 1 ? 's' : ''} ago`);
+                setText(t('crashNotif.minutesAgo', { count: mins, defaultValue: '{{count}} minutes ago' }));
             }
         };
 
         update();
         const timer = setInterval(update, 1000);
         return () => clearInterval(timer);
-    }, [timestamp]);
+    }, [timestamp, t]);
 
     return <span>{text}</span>;
 }
@@ -45,14 +47,14 @@ function getProgressPct(status: string): number {
 }
 
 // Status description mapped from status
-function getStatusLabel(status: string): string {
+function getStatusLabel(status: string): [string, string] {
     switch (status) {
-        case 'Pending': return 'Pending analysis...';
-        case 'Queued': return 'Queued for AI...';
-        case 'Analyzing': return 'Analyzing logs...';
-        case 'Generating Fix': return 'Generating fix...';
-        case 'Completed': return 'Diagnosis complete';
-        default: return 'Idle';
+        case 'Pending': return ['crashNotif.status.pending', 'Pending analysis...'];
+        case 'Queued': return ['crashNotif.status.queued', 'Queued for AI...'];
+        case 'Analyzing': return ['crashNotif.status.analyzing', 'Analyzing logs...'];
+        case 'Generating Fix': return ['crashNotif.status.generating', 'Generating fix...'];
+        case 'Completed': return ['crashNotif.status.completed', 'Diagnosis complete'];
+        default: return ['crashNotif.status.idle', 'Idle'];
     }
 }
 
@@ -61,11 +63,13 @@ interface CardProps {
 }
 
 function CrashNotificationCard({ notif }: CardProps) {
+    const { t } = useTranslation();
     const { resolveNotification, dismissNotification } = useCrashNotificationStore();
     const [isExpanded, setIsExpanded] = useState(false);
     const [isApplyingFix, setIsApplyingFix] = useState(false);
 
     const progressPct = getProgressPct(notif.status);
+    const [statusKey, statusDefault] = getStatusLabel(notif.status);
     const isAiDone = notif.status === 'Completed';
 
     const handleApplyFix = async () => {
@@ -73,17 +77,17 @@ function CrashNotificationCard({ notif }: CardProps) {
         // Simulate applying AI recommended fix
         await new Promise((resolve) => setTimeout(resolve, 2000));
         setIsApplyingFix(false);
-        toast.success(`AI Recommendation applied to "${notif.serverName}" successfully!`);
+        toast.success(t('crashNotif.fixApplied', { defaultValue: 'AI Recommendation applied to "{{name}}" successfully!', name: notif.serverName }));
         resolveNotification(notif.id);
     };
 
     const handleViewLogs = () => {
-        toast.success(`Opening crash log files for Server "${notif.serverName}"...`);
+        toast.success(t('crashNotif.openingLogs', { defaultValue: 'Opening crash log files for Server "{{name}}"...', name: notif.serverName }));
     };
 
     const handleIgnore = () => {
         dismissNotification(notif.id);
-        toast.success(`Dismissed crash notification for Server "${notif.serverName}"`);
+        toast.success(t('crashNotif.dismissed', { defaultValue: 'Dismissed crash notification for Server "{{name}}"', name: notif.serverName }));
     };
 
     return (
@@ -106,7 +110,7 @@ function CrashNotificationCard({ notif }: CardProps) {
                             {notif.serverName}
                         </h4>
                         <p className="text-[11px] text-red-400 font-semibold tracking-wide uppercase mt-0.5">
-                            {notif.crashReason} Detected
+                            {t('crashNotif.detected', { defaultValue: '{{reason}} Detected', reason: notif.crashReason })}
                         </p>
                     </div>
                 </div>
@@ -115,14 +119,14 @@ function CrashNotificationCard({ notif }: CardProps) {
                     <button 
                         onClick={() => setIsExpanded(!isExpanded)}
                         className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
-                        title={isExpanded ? 'Collapse' : 'Expand'}
+                        title={isExpanded ? t('crashNotif.collapse', 'Collapse') : t('crashNotif.expand', 'Expand')}
                     >
                         {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </button>
                     <button 
                         onClick={handleIgnore}
                         className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
-                        title="Dismiss"
+                        title={t('crashNotif.dismiss', 'Dismiss')}
                     >
                         <X className="w-4 h-4" />
                     </button>
@@ -131,8 +135,8 @@ function CrashNotificationCard({ notif }: CardProps) {
 
             {/* Merge Stats */}
             <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium px-1 bg-slate-900/40 py-1 rounded-lg border border-slate-800/40">
-                <span>Occurrences: <strong className="text-white font-bold">{notif.occurrences}</strong></span>
-                <span>Last Seen: <strong className="text-slate-300"><LastSeenTimer timestamp={notif.lastSeen} /></strong></span>
+                <span>{t('crashArchive.occurrences', 'Occurrences')}: <strong className="text-white font-bold">{notif.occurrences}</strong></span>
+                <span>{t('crashNotif.lastSeen', 'Last Seen')}: <strong className="text-slate-300"><LastSeenTimer timestamp={notif.lastSeen} /></strong></span>
             </div>
 
             {/* AI Progress Tracker */}
@@ -140,7 +144,7 @@ function CrashNotificationCard({ notif }: CardProps) {
                 <div className="flex items-center justify-between text-[11px]">
                     <span className="text-slate-400 font-semibold flex items-center gap-1">
                         <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-                        {getStatusLabel(notif.status)}
+                        {t(statusKey, statusDefault)}
                     </span>
                     <span className="text-cyan-400 font-extrabold text-[10px]">
                         {progressPct}%
@@ -170,12 +174,12 @@ function CrashNotificationCard({ notif }: CardProps) {
                     >
                         {/* Crash Context */}
                         <div className="flex flex-col gap-1 text-[11px]">
-                            <span className="text-slate-400 font-semibold">Crash Signature:</span>
+                            <span className="text-slate-400 font-semibold">{t('crashNotif.signature', 'Crash Signature:')}</span>
                             <div className="flex gap-2 text-slate-300 font-medium">
-                                <span className="bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 text-[10px] truncate max-w-[120px]" title="Executable">
+                                <span className="bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 text-[10px] truncate max-w-[120px]" title={t('crashNotif.executable', 'Executable')}>
                                     {notif.executableName}
                                 </span>
-                                <span className="bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 text-[10px] truncate max-w-[150px]" title="Exception">
+                                <span className="bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 text-[10px] truncate max-w-[150px]" title={t('crashNotif.exception', 'Exception')}>
                                     {notif.exceptionType}
                                 </span>
                             </div>
@@ -183,7 +187,7 @@ function CrashNotificationCard({ notif }: CardProps) {
 
                         {/* Stack Trace / Details */}
                         <div className="flex flex-col gap-1 text-[11px]">
-                            <span className="text-slate-400 font-semibold">Log Snippet:</span>
+                            <span className="text-slate-400 font-semibold">{t('crashNotif.logSnippet', 'Log Snippet:')}</span>
                             <pre className="bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-[10px] text-slate-300 font-mono overflow-x-auto max-h-24 theme-scrollbar">
                                 {notif.stackTrace}
                             </pre>
@@ -194,20 +198,20 @@ function CrashNotificationCard({ notif }: CardProps) {
                             <div className="flex flex-col gap-2.5 bg-slate-900/60 border border-slate-850 p-3 rounded-xl">
                                 <div className="flex items-center justify-between text-xs border-b border-slate-800/40 pb-1.5">
                                     <span className="font-extrabold text-cyan-400 flex items-center gap-1.5">
-                                        <Cpu className="w-4 h-4" /> AI Co-Pilot Recommendation
+                                        <Cpu className="w-4 h-4" /> {t('crashNotif.recommendation', 'AI Co-Pilot Recommendation')}
                                     </span>
                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                                        {notif.diagnosis.confidenceScore}% Confidence
+                                        {t('crashArchive.confidence', { defaultValue: '{{score}}% Confidence', score: notif.diagnosis.confidenceScore })}
                                     </span>
                                 </div>
 
                                 <div className="text-[11px] flex flex-col gap-1">
-                                    <span className="text-slate-400 font-semibold">Root Cause:</span>
+                                    <span className="text-slate-400 font-semibold">{t('crashArchive.rootCause', 'Root Cause:')}</span>
                                     <span className="text-slate-200 font-medium leading-relaxed">{notif.diagnosis.rootCause}</span>
                                 </div>
 
                                 <div className="text-[11px] flex flex-col gap-1 mt-1">
-                                    <span className="text-slate-400 font-semibold">Recommended Fix:</span>
+                                    <span className="text-slate-400 font-semibold">{t('crashArchive.recommendedFix', 'Recommended Fix:')}</span>
                                     <span className="text-slate-200 font-medium leading-relaxed bg-slate-950/60 p-2 rounded border border-slate-800/60 block whitespace-pre-wrap">
                                         {notif.diagnosis.recommendedFix}
                                     </span>
@@ -225,21 +229,21 @@ function CrashNotificationCard({ notif }: CardProps) {
                                         ) : (
                                             <Check className="w-3.5 h-3.5" />
                                         )}
-                                        {isApplyingFix ? 'Applying...' : 'Apply Fix'}
+                                        {isApplyingFix ? t('crashNotif.applying', 'Applying...') : t('crashNotif.applyFix', 'Apply Fix')}
                                     </button>
                                     <button 
                                         onClick={handleViewLogs}
                                         className="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg font-bold text-[11px] transition-all flex items-center justify-center gap-1 hover:scale-[1.02]"
-                                        title="View Logs"
+                                        title={t('crashNotif.viewLogs', 'View Logs')}
                                     >
-                                        <FileText className="w-3.5 h-3.5" /> Logs
+                                        <FileText className="w-3.5 h-3.5" /> {t('crashNotif.logs', 'Logs')}
                                     </button>
                                     <button 
                                         onClick={() => resolveNotification(notif.id)}
                                         className="py-1.5 px-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg font-bold text-[11px] transition-all flex items-center justify-center gap-1 hover:scale-[1.02]"
-                                        title="Mark Resolved"
+                                        title={t('crashNotif.markResolved', 'Mark Resolved')}
                                     >
-                                        <CheckCircle2 className="w-3.5 h-3.5" /> Resolve
+                                        <CheckCircle2 className="w-3.5 h-3.5" /> {t('crashNotif.resolve', 'Resolve')}
                                     </button>
                                 </div>
                             </div>

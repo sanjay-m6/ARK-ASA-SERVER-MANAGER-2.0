@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Check, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/helpers';
 
 interface ArrayItem {
@@ -12,9 +13,16 @@ interface ArrayEditorProps {
     value: string; // The raw INI string e.g. (ClassName="DinoX",Multiplier=2.0)
     onChange: (newValue: string) => void;
     template: Record<string, { label: string; placeholder: string }>;
+    // Config key of the field, used to look up translated template labels (configEditor.templates.<fieldKey>.<prop>.label)
+    fieldKey?: string;
 }
 
-export const ArrayEditor = ({ label, value, onChange, template }: ArrayEditorProps) => {
+export const ArrayEditor = ({ label, value, onChange, template, fieldKey }: ArrayEditorProps) => {
+    const { t } = useTranslation();
+    const templateLabel = (prop: string) => {
+        const fallback = template[prop]?.label || prop;
+        return fieldKey ? t(`configEditor.templates.${fieldKey}.${prop}.label`, { defaultValue: fallback }) : fallback;
+    };
     const [items, setItems] = useState<ArrayItem[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editValues, setEditValues] = useState<Record<string, string>>({});
@@ -102,14 +110,14 @@ export const ArrayEditor = ({ label, value, onChange, template }: ArrayEditorPro
                     onClick={handleAdd}
                     className="flex items-center gap-1.5 px-2 py-1 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 rounded-md transition-colors text-xs font-medium"
                 >
-                    <Plus className="w-3.5 h-3.5" /> Add Entry
+                    <Plus className="w-3.5 h-3.5" /> {t('arrayEditor.addEntry', 'Add Entry')}
                 </button>
             </div>
 
             <div className="space-y-2">
                 {items.length === 0 && (
                     <div className="text-center py-6 text-slate-500 text-xs italic bg-slate-900/40 rounded-lg border border-dashed border-slate-700">
-                        No entries configured
+                        {t('arrayEditor.noEntries', 'No entries configured')}
                     </div>
                 )}
 
@@ -129,7 +137,7 @@ export const ArrayEditor = ({ label, value, onChange, template }: ArrayEditorPro
                                     {Object.entries(template).map(([key, info]) => (
                                         <div key={key}>
                                             <label className="text-[10px] text-slate-500 uppercase font-bold mb-1 block">
-                                                {info.label}
+                                                {templateLabel(key)}
                                             </label>
                                             <input
                                                 type="text"
@@ -152,7 +160,7 @@ export const ArrayEditor = ({ label, value, onChange, template }: ArrayEditorPro
                                         onClick={handleSaveEdit}
                                         className="px-3 py-1 bg-cyan-600 text-white rounded text-xs font-medium flex items-center gap-1"
                                     >
-                                        <Check className="w-3.5 h-3.5" /> Confirm
+                                        <Check className="w-3.5 h-3.5" /> {t('arrayEditor.confirm', 'Confirm')}
                                     </button>
                                 </div>
                             </div>
@@ -161,7 +169,7 @@ export const ArrayEditor = ({ label, value, onChange, template }: ArrayEditorPro
                                 <div className="flex flex-wrap gap-x-4 gap-y-1">
                                     {Object.entries(item.fields).map(([k, v]) => (
                                         <div key={k} className="flex flex-col">
-                                            <span className="text-[9px] text-slate-600 uppercase font-bold">{template[k]?.label || k}</span>
+                                            <span className="text-[9px] text-slate-600 uppercase font-bold">{templateLabel(k)}</span>
                                             <span className="text-xs text-slate-300 font-mono">{v}</span>
                                         </div>
                                     ))}

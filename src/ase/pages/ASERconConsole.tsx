@@ -42,6 +42,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useAseRconStore, defaultAseServerState, LogEntry } from '../../stores/aseRconStore';
 import InGameAdminModal from '../../components/server/InGameAdminModal';
+import { NumberInput } from '../../components/ui/NumberInput';
 
 interface SaveValidationInfo {
   exists: boolean;
@@ -322,7 +323,7 @@ export default function ASERconConsole() {
     setMaintStep(0);
 
     const server = useAseServerStore.getState().servers.find(s => s.id === selectedServerId);
-    const serverName = server ? server.name : `Server #${selectedServerId}`;
+    const serverName = server ? server.name : t('rcon.serverNumber', { id: selectedServerId, defaultValue: 'Server #{{id}}' });
 
     const log = (msg: string) => {
       const timestamp = new Date().toLocaleTimeString();
@@ -356,7 +357,7 @@ export default function ASERconConsole() {
             log(`Waiting for shutdown (current status: ${currentStatus || 'unknown'})...`);
           }
           if (maintAbortRef.current) return;
-          if (!isStopped) throw new Error("Timeout waiting for server to stop");
+          if (!isStopped) throw new Error(t('ase.rconConsole.timeoutStop', 'Timeout waiting for server to stop'));
           log("Server stopped successfully.");
         } else {
           log("Step 1/5: Server is already stopped. Skipping stop step.");
@@ -395,7 +396,7 @@ export default function ASERconConsole() {
           }
         }
         if (maintAbortRef.current) return;
-        if (!isUpdated) throw new Error("Timeout waiting for server update");
+        if (!isUpdated) throw new Error(t('ase.rconConsole.timeoutUpdate', 'Timeout waiting for server update'));
         log("Server update complete.");
       }
 
@@ -421,7 +422,7 @@ export default function ASERconConsole() {
           log(`Waiting for server to boot (current status: ${currentStatus || 'starting'})...`);
         }
         if (maintAbortRef.current) return;
-        if (!isOnline) throw new Error("Timeout waiting for server to start");
+        if (!isOnline) throw new Error(t('ase.rconConsole.timeoutStart', 'Timeout waiting for server to start'));
         log("Server is online.");
       }
 
@@ -772,11 +773,11 @@ export default function ASERconConsole() {
     try { 
       await connectAseRcon(selectedServerId); 
       rconStore.setConnected(selectedServerId, true); 
-      addLog({ type: 'response', text: 'Connected to RCON. Authenticated successfully.', time: now() }); 
-      toast.success('RCON connected'); 
+      addLog({ type: 'response', text: t('ase.rconConsole.authenticated', 'Connected to RCON. Authenticated successfully.'), time: now() }); 
+      toast.success(t('ase.rconConsole.connectedToast', 'RCON connected')); 
       refreshPlayers();
     } catch (e) { 
-      addLog({ type: 'error', text: `Connection failed: ${e}`, time: now() }); 
+      addLog({ type: 'error', text: t('rcon.connectionFailed', { error: String(e), defaultValue: 'Connection failed: {{error}}' }), time: now() }); 
       toast.error(`${e}`); 
       rconStore.setConnected(selectedServerId, false);
     } finally {
@@ -789,7 +790,7 @@ export default function ASERconConsole() {
       rconStore.setConnected(selectedServerId, false);
       rconStore.setStreamingLogs(selectedServerId, false);
       rconStore.clearLogStream(selectedServerId);
-      addLog({ type: 'error', text: 'Disconnected from RCON.', time: now() });
+      addLog({ type: 'error', text: t('rcon.disconnectedMsg', 'Disconnected from RCON.'), time: now() });
     }
   };
 
@@ -816,11 +817,11 @@ export default function ASERconConsole() {
           addLog({ type: 'response', text: resp || 'Broadcast sent successfully', time: now() });
         } catch (e) {
           console.error('Failed to broadcast before dino wipe:', e);
-          addLog({ type: 'error', text: `Broadcast failed: ${e}`, time: now() });
+          addLog({ type: 'error', text: t('ase.rconConsole.broadcastFailed', { error: String(e), defaultValue: 'Broadcast failed: {{error}}' }), time: now() });
         }
       }
       if (dinoWipeBroadcastDelay > 0) {
-        toast.loading(`Waiting ${dinoWipeBroadcastDelay}s before Dino Wipe...`, { id: 'dino_wipe_toast' });
+        toast.loading(t('rcon.waitingBeforeDinoWipe', { seconds: dinoWipeBroadcastDelay, defaultValue: 'Waiting {{seconds}}s before Dino Wipe...' }), { id: 'dino_wipe_toast' });
         await new Promise(resolve => setTimeout(resolve, dinoWipeBroadcastDelay * 1000));
         toast.dismiss('dino_wipe_toast');
       }
@@ -833,11 +834,11 @@ export default function ASERconConsole() {
           addLog({ type: 'response', text: resp || 'Broadcast sent successfully', time: now() });
         } catch (e) {
           console.error('Failed to broadcast before save:', e);
-          addLog({ type: 'error', text: `Broadcast failed: ${e}`, time: now() });
+          addLog({ type: 'error', text: t('ase.rconConsole.broadcastFailed', { error: String(e), defaultValue: 'Broadcast failed: {{error}}' }), time: now() });
         }
       }
       if (saveWorldBroadcastDelay > 0) {
-        toast.loading(`Waiting ${saveWorldBroadcastDelay}s before World Save...`, { id: 'save_world_toast' });
+        toast.loading(t('rcon.waitingBeforeSave', { seconds: saveWorldBroadcastDelay, defaultValue: 'Waiting {{seconds}}s before World Save...' }), { id: 'save_world_toast' });
         await new Promise(resolve => setTimeout(resolve, saveWorldBroadcastDelay * 1000));
         toast.dismiss('save_world_toast');
       }
@@ -927,7 +928,7 @@ export default function ASERconConsole() {
     setClusterIsExecuting(true);
     const nextProgress = { ...clusterProgress };
     clusterSelectedServers.forEach(id => {
-      nextProgress[id] = { status: 'sending', response: 'Sending...' };
+      nextProgress[id] = { status: 'sending', response: t('ase.rconConsole.sending', 'Sending...') };
     });
     setClusterProgress(nextProgress);
 
@@ -945,10 +946,10 @@ export default function ASERconConsole() {
         };
       });
       setClusterProgress(finalProgress);
-      toast.success('Cluster commands execution complete');
+      toast.success(t('rcon.clusterExecComplete', 'Cluster commands execution complete'));
     } catch (error) {
       console.error('Cluster execution failed:', error);
-      toast.error(`Cluster execution failed: ${error}`);
+      toast.error(t('rcon.clusterExecFailed', { error: String(error), defaultValue: 'Cluster execution failed: {{error}}' }));
     } finally {
       setClusterIsExecuting(false);
     }
@@ -957,7 +958,7 @@ export default function ASERconConsole() {
   // Trigger manual save with verification
   const triggerManualSave = async () => {
     if (!selectedServerId || !isConnected) {
-      toast.error('Must be connected to run saves.');
+      toast.error(t('rcon.notConnectedSave', 'Must be connected to run saves.'));
       return;
     }
 
@@ -973,10 +974,10 @@ export default function ASERconConsole() {
           addLog({ type: 'response', text: resp || 'Broadcast sent successfully', time: now() });
         } catch (e) {
           console.error('Failed to send auto-broadcast before manual save:', e);
-          addLog({ type: 'error', text: `Broadcast failed: ${e}`, time: now() });
+          addLog({ type: 'error', text: t('ase.rconConsole.broadcastFailed', { error: String(e), defaultValue: 'Broadcast failed: {{error}}' }), time: now() });
         }
         if (saveWorldBroadcastDelay > 0) {
-          toast.loading(`Waiting ${saveWorldBroadcastDelay}s before World Save...`, { id: 'save_world_toast' });
+          toast.loading(t('rcon.waitingBeforeSave', { seconds: saveWorldBroadcastDelay, defaultValue: 'Waiting {{seconds}}s before World Save...' }), { id: 'save_world_toast' });
           await new Promise(resolve => setTimeout(resolve, saveWorldBroadcastDelay * 1000));
           toast.dismiss('save_world_toast');
         }
@@ -997,7 +998,7 @@ export default function ASERconConsole() {
       
       if (validationInfo.exists && validationInfo.integrity_ok) {
         setSaveProgressState('success');
-        toast.success('World save successfully verified!');
+        toast.success(t('rcon.saveVerified', 'World save successfully verified!'));
         
         setSaveValidationHistory(prev => [
           {
@@ -1015,7 +1016,7 @@ export default function ASERconConsole() {
     } catch (error) {
       console.error('Manual save failed:', error);
       setSaveProgressState('error');
-      toast.error(`Manual save failed: ${error}`);
+      toast.error(t('rcon.saveFailed', { error: String(error), defaultValue: 'Manual save failed: {{error}}' }));
     }
   };
 
@@ -1103,19 +1104,19 @@ export default function ASERconConsole() {
             <div className="p-2.5 bg-amber-500/10 rounded-xl">
               <TerminalIcon className="w-6 h-6 text-amber-400" />
             </div>
-            ASE RCON Console
+            {t('ase.rconConsole.title', 'ASE RCON Console')}
           </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">Live remote administration and server telemetry</p>
+          <p className="text-sm text-[var(--text-muted)] mt-1">{t('ase.rconConsole.subtitle', 'Live remote administration and server telemetry')}</p>
         </div>
         
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsAdminGuideOpen(true)}
             className="flex items-center gap-1.5 px-3.5 py-2.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 rounded-2xl text-xs font-bold transition-all shadow-sm active:scale-95 h-[42px]"
-            title="In-Game Admin Authentication & Cheats Guide"
+            title={t('rcon.adminGuideTitle', 'In-Game Admin Authentication & Cheats Guide')}
           >
             <Key className="w-4 h-4" />
-            <span className="hidden sm:inline">In-Game Admin (`enablecheats`)</span>
+            <span className="hidden sm:inline">{t('rcon.inGameAdminBtn', 'In-Game Admin (`enablecheats`)')}</span>
           </button>
           
           <button 
@@ -1128,11 +1129,11 @@ export default function ASERconConsole() {
             }`}
           >
             {isConnecting ? (
-              <><Zap className="w-4 h-4 animate-pulse" /> Connecting...</>
+              <><Zap className="w-4 h-4 animate-pulse" /> {t('rcon.connecting', 'Connecting...')}</>
             ) : isConnected ? (
-              <><Zap className="w-4 h-4" /> Connected</>
+              <><Zap className="w-4 h-4" /> {t('rcon.connected', 'Connected')}</>
             ) : (
-              <><TerminalIcon className="w-4 h-4" /> Connect</>
+              <><TerminalIcon className="w-4 h-4" /> {t('rcon.connect', 'Connect')}</>
             )}
           </button>
         </div>
@@ -1150,7 +1151,7 @@ export default function ASERconConsole() {
           )}
         >
           <TerminalIcon className="w-4 h-4" />
-          <span className="relative z-10">Interactive Terminal</span>
+          <span className="relative z-10">{t('rcon.tabs.terminal', 'Interactive Terminal')}</span>
         </button>
 
         <button
@@ -1163,7 +1164,7 @@ export default function ASERconConsole() {
           )}
         >
           <Eye className="w-4 h-4" />
-          <span className="relative z-10">Live Log Feed</span>
+          <span className="relative z-10">{t('rcon.tabs.logStream', 'Live Log Feed')}</span>
           {isStreamingLogs && (
             <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping" />
           )}
@@ -1179,7 +1180,7 @@ export default function ASERconConsole() {
           )}
         >
           <Layers className="w-4 h-4" />
-          <span className="relative z-10">Cluster Deck</span>
+          <span className="relative z-10">{t('rcon.tabs.cluster', 'Cluster Deck')}</span>
         </button>
 
         <button
@@ -1192,7 +1193,7 @@ export default function ASERconConsole() {
           )}
         >
           <Save className="w-4 h-4" />
-          <span className="relative z-10">Verified Saves</span>
+          <span className="relative z-10">{t('rcon.tabs.saveManager', 'Verified Saves')}</span>
         </button>
 
         <button
@@ -1205,7 +1206,7 @@ export default function ASERconConsole() {
           )}
         >
           <RefreshCw className={cn("w-4 h-4", isMaintRunning && "animate-spin text-amber-400")} />
-          <span className="relative z-10">Maintenance</span>
+          <span className="relative z-10">{t('rcon.tabs.maintenance', 'Maintenance')}</span>
         </button>
 
         <button
@@ -1218,7 +1219,7 @@ export default function ASERconConsole() {
           )}
         >
           <Gift className="w-4 h-4" />
-          <span className="relative z-10">Give Items</span>
+          <span className="relative z-10">{t('rcon.giveItem.title', 'Give Items')}</span>
         </button>
       </div>
 
@@ -1255,7 +1256,7 @@ export default function ASERconConsole() {
                       )}
                     >
                       <Icon className="w-4 h-4" />
-                      {q.label}
+                      {t(`ase.rconConsole.quick.${q.cmd.trim()}`, q.label)}
                     </button>
                   ); 
                 })}
@@ -1269,7 +1270,7 @@ export default function ASERconConsole() {
                   ) : (
                     <Database className="w-4 h-4" />
                   )}
-                  {isBackupInProgress ? 'Backing Up...' : 'Create Backup'}
+                  {isBackupInProgress ? t('rcon.creatingBackup', 'Backing Up...') : t('rcon.createBackup', 'Create Backup')}
                 </button>
                 <button 
                   onClick={() => setShowAutoBroadcastSettings(!showAutoBroadcastSettings)} 
@@ -1279,7 +1280,7 @@ export default function ASERconConsole() {
                   )}
                 >
                   <Sliders className="w-4 h-4" />
-                  Auto Broadcast Settings
+                  {t('rcon.quickCommands.autoBroadcast', 'Auto Broadcast Settings')}
                 </button>
                 <button 
                   onClick={() => setShowPlayers(!showPlayers)} 
@@ -1290,14 +1291,14 @@ export default function ASERconConsole() {
                   )}
                 >
                   <Users className="w-4 h-4" />
-                  Players ({onlinePlayers.length})
+                  {t('rcon.playersOnline', { count: onlinePlayers.length, defaultValue: 'Players ({{count}})' })}
                 </button>
                 <button 
                   onClick={() => { if (selectedServerId) rconStore.setLog(selectedServerId, []); }} 
                   className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/10 rounded-xl text-xs font-semibold text-rose-400 flex items-center gap-2 transition-all focus:outline-none active:scale-95"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Clear
+                  {t('rcon.clearLogs', 'Clear')}
                 </button>
               </div>
 
@@ -1313,10 +1314,10 @@ export default function ASERconConsole() {
                     <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
                       <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5">
                         <Sliders className="w-4 h-4 text-amber-400" />
-                        Auto-Broadcast Action Alerts
+                        {t('rcon.autoBroadcast.title', 'Auto-Broadcast Action Alerts')}
                       </span>
                       <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
-                        Configure alerts sent to players before actions
+                        {t('rcon.autoBroadcast.subtitle', 'Configure alerts sent to players before actions')}
                       </span>
                     </div>
 
@@ -1331,28 +1332,28 @@ export default function ASERconConsole() {
                               onChange={(e) => setDinoWipeBroadcastEnabled(e.target.checked)}
                               className="rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
                             />
-                            Auto Broadcast on Dino Wipe
+                            {t('rcon.autoBroadcast.onDinoWipe', 'Auto Broadcast on Dino Wipe')}
                           </label>
                         </div>
                         <div className="space-y-1.5">
-                          <span className="text-[10px] text-[var(--text-muted)] font-sans">Alert Message</span>
+                          <span className="text-[10px] text-[var(--text-muted)] font-sans">{t('rcon.autoBroadcast.alertMessage', 'Alert Message')}</span>
                           <input
                             type="text"
                             value={dinoWipeBroadcastMsg}
                             onChange={(e) => setDinoWipeBroadcastMsg(e.target.value)}
                             disabled={!dinoWipeBroadcastEnabled}
-                            placeholder="Message to display..."
+                            placeholder={t('rcon.autoBroadcast.messagePlaceholder', 'Message to display...')}
                             className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none disabled:opacity-50"
                           />
                         </div>
                         <div className="flex items-center gap-2 font-sans">
-                          <span className="text-[10px] text-[var(--text-muted)]">Execution Delay (Seconds):</span>
-                          <input
-                            type="number"
-                            min="0"
-                            max="60"
+                          <span className="text-[10px] text-[var(--text-muted)]">{t('rcon.autoBroadcast.delay', 'Execution Delay (Seconds):')}</span>
+                          <NumberInput
+                            integer
+                            min={0}
+                            max={60}
                             value={dinoWipeBroadcastDelay}
-                            onChange={(e) => setDinoWipeBroadcastDelay(parseInt(e.target.value, 10) || 0)}
+                            onValueChange={setDinoWipeBroadcastDelay}
                             disabled={!dinoWipeBroadcastEnabled}
                             className="w-16 bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-2 py-1 text-center text-[var(--text-primary)] focus:outline-none disabled:opacity-50"
                           />
@@ -1369,28 +1370,28 @@ export default function ASERconConsole() {
                               onChange={(e) => setSaveWorldBroadcastEnabled(e.target.checked)}
                               className="rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
                             />
-                            Auto Broadcast on Save World
+                            {t('rcon.autoBroadcast.onSaveWorld', 'Auto Broadcast on Save World')}
                           </label>
                         </div>
                         <div className="space-y-1.5">
-                          <span className="text-[10px] text-[var(--text-muted)] font-sans">Alert Message</span>
+                          <span className="text-[10px] text-[var(--text-muted)] font-sans">{t('rcon.autoBroadcast.alertMessage', 'Alert Message')}</span>
                           <input
                             type="text"
                             value={saveWorldBroadcastMsg}
                             onChange={(e) => setSaveWorldBroadcastMsg(e.target.value)}
                             disabled={!saveWorldBroadcastEnabled}
-                            placeholder="Message to display..."
+                            placeholder={t('rcon.autoBroadcast.messagePlaceholder', 'Message to display...')}
                             className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none disabled:opacity-50"
                           />
                         </div>
                         <div className="flex items-center gap-2 font-sans">
-                          <span className="text-[10px] text-[var(--text-muted)]">Execution Delay (Seconds):</span>
-                          <input
-                            type="number"
-                            min="0"
-                            max="60"
+                          <span className="text-[10px] text-[var(--text-muted)]">{t('rcon.autoBroadcast.delay', 'Execution Delay (Seconds):')}</span>
+                          <NumberInput
+                            integer
+                            min={0}
+                            max={60}
                             value={saveWorldBroadcastDelay}
-                            onChange={(e) => setSaveWorldBroadcastDelay(parseInt(e.target.value, 10) || 0)}
+                            onValueChange={setSaveWorldBroadcastDelay}
                             disabled={!saveWorldBroadcastEnabled}
                             className="w-16 bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-2 py-1 text-center text-[var(--text-primary)] focus:outline-none disabled:opacity-50"
                           />
@@ -1410,8 +1411,8 @@ export default function ASERconConsole() {
                       className="flex flex-col items-center justify-center h-full text-[var(--text-muted)] py-12"
                     >
                       <TerminalIcon className="w-12 h-12 mb-3 opacity-20" />
-                      <p className="text-xs">Connect to RCON and begin transmitting commands.</p>
-                      {!isConnected && <p className="text-[10px] mt-2 opacity-60">Status: Disconnected</p>}
+                      <p className="text-xs">{t('ase.rconConsole.connectHint', 'Connect to RCON and begin transmitting commands.')}</p>
+                      {!isConnected && <p className="text-[10px] mt-2 opacity-60">{t('ase.rconConsole.statusDisconnected', 'Status: Disconnected')}</p>}
                     </motion.div>
                   ) : (
                     log.map((entry, i) => (
@@ -1448,7 +1449,7 @@ export default function ASERconConsole() {
                     value={command} 
                     onChange={e => setCommand(e.target.value)} 
                     onKeyDown={handleKeyDown} 
-                    placeholder={isConnected ? "Enter RCON command..." : "Connect to server first..."}
+                    placeholder={isConnected ? t('ase.rconConsole.cmdPlaceholder', 'Enter RCON command...') : t('ase.rconConsole.connectFirst', 'Connect to server first...')}
                     disabled={!isConnected}
                     className="w-full bg-transparent text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] font-mono focus:outline-none disabled:cursor-not-allowed" 
                   />
@@ -1465,7 +1466,7 @@ export default function ASERconConsole() {
                 {autocompleteVisible && suggestions.length > 0 && (
                     <div className="absolute left-0 bottom-full mb-2 w-full bg-[var(--surface)] backdrop-blur-md border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden z-50 animate-in slide-in-from-bottom-2 duration-200">
                         <div className="bg-[var(--surface-active)] px-4 py-2 border-b border-[var(--border)] text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">
-                            RCON Command Autocomplete (Use ↑ ↓ Tab / Enter)
+                            {t('ase.rconConsole.autocompleteHeader', 'RCON Command Autocomplete (Use ↑ ↓ Tab / Enter)')}
                         </div>
                         <div className="max-h-[220px] overflow-y-auto">
                             {suggestions.map((s, idx) => (
@@ -1484,7 +1485,7 @@ export default function ASERconConsole() {
                                     )}
                                 >
                                     <span className="font-mono font-semibold">{s.command}</span>
-                                    <span className="text-[var(--text-muted)] text-[11px] font-sans truncate ml-4 max-w-[60%]">{s.desc}</span>
+                                    <span className="text-[var(--text-muted)] text-[11px] font-sans truncate ml-4 max-w-[60%]">{t(`ase.rconConsole.ac.${s.command}`, s.desc)}</span>
                                 </button>
                             ))}
                         </div>
@@ -1511,12 +1512,12 @@ export default function ASERconConsole() {
                     {isStreamingLogs ? (
                       <>
                         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span>Streaming Live Logs</span>
+                        <span>{t('ase.rconConsole.streamingLive', 'Streaming Live Logs')}</span>
                       </>
                     ) : (
                       <>
                         <EyeOff className="w-4 h-4" />
-                        <span>Enable Streaming</span>
+                        <span>{t('ase.rconConsole.enableStreaming', 'Enable Streaming')}</span>
                       </>
                     )}
                   </button>
@@ -1548,7 +1549,7 @@ export default function ASERconConsole() {
                     type="text"
                     value={logSearchQuery}
                     onChange={(e) => setLogSearchQuery(e.target.value)}
-                    placeholder="Search logs content..."
+                    placeholder={t('ase.rconConsole.searchLogs', 'Search logs content...')}
                     className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500/30 text-[var(--text-primary)] placeholder-[var(--text-muted)]"
                   />
                 </div>
@@ -1561,8 +1562,8 @@ export default function ASERconConsole() {
                 {filteredLogs.length === 0 ? (
                   <div className="text-[var(--text-muted)] italic text-center py-12">
                     {isStreamingLogs 
-                      ? "Waiting for logs flow... (or search returned zero results)" 
-                      : "Streaming is disabled. Enable to monitor logs directly from the backend stream."}
+                      ? t('ase.rconConsole.waitingLogs', 'Waiting for logs flow... (or search returned zero results)') 
+                      : t('ase.rconConsole.streamingDisabled', 'Streaming is disabled. Enable to monitor logs directly from the backend stream.')}
                   </div>
                 ) : (
                   filteredLogs.map((entry, idx) => (
@@ -1582,9 +1583,9 @@ export default function ASERconConsole() {
               <div className="p-4 bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl">
                 <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2 flex items-center gap-2">
                   <Layers className="w-4 h-4 text-amber-400" />
-                  <span>Target Cluster Servers</span>
+                  <span>{t('ase.rconConsole.targetCluster', 'Target Cluster Servers')}</span>
                 </h3>
-                <p className="text-xs text-[var(--text-muted)] mb-4 font-sans">Select which active servers this command will execute on simultaneously:</p>
+                <p className="text-xs text-[var(--text-muted)] mb-4 font-sans">{t('rcon.cluster.selectHint', 'Select which active servers this command will execute on simultaneously:')}</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {servers.map(server => (
@@ -1625,7 +1626,7 @@ export default function ASERconConsole() {
                   type="text"
                   value={clusterCommand}
                   onChange={(e) => setClusterCommand(e.target.value)}
-                  placeholder="Enter command to broadcast or execute on all selected cluster servers..."
+                  placeholder={t('ase.rconConsole.clusterCmdPlaceholder', 'Enter command to broadcast or execute on all selected cluster servers...')}
                   className="flex-1 bg-transparent text-[var(--text-primary)] text-sm focus:outline-none font-mono placeholder:text-[var(--text-muted)]"
                   disabled={clusterIsExecuting}
                 />
@@ -1635,7 +1636,7 @@ export default function ASERconConsole() {
                   className="flex items-center gap-2 px-5 py-2 bg-amber-500 text-slate-950 rounded-xl text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-400 active:scale-95"
                 >
                   {clusterIsExecuting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                  <span>Execute</span>
+                  <span>{t('rcon.cluster.execute', 'Execute')}</span>
                 </button>
               </div>
 
@@ -1643,7 +1644,7 @@ export default function ASERconConsole() {
               <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
                 {Object.keys(clusterProgress).length === 0 ? (
                   <div className="text-[var(--text-muted)] italic text-xs py-8 text-center bg-[var(--surface-hover)]/40 rounded-xl border border-[var(--border)]">
-                    No cluster executions triggered yet.
+                    {t('ase.rconConsole.noClusterExec', 'No cluster executions triggered yet.')}
                   </div>
                 ) : (
                   Object.entries(clusterProgress).map(([idStr, val]) => {
@@ -1660,26 +1661,26 @@ export default function ASERconConsole() {
                             {val.status === 'sending' && (
                               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                 <RefreshCw className="w-2.5 h-2.5 animate-spin" />
-                                <span>Executing</span>
+                                <span>{t('rcon.cluster.executing', 'Executing')}</span>
                               </span>
                             )}
                             {val.status === 'success' && (
                               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                 <Check className="w-2.5 h-2.5" />
-                                <span>Success</span>
+                                <span>{t('common.success', 'Success')}</span>
                               </span>
                             )}
                             {val.status === 'error' && (
                               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
                                 <XCircle className="w-2.5 h-2.5" />
-                                <span>Failed</span>
+                                <span>{t('rcon.cluster.failed', 'Failed')}</span>
                               </span>
                             )}
                           </div>
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <p className="text-[var(--text-muted)] text-[10px] uppercase font-bold tracking-wider font-sans">Response</p>
+                          <p className="text-[var(--text-muted)] text-[10px] uppercase font-bold tracking-wider font-sans">{t('rcon.cluster.response', 'Response')}</p>
                           <div className="mt-1 font-mono text-[11px] text-[var(--text-secondary)] whitespace-pre-wrap bg-[var(--bg-primary)] p-2.5 rounded-lg border border-[var(--border)] truncate max-h-[80px] overflow-y-auto">
                             {val.response}
                           </div>
@@ -1699,10 +1700,10 @@ export default function ASERconConsole() {
                 <div className="space-y-2 max-w-lg font-sans">
                   <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                     <Database className="w-5 h-5 text-amber-400" />
-                    <span>Verified Save World Engine</span>
+                    <span>{t('rcon.saveEngine.title', 'Verified Save World Engine')}</span>
                   </h3>
                   <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                    Triggers the <code className="text-amber-400 font-semibold font-mono bg-amber-950/20 px-1 py-0.5 rounded">saveworld</code> command via RCON and verifies that the output save file is successfully written to disk, checking size and timestamp metrics in real time.
+                    {t('ase.rconConsole.saveEngineDesc1', 'Triggers the')} <code className="text-amber-400 font-semibold font-mono bg-amber-950/20 px-1 py-0.5 rounded">saveworld</code> {t('ase.rconConsole.saveEngineDesc2', 'command via RCON and verifies that the output save file is successfully written to disk, checking size and timestamp metrics in real time.')}
                   </p>
                 </div>
 
@@ -1722,29 +1723,29 @@ export default function ASERconConsole() {
                     ) : (
                       <Save className="w-5 h-5" />
                     )}
-                    <span>Trigger Verified Save</span>
+                    <span>{t('rcon.saveEngine.trigger', 'Trigger Verified Save')}</span>
                   </button>
 
                   {/* Progressive indicator labels */}
                   {saveProgressState === 'sending' && (
-                    <span className="text-[10px] text-amber-450 font-semibold animate-pulse">1. Sending saveworld command...</span>
+                    <span className="text-[10px] text-amber-450 font-semibold animate-pulse">{t('ase.rconConsole.step1', '1. Sending saveworld command...')}</span>
                   )}
                   {saveProgressState === 'syncing' && (
-                    <span className="text-[10px] text-amber-500 font-semibold animate-pulse">2. Waiting for server disk sync (3s)...</span>
+                    <span className="text-[10px] text-amber-500 font-semibold animate-pulse">{t('ase.rconConsole.step2', '2. Waiting for server disk sync (3s)...')}</span>
                   )}
                   {saveProgressState === 'verifying' && (
-                    <span className="text-[10px] text-amber-400 font-semibold animate-pulse">3. Verifying save integrity...</span>
+                    <span className="text-[10px] text-amber-400 font-semibold animate-pulse">{t('ase.rconConsole.step3', '3. Verifying save integrity...')}</span>
                   )}
                   {saveProgressState === 'success' && (
                     <span className="text-[10px] text-emerald-450 font-bold flex items-center gap-1">
                       <Check className="w-3.5 h-3.5" />
-                      <span>Save verified successfully!</span>
+                      <span>{t('rcon.saveEngine.verified', 'Save verified successfully!')}</span>
                     </span>
                   )}
                   {saveProgressState === 'error' && (
                     <span className="text-[10px] text-rose-450 font-bold flex items-center gap-1">
                       <XCircle className="w-3.5 h-3.5" />
-                      <span>Verification failed</span>
+                      <span>{t('settings.curseforgeApiKey.verificationFailed', 'Verification failed')}</span>
                     </span>
                   )}
                 </div>
@@ -1754,35 +1755,35 @@ export default function ASERconConsole() {
               {saveValidationResult && (
                 <div className="bg-[var(--surface-hover)] rounded-2xl p-5 border border-[var(--border)] shadow-inner grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 font-sans">
                   <div className="bg-[var(--surface)] p-4 rounded-xl border border-[var(--border)]">
-                    <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Save File Name</p>
+                    <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">{t('rcon.saveEngine.fileName', 'Save File Name')}</p>
                     <p className="text-xs font-semibold text-[var(--text-primary)] truncate font-mono mt-1" title={saveValidationResult.file_name}>
                       {saveValidationResult.file_name}
                     </p>
                   </div>
                   <div className="bg-[var(--surface)] p-4 rounded-xl border border-[var(--border)]">
-                    <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">File Size</p>
+                    <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">{t('rcon.saveEngine.fileSize', 'File Size')}</p>
                     <p className="text-xs font-semibold text-amber-400 font-mono mt-1">
                       {formatBytes(saveValidationResult.file_size_bytes)}
                     </p>
                   </div>
                   <div className="bg-[var(--surface)] p-4 rounded-xl border border-[var(--border)]">
-                    <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Last Modified</p>
+                    <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">{t('rcon.saveEngine.lastModified', 'Last Modified')}</p>
                     <p className="text-xs font-semibold text-[var(--text-primary)] truncate font-mono mt-1">
                       {saveValidationResult.last_modified}
                     </p>
                   </div>
                   <div className="bg-[var(--surface)] p-4 rounded-xl border border-[var(--border)]">
-                    <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Integrity Stamp</p>
+                    <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">{t('ase.rconConsole.integrity', 'Integrity Stamp')}</p>
                     <div className="mt-1">
                       {saveValidationResult.integrity_ok ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                           <ShieldCheck className="w-3.5 h-3.5" />
-                          <span>PASSED</span>
+                          <span>{t('ase.rconConsole.passed', 'PASSED')}</span>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
                           <AlertCircle className="w-3.5 h-3.5" />
-                          <span>FAILED</span>
+                          <span>{t('aiAssistant.failedBadge', 'FAILED')}</span>
                         </span>
                       )}
                     </div>
@@ -1794,12 +1795,12 @@ export default function ASERconConsole() {
               <div className="space-y-3 font-sans">
                 <h4 className="text-xs font-bold text-[var(--text-muted)] flex items-center gap-2">
                   <History className="w-4 h-4" />
-                  <span>Verified Save History Logs</span>
+                  <span>{t('ase.rconConsole.saveHistory', 'Verified Save History Logs')}</span>
                 </h4>
 
                 <div className="space-y-2 max-h-[140px] overflow-y-auto">
                   {saveValidationHistory.length === 0 ? (
-                    <p className="text-[11px] text-[var(--text-muted)] italic py-2">No save validation logs recorded in this session.</p>
+                    <p className="text-[11px] text-[var(--text-muted)] italic py-2">{t('ase.rconConsole.noSaveLogs', 'No save validation logs recorded in this session.')}</p>
                   ) : (
                     saveValidationHistory.map((h, i) => (
                       <div
@@ -1835,10 +1836,10 @@ export default function ASERconConsole() {
                 <div className="space-y-2 max-w-lg">
                   <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
                     <RefreshCw className={cn("w-5 h-5 text-amber-400", isMaintRunning && "animate-spin")} />
-                    <span>Server Maintenance Sequence</span>
+                    <span>{t('rcon.maint.title', 'Server Maintenance Sequence')}</span>
                   </h3>
                   <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                    Coordinate and execute a safe, step-by-step update and restart sequence on the server. Select the operations to perform below and monitor progress in real-time.
+                    {t('rcon.maint.description', 'Coordinate and execute a safe, step-by-step update and restart sequence on the server. Select the operations to perform below and monitor progress in real-time.')}
                   </p>
                 </div>
 
@@ -1849,7 +1850,7 @@ export default function ASERconConsole() {
                       className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-rose-600 hover:bg-rose-500 text-white shadow-xl transition-all duration-300 transform active:scale-95 shadow-rose-950/20"
                     >
                       <XCircle className="w-5 h-5 animate-pulse" />
-                      <span>Abort Sequence</span>
+                      <span>{t('rcon.maint.abort', 'Abort Sequence')}</span>
                     </button>
                   ) : (
                     <button
@@ -1858,7 +1859,7 @@ export default function ASERconConsole() {
                       className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-xl transition-all duration-300 transform active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <Play className="w-5 h-5" />
-                      <span>Run Sequence</span>
+                      <span>{t('rcon.maint.run', 'Run Sequence')}</span>
                     </button>
                   )}
                 </div>
@@ -1869,7 +1870,7 @@ export default function ASERconConsole() {
                 
                 {/* Step Selection Config (Left 2 Columns) */}
                 <div className="lg:col-span-2 space-y-3.5">
-                  <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider pl-1">Configuration Steps</h4>
+                  <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider pl-1">{t('rcon.maint.configSteps', 'Configuration Steps')}</h4>
                   
                   {/* Step 1 Toggle */}
                   <div 
@@ -1883,8 +1884,8 @@ export default function ASERconConsole() {
                     <div className="flex items-center gap-3">
                       <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintStop ? "bg-red-500/10 text-red-400 border border-red-500/30" : "bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]")}>1</div>
                       <div>
-                        <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Graceful Shutdown</p>
-                        <p className="text-[10px] text-[var(--text-muted)] font-sans">Stop server before maintenance</p>
+                        <p className="text-xs font-bold text-[var(--text-primary)] font-sans">{t('rcon.maint.stepStop', 'Graceful Shutdown')}</p>
+                        <p className="text-[10px] text-[var(--text-muted)] font-sans">{t('rcon.maint.stepStopDesc', 'Stop server before maintenance')}</p>
                       </div>
                     </div>
                     <input type="checkbox" checked={maintStop} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-amber-500/50 cursor-pointer pointer-events-none" />
@@ -1902,8 +1903,8 @@ export default function ASERconConsole() {
                     <div className="flex items-center gap-3">
                       <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintBackup ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]")}>2</div>
                       <div>
-                        <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Create Backup</p>
-                        <p className="text-[10px] text-[var(--text-muted)] font-sans">Zip world save & configs</p>
+                        <p className="text-xs font-bold text-[var(--text-primary)] font-sans">{t('rcon.createBackup', 'Create Backup')}</p>
+                        <p className="text-[10px] text-[var(--text-muted)] font-sans">{t('rcon.maint.stepBackupDesc', 'Zip world save & configs')}</p>
                       </div>
                     </div>
                     <input type="checkbox" checked={maintBackup} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-amber-500/50 cursor-pointer pointer-events-none" />
@@ -1921,8 +1922,8 @@ export default function ASERconConsole() {
                     <div className="flex items-center gap-3">
                       <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintUpdate ? "bg-blue-500/10 text-blue-400 border border-blue-500/30" : "bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]")}>3</div>
                       <div>
-                        <p className="text-xs font-bold text-[var(--text-primary)] font-sans">SteamCMD Update</p>
-                        <p className="text-[10px] text-[var(--text-muted)] font-sans">Fetch latest server binary files</p>
+                        <p className="text-xs font-bold text-[var(--text-primary)] font-sans">{t('rcon.maint.stepUpdate', 'SteamCMD Update')}</p>
+                        <p className="text-[10px] text-[var(--text-muted)] font-sans">{t('rcon.maint.stepUpdateDesc', 'Fetch latest server binary files')}</p>
                       </div>
                     </div>
                     <input type="checkbox" checked={maintUpdate} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-amber-500/50 cursor-pointer pointer-events-none" />
@@ -1940,8 +1941,8 @@ export default function ASERconConsole() {
                     <div className="flex items-center gap-3">
                       <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintStart ? "bg-amber-500/10 text-amber-400 border border-amber-500/30" : "bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]")}>4</div>
                       <div>
-                        <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Start Server</p>
-                        <p className="text-[10px] text-[var(--text-muted)] font-sans">Launch process and watch bootup</p>
+                        <p className="text-xs font-bold text-[var(--text-primary)] font-sans">{t('rcon.maint.stepStart', 'Start Server')}</p>
+                        <p className="text-[10px] text-[var(--text-muted)] font-sans">{t('rcon.maint.stepStartDesc', 'Launch process and watch bootup')}</p>
                       </div>
                     </div>
                     <input type="checkbox" checked={maintStart} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-amber-500/50 cursor-pointer pointer-events-none" />
@@ -1959,8 +1960,8 @@ export default function ASERconConsole() {
                     <div className="flex items-center gap-3">
                       <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintWipeDinos ? "bg-orange-500/10 text-orange-400 border border-orange-500/30" : "bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]")}>5</div>
                       <div>
-                        <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Destroy Wild Dinos</p>
-                        <p className="text-[10px] text-[var(--text-muted)] font-sans">Wipe map populations via RCON</p>
+                        <p className="text-xs font-bold text-[var(--text-primary)] font-sans">{t('rcon.maint.stepWipe', 'Destroy Wild Dinos')}</p>
+                        <p className="text-[10px] text-[var(--text-muted)] font-sans">{t('rcon.maint.stepWipeDesc', 'Wipe map populations via RCON')}</p>
                       </div>
                     </div>
                     <input type="checkbox" checked={maintWipeDinos} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-amber-500/50 cursor-pointer pointer-events-none" />
@@ -1973,7 +1974,7 @@ export default function ASERconConsole() {
                     
                     {/* Status Header */}
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider font-sans">Sequence Status</span>
+                      <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider font-sans">{t('rcon.maint.status', 'Sequence Status')}</span>
                       {isMaintRunning ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 font-sans">
                           <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -1982,11 +1983,11 @@ export default function ASERconConsole() {
                       ) : maintStep === 6 ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-sans">
                           <Check className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                          <span>Completed</span>
+                          <span>{t('rcon.maint.completed', 'Completed')}</span>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[var(--surface-active)] text-[var(--text-muted)] border border-[var(--border)] font-sans">
-                          <span>Idle</span>
+                          <span>{t('rcon.maint.idle', 'Idle')}</span>
                         </span>
                       )}
                     </div>
@@ -2005,11 +2006,11 @@ export default function ASERconConsole() {
                       )}
 
                       {[
-                        { label: 'Stop', step: 1, icon: Power, enabled: maintStop },
-                        { label: 'Backup', step: 2, icon: Database, enabled: maintBackup },
-                        { label: 'Update', step: 3, icon: Download, enabled: maintUpdate },
-                        { label: 'Start', step: 4, icon: Play, enabled: maintStart },
-                        { label: 'Wipe', step: 5, icon: Zap, enabled: maintWipeDinos }
+                        { label: t('rcon.maint.short.stop', 'Stop'), step: 1, icon: Power, enabled: maintStop },
+                        { label: t('rcon.maint.short.backup', 'Backup'), step: 2, icon: Database, enabled: maintBackup },
+                        { label: t('rcon.maint.short.update', 'Update'), step: 3, icon: Download, enabled: maintUpdate },
+                        { label: t('rcon.maint.short.start', 'Start'), step: 4, icon: Play, enabled: maintStart },
+                        { label: t('rcon.maint.short.wipe', 'Wipe'), step: 5, icon: Zap, enabled: maintWipeDinos }
                       ].map((s) => {
                         const Icon = s.icon;
                         const isSkipped = !s.enabled;
@@ -2025,7 +2026,7 @@ export default function ASERconConsole() {
                                 isActive ? "bg-amber-500 border-amber-500 text-white animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.4)]" :
                                 "bg-[var(--surface)] border-[var(--border)] text-[var(--text-muted)]"
                               )}
-                              title={isSkipped ? "This step is skipped" : undefined}
+                              title={isSkipped ? t('ase.rconConsole.stepSkipped', 'This step is skipped') : undefined}
                             >
                               {isActive ? (
                                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -2049,10 +2050,10 @@ export default function ASERconConsole() {
 
                     {/* Console Logs */}
                     <div className="flex-1 flex flex-col space-y-2">
-                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider pl-1 font-sans">Execution Console Logs</span>
+                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider pl-1 font-sans">{t('rcon.maint.consoleLogs', 'Execution Console Logs')}</span>
                       <div className="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl p-3.5 font-mono text-[10px] leading-relaxed text-[var(--text-secondary)] overflow-y-auto min-h-[160px] max-h-[220px]">
                         {maintLogs.length === 0 ? (
-                          <p className="text-[var(--text-muted)] italic">Logs will appear here once execution starts.</p>
+                          <p className="text-[var(--text-muted)] italic">{t('rcon.maint.logsEmpty', 'Logs will appear here once execution starts.')}</p>
                         ) : (
                           maintLogs.map((logLine, idx) => (
                             <div 
@@ -2104,8 +2105,8 @@ export default function ASERconConsole() {
                   <div className="bg-amber-950/30 border border-amber-500/20 rounded-lg p-2.5 mb-4 flex items-start gap-2 text-amber-400/90 text-xs shadow-inner">
                       <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
                       <p className="leading-relaxed">
-                          <strong className="text-amber-500 font-medium">Player ID Resolution:</strong> The <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300 font-mono text-[10px]">GiveItemToPlayer</code> command requires the internal 9-digit <strong>UE4 Player ID</strong>.
-                          <br/>The Server Manager will automatically resolve Steam IDs (both from the online player list and manual entries) to their internal Player IDs in real-time by scanning the server's profiles.
+                          <strong className="text-amber-500 font-medium">{t('ase.rconConsole.resolutionTitle', 'Player ID Resolution:')}</strong> {t('ase.rconConsole.resolution1', 'The')} <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300 font-mono text-[10px]">GiveItemToPlayer</code> {t('ase.rconConsole.resolution2', 'command requires the internal 9-digit')} <strong>{t('ase.rconConsole.ue4PlayerId', 'UE4 Player ID')}</strong>.
+                          <br/>{t('ase.rconConsole.resolution3', "The Server Manager will automatically resolve Steam IDs (both from the online player list and manual entries) to their internal Player IDs in real-time by scanning the server's profiles.")}
                       </p>
                   </div>
 
@@ -2164,17 +2165,17 @@ export default function ASERconConsole() {
                               {isResolvingIds ? (
                                 <span className="text-amber-400 animate-pulse flex items-center gap-1">
                                   <RefreshCw className="w-3 h-3 animate-spin" />
-                                  Resolving UE4 Player ID...
+                                  {t('rcon.giveItem.resolving', 'Resolving UE4 Player ID...')}
                                 </span>
                               ) : resolvedPlayerIds[giveSelectedPlayerId] ? (
                                 <span className="text-emerald-400 font-medium flex items-center gap-1">
                                   <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                  Resolved UE4 Player ID: <code className="bg-emerald-950/40 px-1 py-0.5 rounded font-mono text-emerald-300 text-[10px]">{resolvedPlayerIds[giveSelectedPlayerId]}</code>
+                                  {t('rcon.giveItem.resolved', 'Resolved UE4 Player ID:')} <code className="bg-emerald-950/40 px-1 py-0.5 rounded font-mono text-emerald-300 text-[10px]">{resolvedPlayerIds[giveSelectedPlayerId]}</code>
                                 </span>
                               ) : (
                                 <span className="text-rose-400 font-medium flex items-center gap-1 leading-normal">
                                   <XCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                                  Could not resolve Player ID automatically (save profile not found).
+                                  {t('rcon.giveItem.resolveFailed', 'Could not resolve Player ID automatically (save profile not found).')}
                                 </span>
                               )}
                             </div>
@@ -2188,39 +2189,39 @@ export default function ASERconConsole() {
                         type="text"
                         value={giveManualPlayerId}
                         onChange={e => setGiveManualPlayerId(e.target.value)}
-                        placeholder="e.g. 76561198000000000 or 123456789"
+                        placeholder={t('ase.rconConsole.idPlaceholder', 'e.g. 76561198000000000 or 123456789')}
                         className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-amber-500/50 font-mono"
                       />
                       <div className="text-[10px] mt-2 flex items-center gap-1.5 px-1 min-h-[16px]">
                         {isResolvingManual ? (
                           <span className="text-amber-400 animate-pulse flex items-center gap-1">
                             <RefreshCw className="w-3 h-3 animate-spin" />
-                            Resolving Steam ID to Player ID...
+                            {t('ase.rconConsole.resolvingSteam', 'Resolving Steam ID to Player ID...')}
                           </span>
                         ) : resolvedManualId ? (
                           <span className="text-emerald-400 font-medium flex items-center gap-1">
                             <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            Resolved Player ID: <code className="bg-emerald-950/40 px-1 py-0.5 rounded font-mono text-emerald-300 text-[10px]">{resolvedManualId}</code>
+                            {t('ase.rconConsole.resolvedPlayerId', 'Resolved Player ID:')} <code className="bg-emerald-950/40 px-1 py-0.5 rounded font-mono text-emerald-300 text-[10px]">{resolvedManualId}</code>
                           </span>
                         ) : giveManualPlayerId.trim() ? (
                           /^\d{17}$/.test(giveManualPlayerId) ? (
                             <span className="text-rose-400 font-medium flex items-center gap-1 leading-normal">
                               <XCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                              Could not find player save profile for this Steam ID.
+                              {t('ase.rconConsole.noProfile', 'Could not find player save profile for this Steam ID.')}
                             </span>
                           ) : /^\d{9}$/.test(giveManualPlayerId) ? (
                             <span className="text-emerald-400 font-medium flex items-center gap-1">
                               <Check className="w-3.5 h-3.5 text-emerald-400" />
-                              Using 9-digit Player ID directly.
+                              {t('ase.rconConsole.using9digit', 'Using 9-digit Player ID directly.')}
                             </span>
                           ) : (
                             <span className="text-amber-400 font-medium flex items-center gap-1">
                               <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                              Using custom ID directly. Make sure it is the 9-digit UE4 Player ID.
+                              {t('ase.rconConsole.usingCustom', 'Using custom ID directly. Make sure it is the 9-digit UE4 Player ID.')}
                             </span>
                           )
                         ) : (
-                          <span className="text-[var(--text-muted)]">Enter a 17-digit Steam ID (auto-resolves) or a 9-digit Player ID.</span>
+                          <span className="text-[var(--text-muted)]">{t('ase.rconConsole.idHint', 'Enter a 17-digit Steam ID (auto-resolves) or a 9-digit Player ID.')}</span>
                         )}
                       </div>
                     </div>
@@ -2276,14 +2277,14 @@ export default function ASERconConsole() {
                           onChange={(e: any) => setGiveSelectedCategory(e.target.value)}
                           className="bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-amber-500/50"
                         >
-                          <option value="All">All Categories</option>
-                          <option value="Resources">Resources</option>
-                          <option value="Consumables">Consumables & Kibbles</option>
-                          <option value="Apex Drops">Apex Drops</option>
-                          <option value="Artifacts">Artifacts</option>
-                          <option value="Ammo">Ammo</option>
-                          <option value="Gear">Gear & Weapons</option>
-                          <option value="Structures">Structures</option>
+                          <option value="All">{t('modManager.allCategories', 'All Categories')}</option>
+                          <option value="Resources">{t('rcon.giveItem.categories.resources', 'Resources')}</option>
+                          <option value="Consumables">{t('ase.rconConsole.consumables', 'Consumables & Kibbles')}</option>
+                          <option value="Apex Drops">{t('rcon.giveItem.categories.apexdrops', 'Apex Drops')}</option>
+                          <option value="Artifacts">{t('rcon.giveItem.categories.artifacts', 'Artifacts')}</option>
+                          <option value="Ammo">{t('rcon.giveItem.categories.ammo', 'Ammo')}</option>
+                          <option value="Gear">{t('ase.rconConsole.gear', 'Gear & Weapons')}</option>
+                          <option value="Structures">{t('rcon.giveItem.categories.structures', 'Structures')}</option>
                         </select>
                       </div>
 
@@ -2304,7 +2305,7 @@ export default function ASERconConsole() {
                             )}
                           >
                             <span className="text-xs font-bold leading-tight">{item.name}</span>
-                            <span className="text-[9px] uppercase tracking-wider opacity-50">{item.category}</span>
+                            <span className="text-[9px] uppercase tracking-wider opacity-50">{t(`ase.rconConsole.itemCategories.${item.category.replace(/\s+/g, '')}`, item.category)}</span>
                           </button>
                         ))}
                       </div>
@@ -2318,7 +2319,7 @@ export default function ASERconConsole() {
                         placeholder="Blueprint'/Game/PrimalEarth/...'"
                         className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-amber-500/50 font-mono"
                       />
-                      <p className="text-xs text-[var(--text-muted)] mt-2">Enter the exact blueprint path for the item.</p>
+                      <p className="text-xs text-[var(--text-muted)] mt-2">{t('ase.rconConsole.bpHint', 'Enter the exact blueprint path for the item.')}</p>
                     </div>
                   )}
                 </div>
@@ -2332,24 +2333,24 @@ export default function ASERconConsole() {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                      <label className="block text-xs font-bold text-[var(--text-muted)] mb-2">Quantity</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="10000"
+                      <label className="block text-xs font-bold text-[var(--text-muted)] mb-2">{t('rcon.giveItem.quantity', 'Quantity')}</label>
+                      <NumberInput
+                        integer
+                        min={1}
+                        max={10000}
                         value={giveItemQuantity}
-                        onChange={e => setGiveItemQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                        onValueChange={setGiveItemQuantity}
                         className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-amber-500/50"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-[var(--text-muted)] mb-2">Quality (0-100)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
+                      <label className="block text-xs font-bold text-[var(--text-muted)] mb-2">{t('ase.rconConsole.quality', 'Quality (0-100)')}</label>
+                      <NumberInput
+                        integer
+                        min={0}
+                        max={100}
                         value={giveItemQuality}
-                        onChange={e => setGiveItemQuality(Math.max(0, parseInt(e.target.value) || 0))}
+                        onValueChange={setGiveItemQuality}
                         className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-amber-500/50"
                       />
                     </div>
@@ -2364,7 +2365,7 @@ export default function ASERconConsole() {
                           />
                           <div className="w-8 h-4 bg-[var(--surface-active)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-500"></div>
                         </div>
-                        <span className="text-xs font-bold text-[var(--text-secondary)]">Give as Blueprint</span>
+                        <span className="text-xs font-bold text-[var(--text-secondary)]">{t('ase.rconConsole.giveBlueprint', 'Give as Blueprint')}</span>
                       </label>
                     </div>
                   </div>
@@ -2387,9 +2388,9 @@ export default function ASERconConsole() {
                   className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-amber-500/10"
                 >
                   {isGivingItem ? (
-                    <><RefreshCw className="w-4 h-4 animate-spin" /> Sending...</>
+                    <><RefreshCw className="w-4 h-4 animate-spin" /> {t('ase.rconConsole.sending', 'Sending...')}</>
                   ) : (
-                    <><Gift className="w-4 h-4" /> Send Item(s)</>
+                    <><Gift className="w-4 h-4" /> {t('ase.rconConsole.sendItems', 'Send Item(s)')}</>
                   )}
                 </button>
               </div>
@@ -2407,7 +2408,7 @@ export default function ASERconConsole() {
             <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--border)]">
               <h3 className="font-bold text-[var(--text-primary)] flex items-center gap-2 text-sm">
                 <Users className="w-5 h-5 text-amber-400" />
-                <span>Active Survivors</span>
+                <span>{t('discordHub.sim.activeSurvivors', 'Active Survivors')}</span>
               </h3>
               <span className="bg-amber-500/20 text-amber-400 text-xs font-bold px-2.5 py-1 rounded-full">
                 {onlinePlayers.length} Online
@@ -2418,7 +2419,7 @@ export default function ASERconConsole() {
               {onlinePlayers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-[var(--text-muted)] text-xs text-center py-12">
                   <Users className="w-8 h-8 mb-3 opacity-20" />
-                  <p>No players currently connected to the server.</p>
+                  <p>{t('ase.rconConsole.noPlayers', 'No players currently connected to the server.')}</p>
                 </div>
               ) : (
                 onlinePlayers.map((p, idx) => (
@@ -2428,10 +2429,10 @@ export default function ASERconConsole() {
                       <div 
                         onClick={() => {
                           navigator.clipboard.writeText(p.steamId);
-                          toast.success('Player ID copied to clipboard');
+                          toast.success(t('rcon.idCopied', 'Player ID copied to clipboard'));
                         }}
                         className="text-[10px] font-mono text-[var(--text-muted)] hover:text-amber-400 mt-0.5 truncate cursor-pointer flex items-center gap-1 group/id transition-colors"
-                        title="Click to copy Player ID"
+                        title={t('ase.rconConsole.clickCopy', 'Click to copy Player ID')}
                       >
                         <span className="truncate">{p.steamId}</span>
                         <Copy className="w-3 h-3 opacity-0 group-hover/id:opacity-100 transition-opacity text-amber-400 shrink-0" />
@@ -2441,10 +2442,10 @@ export default function ASERconConsole() {
                       <button 
                         onClick={() => {
                           navigator.clipboard.writeText(p.steamId);
-                          toast.success('Player ID copied to clipboard');
+                          toast.success(t('rcon.idCopied', 'Player ID copied to clipboard'));
                         }}
                         className="flex-1 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-colors border border-amber-500/15"
-                        title="Copy Player ID"
+                        title={t('rcon.copyPlayerId', 'Copy Player ID')}
                       >
                         <Copy className="w-3.5 h-3.5" /> Copy ID
                       </button>

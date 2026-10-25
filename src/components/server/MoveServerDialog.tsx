@@ -66,7 +66,7 @@ export default function MoveServerDialog({
                                 </div>
                                 <div className="min-w-0">
                                     <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider border uppercase mb-1 bg-sky-500/10 border-sky-500/30 text-sky-400">
-                                        STORAGE MIGRATION
+                                        {t('serverManager.move.storageMigration', 'STORAGE MIGRATION')}
                                     </span>
                                     <h2 className="text-lg font-bold text-white tracking-tight truncate">
                                         {isBulk 

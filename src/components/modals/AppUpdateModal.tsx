@@ -115,14 +115,14 @@ export default function AppUpdateModal({ isOpen, onClose }: AppUpdateModalProps)
             const info = await invoke<AppUpdateInfo>('check_app_update');
             setUpdateInfo(info);
             if (info.update_available) {
-                toast.success(`New update available: v${info.latest_version}`);
+                toast.success(t('appUpdate.newUpdateToast', { version: info.latest_version, defaultValue: `New update available: v${info.latest_version}` }));
             } else {
-                toast.success('Your ARK Server Manager is up to date!');
+                toast.success(t('appUpdate.upToDateToast', 'Your ARK Server Manager is up to date!'));
             }
         } catch (err) {
             console.error("Failed to check updates:", err);
             setErrorMsg(err instanceof Error ? err.message : String(err));
-            toast.error("Failed to check for updates");
+            toast.error(t('appUpdate.checkFailed', 'Failed to check for updates'));
         } finally {
             setIsChecking(false);
         }
@@ -137,12 +137,12 @@ export default function AppUpdateModal({ isOpen, onClose }: AppUpdateModalProps)
     const handleInstallUpdate = async () => {
         setIsInstalling(true);
         try {
-            toast.loading('Downloading and installing application update...');
+            toast.loading(t('appUpdate.installing', 'Downloading and installing application update...'));
             await invoke('install_app_update');
-            toast.success('Update installed! Restarting application...');
+            toast.success(t('appUpdate.installed', 'Update installed! Restarting application...'));
         } catch (err) {
             console.error("Failed to install update:", err);
-            toast.error('Automated update installation requires binary release. Opening download page...');
+            toast.error(t('appUpdate.installFallback', 'Automated update installation requires binary release. Opening download page...'));
             if (updateInfo?.download_url) {
                 window.open(updateInfo.download_url, '_blank');
             }
@@ -247,7 +247,7 @@ export default function AppUpdateModal({ isOpen, onClose }: AppUpdateModalProps)
                                                 toast.success(t('appUpdate.notesCopied', 'Release notes copied to clipboard!'), { icon: "📋" });
                                             }}
                                             className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 border border-slate-700 shadow-sm"
-                                            title="Copy release notes to clipboard"
+                                            title={t('appUpdate.copyNotesTooltip', 'Copy release notes to clipboard')}
                                         >
                                             <Copy className="w-3 h-3 text-sky-400" />
                                             <span>{t('appUpdate.copyNotes', 'Copy Notes')}</span>

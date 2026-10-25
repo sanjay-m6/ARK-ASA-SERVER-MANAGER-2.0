@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Server, ServerStatus } from '../types';
+import i18n from '../i18n';
 
 interface ServerStore {
     servers: Server[];
@@ -187,7 +188,7 @@ export const useServerStore = create<ServerStore>((set, get) => ({
         } catch (error) {
             console.error('Failed to refresh servers:', error);
             import('react-hot-toast').then(({ default: toast }) => {
-                toast.error(`Failed to load servers: ${error}`);
+                toast.error(i18n.t('serverStore.loadFailed', { defaultValue: 'Failed to load servers: {{error}}', error: String(error) }));
             });
         }
     }

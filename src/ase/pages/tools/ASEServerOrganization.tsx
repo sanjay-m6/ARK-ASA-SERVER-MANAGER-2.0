@@ -105,7 +105,7 @@ export default function ASEServerOrganization() {
       setArchived(allArchived);
     } catch (e) {
       console.error('Failed to load organization data:', e);
-      toast.error('Failed to sync organization data from database.');
+      toast.error(t('serverOrganization.toasts.syncFailed', 'Failed to sync organization data from database.'));
     } finally {
       setLoading(false);
     }
@@ -128,7 +128,7 @@ export default function ASEServerOrganization() {
           color: folderForm.color,
           icon: folderForm.icon
         });
-        toast.success(`Folder "${folderForm.name}" updated successfully.`);
+        toast.success(t('serverOrganization.toasts.folderUpdated', { defaultValue: 'Folder "{{name}}" updated successfully.', name: folderForm.name }));
       } else {
         await createServerFolder({
           name: folderForm.name,
@@ -136,14 +136,14 @@ export default function ASEServerOrganization() {
           color: folderForm.color,
           icon: folderForm.icon
         });
-        toast.success(`Folder "${folderForm.name}" created successfully.`);
+        toast.success(t('serverOrganization.toasts.folderCreated', { defaultValue: 'Folder "{{name}}" created successfully.', name: folderForm.name }));
       }
       setShowFolderModal(false);
       setEditingFolder(null);
       setFolderForm({ name: '', description: '', color: '#8B5CF6', icon: 'folder' });
       fetchData();
     } catch (error: any) {
-      toast.error(`Failed to save folder changes: ${error.message || error}`);
+      toast.error(t('serverOrganization.toasts.folderSaveFailed', { defaultValue: 'Failed to save folder changes: {{error}}', error: error.message || String(error) }));
     }
   };
 
@@ -167,10 +167,10 @@ export default function ASEServerOrganization() {
     if (folderToDelete === null) return;
     try {
       await deleteServerFolder(folderToDelete);
-      toast.success('Folder deleted successfully.');
+      toast.success(t('serverOrganization.toasts.folderDeleted', 'Folder deleted successfully.'));
       fetchData();
     } catch (e: any) {
-      toast.error(`Failed to delete folder: ${e.message || e}`);
+      toast.error(t('serverOrganization.toasts.folderDeleteFailed', { defaultValue: 'Failed to delete folder: {{error}}', error: e.message || String(e) }));
     } finally {
       setShowDeleteFolderModal(false);
       setFolderToDelete(null);
@@ -182,14 +182,14 @@ export default function ASEServerOrganization() {
     try {
       if (isAssigned) {
         await removeServerFromFolder(serverId, folderId);
-        toast.success('Server removed from folder.');
+        toast.success(t('serverOrganization.toasts.removedFromFolder', 'Server removed from folder.'));
       } else {
         await addServerToFolder(serverId, folderId);
-        toast.success('Server assigned to folder.');
+        toast.success(t('serverOrganization.toasts.assignedToFolder', 'Server assigned to folder.'));
       }
       fetchData();
     } catch (e: any) {
-      toast.error(`Failed to modify server folder allocation: ${e.message || e}`);
+      toast.error(t('serverOrganization.toasts.assignFailed', { defaultValue: 'Failed to modify server folder allocation: {{error}}', error: e.message || String(e) }));
     }
   };
 
@@ -226,10 +226,10 @@ export default function ASEServerOrganization() {
         tags: customForm.tags,
         notes: customForm.notes || undefined
       });
-      toast.success('Server customization settings saved.');
+      toast.success(t('serverOrganization.toasts.customizationSaved', 'Server customization settings saved.'));
       fetchData();
     } catch (e) {
-      toast.error('Failed to save customization settings.');
+      toast.error(t('serverOrganization.toasts.customizationFailed', 'Failed to save customization settings.'));
     }
   };
 
@@ -270,7 +270,7 @@ export default function ASEServerOrganization() {
 
   const handleExecuteBulkAction = async () => {
     if (selectedServers.length === 0) {
-      toast.error('Please select at least one server.');
+      toast.error(t('serverOrganization.toasts.selectAtLeastOne', 'Please select at least one server.'));
       return;
     }
 
@@ -278,23 +278,23 @@ export default function ASEServerOrganization() {
       if (bulkAction === 'move') {
         if (!bulkFolder) return;
         await bulkMoveServers(selectedServers, bulkFolder);
-        toast.success(`Moved ${selectedServers.length} servers to target folder.`);
+        toast.success(t('serverOrganization.toasts.bulkMoved', { count: selectedServers.length, defaultValue: 'Moved {{count}} servers to target folder.' }));
       } else if (bulkAction === 'archive') {
         await bulkArchiveServers(selectedServers, bulkArchiveReason || undefined);
-        toast.success(`Archived ${selectedServers.length} servers.`);
+        toast.success(t('serverOrganization.toasts.bulkArchived', { count: selectedServers.length, defaultValue: 'Archived {{count}} servers.' }));
       } else if (bulkAction === 'tag') {
         const tagsArr = bulkTags.split(',').map(t => t.trim()).filter(Boolean);
         await bulkTagServers(selectedServers, tagsArr);
-        toast.success(`Applied tags to ${selectedServers.length} servers.`);
+        toast.success(t('serverOrganization.toasts.bulkTagged', { count: selectedServers.length, defaultValue: 'Applied tags to {{count}} servers.' }));
       } else if (bulkAction === 'color') {
         await bulkColorServers(selectedServers, bulkColor);
-        toast.success(`Applied color branding to ${selectedServers.length} servers.`);
+        toast.success(t('serverOrganization.toasts.bulkColored', { count: selectedServers.length, defaultValue: 'Applied color branding to {{count}} servers.' }));
       }
       setSelectedServers([]);
       setBulkAction(null);
       fetchData();
     } catch (e) {
-      toast.error('Failed to complete bulk operation.');
+      toast.error(t('serverOrganization.toasts.bulkFailed', 'Failed to complete bulk operation.'));
     }
   };
 
@@ -309,10 +309,10 @@ export default function ASEServerOrganization() {
     if (serverToArchive === null) return;
     try {
       await archiveServer(serverToArchive, archiveReasonInput || undefined);
-      toast.success('Server archived successfully.');
+      toast.success(t('serverOrganization.toasts.archived', 'Server archived successfully.'));
       fetchData();
     } catch (e) {
-      toast.error('Failed to archive server.');
+      toast.error(t('serverOrganization.toasts.archiveFailed', 'Failed to archive server.'));
     } finally {
       setShowArchiveModal(false);
       setServerToArchive(null);
@@ -323,10 +323,10 @@ export default function ASEServerOrganization() {
   const handleRestoreSingleServer = async (id: number) => {
     try {
       await restoreServer(id);
-      toast.success('Server restored and returned to active dashboard.');
+      toast.success(t('serverOrganization.toasts.restored', 'Server restored and returned to active dashboard.'));
       fetchData();
     } catch (e) {
-      toast.error('Failed to restore server.');
+      toast.error(t('serverOrganization.toasts.restoreFailed', 'Failed to restore server.'));
     }
   };
 
@@ -346,10 +346,10 @@ export default function ASEServerOrganization() {
 
     try {
       await reorderServers(ids);
-      toast.success('Sorting order updated.');
+      toast.success(t('serverOrganization.toasts.orderUpdated', 'Sorting order updated.'));
       fetchData();
     } catch (e) {
-      toast.error('Failed to update reordering sequence.');
+      toast.error(t('serverOrganization.toasts.orderFailed', 'Failed to update reordering sequence.'));
     }
   };
 
@@ -363,7 +363,7 @@ export default function ASEServerOrganization() {
             <span>{t('sidebar.serverOrganization', 'Server Organization')}</span>
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Group, customize display cards, pin favorite nodes, perform transaction-safe bulk editing, and audit server health.
+            {t('serverOrganization.subtitle', 'Group, customize display cards, pin favorite nodes, perform transaction-safe bulk editing, and audit server health.')}
           </p>
         </div>
 
@@ -372,18 +372,18 @@ export default function ASEServerOrganization() {
           className="p-2.5 bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all rounded-xl focus:outline-none flex items-center gap-2 text-sm text-slate-300"
         >
           <RefreshCw className="w-4 h-4" />
-          <span>Refresh Database</span>
+          <span>{t('serverOrganization.refreshDatabase', 'Refresh Database')}</span>
         </button>
       </div>
 
       {/* Modern Glassmorphic Tabs */}
       <div className="flex p-1.5 rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md w-max shadow-inner gap-1 mb-6 flex-wrap">
         {[
-          { id: 'folders', label: 'Folders & Placement', icon: FolderOpen },
-          { id: 'customizations', label: 'Branding & Details', icon: Sparkles },
-          { id: 'bulk', label: 'Bulk Safe Operations', icon: CheckSquare },
-          { id: 'archive', label: 'Archival Logs', icon: Archive },
-          { id: 'layouts', label: 'Layout Metrics', icon: BarChart2 }
+          { id: 'folders', label: t('serverOrganization.tabs.folders', 'Folders & Placement'), icon: FolderOpen },
+          { id: 'customizations', label: t('serverOrganization.tabs.customizations', 'Branding & Details'), icon: Sparkles },
+          { id: 'bulk', label: t('serverOrganization.tabs.bulk', 'Bulk Safe Operations'), icon: CheckSquare },
+          { id: 'archive', label: t('serverOrganization.tabs.archive', 'Archival Logs'), icon: Archive },
+          { id: 'layouts', label: t('serverOrganization.tabs.layouts', 'Layout Metrics'), icon: BarChart2 }
         ].map(tab => {
           const isActive = activeTab === tab.id;
           return (
@@ -417,7 +417,7 @@ export default function ASEServerOrganization() {
               {/* Folder List & Hierarchy */}
               <div className="lg:col-span-2 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-slate-200">Hierarchy Trees</h3>
+                  <h3 className="text-lg font-bold text-slate-200">{t('serverOrganization.folders.title', 'Hierarchy Trees')}</h3>
                   <button
                     onClick={() => {
                       setEditingFolder(null);
@@ -427,7 +427,7 @@ export default function ASEServerOrganization() {
                     className={cn('px-4 py-2 rounded-xl flex items-center gap-1.5 text-sm transition-all focus:outline-none', accentBtn)}
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Create Category</span>
+                    <span>{t('serverOrganization.folders.create', 'Create Category')}</span>
                   </button>
                 </div>
 
@@ -435,8 +435,8 @@ export default function ASEServerOrganization() {
                   {folders.length === 0 ? (
                     <div className="text-center py-12 bg-white/[0.01] border border-white/5 rounded-2xl">
                       <Folder className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                      <h4 className="text-sm font-semibold text-slate-400">No Folders Registered</h4>
-                      <p className="text-xs text-slate-500 mt-1">Create a folder category first to arrange your nodes.</p>
+                      <h4 className="text-sm font-semibold text-slate-400">{t('serverOrganization.folders.empty', 'No Folders Registered')}</h4>
+                      <p className="text-xs text-slate-500 mt-1">{t('serverOrganization.folders.emptyDesc', 'Create a folder category first to arrange your nodes.')}</p>
                     </div>
                   ) : (
                     folders.map(folder => (
@@ -479,7 +479,7 @@ export default function ASEServerOrganization() {
 
                         {/* Folder Servers Grid */}
                         <div className="p-4 bg-[#070b13]/40">
-                          <h5 className="text-[11px] font-black uppercase tracking-wider text-slate-500 mb-3">Assigned Nodes</h5>
+                          <h5 className="text-[11px] font-black uppercase tracking-wider text-slate-500 mb-3">{t('serverOrganization.folders.assignedNodes', 'Assigned Nodes')}</h5>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {servers.map(server => {
                               const isAssigned = snapshot?.servers.find((s: any) => s.id === server.id)?.folderIds?.includes(folder.id);
@@ -528,14 +528,14 @@ export default function ASEServerOrganization() {
                 <div className="glass-panel border-white/5 rounded-2xl p-5">
                   <h3 className="text-sm font-bold text-slate-200 mb-3 flex items-center gap-1.5">
                     <Info className={cn('w-4 h-4', accentText)} />
-                    <span>Arrangement Guidelines</span>
+                    <span>{t('serverOrganization.guidelines.title', 'Arrangement Guidelines')}</span>
                   </h3>
                   <div className="text-xs text-slate-400 space-y-3 leading-relaxed">
-                    <p>Creating clear categorical folders makes it simple to manage extensive cluster networks.</p>
+                    <p>{t('serverOrganization.guidelines.intro', 'Creating clear categorical folders makes it simple to manage extensive cluster networks.')}</p>
                     <ul className="list-disc pl-4 space-y-2">
-                      <li>Assign nodes to multiple folders depending on administrative hierarchies.</li>
-                      <li>Select unique colors per category folder to customize dashboard headers.</li>
-                      <li>Deleting folders will not modify or purge the underlying server files.</li>
+                      <li>{t('serverOrganization.guidelines.tip1', 'Assign nodes to multiple folders depending on administrative hierarchies.')}</li>
+                      <li>{t('serverOrganization.guidelines.tip2', 'Select unique colors per category folder to customize dashboard headers.')}</li>
+                      <li>{t('serverOrganization.guidelines.tip3', 'Deleting folders will not modify or purge the underlying server files.')}</li>
                     </ul>
                   </div>
                 </div>
@@ -543,10 +543,10 @@ export default function ASEServerOrganization() {
                 <div className="glass-panel border-white/5 rounded-2xl p-5 space-y-4">
                   <h3 className="text-sm font-bold text-slate-200 flex items-center gap-1.5">
                     <ArrowUpDown className={cn('w-4 h-4', accentText)} />
-                    <span>Global Startup Order</span>
+                    <span>{t('serverOrganization.startupOrder.title', 'Global Startup Order')}</span>
                   </h3>
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    Adjust the sequence for startup priorities across nodes. The Sequential Auto-Start Engine starts nodes from top to bottom.
+                    {t('serverOrganization.startupOrder.desc', 'Adjust the sequence for startup priorities across nodes. The Sequential Auto-Start Engine starts nodes from top to bottom.')}
                   </p>
 
                   <div className="space-y-2">
@@ -588,7 +588,7 @@ export default function ASEServerOrganization() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Server List */}
               <div className="space-y-3">
-                <h3 className="text-sm font-black uppercase tracking-wider text-slate-400">Select Server Node</h3>
+                <h3 className="text-sm font-black uppercase tracking-wider text-slate-400">{t('serverOrganization.custom.selectNode', 'Select Server Node')}</h3>
                 <div className="space-y-2">
                   {servers.map(server => {
                     const cust = snapshot?.servers.find((s: any) => s.id === server.id)?.customization;
@@ -631,26 +631,26 @@ export default function ASEServerOrganization() {
                 {selectedCustomServer ? (
                   <div className="glass-panel border-white/5 rounded-3xl p-6 space-y-6">
                     <div className="border-b border-white/5 pb-4">
-                      <h3 className="text-lg font-bold text-slate-200">Card Customization</h3>
-                      <p className="text-xs text-slate-400 mt-1">Configure metadata, color-coded tags, and customized banners for this server node.</p>
+                      <h3 className="text-lg font-bold text-slate-200">{t('serverOrganization.custom.title', 'Card Customization')}</h3>
+                      <p className="text-xs text-slate-400 mt-1">{t('serverOrganization.custom.desc', 'Configure metadata, color-coded tags, and customized banners for this server node.')}</p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Display name */}
                       <div className="space-y-1.5">
-                        <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Display Name Override</label>
+                        <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">{t('serverOrganization.custom.displayName', 'Display Name Override')}</label>
                         <input
                           type="text"
                           value={customForm.displayName}
                           onChange={e => setCustomForm({ ...customForm, displayName: e.target.value })}
                           className="w-full px-4 py-3 bg-[#080d16] border border-white/10 rounded-xl focus:outline-none focus:border-sky-500/30 text-white text-sm"
-                          placeholder="e.g. [US] PVP Crystal Isles Cluster"
+                          placeholder={t('serverOrganization.custom.displayNamePlaceholder', 'e.g. [US] PVP Crystal Isles Cluster')}
                         />
                       </div>
 
                       {/* Color code */}
                       <div className="space-y-1.5">
-                        <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Color Indicator Tag</label>
+                        <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">{t('serverOrganization.custom.colorTag', 'Color Indicator Tag')}</label>
                         <div className="flex gap-2">
                           <input
                             type="color"
@@ -669,7 +669,7 @@ export default function ASEServerOrganization() {
 
                       {/* Custom Icon url */}
                       <div className="space-y-1.5">
-                        <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Custom Icon URL</label>
+                        <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">{t('serverOrganization.custom.iconUrl', 'Custom Icon URL')}</label>
                         <input
                           type="text"
                           value={customForm.customIcon}
@@ -681,7 +681,7 @@ export default function ASEServerOrganization() {
 
                       {/* Custom Banner url */}
                       <div className="space-y-1.5">
-                        <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Custom Banner Card URL</label>
+                        <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">{t('serverOrganization.custom.bannerUrl', 'Custom Banner Card URL')}</label>
                         <input
                           type="text"
                           value={customForm.customBanner}
@@ -702,8 +702,8 @@ export default function ASEServerOrganization() {
                           className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-0"
                         />
                         <div>
-                          <span className="text-xs font-semibold text-white block">Pin Favorite to Top</span>
-                          <span className="text-[10px] text-slate-500">Node will always stay locked above regular lists.</span>
+                          <span className="text-xs font-semibold text-white block">{t('serverOrganization.custom.pinTop', 'Pin Favorite to Top')}</span>
+                          <span className="text-[10px] text-slate-500">{t('serverOrganization.custom.pinTopDesc', 'Node will always stay locked above regular lists.')}</span>
                         </div>
                       </label>
 
@@ -716,18 +716,18 @@ export default function ASEServerOrganization() {
                           className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-0"
                         />
                         <div>
-                          <span className="text-xs font-semibold text-white block">Heart Node</span>
-                          <span className="text-[10px] text-slate-500">Mark node with a special quick status highlight.</span>
+                          <span className="text-xs font-semibold text-white block">{t('serverOrganization.custom.heart', 'Heart Node')}</span>
+                          <span className="text-[10px] text-slate-500">{t('serverOrganization.custom.heartDesc', 'Mark node with a special quick status highlight.')}</span>
                         </div>
                       </label>
                     </div>
 
                     {/* Tag list */}
                     <div className="space-y-3">
-                      <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Custom Tags</label>
+                      <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">{t('serverOrganization.custom.tags', 'Custom Tags')}</label>
                       <div className="flex flex-wrap gap-2 mb-2">
                         {customForm.tags.length === 0 ? (
-                          <span className="text-xs text-slate-600 italic">No tags assigned. Add some below.</span>
+                          <span className="text-xs text-slate-600 italic">{t('serverOrganization.custom.noTags', 'No tags assigned. Add some below.')}</span>
                         ) : (
                           customForm.tags.map(t => (
                             <span key={t} className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300 flex items-center gap-1.5">
@@ -749,7 +749,7 @@ export default function ASEServerOrganization() {
                           value={customForm.newTag}
                           onChange={e => setCustomForm({ ...customForm, newTag: e.target.value })}
                           className="px-4 py-2 bg-[#080d16] border border-white/10 rounded-xl focus:outline-none focus:border-sky-500/30 text-white text-xs"
-                          placeholder="e.g. cluster-alpha"
+                          placeholder={t('serverOrganization.custom.tagPlaceholder', 'e.g. cluster-alpha')}
                           onKeyDown={e => { if (e.key === 'Enter') handleAddTag(); }}
                         />
                         <button
@@ -757,19 +757,19 @@ export default function ASEServerOrganization() {
                           onClick={handleAddTag}
                           className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-white"
                         >
-                          Add Tag
+                          {t('serverOrganization.custom.addTag', 'Add Tag')}
                         </button>
                       </div>
                     </div>
 
                     {/* Notes */}
                     <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Internal Admin Notes</label>
+                      <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider">{t('serverOrganization.custom.notes', 'Internal Admin Notes')}</label>
                       <textarea
                         value={customForm.notes}
                         onChange={e => setCustomForm({ ...customForm, notes: e.target.value })}
                         className="w-full h-24 px-4 py-3 bg-[#080d16] border border-white/10 rounded-xl focus:outline-none text-white text-sm"
-                        placeholder="Write setup schedules, cluster notes, map keys..."
+                        placeholder={t('serverOrganization.custom.notesPlaceholder', 'Write setup schedules, cluster notes, map keys...')}
                       />
                     </div>
 
@@ -778,15 +778,15 @@ export default function ASEServerOrganization() {
                         onClick={handleSaveCustomization}
                         className={cn('px-6 py-2.5 rounded-xl text-sm transition-all focus:outline-none', accentBtn)}
                       >
-                        Save Configuration
+                        {t('ase.serverOrganization.saveConfig', 'Save Configuration')}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <div className="text-center py-24 bg-white/[0.01] border border-white/5 rounded-3xl flex flex-col justify-center items-center">
                     <Sparkles className="w-12 h-12 text-slate-600 mb-3" />
-                    <h3 className="text-sm font-semibold text-slate-400">Select a Node to Edit Customization</h3>
-                    <p className="text-xs text-slate-500 max-w-xs mt-1">Configure individual server labels, custom banners, custom tag styles, and admin internal notes logs.</p>
+                    <h3 className="text-sm font-semibold text-slate-400">{t('serverOrganization.custom.emptyTitle', 'Select a Node to Edit Customization')}</h3>
+                    <p className="text-xs text-slate-500 max-w-xs mt-1">{t('serverOrganization.custom.emptyDesc', 'Configure individual server labels, custom banners, custom tag styles, and admin internal notes logs.')}</p>
                   </div>
                 )}
               </div>
@@ -799,8 +799,8 @@ export default function ASEServerOrganization() {
               <div className="glass-panel border-white/5 rounded-2xl p-5 space-y-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
-                    <h3 className="text-base font-bold text-slate-200">Bulk Server Selection</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Select multiple servers and apply bulk actions securely under transactional rollback protection.</p>
+                    <h3 className="text-base font-bold text-slate-200">{t('serverOrganization.bulk.title', 'Bulk Server Selection')}</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">{t('serverOrganization.bulk.desc', 'Select multiple servers and apply bulk actions securely under transactional rollback protection.')}</p>
                   </div>
 
                   <div className="flex gap-2">
@@ -808,7 +808,7 @@ export default function ASEServerOrganization() {
                       onClick={handleToggleSelectAll}
                       className="px-4 py-2 bg-white/5 border border-white/10 hover:bg-white/10 transition-all rounded-xl text-xs text-white"
                     >
-                      {selectedServers.length === servers.length ? 'Deselect All' : 'Select All'}
+                      {selectedServers.length === servers.length ? t('common.deselectAll', 'Deselect All') : t('common.selectAll', 'Select All')}
                     </button>
                   </div>
                 </div>
@@ -848,16 +848,16 @@ export default function ASEServerOrganization() {
               {selectedServers.length > 0 && (
                 <div className="glass-panel border-white/5 rounded-2xl p-6 space-y-6">
                   <div className="border-b border-white/5 pb-4">
-                    <h3 className="text-base font-bold text-slate-200">Configure Bulk Action</h3>
+                    <h3 className="text-base font-bold text-slate-200">{t('serverOrganization.bulk.configure', 'Configure Bulk Action')}</h3>
                     <p className="text-xs text-slate-400 mt-0.5">Apply updates to all {selectedServers.length} selected nodes.</p>
                   </div>
 
                   <div className="flex flex-wrap gap-3">
                     {[
-                      { id: 'move', label: 'Move to Category Folder', icon: FolderOpen },
-                      { id: 'tag', label: 'Apply Tags', icon: Tag },
-                      { id: 'color', label: 'Apply Color indicator', icon: Sparkles },
-                      { id: 'archive', label: 'Archive Nodes', icon: Archive }
+                      { id: 'move', label: t('serverOrganization.bulk.actions.move', 'Move to Category Folder'), icon: FolderOpen },
+                      { id: 'tag', label: t('serverOrganization.bulk.actions.tag', 'Apply Tags'), icon: Tag },
+                      { id: 'color', label: t('serverOrganization.bulk.actions.color', 'Apply Color indicator'), icon: Sparkles },
+                      { id: 'archive', label: t('serverOrganization.bulk.actions.archive', 'Archive Nodes'), icon: Archive }
                     ].map(act => (
                       <button
                         key={act.id}
@@ -878,13 +878,13 @@ export default function ASEServerOrganization() {
                   {/* Bulk configurations */}
                   {bulkAction === 'move' && (
                     <div className="space-y-1.5 max-w-sm">
-                      <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Target Folder Category</label>
+                      <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">{t('serverOrganization.bulk.targetFolder', 'Target Folder Category')}</label>
                       <select
                         value={bulkFolder}
                         onChange={e => setBulkFolder(Number(e.target.value))}
                         className="w-full px-4 py-3 bg-[#080d16] border border-white/10 rounded-xl focus:outline-none text-white text-sm"
                       >
-                        <option value={0}>-- Select target category --</option>
+                        <option value={0}>{t('ase.serverOrganization.selectTargetCategory', '-- Select target category --')}</option>
                         {folders.map(f => (
                           <option key={f.id} value={f.id}>{f.name}</option>
                         ))}
@@ -894,20 +894,20 @@ export default function ASEServerOrganization() {
 
                   {bulkAction === 'tag' && (
                     <div className="space-y-1.5 max-w-sm">
-                      <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Custom Tags (comma separated)</label>
+                      <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">{t('serverOrganization.bulk.tagsLabel', 'Custom Tags (comma separated)')}</label>
                       <input
                         type="text"
                         value={bulkTags}
                         onChange={e => setBulkTags(e.target.value)}
                         className="w-full px-4 py-3 bg-[#080d16] border border-white/10 rounded-xl focus:outline-none text-white text-sm"
-                        placeholder="e.g. cluster-beta, new-season, pvp"
+                        placeholder={t('serverOrganization.bulk.tagsPlaceholder', 'e.g. cluster-beta, new-season, pvp')}
                       />
                     </div>
                   )}
 
                   {bulkAction === 'color' && (
                     <div className="space-y-1.5 max-w-sm">
-                      <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Color Indicator</label>
+                      <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">{t('serverOrganization.bulk.colorLabel', 'Color Indicator')}</label>
                       <div className="flex gap-2">
                         <input
                           type="color"
@@ -927,13 +927,13 @@ export default function ASEServerOrganization() {
 
                   {bulkAction === 'archive' && (
                     <div className="space-y-1.5 max-w-md">
-                      <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Reason for Archiving</label>
+                      <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">{t('serverOrganization.bulk.reasonLabel', 'Reason for Archiving')}</label>
                       <input
                         type="text"
                         value={bulkArchiveReason}
                         onChange={e => setBulkArchiveReason(e.target.value)}
                         className="w-full px-4 py-3 bg-[#080d16] border border-white/10 rounded-xl focus:outline-none text-white text-sm"
-                        placeholder="e.g. End of PVP Season 3, merging with Cluster Beta"
+                        placeholder={t('serverOrganization.bulk.reasonPlaceholder', 'e.g. End of PVP Season 3, merging with Cluster Beta')}
                       />
                     </div>
                   )}
@@ -944,7 +944,7 @@ export default function ASEServerOrganization() {
                         onClick={handleExecuteBulkAction}
                         className={cn('px-6 py-2.5 rounded-xl text-sm transition-all focus:outline-none', accentBtn)}
                       >
-                        Execute Operation Safely
+                        {t('serverOrganization.bulk.execute', 'Execute Operation Safely')}
                       </button>
                     </div>
                   )}
@@ -958,7 +958,7 @@ export default function ASEServerOrganization() {
             <div className="space-y-6">
               {/* Active servers listing for quick archiving */}
               <div className="glass-panel border-white/5 rounded-2xl p-5">
-                <h3 className="text-sm font-black uppercase tracking-wider text-slate-300 mb-3">Quick Archival Manager</h3>
+                <h3 className="text-sm font-black uppercase tracking-wider text-slate-300 mb-3">{t('serverOrganization.archive.quickTitle', 'Quick Archival Manager')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {servers.map(server => (
                     <div
@@ -969,13 +969,13 @@ export default function ASEServerOrganization() {
                         <span className="text-xs font-semibold text-white block">
                           {snapshot?.servers.find((s: any) => s.id === server.id)?.customization?.displayName || server.name}
                         </span>
-                        <span className="text-[10px] text-slate-500">Original Node ID: {server.id}</span>
+                        <span className="text-[10px] text-slate-500">{t('serverOrganization.archive.originalId', { id: server.id, defaultValue: 'Original Node ID: {{id}}' })}</span>
                       </div>
 
                       <button
                         onClick={() => handleArchiveSingleServer(server.id)}
                         className="p-2 hover:bg-rose-500/10 rounded-lg text-slate-400 hover:text-rose-400 transition-colors"
-                        title="Archive Server Node"
+                        title={t('serverOrganization.archive.modalTitle', 'Archive Server Node')}
                       >
                         <Archive className="w-4 h-4" />
                       </button>
@@ -987,16 +987,16 @@ export default function ASEServerOrganization() {
               {/* Archival registry */}
               <div className="glass-panel border-white/5 rounded-2xl p-6 space-y-4">
                 <div>
-                  <h3 className="text-base font-bold text-slate-200">Archived Servers Registry</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Archived servers have their auto-start sequences completely bypassed to save local memory.</p>
+                  <h3 className="text-base font-bold text-slate-200">{t('serverOrganization.archive.registryTitle', 'Archived Servers Registry')}</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">{t('serverOrganization.archive.registryDesc', 'Archived servers have their auto-start sequences completely bypassed to save local memory.')}</p>
                 </div>
 
                 <div className="space-y-3">
                   {archived.length === 0 ? (
                     <div className="text-center py-12 bg-white/[0.01] border border-white/5 rounded-2xl">
                       <Archive className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                      <h4 className="text-sm font-semibold text-slate-400 text-slate-500">Archived Registry Clear</h4>
-                      <p className="text-xs text-slate-600 mt-1">No server nodes are currently parked in the archives.</p>
+                      <h4 className="text-sm font-semibold text-slate-400 text-slate-500">{t('serverOrganization.archive.emptyTitle', 'Archived Registry Clear')}</h4>
+                      <p className="text-xs text-slate-600 mt-1">{t('serverOrganization.archive.emptyDesc', 'No server nodes are currently parked in the archives.')}</p>
                     </div>
                   ) : (
                     archived.map(arc => (
@@ -1006,12 +1006,12 @@ export default function ASEServerOrganization() {
                       >
                         <div className="space-y-1">
                           <span className="text-sm font-bold text-slate-200 block">
-                            Server Node ID: {arc.serverId}
+                            {t('serverOrganization.archive.nodeId', { id: arc.serverId, defaultValue: 'Server Node ID: {{id}}' })}
                           </span>
                           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                            <span>Archived At: {arc.archivedAt}</span>
-                            {arc.archiveReason && <span>Reason: {arc.archiveReason}</span>}
-                            {arc.notes && <span>Notes: {arc.notes}</span>}
+                            <span>{t('serverOrganization.archive.archivedAt', { date: arc.archivedAt, defaultValue: 'Archived At: {{date}}' })}</span>
+                            {arc.archiveReason && <span>{t('serverOrganization.archive.reason', { reason: arc.archiveReason, defaultValue: 'Reason: {{reason}}' })}</span>}
+                            {arc.notes && <span>{t('serverOrganization.archive.notes', { notes: arc.notes, defaultValue: 'Notes: {{notes}}' })}</span>}
                           </div>
                         </div>
 
@@ -1020,7 +1020,7 @@ export default function ASEServerOrganization() {
                           className={cn('px-4 py-2 rounded-xl text-xs font-semibold focus:outline-none flex items-center gap-1.5', accentBtn)}
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
-                          <span>Restore Node</span>
+                          <span>{t('serverOrganization.archive.restore', 'Restore Node')}</span>
                         </button>
                       </div>
                     ))
@@ -1036,32 +1036,32 @@ export default function ASEServerOrganization() {
               {/* Statistics Summary */}
               <div className="lg:col-span-2 space-y-6">
                 <div className="glass-panel border-white/5 rounded-2xl p-6">
-                  <h3 className="text-base font-bold text-slate-200 mb-4">Dashboard Analytics Summary</h3>
+                  <h3 className="text-base font-bold text-slate-200 mb-4">{t('serverOrganization.layouts.summary', 'Dashboard Analytics Summary')}</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="p-4 bg-white/[0.01] border border-white/5 rounded-xl">
-                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Total Servers</span>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">{t('discordBot.stats.totalServers', 'Total Servers')}</span>
                       <span className="text-2xl font-bold text-white block mt-1">{snapshot?.statistics?.totalServers || servers.length}</span>
                     </div>
 
                     <div className="p-4 bg-white/[0.01] border border-white/5 rounded-xl">
-                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Active Nodes</span>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">{t('serverOrganization.layouts.activeNodes', 'Active Nodes')}</span>
                       <span className="text-2xl font-bold text-emerald-400 block mt-1">{snapshot?.statistics?.activeServers || servers.length}</span>
                     </div>
 
                     <div className="p-4 bg-white/[0.01] border border-white/5 rounded-xl">
-                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Archived Nodes</span>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">{t('serverOrganization.layouts.archivedNodes', 'Archived Nodes')}</span>
                       <span className="text-2xl font-bold text-rose-400 block mt-1">{snapshot?.statistics?.archivedServers || archived.length}</span>
                     </div>
 
                     <div className="p-4 bg-white/[0.01] border border-white/5 rounded-xl">
-                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Active Uptime</span>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">{t('serverOrganization.layouts.activeUptime', 'Active Uptime')}</span>
                       <span className="text-2xl font-bold text-sky-400 block mt-1">{snapshot?.statistics?.totalUptimeHours || 0} hrs</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="glass-panel border-white/5 rounded-2xl p-6 space-y-4">
-                  <h3 className="text-base font-bold text-slate-200">Active Map Distribution</h3>
+                  <h3 className="text-base font-bold text-slate-200">{t('serverOrganization.layouts.mapDistribution', 'Active Map Distribution')}</h3>
                   <div className="space-y-2">
                     {Object.entries(snapshot?.statistics?.serverCountByMap || {}).map(([map, count]) => (
                       <div key={map} className="flex items-center justify-between p-2.5 bg-white/[0.01] border border-white/5 rounded-xl">
@@ -1077,17 +1077,17 @@ export default function ASEServerOrganization() {
               <div className="glass-panel border-white/5 rounded-2xl p-5 space-y-4">
                 <h3 className="text-sm font-bold text-slate-200 flex items-center gap-1.5">
                   <LayoutGrid className={cn('w-4 h-4', accentText)} />
-                  <span>Dashboard Custom layouts</span>
+                  <span>{t('serverOrganization.layouts.customLayouts', 'Dashboard Custom layouts')}</span>
                 </h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Select and save custom views for the main dashboard display cards.
+                  {t('serverOrganization.layouts.customLayoutsDesc', 'Select and save custom views for the main dashboard display cards.')}
                 </p>
 
                 <div className="space-y-2">
                   {[
-                    { id: 'grid', label: 'Grid Matrix', desc: 'Detailed cards in modern grids.' },
-                    { id: 'list', label: 'Classic List', desc: 'Chronological rows with action keys.' },
-                    { id: 'compact', label: 'Compact Grid', desc: 'Minimized row widgets without banners.' }
+                    { id: 'grid', label: t('serverOrganization.layouts.grid', 'Grid Matrix'), desc: t('serverOrganization.layouts.gridDesc', 'Detailed cards in modern grids.') },
+                    { id: 'list', label: t('serverOrganization.layouts.list', 'Classic List'), desc: t('serverOrganization.layouts.listDesc', 'Chronological rows with action keys.') },
+                    { id: 'compact', label: t('serverOrganization.layouts.compact', 'Compact Grid'), desc: t('serverOrganization.layouts.compactDesc', 'Minimized row widgets without banners.') }
                   ].map(lay => (
                     <div
                       key={lay.id}
@@ -1121,7 +1121,7 @@ export default function ASEServerOrganization() {
             >
               <div className="p-6 border-b border-white/5 flex items-center justify-between">
                 <h4 className="text-base font-bold text-white">
-                  {editingFolder ? 'Edit Folder category' : 'Create Folder category'}
+                  {editingFolder ? t('serverOrganization.folderModal.editTitle', 'Edit Folder category') : t('serverOrganization.folderModal.createTitle', 'Create Folder category')}
                 </h4>
                 <button
                   onClick={() => setShowFolderModal(false)}
@@ -1133,30 +1133,30 @@ export default function ASEServerOrganization() {
 
               <form onSubmit={handleSaveFolder} className="p-6 space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Category Name</label>
+                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">{t('modOrganization.categoryName', 'Category Name')}</label>
                   <input
                     type="text"
                     required
                     value={folderForm.name}
                     onChange={e => setFolderForm({ ...folderForm, name: e.target.value })}
                     className="w-full px-4 py-3 bg-[#050912] border border-white/15 rounded-xl focus:outline-none focus:border-sky-500/30 text-white text-sm"
-                    placeholder="e.g. Cluster Alpha PVP"
+                    placeholder={t('serverOrganization.folderModal.namePlaceholder', 'e.g. Cluster Alpha PVP')}
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Description</label>
+                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">{t('common.description', 'Description')}</label>
                   <input
                     type="text"
                     value={folderForm.description}
                     onChange={e => setFolderForm({ ...folderForm, description: e.target.value })}
                     className="w-full px-4 py-3 bg-[#050912] border border-white/15 rounded-xl focus:outline-none focus:border-sky-500/30 text-white text-sm"
-                    placeholder="e.g. Primary cluster containing Crystal Isles"
+                    placeholder={t('serverOrganization.folderModal.descPlaceholder', 'e.g. Primary cluster containing Crystal Isles')}
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Category Color</label>
+                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">{t('serverOrganization.folderModal.color', 'Category Color')}</label>
                   <div className="flex gap-2">
                     <input
                       type="color"
@@ -1179,13 +1179,13 @@ export default function ASEServerOrganization() {
                     onClick={() => setShowFolderModal(false)}
                     className="px-5 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-sm text-slate-300"
                   >
-                    Cancel
+                    {t('common.cancel', 'Cancel')}
                   </button>
                   <button
                     type="submit"
                     className={cn('px-5 py-2.5 rounded-xl text-sm transition-all focus:outline-none', accentBtn)}
                   >
-                    Save Category
+                    {t('serverOrganization.folderModal.save', 'Save Category')}
                   </button>
                 </div>
               </form>
@@ -1206,13 +1206,13 @@ export default function ASEServerOrganization() {
                   <Trash2 className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-white tracking-wide">Delete Category</h4>
-                  <p className="text-xs text-slate-400 mt-0.5">This action cannot be undone.</p>
+                  <h4 className="text-base font-bold text-white tracking-wide">{t('modOrganization.deleteCategory', 'Delete Category')}</h4>
+                  <p className="text-xs text-slate-400 mt-0.5">{t('confirmDialog.cannotUndo', 'This action cannot be undone.')}</p>
                 </div>
               </div>
 
               <p className="text-xs text-slate-400 leading-relaxed bg-[#050912]/50 p-4 border border-white/5 rounded-xl">
-                Are you sure you want to delete this folder category? All servers currently assigned inside will be safely moved to the unassigned list. This will not delete any actual server files or configurations.
+                {t('serverOrganization.deleteModal.body', 'Are you sure you want to delete this folder category? All servers currently assigned inside will be safely moved to the unassigned list. This will not delete any actual server files or configurations.')}
               </p>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
@@ -1224,14 +1224,14 @@ export default function ASEServerOrganization() {
                   }}
                   className="px-5 py-2.5 bg-white/5 hover:bg-white/10 active:scale-[0.98] border border-white/5 rounded-xl text-sm font-semibold text-slate-300 transition-all focus:outline-none"
                 >
-                  Cancel
+                  {t('common.cancel', 'Cancel')}
                 </button>
                 <button
                   type="button"
                   onClick={confirmDeleteFolder}
                   className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 active:scale-[0.98] text-white font-bold rounded-xl text-sm transition-all shadow-[0_0_20px_rgba(239,68,68,0.15)] focus:outline-none"
                 >
-                  Delete Category
+                  {t('modOrganization.deleteCategory', 'Delete Category')}
                 </button>
               </div>
             </motion.div>
@@ -1251,23 +1251,23 @@ export default function ASEServerOrganization() {
                   <Archive className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-white tracking-wide">Archive Server Node</h4>
-                  <p className="text-xs text-slate-400 mt-0.5">Optimize active system capacity.</p>
+                  <h4 className="text-base font-bold text-white tracking-wide">{t('serverOrganization.archive.modalTitle', 'Archive Server Node')}</h4>
+                  <p className="text-xs text-slate-400 mt-0.5">{t('serverOrganization.archive.modalSubtitle', 'Optimize active system capacity.')}</p>
                 </div>
               </div>
 
               <p className="text-xs text-slate-400 leading-relaxed bg-[#050912]/50 p-4 border border-white/5 rounded-xl">
-                Bypasses sequential startup routines for inactive periods. Please specify a reason for archiving below.
+                {t('serverOrganization.archive.modalBody', 'Bypasses sequential startup routines for inactive periods. Please specify a reason for archiving below.')}
               </p>
 
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Reason (Optional)</label>
+                <label className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">{t('serverOrganization.archive.reasonOptional', 'Reason (Optional)')}</label>
                 <input
                   type="text"
                   value={archiveReasonInput}
                   onChange={e => setArchiveReasonInput(e.target.value)}
                   className="w-full px-4 py-3 bg-[#050912] border border-white/10 rounded-xl focus:outline-none focus:border-sky-500/30 text-white text-sm focus:ring-1 focus:ring-sky-500/20 placeholder-slate-600 transition-all"
-                  placeholder="e.g. Inactive season, offline maintenance"
+                  placeholder={t('serverOrganization.archive.reasonPlaceholder', 'e.g. Inactive season, offline maintenance')}
                   autoFocus
                 />
               </div>
@@ -1282,14 +1282,14 @@ export default function ASEServerOrganization() {
                   }}
                   className="px-5 py-2.5 bg-white/5 hover:bg-white/10 active:scale-[0.98] border border-white/5 rounded-xl text-sm font-semibold text-slate-300 transition-all focus:outline-none"
                 >
-                  Cancel
+                  {t('common.cancel', 'Cancel')}
                 </button>
                 <button
                   type="button"
                   onClick={confirmArchiveServer}
                   className={cn('px-5 py-2.5 rounded-xl text-sm font-bold active:scale-[0.98] transition-all focus:outline-none shadow-[0_0_20px_rgba(6,182,212,0.1)]', accentBtn)}
                 >
-                  Archive Node
+                  {t('serverOrganization.archive.confirm', 'Archive Node')}
                 </button>
               </div>
             </motion.div>

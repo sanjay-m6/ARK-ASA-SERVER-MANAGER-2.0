@@ -318,24 +318,24 @@ pub struct AseGameConfig {
     // ── Network / Admin ──
     pub rcon_enabled: bool,
     pub rcon_port: u16,
-    #[serde(alias = "rconServerLogBuffer", alias = "RCONServerLogBuffer")]
+    #[serde(rename = "RCONServerLogBuffer", alias = "rconServerLogBuffer")]
     pub rcon_server_log_buffer: u32,
     pub battle_eye_enforcer: bool,
     pub enable_creative_mode: bool,
     pub server_force_no_hud: bool,
     pub kick_idle_player_period: f64,
     pub destroy_tames_over_level_clamp: u32,
-    #[serde(alias = "maxDifficulty", alias = "MaxDifficulty")]
+    #[serde(rename = "MaxDifficulty", alias = "maxDifficulty")]
     pub max_difficulty: bool,
-    #[serde(alias = "preventOfflinePvP", alias = "preventOfflinePvp", alias = "PreventOfflinePvP")]
+    #[serde(rename = "PreventOfflinePvP", alias = "preventOfflinePvP", alias = "preventOfflinePvp")]
     pub prevent_offline_pvp: bool,
-    #[serde(alias = "preventOfflinePvPInterval", alias = "preventOfflinePvpInterval", alias = "PreventOfflinePvPInterval")]
+    #[serde(rename = "PreventOfflinePvPInterval", alias = "preventOfflinePvPInterval", alias = "preventOfflinePvpInterval")]
     pub prevent_offline_pvp_interval: u32,
     pub b_disable_structure_placement_collision: bool,
     pub b_use_corpse_locator: bool,
     pub b_show_status_types: bool,
     pub b_allow_unlimited_respecs: bool,
-    #[serde(alias = "spectatorPassword", alias = "SpectatorPassword")]
+    #[serde(rename = "SpectatorPassword", alias = "spectatorPassword")]
     pub spectator_password: String,
 
     // ── Mods ──
@@ -392,7 +392,7 @@ pub struct AseGameConfig {
     pub b_disable_friendly_fire: bool,
     pub non_permanent_diseases: bool,
     pub prevent_diseases: bool,
-    #[serde(alias = "allowCryoCooldownOnPvE", alias = "allowCryoCooldownonPve", alias = "AllowCryoCooldownOnPvE", alias = "allowCryoCooldownOnPve")]
+    #[serde(rename = "allowCryoCooldownOnPvE", alias = "allowCryoCooldownonPve", alias = "AllowCryoCooldownOnPvE", alias = "allowCryoCooldownOnPve")]
     pub allow_cryo_cooldown_on_pve: bool,
     #[serde(default, alias = "disableCryopodFridgeRequirement", alias = "DisableCryopodFridgeRequirement", alias = "disableCryopodStructureRequirement", alias = "DisableCryopodStructureRequirement")]
     pub disable_cryopod_fridge_requirement: bool,

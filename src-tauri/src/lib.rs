@@ -1126,6 +1126,13 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              commands::scheduler::update_task_last_run,
              commands::scheduler::get_scheduler_settings,
              commands::scheduler::save_scheduler_settings,
+             commands::routines::get_routines,
+             commands::routines::save_routine,
+             commands::routines::delete_routine,
+             commands::routines::set_routine_enabled,
+             commands::routines::run_routine_now,
+             commands::routines::cancel_routine,
+             commands::routines::get_running_routines,
 
              // ═══ ASE Module Commands ═══
              // ASE Server commands

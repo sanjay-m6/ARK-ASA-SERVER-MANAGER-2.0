@@ -27,7 +27,7 @@ export default function LanguageSettings() {
             );
         } catch (err) {
             console.error('Failed to change language:', err);
-            toast.error('Failed to change application language');
+            toast.error(t('settings.language.changeFailed', 'Failed to change application language'));
         }
     };
 
@@ -61,7 +61,7 @@ export default function LanguageSettings() {
                                     {t('settings.language.title', 'Application Language')}
                                 </h2>
                                 <span className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-sky-500/20 text-sky-400 border border-sky-500/30">
-                                    {supportedLanguages.length} Languages
+                                    {t('settings.language.languagesCount', { defaultValue: '{{count}} Languages', count: supportedLanguages.length })}
                                 </span>
                             </div>
                             <p className="text-sm text-[var(--text-secondary)] mt-1 leading-relaxed">
@@ -95,13 +95,13 @@ export default function LanguageSettings() {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder={t('common.search', 'Search languages by name or code...')}
+                            placeholder={t('settings.language.searchPlaceholder', 'Search languages by name or code...')}
                             className="w-full pl-10 pr-4 py-2.5 bg-[var(--bg-primary)] border border-[var(--border)] rounded-2xl text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-sky-500/50 transition-all"
                         />
                     </div>
                     <div className="text-xs text-[var(--text-muted)] flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-amber-400" />
-                        <span>Instant real-time translation</span>
+                        <span>{t('settings.language.instantTranslation', 'Instant real-time translation')}</span>
                     </div>
                 </div>
 
@@ -146,7 +146,7 @@ export default function LanguageSettings() {
                                         </div>
                                     ) : (
                                         <div className="w-7 h-7 rounded-full border border-[var(--border)] group-hover:border-sky-500/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
-                                            <span className="text-[10px] font-bold text-sky-400 uppercase">Use</span>
+                                            <span className="text-[10px] font-bold text-sky-400 uppercase">{t('settings.language.use', 'Use')}</span>
                                         </div>
                                     )}
                                 </div>
@@ -166,7 +166,7 @@ export default function LanguageSettings() {
                             onClick={() => setSearchQuery('')}
                             className="text-xs text-sky-400 hover:underline"
                         >
-                            Clear search filter
+                            {t('settings.language.clearSearch', 'Clear search filter')}
                         </button>
                     </div>
                 )}

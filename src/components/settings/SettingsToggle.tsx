@@ -1,5 +1,7 @@
 
 
+import { useTranslation } from 'react-i18next';
+
 interface SettingsToggleProps {
     label: string;
     value: boolean;
@@ -13,6 +15,7 @@ export function SettingsToggle({
     description,
     onChange
 }: SettingsToggleProps) {
+    const { t } = useTranslation();
     return (
         <div
             className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50 hover:border-cyan-500/30 transition-colors cursor-pointer"
@@ -43,7 +46,7 @@ export function SettingsToggle({
 
             <div className={`mt-2 text-xs font-medium transition-colors ${value ? 'text-cyan-400' : 'text-slate-500'
                 }`}>
-                {value ? 'ENABLED' : 'DISABLED'}
+                {value ? t('settingsToggle.enabled', 'ENABLED') : t('settingsToggle.disabled', 'DISABLED')}
             </div>
         </div>
     );

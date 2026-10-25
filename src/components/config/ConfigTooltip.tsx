@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Info, ExternalLink } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface ConfigTooltipProps {
     label: string;
@@ -9,8 +10,24 @@ interface ConfigTooltipProps {
     defaultValue?: string;
     currentValue?: string;
     wikiLink?: string;
+    /** INI location of the setting, shown as it appears in the file */
+    iniFile?: string;
+    iniSection?: string;
+    iniKey?: string;
+    /** Value currently saved in the file (undefined = key not present, the game uses its default) */
+    fileValue?: string;
+    /** Edited in the UI but not saved yet */
+    isUnsaved?: boolean;
     children: React.ReactNode;
 }
+
+// Long array/struct values would blow up the tooltip
+const preview = (v: string) => {
+    const firstLine = v.split('\n')[0];
+    const extra = v.split('\n').length - 1;
+    const text = firstLine.length > 120 ? `${firstLine.slice(0, 120)}…` : firstLine;
+    return extra > 0 ? `${text} (+${extra})` : text;
+};
 
 export const ConfigTooltip = ({
     label,
@@ -18,8 +35,14 @@ export const ConfigTooltip = ({
     defaultValue,
     currentValue,
     wikiLink,
+    iniFile,
+    iniSection,
+    iniKey,
+    fileValue,
+    isUnsaved,
     children
 }: ConfigTooltipProps) => {
+    const { t } = useTranslation();
     const [isVisible, setIsVisible] = useState(false);
     const [tooltipPos, setTooltipPos] = useState({ bottom: 0, left: 0 });
     const timeoutRef = useRef<any>(null);
@@ -44,7 +67,7 @@ export const ConfigTooltip = ({
         setIsVisible(false);
     };
 
-    const tooltipContent = (description || defaultValue) ? (
+    const tooltipContent = (description || defaultValue || iniKey) ? (
         <AnimatePresence>
             {isVisible && (
                 <motion.div
@@ -53,7 +76,7 @@ export const ConfigTooltip = ({
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.12 }}
                     style={{ bottom: tooltipPos.bottom, left: tooltipPos.left }}
-                    className="fixed z-[9999] w-72 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-4 pointer-events-none origin-bottom-left"
+                    className="fixed z-[9999] w-80 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-4 pointer-events-none origin-bottom-left"
                 >
                     <div className="space-y-3">
                         <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2">
@@ -67,16 +90,46 @@ export const ConfigTooltip = ({
                             </p>
                         )}
 
+                        {iniKey && (
+                            <div className={`rounded-lg p-2 border ${isUnsaved ? 'bg-sky-500/10 border-sky-500/30' : 'bg-slate-800/50 border-white/5'}`}>
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                                        {t('configTooltip.inFile', { file: iniFile ?? 'INI', defaultValue: 'In {{file}}' })}
+                                    </div>
+                                    {isUnsaved && (
+                                        <span className="text-[9px] font-bold uppercase tracking-wider text-sky-300 bg-sky-500/20 px-1.5 py-0.5 rounded">
+                                            {t('configTooltip.unsaved', 'Not saved')}
+                                        </span>
+                                    )}
+                                </div>
+                                {iniSection && <div className="text-[10px] text-slate-500 font-mono mt-1">[{iniSection}]</div>}
+                                <div className="text-xs font-mono mt-0.5 break-all">
+                                    {fileValue !== undefined ? (
+                                        <><span className="text-slate-400">{iniKey}=</span><span className="text-emerald-300">{preview(fileValue)}</span></>
+                                    ) : (
+                                        <span className="text-slate-400">
+                                            {iniKey} <span className="italic text-slate-500">— {t('configTooltip.notInFile', 'not in the file (game default is used)')}</span>
+                                        </span>
+                                    )}
+                                </div>
+                                {isUnsaved && currentValue !== undefined && (
+                                    <div className="text-xs font-mono mt-1 text-sky-300 break-all">
+                                        → {iniKey}={preview(currentValue)}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-2 pt-1">
                             {defaultValue !== undefined && (
                                 <div className="bg-slate-800/50 rounded-lg p-2 border border-white/5">
-                                    <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Default</div>
+                                    <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{t('configTooltip.default', 'Default')}</div>
                                     <div className="text-xs text-slate-200 font-mono mt-0.5">{defaultValue}</div>
                                 </div>
                             )}
                             {currentValue !== undefined && currentValue !== defaultValue && (
                                 <div className="bg-orange-500/10 rounded-lg p-2 border border-orange-500/20">
-                                    <div className="text-[10px] text-orange-500 uppercase font-bold tracking-wider">Current</div>
+                                    <div className="text-[10px] text-orange-500 uppercase font-bold tracking-wider">{t('configTooltip.current', 'Current')}</div>
                                     <div className="text-xs text-orange-400 font-mono mt-0.5">{currentValue}</div>
                                 </div>
                             )}
@@ -85,7 +138,7 @@ export const ConfigTooltip = ({
                         {wikiLink && (
                             <div className="flex items-center gap-1.5 text-[10px] text-cyan-400/80 font-medium pt-1">
                                 <ExternalLink className="w-3 h-3" />
-                                <span>Wiki link available</span>
+                                <span>{t('configTooltip.wikiAvailable', 'Wiki link available')}</span>
                             </div>
                         )}
                     </div>

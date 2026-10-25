@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { useAiStore } from './aiStore';
-import { sendAiMessage, generateMessageId } from '../utils/aiAgent';
+import { sendAiMessage, generateMessageId, DEFAULT_MODEL } from '../utils/aiAgent';
 import { invoke } from '@tauri-apps/api/core';
 import toast from 'react-hot-toast';
+import i18n from '../i18n';
 
 interface CachedAnomaly {
     anomalyType: string;
@@ -130,7 +131,7 @@ const activeTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let isProcessingQueue = false;
 const aiAnalysisQueue: string[] = [];
 
-async function processAiQueue(store: ReturnType<typeof useCrashNotificationStore.getState>) {
+async function processAiQueue() {
     if (isProcessingQueue) return;
     isProcessingQueue = true;
 
@@ -138,7 +139,7 @@ async function processAiQueue(store: ReturnType<typeof useCrashNotificationStore
         const notifId = aiAnalysisQueue.shift();
         if (!notifId) continue;
 
-        const notif = store.activeNotifications.find(n => n.id === notifId);
+        const notif = useCrashNotificationStore.getState().activeNotifications.find(n => n.id === notifId);
         if (!notif || notif.status !== 'Pending') continue;
 
         // Transition to Queued
@@ -173,7 +174,7 @@ You MUST respond strictly in the following JSON format:
             const response = await sendAiMessage([
                 { role: 'system', content: 'You are an AI Co-Pilot crash assistant. Provide highly accurate diagnoses in JSON format.' },
                 { role: 'user', content: prompt }
-            ], 'gemini-2.5-flash');
+            ], localStorage.getItem('ai_model') || DEFAULT_MODEL);
 
             let diagnosis: CrashDiagnosis = {
                 rootCause: 'Failed to pinpoint root cause.',
@@ -183,9 +184,10 @@ You MUST respond strictly in the following JSON format:
 
             if (response && response.content) {
                 try {
-                    const jsonMatch = response.content.match(/\{[\s\S]*?\}/);
-                    if (jsonMatch) {
-                        const parsed = JSON.parse(jsonMatch[0]);
+                    const start = response.content.indexOf('{');
+                    const end = response.content.lastIndexOf('}');
+                    if (start !== -1 && end > start) {
+                        const parsed = JSON.parse(response.content.slice(start, end + 1));
                         diagnosis = {
                             rootCause: parsed.rootCause || diagnosis.rootCause,
                             confidenceScore: Number(parsed.confidenceScore) || diagnosis.confidenceScore,
@@ -291,7 +293,7 @@ export const useCrashNotificationStore = create<CrashNotificationStore>((set, ge
                     if (anomalyType.startsWith('CFCore_')) {
                         const friendlyName = errorTypeToFriendlyName(anomalyType);
                         if (friendlyName) {
-                            toast(`⚠️ [${serverName}] Mod Warning: ${friendlyName}. The server is still running, but some mods may fail to load.`, {
+                            toast('⚠️ ' + i18n.t('crashNotif.modWarning', { defaultValue: '[{{server}}] Mod Warning: {{warning}}. The server is still running, but some mods may fail to load.', server: serverName, warning: i18n.t(`crashNotif.anomaly.${anomalyType}`, friendlyName) }), {
                                 duration: 8000,
                                 id: `mod_warning_${serverId}_${anomalyType}`
                             });
@@ -370,7 +372,7 @@ export const useCrashNotificationStore = create<CrashNotificationStore>((set, ge
                     if (!aiAnalysisQueue.includes(existing.id)) {
                         aiAnalysisQueue.push(existing.id);
                     }
-                    processAiQueue(get());
+                    processAiQueue();
                 } else {
                     console.log('🤖 AI Co-Pilot: Analysis Already Running or diagnosis complete. Skipping duplicate trigger.');
                 }
@@ -448,7 +450,7 @@ export const useCrashNotificationStore = create<CrashNotificationStore>((set, ge
                 set({ activeNotifications: active });
 
                 // Trigger AI Queue Processor
-                processAiQueue(get());
+                processAiQueue();
             }
 
         } finally {

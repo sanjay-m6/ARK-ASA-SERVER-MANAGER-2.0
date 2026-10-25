@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/helpers';
 
 interface LaunchArgsEditorProps {
@@ -21,6 +22,7 @@ export default function LaunchArgsEditor({
     accentColor = 'red',
     placeholder = '-NoBattlEye',
 }: LaunchArgsEditorProps) {
+    const { t } = useTranslation();
     const [isFocused, setIsFocused] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -99,7 +101,7 @@ export default function LaunchArgsEditor({
                                 type="button"
                                 onClick={() => handleRemoveArg(idx)}
                                 className={cn('p-0.5 rounded transition-colors', colors.close)}
-                                title={`Remove ${arg}`}
+                                title={t('launchArgsEditor.removeArg', { defaultValue: 'Remove {{arg}}', arg })}
                             >
                                 <X className="w-3 h-3" />
                             </button>
@@ -126,7 +128,7 @@ export default function LaunchArgsEditor({
                     placeholder={placeholder}
                     spellCheck={false}
                     className="flex-1 w-full bg-transparent text-[var(--text-primary)] text-sm font-mono px-4 py-3 outline-none placeholder:text-[var(--text-muted)]"
-                    aria-label="Launch arguments"
+                    aria-label={t('launchArgsEditor.ariaLabel', 'Launch arguments')}
                 />
                 
                 {value && (
@@ -137,7 +139,7 @@ export default function LaunchArgsEditor({
                             'absolute right-2 p-1.5 rounded-md transition-colors opacity-70 hover:opacity-100',
                             colors.close
                         )}
-                        title="Clear all arguments"
+                        title={t('launchArgsEditor.clearAll', 'Clear all arguments')}
                     >
                         <X className="w-4 h-4" />
                     </button>
@@ -146,11 +148,11 @@ export default function LaunchArgsEditor({
 
             <div className="flex items-center justify-between">
                 <p className="text-[11px] text-[var(--text-muted)] flex items-center gap-1.5">
-                    Steam-style command line parameters (space separated)
+                    {t('launchArgsEditor.hint', 'Steam-style command line parameters (space separated)')}
                 </p>
                 {args.length > 0 && (
                     <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
-                        {args.length} arg{args.length !== 1 ? 's' : ''}
+                        {t('launchArgsEditor.argCount', { defaultValue: '{{count}} args', count: args.length })}
                     </span>
                 )}
             </div>
@@ -158,7 +160,7 @@ export default function LaunchArgsEditor({
             {args.some(a => !a.startsWith('-') && !a.includes('=')) && (
                 <div className="flex items-center gap-2 text-xs text-amber-400/80 bg-amber-500/5 border border-amber-500/10 rounded-lg px-3 py-2">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                    Some arguments don't start with a dash (-). This may be intentional for travel URL parameters.
+                    {t('launchArgsEditor.noDashWarning', "Some arguments don't start with a dash (-). This may be intentional for travel URL parameters.")}
                 </div>
             )}
         </div>

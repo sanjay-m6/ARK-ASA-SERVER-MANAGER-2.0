@@ -37,7 +37,7 @@ export function ModWatchdogDashboard({ serverId }: ModWatchdogDashboardProps) {
             setConfig(conf);
         } catch (error) {
             console.error('Failed to load watchdog config:', error);
-            toast.error('Failed to load Watchdog settings');
+            toast.error(t('modWatchdog.loadFailed', 'Failed to load Watchdog settings'));
         } finally {
             setIsLoading(false);
         }
@@ -48,10 +48,10 @@ export function ModWatchdogDashboard({ serverId }: ModWatchdogDashboardProps) {
         setIsSaving(true);
         try {
             await invoke('set_watchdog_config', { serverId, config });
-            toast.success('Watchdog settings saved successfully!');
+            toast.success(t('modWatchdog.saved', 'Watchdog settings saved successfully!'));
         } catch (error) {
             console.error('Failed to save watchdog config:', error);
-            toast.error('Failed to save Watchdog settings');
+            toast.error(t('modWatchdog.saveFailed', 'Failed to save Watchdog settings'));
         } finally {
             setIsSaving(false);
         }
@@ -61,7 +61,7 @@ export function ModWatchdogDashboard({ serverId }: ModWatchdogDashboardProps) {
         return (
             <div className="glass-panel rounded-2xl p-8 text-center flex flex-col items-center justify-center min-h-[300px]">
                 <ShieldAlert className="w-12 h-12 text-slate-500 mb-4" />
-                <p className="text-slate-400">Select a server to configure the Mod Update Watchdog.</p>
+                <p className="text-slate-400">{t('modWatchdog.selectServer', 'Select a server to configure the Mod Update Watchdog.')}</p>
             </div>
         );
     }
@@ -86,15 +86,15 @@ export function ModWatchdogDashboard({ serverId }: ModWatchdogDashboardProps) {
                     </div>
                     <div>
                         <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                            Mod Update Watchdog
+                            {t('modWatchdog.title', 'Mod Update Watchdog')}
                             {config.enabled && (
                                 <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold uppercase tracking-wider">
-                                    Active
+                                    {t('common.active', 'Active')}
                                 </span>
                             )}
                         </h2>
                         <p className="text-slate-400 text-sm mt-1">
-                            Automatically detect mod updates, gracefully shut down the server with player warnings, and restart safely.
+                            {t('modWatchdog.subtitle', 'Automatically detect mod updates, gracefully shut down the server with player warnings, and restart safely.')}
                         </p>
                     </div>
                 </div>
@@ -115,7 +115,7 @@ export function ModWatchdogDashboard({ serverId }: ModWatchdogDashboardProps) {
                     <div className="flex items-center justify-between mb-2">
                         <h3 className="text-white font-medium flex items-center gap-2">
                             <Power className="w-5 h-5 text-sky-400" />
-                            Enable Watchdog
+                            {t('modWatchdog.enable', 'Enable Watchdog')}
                         </h3>
                         <label className="relative inline-flex items-center cursor-pointer">
                             <input
@@ -128,7 +128,7 @@ export function ModWatchdogDashboard({ serverId }: ModWatchdogDashboardProps) {
                         </label>
                     </div>
                     <p className="text-slate-400 text-sm">
-                        Continuously monitors CurseForge for updates to your installed mods.
+                        {t('modWatchdog.enableDesc', 'Continuously monitors CurseForge for updates to your installed mods.')}
                     </p>
                 </div>
 
@@ -136,7 +136,7 @@ export function ModWatchdogDashboard({ serverId }: ModWatchdogDashboardProps) {
                 <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-5 hover:border-slate-600 transition-colors">
                     <h3 className="text-white font-medium flex items-center gap-2 mb-4">
                         <Clock className="w-5 h-5 text-amber-400" />
-                        Polling Interval (Minutes)
+                        {t('modWatchdog.pollingInterval', 'Polling Interval (Minutes)')}
                     </h3>
                     <div className="flex items-center gap-4">
                         <input
@@ -152,7 +152,7 @@ export function ModWatchdogDashboard({ serverId }: ModWatchdogDashboardProps) {
                             {config.polling_interval_minutes}m
                         </span>
                     </div>
-                    <p className="text-slate-500 text-xs mt-2">How often to query CurseForge API. (Min: 15m to avoid rate limits)</p>
+                    <p className="text-slate-500 text-xs mt-2">{t('modWatchdog.pollingDesc', 'How often to query CurseForge API. (Min: 15m to avoid rate limits)')}</p>
                 </div>
 
                 {/* Safe Restart Mode */}
@@ -160,7 +160,7 @@ export function ModWatchdogDashboard({ serverId }: ModWatchdogDashboardProps) {
                      <div className="flex items-center justify-between mb-2">
                         <h3 className="text-white font-medium flex items-center gap-2">
                             <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                            Safe Restart Mode & Rollback Protection
+                            {t('modWatchdog.safeRestart', 'Safe Restart Mode & Rollback Protection')}
                         </h3>
                         <label className="relative inline-flex items-center cursor-pointer">
                             <input
@@ -173,7 +173,7 @@ export function ModWatchdogDashboard({ serverId }: ModWatchdogDashboardProps) {
                         </label>
                     </div>
                     <p className="text-slate-400 text-sm">
-                        When enabled, the Watchdog will broadcast warnings via RCON (15m, 10m, 5m, 1m) before calling SaveWorld and initiating a graceful shutdown. It also backs up the current `.pak` files in case the update causes a server crash loop.
+                        {t('modWatchdog.safeRestartDesc', 'When enabled, the Watchdog will broadcast warnings via RCON (15m, 10m, 5m, 1m) before calling SaveWorld and initiating a graceful shutdown. It also backs up the current `.pak` files in case the update causes a server crash loop.')}
                     </p>
                 </div>
                 

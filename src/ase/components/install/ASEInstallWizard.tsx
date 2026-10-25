@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { 
   X, ChevronRight, ChevronLeft, MapPin, Wifi, Shield, Rocket, 
   AlertTriangle, HardDrive, GitBranch, Server, Check, FolderOpen, 
@@ -18,6 +19,7 @@ import { selectFolder } from '../../../utils/tauri';
 import { useInstallStore } from '../../../stores/installStore';
 import { joinPlatformPath, getPlatformInfo, getDefaultServerDir } from '../../../platform/platform';
 import type { AseMapName } from '../../types/ase.types';
+import { NumberInput } from '../../../components/ui/NumberInput';
 
 interface Props { onClose: () => void; }
 type Step = 'name' | 'version' | 'map' | 'ports' | 'admin' | 'confirm' | 'progress';
@@ -33,6 +35,7 @@ const STEP_ICONS: Record<string, React.ReactNode> = {
 };
 
 export default function ASEInstallWizard({ onClose }: Props) {
+  const { t } = useTranslation();
   const servers = useAseServerStore(s => s.servers);
   const autoServerName = generateAutoServerName(servers);
   const suggested = suggestNextAsePorts(servers);
@@ -227,14 +230,14 @@ export default function ASEInstallWizard({ onClose }: Props) {
   const handleClose = () => {
     if (step === 'progress') {
       if (isInstalling) {
-        const confirm = window.confirm("An installation is currently in progress. Closing this window will minimize it to the background. Do you want to proceed?");
+        const confirm = window.confirm(t('ase.installWizard.confirmMinimize', 'An installation is currently in progress. Closing this window will minimize it to the background. Do you want to proceed?'));
         if (!confirm) return;
       }
       setDraftSetup(null);
     } else {
       const hasData = name || adminPassword || installPath;
       if (hasData) {
-        const confirm = window.confirm("Are you sure you want to close? Your current setup details will be discarded.");
+        const confirm = window.confirm(t('ase.installWizard.confirmDiscard', 'Are you sure you want to close? Your current setup details will be discarded.'));
         if (!confirm) return;
       }
       setDraftSetup(null);
@@ -276,14 +279,15 @@ export default function ASEInstallWizard({ onClose }: Props) {
       showTimestamps ? `[${log.timestamp}] ${log.line}` : log.line
     ).join('\n');
     navigator.clipboard.writeText(logText);
-    toast.success('Logs copied to clipboard!');
+    toast.success(t('ase.installWizard.logsCopied', 'Logs copied to clipboard!'));
   }, [consoleLogs, showTimestamps]);
 
   const mapInfo = ASE_MAPS.find(m => m.serverArg === mapName);
   const branchInfo = ASE_BRANCHES.find(b => b.id === branch);
   const filteredMaps = ASE_MAPS.filter(m => !mapFilter || m.name.toLowerCase().includes(mapFilter.toLowerCase()));
 
-  const dlcColor = (t: string) => t === 'Free' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' : t === 'Paid DLC' ? 'bg-amber-500/15 text-amber-400 border-amber-500/20' : t === 'Free DLC' ? 'bg-sky-500/15 text-sky-400 border-sky-500/20' : 'bg-orange-500/15 text-orange-400 border-orange-500/20';
+  const dlcColor = (d: string) => d === 'Free' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' : d === 'Paid DLC' ? 'bg-amber-500/15 text-amber-400 border-amber-500/20' : d === 'Free DLC' ? 'bg-sky-500/15 text-sky-400 border-sky-500/20' : 'bg-orange-500/15 text-orange-400 border-orange-500/20';
+  const dlcLabel = (d: string) => t(`ase.maps.dlcType.${d.replace(/\s+/g, '')}`, d);
 
   return createPortal(
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={handleClose}>
@@ -299,7 +303,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white">
-                  {step === 'progress' ? 'Installing ASE Server' : 'Deploy ASE Server'}
+                  {step === 'progress' ? t('ase.installWizard.installingTitle', 'Installing ASE Server') : t('ase.installWizard.deployTitle', 'Deploy ASE Server')}
                 </h2>
                 <p className="text-xs text-slate-500 font-medium">ARK: Survival Evolved • SteamCMD AppID 376030</p>
               </div>
@@ -308,16 +312,16 @@ export default function ASEInstallWizard({ onClose }: Props) {
               <button
                 onClick={handleMinimize}
                 className="p-1.5 sm:p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-500/40 flex items-center gap-1.5 shadow-sm"
-                aria-label="Minimize installation"
-                title="Minimize to Background"
+                aria-label={t('ase.installWizard.minimizeAria', 'Minimize installation')}
+                title={t('dialogs.installServer.minimize', 'Minimize to Background')}
               >
                 <Minus className="w-4 h-4" />
-                <span className="text-xs font-semibold pr-0.5">Minimize</span>
+                <span className="text-xs font-semibold pr-0.5">{t('dialogs.installServer.minimizeBtn', 'Minimize')}</span>
               </button>
               <button
                 onClick={handleClose}
                 className="p-1.5 sm:p-2 bg-slate-800/50 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700/50 hover:border-red-500/30 rounded-xl transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-red-500/40 shadow-sm"
-                aria-label="Close dialog"
+                aria-label={t('ase.installWizard.closeDialog', 'Close dialog')}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -337,7 +341,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
                       isDone ? 'text-emerald-400 hover:bg-white/5 cursor-pointer' :
                       'text-slate-600')}>
                     {isDone ? <Check className="w-3 h-3" /> : STEP_ICONS[s]}
-                    <span className="hidden sm:inline">{STEP_LABELS[s]}</span>
+                    <span className="hidden sm:inline">{t(`ase.installWizard.steps.${s}`, STEP_LABELS[s])}</span>
                   </button>
                 );
               })}
@@ -380,7 +384,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
                       <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-500/20 mb-1">
                         <AlertCircle className="w-8 h-8 text-red-400" />
                       </div>
-                      <h3 className="text-lg font-bold text-white">Installation Failed</h3>
+                      <h3 className="text-lg font-bold text-white">{t('dialogs.installServer.installationFailed', 'Installation Failed')}</h3>
                       <p className="text-red-300/80 text-xs max-w-md mx-auto bg-red-500/10 border border-red-500/20 rounded-xl p-3 leading-relaxed">{progress.message}</p>
 
                       {/* Recovery Actions */}
@@ -388,42 +392,42 @@ export default function ASEInstallWizard({ onClose }: Props) {
                         <button onClick={handleInstall}
                           className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold transition-all shadow-lg shadow-emerald-500/20 text-xs">
                           <Zap className="w-3.5 h-3.5" />
-                          Try Again
+                          {t('dialogs.installServer.tryAgain', 'Try Again')}
                         </button>
                         <button onClick={async () => {
                             try {
                               const { repairSteamcmd } = await import('../../../utils/tauri');
-                              toast.loading('Repairing SteamCMD...', { id: 'repair' });
+                              toast.loading(t('ase.installWizard.repairing', 'Repairing SteamCMD...'), { id: 'repair' });
                               await repairSteamcmd();
-                              toast.success('SteamCMD repaired! Try installing again.', { id: 'repair' });
-                            } catch (e) { toast.error(`Repair failed: ${e}`, { id: 'repair' }); }
+                              toast.success(t('ase.installWizard.repaired', 'SteamCMD repaired! Try installing again.'), { id: 'repair' });
+                            } catch (e) { toast.error(t('ase.installWizard.repairFailed', { defaultValue: 'Repair failed: {{error}}', error: String(e) }), { id: 'repair' }); }
                           }}
                           className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-semibold transition-all shadow-lg shadow-amber-500/20 text-xs">
                           <Settings className="w-3.5 h-3.5" />
-                          Repair SteamCMD
+                          {t('dialogs.installServer.repairSteamcmd', 'Repair SteamCMD')}
                         </button>
                         <button onClick={async () => {
                             try {
                               const { clearSteamcmdCache } = await import('../../../utils/tauri');
-                              toast.loading('Clearing cache...', { id: 'cache' });
+                              toast.loading(t('ase.installWizard.clearingCache', 'Clearing cache...'), { id: 'cache' });
                               await clearSteamcmdCache();
-                              toast.success('Cache cleared! Try installing again.', { id: 'cache' });
-                            } catch (e) { toast.error(`Clear cache failed: ${e}`, { id: 'cache' }); }
+                              toast.success(t('ase.installWizard.cacheCleared', 'Cache cleared! Try installing again.'), { id: 'cache' });
+                            } catch (e) { toast.error(t('ase.installWizard.clearCacheFailed', { defaultValue: 'Clear cache failed: {{error}}', error: String(e) }), { id: 'cache' }); }
                           }}
                           className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-all text-xs">
                           <HardDrive className="w-3.5 h-3.5" />
-                          Clear Cache
+                          {t('dialogs.installServer.clearCache', 'Clear Cache')}
                         </button>
                       </div>
 
                       {/* Diagnostic Tips */}
                       <div className="text-left bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 text-xs space-y-1.5 max-w-md mx-auto leading-normal">
-                        <p className="text-slate-300 font-semibold mb-1">Troubleshooting Tips:</p>
-                        <p className="text-slate-400">• Ensure at least 30 GB of free disk space (ASE requires ~18 GB)</p>
-                        <p className="text-slate-400">• Check that your antivirus or firewall is not blocking SteamCMD</p>
-                        <p className="text-slate-400">• Verify stable internet connection</p>
-                        <p className="text-slate-400">• Try running the app as Administrator</p>
-                        <p className="text-slate-400">• Avoid special characters or spaces in the install path</p>
+                        <p className="text-slate-300 font-semibold mb-1">{t('ase.installWizard.tipsTitle', 'Troubleshooting Tips:')}</p>
+                        <p className="text-slate-400">{t('ase.installWizard.tip1', '• Ensure at least 30 GB of free disk space (ASE requires ~18 GB)')}</p>
+                        <p className="text-slate-400">{t('ase.installWizard.tip2', '• Check that your antivirus or firewall is not blocking SteamCMD')}</p>
+                        <p className="text-slate-400">{t('ase.installWizard.tip3', '• Verify stable internet connection')}</p>
+                        <p className="text-slate-400">{t('ase.installWizard.tip4', '• Try running the app as Administrator')}</p>
+                        <p className="text-slate-400">{t('ase.installWizard.tip5', '• Avoid special characters or spaces in the install path')}</p>
                       </div>
                     </div>
                   ) : (
@@ -435,7 +439,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
                   {!progress.isError && (
                     <>
                       <h3 className="text-lg font-bold text-white">
-                        {progress.isComplete ? 'Ready to Play!' : 'Installing Server files...'}
+                        {progress.isComplete ? t('dialogs.installServer.readyToPlay', 'Ready to Play!') : t('ase.installWizard.installingFiles', 'Installing Server files...')}
                       </h3>
                       <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto leading-relaxed">{progress.message}</p>
                     </>
@@ -468,28 +472,28 @@ export default function ASEInstallWizard({ onClose }: Props) {
                   <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900 border-b border-white/5">
                     <div className="flex items-center gap-2">
                       <Terminal className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                      <span className="text-xs font-semibold text-slate-300">SteamCMD Console</span>
-                      <span className="text-[10px] text-slate-500 font-mono">({consoleLogs.length} lines)</span>
+                      <span className="text-xs font-semibold text-slate-300">{t('ase.installWizard.steamcmdConsole', 'SteamCMD Console')}</span>
+                      <span className="text-[10px] text-slate-500 font-mono">({t('ase.installWizard.linesCount', { defaultValue: '{{count}} lines', count: consoleLogs.length })})</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       {/* Toggle Timestamps */}
                       <button onClick={() => setShowTimestamps(!showTimestamps)}
                         className={cn('p-1 rounded transition-all text-xs', showTimestamps ? 'bg-amber-500/10 text-amber-400' : 'hover:bg-white/5 text-slate-500')}
-                        title={showTimestamps ? 'Hide timestamps' : 'Show timestamps'}
-                        aria-label="Toggle Timestamps">
+                        title={showTimestamps ? t('ase.installWizard.hideTimestamps', 'Hide timestamps') : t('ase.installWizard.showTimestamps', 'Show timestamps')}
+                        aria-label={t('ase.installWizard.toggleTimestamps', 'Toggle Timestamps')}>
                         <Clock className="w-3.5 h-3.5" />
                       </button>
                       {/* Copy Logs */}
                       <button onClick={copyLogsToClipboard} disabled={consoleLogs.length === 0}
                         className="p-1 hover:bg-white/5 rounded transition-all text-slate-500 hover:text-slate-300 disabled:opacity-50"
-                        title="Copy logs"
-                        aria-label="Copy Logs">
+                        title={t('ase.installWizard.copyLogs', 'Copy logs')}
+                        aria-label={t('ase.installWizard.copyLogsAria', 'Copy Logs')}>
                         <Copy className="w-3.5 h-3.5" />
                       </button>
                       {/* Toggle Console */}
                       <button onClick={() => setShowConsole(!showConsole)}
                         className="p-1 hover:bg-white/5 rounded transition-all"
-                        aria-label="Toggle Console">
+                        aria-label={t('ase.installWizard.toggleConsole', 'Toggle Console')}>
                         {showConsole ? <ChevronUp className="w-3.5 h-3.5 text-slate-500" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-500" />}
                       </button>
                     </div>
@@ -505,7 +509,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
                         {consoleLogs.length === 0 ? (
                           <div className="text-slate-600 italic flex items-center gap-2 py-1 select-none">
                             <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
-                            Waiting for SteamCMD output...
+                            {t('ase.installWizard.waitingOutput', 'Waiting for SteamCMD output...')}
                           </div>
                         ) : (
                           consoleLogs.map((log, idx) => (
@@ -530,8 +534,8 @@ export default function ASEInstallWizard({ onClose }: Props) {
                       {showScrollToBottom && consoleLogs.length > 5 && (
                         <button onClick={scrollToBottom}
                           className="absolute bottom-2.5 right-2.5 p-1.5 bg-slate-800 hover:bg-slate-700 border border-white/5 rounded-full shadow-lg transition-all hover:scale-105"
-                          title="Scroll to bottom"
-                          aria-label="Scroll to bottom">
+                          title={t('ase.installWizard.scrollBottom', 'Scroll to bottom')}
+                          aria-label={t('ase.installWizard.scrollBottom', 'Scroll to bottom')}>
                           <ArrowDownToLine className="w-3.5 h-3.5 text-slate-300" />
                         </button>
                       )}
@@ -546,21 +550,21 @@ export default function ASEInstallWizard({ onClose }: Props) {
                 {step === 'name' && (
                   <div className="space-y-5">
                     <div>
-                      <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><Server className="w-4 h-4 text-amber-400" />Server Identity</h3>
-                      <p className="text-xs text-slate-500">Name your server and choose where to install it</p>
+                      <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><Server className="w-4 h-4 text-amber-400" />{t('ase.installWizard.serverIdentity', 'Server Identity')}</h3>
+                      <p className="text-xs text-slate-500">{t('ase.installWizard.serverIdentityDesc', 'Name your server and choose where to install it')}</p>
                     </div>
                     <div className="space-y-4">
                       <div>
-                        <span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">Server Folder Name</span>
+                        <span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">{t('ase.installWizard.folderName', 'Server Folder Name')}</span>
                         <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="server1"
                           className="w-full px-4 py-3 bg-slate-800/60 border border-white/10 rounded-xl text-amber-400 font-mono text-sm placeholder-slate-600 focus:outline-none focus:border-amber-500/40 transition-all" />
                       </div>
-                      <label className="block"><span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">Session Name (Browser Display)</span>
+                      <label className="block"><span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">{t('ase.installWizard.sessionNameLabel', 'Session Name (Browser Display)')}</span>
                         <input type="text" value={sessionName} onChange={e => setSessionName(e.target.value)} placeholder="My ASE Server"
                           className="w-full px-4 py-3 bg-slate-800/60 border border-white/10 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/40 transition-all text-sm" />
                       </label>
                       <div>
-                        <span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">Installation Directory</span>
+                        <span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">{t('ase.installWizard.installDir', 'Installation Directory')}</span>
                         <div className="flex gap-2">
                           <input type="text" value={installPath} onChange={e => setInstallPath(e.target.value)} placeholder={joinPlatformPath(baseDir, (name || 'server').replace(/\s+/g, '_'))}
                             className="flex-1 px-4 py-3 bg-slate-800/60 border border-white/10 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/40 transition-all font-mono text-xs" />
@@ -569,14 +573,14 @@ export default function ASEInstallWizard({ onClose }: Props) {
                           </button>
                         </div>
                       </div>
-                      <label className="block"><span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">Max Players</span>
-                        <input type="number" value={maxPlayers} onChange={e => setMaxPlayers(Number(e.target.value))} min={1} max={500}
+                      <label className="block"><span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">{t('dialogs.installServer.maxPlayers', 'Max Players')}</span>
+                        <NumberInput integer value={maxPlayers} onValueChange={setMaxPlayers} min={1} max={500}
                           className="w-32 px-4 py-3 bg-slate-800/60 border border-white/10 rounded-xl text-white focus:outline-none focus:border-amber-500/40 transition-all font-mono text-sm" />
                       </label>
                     </div>
                     <div className="flex items-center gap-2 p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
                       <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                      <span className="text-xs text-amber-300/80 font-medium">ASE dedicated server requires ~18 GB disk space</span>
+                      <span className="text-xs text-amber-300/80 font-medium">{t('ase.installWizard.diskSpace', 'ASE dedicated server requires ~18 GB disk space')}</span>
                     </div>
                   </div>
                 )}
@@ -585,8 +589,8 @@ export default function ASEInstallWizard({ onClose }: Props) {
                 {step === 'version' && (
                   <div className="space-y-5">
                     <div>
-                      <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><GitBranch className="w-4 h-4 text-amber-400" />Server Version</h3>
-                      <p className="text-xs text-slate-500">Select which game branch to install via SteamCMD</p>
+                      <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><GitBranch className="w-4 h-4 text-amber-400" />{t('ase.installWizard.serverVersion', 'Server Version')}</h3>
+                      <p className="text-xs text-slate-500">{t('ase.installWizard.serverVersionDesc', 'Select which game branch to install via SteamCMD')}</p>
                     </div>
                     <div className="space-y-2">
                       {ASE_BRANCHES.map(b => (
@@ -599,11 +603,11 @@ export default function ASEInstallWizard({ onClose }: Props) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className={cn('text-sm font-semibold', branch === b.id ? 'text-white' : 'text-slate-300')}>{b.name}</span>
-                              {b.id === 'default' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">RECOMMENDED</span>}
+                              <span className={cn('text-sm font-semibold', branch === b.id ? 'text-white' : 'text-slate-300')}>{t(`ase.branches.${b.id}.name`, b.name)}</span>
+                              {b.id === 'default' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">{t('ase.installWizard.recommended', 'RECOMMENDED')}</span>}
                               {b.betaFlag && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-500">-beta {b.betaFlag}</span>}
                             </div>
-                            <p className="text-xs text-slate-500 mt-0.5 leading-normal">{b.description}</p>
+                            <p className="text-xs text-slate-500 mt-0.5 leading-normal">{t(`ase.branches.${b.id}.desc`, b.description)}</p>
                           </div>
                           {branch === b.id && <Check className="w-5 h-5 text-amber-400 flex-shrink-0" />}
                         </button>
@@ -611,7 +615,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
                     </div>
                     <div className="flex items-center gap-2 p-3 bg-slate-800/50 border border-white/5 rounded-xl">
                       <AlertTriangle className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                      <span className="text-xs text-slate-400 leading-normal">Clients must use the same branch to connect. Check SteamDB for active branches.</span>
+                      <span className="text-xs text-slate-400 leading-normal">{t('ase.installWizard.branchNote', 'Clients must use the same branch to connect. Check SteamDB for active branches.')}</span>
                     </div>
                   </div>
                 )}
@@ -621,12 +625,12 @@ export default function ASEInstallWizard({ onClose }: Props) {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><MapPin className="w-4 h-4 text-amber-400" />Select Map</h3>
-                        <p className="text-xs text-slate-500">Choose the world for your server</p>
+                        <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><MapPin className="w-4 h-4 text-amber-400" />{t('ase.installWizard.selectMap', 'Select Map')}</h3>
+                        <p className="text-xs text-slate-500">{t('ase.installWizard.selectMapDesc', 'Choose the world for your server')}</p>
                       </div>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-                        <input type="text" value={mapFilter} onChange={e => setMapFilter(e.target.value)} placeholder="Filter..."
+                        <input type="text" value={mapFilter} onChange={e => setMapFilter(e.target.value)} placeholder={t('ase.installWizard.filterPlaceholder', 'Filter...')}
                           className="pl-8 pr-3 py-2 bg-slate-800/60 border border-white/10 rounded-lg text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/40 w-40 transition-all" />
                       </div>
                     </div>
@@ -646,7 +650,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
                             )}
                             {mapName === m.serverArg && <div className="absolute inset-0 bg-amber-500/10 border-2 border-amber-500/40 rounded-t-xl" />}
                             <div className="absolute top-1.5 right-1.5">
-                              <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded-md border backdrop-blur-sm', dlcColor(m.dlcType))}>{m.dlcType}</span>
+                              <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded-md border backdrop-blur-sm', dlcColor(m.dlcType))}>{dlcLabel(m.dlcType)}</span>
                             </div>
                             {mapName === m.serverArg && (
                               <div className="absolute top-1.5 left-1.5 w-5 h-5 bg-amber-500 rounded-md flex items-center justify-center">
@@ -662,16 +666,16 @@ export default function ASEInstallWizard({ onClose }: Props) {
                             </div>
                             {m.author && (
                               <div className="text-[9px] text-amber-400 font-semibold mt-0.5">
-                                By {m.author}
+                                {t('ase.installWizard.byAuthor', { defaultValue: 'By {{author}}', author: m.author })}
                               </div>
                             )}
-                            <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{m.description}</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{m.isModded ? m.description : t(`ase.maps.desc.${m.serverArg}`, m.description)}</p>
 
                             {/* Auto-injected indicator */}
                             {mapName === m.serverArg && m.isModded && (
                               <div className="mt-1.5 text-[9px] px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-semibold rounded flex items-center gap-1">
                                 <span className="w-1 h-1 bg-emerald-400 rounded-full animate-ping" />
-                                <span>✓ Launch args auto-configured</span>
+                                <span>{t('ase.installWizard.launchArgsAuto', '✓ Launch args auto-configured')}</span>
                               </div>
                             )}
                           </div>
@@ -686,8 +690,8 @@ export default function ASEInstallWizard({ onClose }: Props) {
                   <div className="space-y-5">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><Wifi className="w-4 h-4 text-amber-400" />Network Configuration</h3>
-                        <p className="text-xs text-slate-500">Configure the ports for your server — ensure they are forwarded in your router</p>
+                        <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><Wifi className="w-4 h-4 text-amber-400" />{t('dialogs.installServer.networkConfig', 'Network Configuration')}</h3>
+                        <p className="text-xs text-slate-500">{t('ase.installWizard.networkDesc', 'Configure the ports for your server — ensure they are forwarded in your router')}</p>
                       </div>
                       <button
                         type="button"
@@ -696,31 +700,31 @@ export default function ASEInstallWizard({ onClose }: Props) {
                           setGamePort(nextP.gamePort);
                           setQueryPort(nextP.queryPort);
                           setRconPort(nextP.rconPort);
-                          toast.success(`Auto-allocated ports: Game (${nextP.gamePort}), Query (${nextP.queryPort}), RCON (${nextP.rconPort})`);
+                          toast.success(t('ase.installWizard.autoAllocated', { defaultValue: 'Auto-allocated ports: Game ({{game}}), Query ({{query}}), RCON ({{rcon}})', game: nextP.gamePort, query: nextP.queryPort, rcon: nextP.rconPort }));
                         }}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl text-xs font-semibold transition-all hover:scale-105 active:scale-95 shadow-sm"
                       >
                         <Wand2 className="w-3.5 h-3.5" />
-                        <span>Auto-Allocate Free Ports</span>
+                        <span>{t('ase.installWizard.autoAllocate', 'Auto-Allocate Free Ports')}</span>
                       </button>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {[{ label: 'Game Port', sub: 'UDP', val: gamePort, set: setGamePort, def: 7777 },
-                        { label: 'Query Port', sub: 'UDP/TCP', val: queryPort, set: setQueryPort, def: 27015 },
-                        { label: 'RCON Port', sub: 'TCP', val: rconPort, set: setRconPort, def: 27020 }].map(p => (
+                      {[{ label: t('dialogs.installServer.gamePort', 'Game Port'), sub: 'UDP', val: gamePort, set: setGamePort, def: 7777 },
+                        { label: t('dialogs.installServer.queryPort', 'Query Port'), sub: 'UDP/TCP', val: queryPort, set: setQueryPort, def: 27015 },
+                        { label: t('dialogs.installServer.rconPort', 'RCON Port'), sub: 'TCP', val: rconPort, set: setRconPort, def: 27020 }].map(p => (
                         <div key={p.label} className="p-4 bg-slate-800/40 border border-white/5 rounded-xl">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-xs font-medium text-slate-300">{p.label}</span>
                             <span className="text-[10px] text-slate-600 font-mono">{p.sub}</span>
                           </div>
-                          <input type="number" value={p.val} onChange={e => p.set(Number(e.target.value))}
+                          <NumberInput integer min={1} max={65535} value={p.val} onValueChange={p.set}
                             className="w-full px-3 py-2.5 bg-slate-900/60 border border-white/10 rounded-lg text-white font-mono text-sm focus:outline-none focus:border-amber-500/40 transition-all" />
-                          <button onClick={() => p.set(p.def)} className="text-[10px] text-slate-600 hover:text-amber-400 mt-1.5 transition-colors font-medium">Reset to {p.def}</button>
+                          <button onClick={() => p.set(p.def)} className="text-[10px] text-slate-600 hover:text-amber-400 mt-1.5 transition-colors font-medium">{t('ase.installWizard.resetTo', { defaultValue: 'Reset to {{value}}', value: p.def })}</button>
                         </div>
                       ))}
                     </div>
                     <div className="p-3 bg-slate-800/30 border border-white/5 rounded-xl">
-                      <p className="text-xs text-slate-500 leading-normal">Raw UDP port will be auto-assigned as Game Port + 1 (<span className="font-mono text-slate-400 font-bold">{gamePort + 1}</span>)</p>
+                      <p className="text-xs text-slate-500 leading-normal">{t('ase.installWizard.rawUdpNote', 'Raw UDP port will be auto-assigned as Game Port + 1')} (<span className="font-mono text-slate-400 font-bold">{gamePort + 1}</span>)</p>
                     </div>
                   </div>
                 )}
@@ -729,13 +733,13 @@ export default function ASEInstallWizard({ onClose }: Props) {
                 {step === 'admin' && (
                   <div className="space-y-5">
                     <div>
-                      <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><Shield className="w-4 h-4 text-amber-400" />Security Configuration</h3>
-                      <p className="text-xs text-slate-500">Set the admin password for RCON and in-game admin commands</p>
+                      <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><Shield className="w-4 h-4 text-amber-400" />{t('ase.installWizard.securityConfig', 'Security Configuration')}</h3>
+                      <p className="text-xs text-slate-500">{t('ase.installWizard.securityDesc', 'Set the admin password for RCON and in-game admin commands')}</p>
                     </div>
-                    <label className="block"><span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">Admin Password *</span>
-                      <input type="text" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} placeholder="Minimum 4 characters"
+                    <label className="block"><span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">{t('ase.installWizard.adminPasswordReq', 'Admin Password *')}</span>
+                      <input type="text" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} placeholder={t('ase.installWizard.minChars', 'Minimum 4 characters')}
                         className="w-full px-4 py-3 bg-slate-800/60 border border-white/10 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/40 transition-all font-mono text-sm" />
-                      {adminPassword.length > 0 && adminPassword.length < 4 && <p className="text-xs text-red-400 mt-1.5 font-medium">Password must be at least 4 characters</p>}
+                      {adminPassword.length > 0 && adminPassword.length < 4 && <p className="text-xs text-red-400 mt-1.5 font-medium">{t('ase.installWizard.passwordTooShort', 'Password must be at least 4 characters')}</p>}
                     </label>
                   </div>
                 )}
@@ -751,8 +755,8 @@ export default function ASEInstallWizard({ onClose }: Props) {
                   return (
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><Rocket className="w-4 h-4 text-amber-400" />Pre-flight Review</h3>
-                      <p className="text-xs text-slate-500">Verify every detail before the installation begins</p>
+                      <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><Rocket className="w-4 h-4 text-amber-400" />{t('dialogs.installServer.preflight', 'Pre-flight Review')}</h3>
+                      <p className="text-xs text-slate-500">{t('dialogs.installServer.preflightDesc', 'Verify every detail before the installation begins')}</p>
                     </div>
 
                     {/* Global Status Banner */}
@@ -763,9 +767,9 @@ export default function ASEInstallWizard({ onClose }: Props) {
                         : 'bg-emerald-500/5 border-emerald-500/15 text-emerald-300/90'
                     )}>
                       {hasWarnings ? (
-                        <><AlertTriangle className="w-4 h-4 flex-shrink-0" />Some settings need attention — review the warnings below</>
+                        <><AlertTriangle className="w-4 h-4 flex-shrink-0" />{t('dialogs.installServer.preflightWarning', 'Some settings need attention — review the warnings below')}</>
                       ) : (
-                        <><CheckCircle className="w-4 h-4 flex-shrink-0" />All settings look good — ready to deploy</>
+                        <><CheckCircle className="w-4 h-4 flex-shrink-0" />{t('dialogs.installServer.preflightOk', 'All settings look good — ready to deploy')}</>
                       )}
                     </div>
 
@@ -780,10 +784,10 @@ export default function ASEInstallWizard({ onClose }: Props) {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
                         <div className="absolute bottom-3 left-4">
                           <p className="text-sm font-bold text-white">{mapInfo.name}</p>
-                          <p className="text-[10px] text-slate-300 leading-normal">{mapInfo.description}</p>
+                          <p className="text-[10px] text-slate-300 leading-normal">{mapInfo.isModded ? mapInfo.description : t(`ase.maps.desc.${mapInfo.serverArg}`, mapInfo.description)}</p>
                         </div>
                         <div className="absolute top-3 right-3">
-                          <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded-md border backdrop-blur-sm', dlcColor(mapInfo.dlcType))}>{mapInfo.dlcType}</span>
+                          <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded-md border backdrop-blur-sm', dlcColor(mapInfo.dlcType))}>{dlcLabel(mapInfo.dlcType)}</span>
                         </div>
                       </div>
                     )}
@@ -792,14 +796,14 @@ export default function ASEInstallWizard({ onClose }: Props) {
                     <div className="rounded-xl border border-white/5 overflow-hidden">
                       <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
                         <Server className="w-3.5 h-3.5 text-amber-400" />
-                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Identity</span>
+                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">{t('dialogs.installServer.reviewIdentity', 'Identity')}</span>
                         <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
                       </div>
                       <div className="divide-y divide-white/5">
                         {[
-                          { label: 'Server Name', value: name },
-                          { label: 'Session Name', value: sessionName || name, sub: 'Shown in server browser' },
-                          { label: 'Max Players', value: String(maxPlayers) },
+                          { label: t('ase.installWizard.serverName', 'Server Name'), value: name },
+                          { label: t('ase.installWizard.sessionName', 'Session Name'), value: sessionName || name, sub: t('ase.installWizard.shownInBrowser', 'Shown in server browser') },
+                          { label: t('dialogs.installServer.maxPlayers', 'Max Players'), value: String(maxPlayers) },
                         ].map(row => (
                           <div key={row.label} className="flex items-center justify-between px-3.5 py-2.5">
                             <div>
@@ -816,15 +820,15 @@ export default function ASEInstallWizard({ onClose }: Props) {
                     <div className="rounded-xl border border-white/5 overflow-hidden">
                       <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
                         <GitBranch className="w-3.5 h-3.5 text-amber-400" />
-                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Version</span>
+                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">{t('ase.installWizard.reviewVersion', 'Version')}</span>
                         <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
                       </div>
                       <div className="flex items-center justify-between px-3.5 py-2.5">
-                        <span className="text-[11px] text-slate-500">Branch</span>
+                        <span className="text-[11px] text-slate-500">{t('ase.installWizard.branch', 'Branch')}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-white">{branchInfo?.name || 'Default'}</span>
+                          <span className="text-xs font-semibold text-white">{branchInfo ? t(`ase.branches.${branchInfo.id}.name`, branchInfo.name) : t('ase.installWizard.defaultBranch', 'Default')}</span>
                           {branchInfo?.betaFlag && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-700/60 text-slate-500">-beta {branchInfo.betaFlag}</span>}
-                          {branch === 'default' && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">STABLE</span>}
+                          {branch === 'default' && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">{t('ase.installWizard.stable', 'STABLE')}</span>}
                         </div>
                       </div>
                     </div>
@@ -833,7 +837,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
                     <div className="rounded-xl border border-white/5 overflow-hidden">
                       <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
                         <Wifi className="w-3.5 h-3.5 text-amber-400" />
-                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Network</span>
+                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">{t('dialogs.installServer.reviewNetwork', 'Network')}</span>
                         {(hasDuplicatePorts || hasPrivilegedPorts) ? (
                           <AlertTriangle className="w-3.5 h-3.5 text-amber-400 ml-auto" />
                         ) : (
@@ -842,10 +846,10 @@ export default function ASEInstallWizard({ onClose }: Props) {
                       </div>
                       <div className="divide-y divide-white/5">
                         {[
-                          { label: 'Game Port', value: gamePort, protocol: 'UDP' },
-                          { label: 'Raw UDP Port', value: gamePort + 1, protocol: 'UDP', sub: 'auto-assigned' },
-                          { label: 'Query Port', value: queryPort, protocol: 'UDP/TCP' },
-                          { label: 'RCON Port', value: rconPort, protocol: 'TCP' },
+                          { label: t('dialogs.installServer.gamePort', 'Game Port'), value: gamePort, protocol: 'UDP' },
+                          { label: t('ase.installWizard.rawUdpPort', 'Raw UDP Port'), value: gamePort + 1, protocol: 'UDP', sub: t('ase.installWizard.autoAssigned', 'auto-assigned') },
+                          { label: t('dialogs.installServer.queryPort', 'Query Port'), value: queryPort, protocol: 'UDP/TCP' },
+                          { label: t('dialogs.installServer.rconPort', 'RCON Port'), value: rconPort, protocol: 'TCP' },
                         ].map(row => (
                           <div key={row.label} className="flex items-center justify-between px-3.5 py-2.5">
                             <div className="flex items-center gap-2">
@@ -863,13 +867,13 @@ export default function ASEInstallWizard({ onClose }: Props) {
                       {hasDuplicatePorts && (
                         <div className="flex items-start gap-2 px-3.5 py-2 bg-red-500/5 border-t border-red-500/10">
                           <AlertCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
-                          <span className="text-[10px] text-red-300/80">Port collision detected — game, query, and RCON ports must all be different</span>
+                          <span className="text-[10px] text-red-300/80">{t('dialogs.installServer.portCollision', 'Port collision detected — game, query, and RCON ports must all be different')}</span>
                         </div>
                       )}
                       {hasPrivilegedPorts && (
                         <div className="flex items-start gap-2 px-3.5 py-2 bg-amber-500/5 border-t border-amber-500/10">
                           <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
-                          <span className="text-[10px] text-amber-300/80">Ports below 1024 are privileged and may require administrator access</span>
+                          <span className="text-[10px] text-amber-300/80">{t('dialogs.installServer.privilegedPorts', 'Ports below 1024 are privileged and may require administrator access')}</span>
                         </div>
                       )}
                     </div>
@@ -878,7 +882,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
                     <div className="rounded-xl border border-white/5 overflow-hidden">
                       <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
                         <Shield className="w-3.5 h-3.5 text-amber-400" />
-                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Security</span>
+                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">{t('dialogs.installServer.reviewSecurity', 'Security')}</span>
                         {weakPassword ? (
                           <AlertTriangle className="w-3.5 h-3.5 text-amber-400 ml-auto" />
                         ) : (
@@ -886,13 +890,13 @@ export default function ASEInstallWizard({ onClose }: Props) {
                         )}
                       </div>
                       <div className="flex items-center justify-between px-3.5 py-2.5">
-                        <span className="text-[11px] text-slate-500">Admin Password</span>
+                        <span className="text-[11px] text-slate-500">{t('dialogs.installServer.adminPassword', 'Admin Password')}</span>
                         <span className="text-xs font-mono text-white tracking-widest">{'•'.repeat(Math.min(adminPassword.length, 12))}</span>
                       </div>
                       {weakPassword && (
                         <div className="flex items-start gap-2 px-3.5 py-2 bg-amber-500/5 border-t border-amber-500/10">
                           <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
-                          <span className="text-[10px] text-amber-300/80">Password is short — consider using 6+ characters for better security</span>
+                          <span className="text-[10px] text-amber-300/80">{t('dialogs.installServer.weakPassword', 'Password is short — consider using 6+ characters for better security')}</span>
                         </div>
                       )}
                     </div>
@@ -901,12 +905,12 @@ export default function ASEInstallWizard({ onClose }: Props) {
                     <div className="rounded-xl border border-white/5 overflow-hidden">
                       <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
                         <HardDrive className="w-3.5 h-3.5 text-amber-400" />
-                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Storage</span>
+                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">{t('dialogs.installServer.reviewStorage', 'Storage')}</span>
                         <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
                       </div>
                       <div className="px-3.5 py-2.5">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-[11px] text-slate-500">Install Path</span>
+                          <span className="text-[11px] text-slate-500">{t('dialogs.installServer.installPath', 'Install Path')}</span>
                         </div>
                         <span className="text-[10px] font-mono text-white/80 break-all leading-relaxed" title={resolvedPath}>{resolvedPath}</span>
                       </div>
@@ -934,16 +938,16 @@ export default function ASEInstallWizard({ onClose }: Props) {
                 <span className="text-xs text-slate-500 font-medium">
                   {progress.isComplete ? (
                     <span className="text-emerald-400 font-bold flex items-center gap-1.5 select-none animate-pulse">
-                      <Check className="w-4 h-4" /> Ready to play
+                      <Check className="w-4 h-4" /> {t('ase.installWizard.readyToPlay', 'Ready to play')}
                     </span>
                   ) : progress.isError ? (
                     <span className="text-red-400 font-bold flex items-center gap-1.5 select-none">
-                      <AlertTriangle className="w-4 h-4" /> Installation failed
+                      <AlertTriangle className="w-4 h-4" /> {t('ase.installWizard.installationFailed', 'Installation failed')}
                     </span>
                   ) : (
                     <span className="flex items-center gap-2 select-none text-slate-400">
                       <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
-                      Downloading files via SteamCMD...
+                      {t('ase.installWizard.downloading', 'Downloading files via SteamCMD...')}
                     </span>
                   )}
                 </span>
@@ -960,7 +964,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
                       : "bg-slate-900 text-slate-600 border border-white/5 cursor-not-allowed"
                   )}
                 >
-                  {progress.isComplete ? 'Finish' : 'Close'}
+                  {progress.isComplete ? t('ase.installWizard.finish', 'Finish') : t('common.close', 'Close')}
                 </button>
               </div>
             ) : null
@@ -968,19 +972,19 @@ export default function ASEInstallWizard({ onClose }: Props) {
             <>
               <button onClick={stepIdx > 0 ? prev : handleClose}
                 className="px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-white transition-colors flex items-center gap-1.5">
-                <ChevronLeft className="w-4 h-4" />{stepIdx > 0 ? 'Back' : 'Cancel'}
+                <ChevronLeft className="w-4 h-4" />{stepIdx > 0 ? t('ase.installWizard.back', 'Back') : t('common.cancel', 'Cancel')}
               </button>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-600 font-mono">{stepIdx + 1} / {STEPS.length}</span>
                 {step === 'confirm' ? (
                   <button onClick={handleInstall}
                     className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-xl text-sm font-semibold flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all hover:scale-105 active:scale-95">
-                    Deploy Server<Rocket className="w-4 h-4" />
+                    {t('ase.installWizard.deployServer', 'Deploy Server')}<Rocket className="w-4 h-4" />
                   </button>
                 ) : (
                   <button onClick={next} disabled={!canNext()}
                     className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-white rounded-xl text-sm font-semibold flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95">
-                    Continue<ChevronRight className="w-4 h-4" />
+                    {t('ase.installWizard.continue', 'Continue')}<ChevronRight className="w-4 h-4" />
                   </button>
                 )}
               </div>

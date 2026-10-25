@@ -8,6 +8,7 @@ import {
 import { useModOrganizationStore } from '../../stores/modOrganizationStore';
 import { ModCategory } from '../../types/mod-organization';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 const PRESET_COLORS = [
   '#0284c7', // Sky Blue
@@ -42,6 +43,7 @@ interface ModOrganizationBarProps {
 }
 
 export default function ModOrganizationBar({ modCountMap = {}, className = '' }: ModOrganizationBarProps) {
+  const { t } = useTranslation();
   const { 
     categories, activeCategoryId, setActiveCategoryId, 
     addCategory, updateCategory, deleteCategory,
@@ -55,7 +57,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
   const [copiedModIds, setCopiedModIds] = useState(false);
 
   // Compute Mod IDs string for active category or all custom categories
-  const activeCatName = categories.find(c => c.id === activeCategoryId)?.name || 'All Mods';
+  const activeCatName = categories.find(c => c.id === activeCategoryId)?.name || t('modOrganization.allMods', 'All Mods');
   const modIdsString = useMemo(() => {
     const map = modCategoriesMap || {};
     let ids: string[] = [];
@@ -77,15 +79,15 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
 
   const handleCopyModIds = () => {
     if (!modIdsString) {
-      toast.error('No mods in this category yet.');
+      toast.error(t('modOrganization.noModsInCategory', 'No mods in this category yet.'));
       return;
     }
     navigator.clipboard.writeText(modIdsString).then(() => {
       setCopiedModIds(true);
-      toast.success('Mod IDs copied to clipboard!');
+      toast.success(t('modOrganization.idsCopied', 'Mod IDs copied to clipboard!'));
       setTimeout(() => setCopiedModIds(false), 2500);
     }).catch(() => {
-      toast.error('Clipboard access denied.');
+      toast.error(t('modOrganization.clipboardDenied', 'Clipboard access denied.'));
     });
   };
 
@@ -104,7 +106,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
         color: newCatColor,
         description: newCatDesc.trim() || undefined,
       });
-      toast.success(`Category "${newCatName}" updated!`);
+      toast.success(t('modOrganization.categoryUpdated', { name: newCatName, defaultValue: `Category "${newCatName}" updated!` }));
       setEditingCategory(null);
     } else {
       const created = addCategory({
@@ -112,7 +114,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
         color: newCatColor,
         description: newCatDesc.trim() || undefined,
       });
-      toast.success(`Category "${created.name}" created!`);
+      toast.success(t('modOrganization.categoryCreated', { name: created.name, defaultValue: `Category "${created.name}" created!` }));
     }
 
     setNewCatName('');
@@ -128,9 +130,9 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
   };
 
   const handleDelete = (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete category "${name}"?`)) {
+    if (confirm(t('modOrganization.confirmDelete', { name, defaultValue: `Are you sure you want to delete category "${name}"?` }))) {
       deleteCategory(id);
-      toast.success(`Category "${name}" deleted.`);
+      toast.success(t('modOrganization.categoryDeleted', { name, defaultValue: `Category "${name}" deleted.` }));
     }
   };
 
@@ -140,11 +142,11 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
 
     try {
       const res = importCategoriesJson(importJsonText.trim());
-      toast.success(`Imported ${res.addedCategoriesCount} new categories & updated ${res.mappedModsCount} mod mappings!`);
+      toast.success(t('modOrganization.imported', { added: res.addedCategoriesCount, mapped: res.mappedModsCount, defaultValue: `Imported ${res.addedCategoriesCount} new categories & updated ${res.mappedModsCount} mod mappings!` }));
       setImportJsonText('');
       setShowImportModal(false);
     } catch (err: any) {
-      toast.error(err.message || 'Invalid JSON format. Check format and retry.');
+      toast.error(err.message || t('modOrganization.invalidJson', 'Invalid JSON format. Check format and retry.'));
     }
   };
 
@@ -156,7 +158,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
         <div className="flex flex-wrap items-center gap-2 overflow-x-auto scrollbar-none py-0.5">
           <div className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider border-r border-[var(--border)] mr-1">
             <Filter className="w-3.5 h-3.5 text-sky-400" />
-            <span>Categories</span>
+            <span>{t('modOrganization.categories', 'Categories')}</span>
           </div>
 
           {categories.map((cat) => {
@@ -205,28 +207,28 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
           <button
             onClick={() => setShowShareModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-sky-400 hover:text-sky-300 border border-[var(--border)] hover:border-sky-500/40 rounded-xl transition-all text-xs font-semibold shadow-sm"
-            title="Copy Comma-Separated Mod IDs for active category"
+            title={t('modOrganization.copyIdsTooltip', 'Copy Comma-Separated Mod IDs for active category')}
           >
             <Copy className="w-3.5 h-3.5" />
-            <span>Copy Mod IDs</span>
+            <span>{t('modOrganization.copyIds', 'Copy Mod IDs')}</span>
           </button>
 
           <button
             onClick={() => setShowImportModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-purple-400 hover:text-purple-300 border border-[var(--border)] hover:border-purple-500/40 rounded-xl transition-all text-xs font-semibold shadow-sm"
-            title="Import Categories setup from JSON / Share Code"
+            title={t('modOrganization.importTooltip', 'Import Categories setup from JSON / Share Code')}
           >
             <Upload className="w-3.5 h-3.5" />
-            <span>Import</span>
+            <span>{t('modOrganization.import', 'Import')}</span>
           </button>
 
           <button
             onClick={() => setShowManageModal(true)}
             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border)] hover:border-sky-500/40 rounded-xl transition-all text-xs font-semibold shadow-sm"
-            title="Manage Custom Mod Categories"
+            title={t('modOrganization.manageTooltip', 'Manage Custom Mod Categories')}
           >
             <Layers className="w-3.5 h-3.5 text-sky-400" />
-            <span>Manage</span>
+            <span>{t('common.manage', 'Manage')}</span>
           </button>
         </div>
       </div>
@@ -240,10 +242,10 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
               <div>
                 <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
                   <SlidersHorizontal className="w-5 h-5 text-sky-400" />
-                  Mod Categories & Organization
+                  {t('modOrganization.modalTitle', 'Mod Categories & Organization')}
                 </h2>
                 <p className="text-[var(--text-muted)] text-xs mt-0.5">
-                  Create custom mod folders and categorize your mods
+                  {t('modOrganization.modalSubtitle', 'Create custom mod folders and categorize your mods')}
                 </p>
               </div>
               <button
@@ -264,7 +266,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                 <div className="md:col-span-5 space-y-4">
                   <form onSubmit={handleCreateCategory} className="bg-[var(--surface)] rounded-xl p-5 border border-[var(--border)] space-y-4">
                     <h3 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center justify-between">
-                      <span>{editingCategory ? 'Edit Category' : 'Create New Category'}</span>
+                      <span>{editingCategory ? t('modOrganization.editCategory', 'Edit Category') : t('modOrganization.createCategory', 'Create New Category')}</span>
                       {editingCategory && (
                         <button
                           type="button"
@@ -276,37 +278,37 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                           }}
                           className="text-xs text-sky-400 hover:underline font-semibold"
                         >
-                          Cancel Edit
+                          {t('modOrganization.cancelEdit', 'Cancel Edit')}
                         </button>
                       )}
                     </h3>
 
                     <div className="space-y-3.5">
                       <div>
-                        <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Category Name</label>
+                        <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">{t('modOrganization.categoryName', 'Category Name')}</label>
                         <input
                           type="text"
                           value={newCatName}
                           onChange={(e) => setNewCatName(e.target.value)}
-                          placeholder="e.g. Dino Mods, Gameplay Mods, Boss Arena"
+                          placeholder={t('modOrganization.categoryNamePlaceholder', 'e.g. Dino Mods, Gameplay Mods, Boss Arena')}
                           className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-3.5 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 transition-colors"
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Description (Optional)</label>
+                        <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">{t('modOrganization.descriptionOptional', 'Description (Optional)')}</label>
                         <input
                           type="text"
                           value={newCatDesc}
                           onChange={(e) => setNewCatDesc(e.target.value)}
-                          placeholder="Brief description of this mod collection"
+                          placeholder={t('modOrganization.descriptionPlaceholder', 'Brief description of this mod collection')}
                           className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-3.5 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 transition-colors"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Tag Color</label>
+                        <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">{t('modOrganization.tagColor', 'Tag Color')}</label>
                         <div className="flex flex-wrap items-center gap-2.5">
                           {PRESET_COLORS.map((c) => (
                             <button
@@ -322,7 +324,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                           <label 
                             className="relative w-6 h-6 rounded-full cursor-pointer border border-[var(--border)] hover:scale-110 transition-transform flex items-center justify-center shrink-0 shadow-sm"
                             style={{ backgroundColor: newCatColor }}
-                            title="Custom Color Picker"
+                            title={t('modOrganization.customColor', 'Custom Color Picker')}
                           >
                             <input
                               type="color"
@@ -342,7 +344,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                       className="w-full py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-lg shadow-sky-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
                     >
                       {editingCategory ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                      <span>{editingCategory ? 'Update Category' : 'Add Category'}</span>
+                      <span>{editingCategory ? t('modOrganization.updateCategory', 'Update Category') : t('modOrganization.addCategory', 'Add Category')}</span>
                     </button>
                   </form>
                 </div>
@@ -350,7 +352,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                 {/* Right Side: Active Categories List (7 Columns) */}
                 <div className="md:col-span-7 space-y-3">
                   <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center justify-between">
-                    <span>Active Categories ({categories.length})</span>
+                    <span>{t('modOrganization.activeCategories', { count: categories.length, defaultValue: `Active Categories (${categories.length})` })}</span>
                   </h3>
 
                   <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
@@ -371,7 +373,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                               <span>{cat.name}</span>
                               {cat.isSystem && (
                                 <span className="px-2 py-0.5 bg-[var(--surface-hover)] text-[var(--text-muted)] text-[10px] uppercase font-bold rounded">
-                                  System
+                                  {t('modOrganization.system', 'System')}
                                 </span>
                               )}
                             </p>
@@ -386,14 +388,14 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                             <button
                               onClick={() => handleStartEdit(cat)}
                               className="p-1.5 text-[var(--text-muted)] hover:text-sky-400 hover:bg-[var(--surface-hover)] rounded-lg transition-colors"
-                              title="Edit Category"
+                              title={t('modOrganization.editCategory', 'Edit Category')}
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(cat.id, cat.name)}
                               className="p-1.5 text-[var(--text-muted)] hover:text-rose-400 hover:bg-[var(--surface-hover)] rounded-lg transition-colors"
-                              title="Delete Category"
+                              title={t('modOrganization.deleteCategory', 'Delete Category')}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -417,7 +419,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                   className="px-3.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
                 >
                   <Share2 className="w-3.5 h-3.5" />
-                  <span>Share Profile</span>
+                  <span>{t('modOrganization.shareProfile', 'Share Profile')}</span>
                 </button>
                 <button
                   onClick={() => {
@@ -427,7 +429,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                   className="px-3.5 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  <span>Import Setup</span>
+                  <span>{t('modOrganization.importSetup', 'Import Setup')}</span>
                 </button>
               </div>
 
@@ -438,7 +440,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                 }}
                 className="px-6 py-2 bg-[var(--surface-active)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] border border-[var(--border)] text-xs font-bold rounded-xl transition-colors shadow-sm"
               >
-                Done
+                {t('common.done', 'Done')}
               </button>
             </div>
           </div>
@@ -453,7 +455,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                 <Copy className="w-5 h-5 text-sky-400" />
-                Copy Mod IDs
+                {t('modOrganization.copyIds', 'Copy Mod IDs')}
               </h3>
               <button onClick={() => setShowShareModal(false)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-lg">
                 <X className="w-5 h-5" />
@@ -463,18 +465,18 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
             <div className="space-y-4">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-[var(--text-muted)]">
-                  Category: <span className="font-bold text-sky-400">{activeCatName}</span>
+                  {t('modOrganization.categoryLabel', 'Category:')} <span className="font-bold text-sky-400">{activeCatName}</span>
                 </span>
                 <span className="text-[var(--text-muted)] font-mono text-[11px]">
-                  {modIdsString ? `${modIdsString.split(',').length} Mods` : '0 Mods'}
+                  {t('modOrganization.modsCount', { count: modIdsString ? modIdsString.split(',').length : 0, defaultValue: `${modIdsString ? modIdsString.split(',').length : 0} Mods` })}
                 </span>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Mod IDs (Comma-Separated)</label>
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">{t('modOrganization.idsLabel', 'Mod IDs (Comma-Separated)')}</label>
                 <textarea
                   readOnly
-                  value={modIdsString || 'No mods in this category yet.'}
+                  value={modIdsString || t('modOrganization.noModsInCategory', 'No mods in this category yet.')}
                   rows={4}
                   className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3.5 font-mono text-xs text-sky-400 focus:outline-none custom-scrollbar break-all select-all"
                 />
@@ -487,7 +489,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                   className="px-5 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-sky-500/20 transition-all disabled:opacity-50"
                 >
                   {copiedModIds ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  <span>{copiedModIds ? 'Copied Mod IDs!' : 'Copy Mod IDs'}</span>
+                  <span>{copiedModIds ? t('modOrganization.copiedIds', 'Copied Mod IDs!') : t('modOrganization.copyIds', 'Copy Mod IDs')}</span>
                 </button>
               </div>
             </div>
@@ -503,7 +505,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                 <Upload className="w-5 h-5 text-purple-400" />
-                Import Mod Categories & Setup
+                {t('modOrganization.importTitle', 'Import Mod Categories & Setup')}
               </h3>
               <button onClick={() => setShowImportModal(false)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-lg">
                 <X className="w-5 h-5" />
@@ -511,14 +513,14 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
             </div>
 
             <p className="text-[var(--text-muted)] text-xs">
-              Paste a share link (<span className="font-mono text-sky-400">#data=...</span>) or raw JSON setup code:
+              {t('modOrganization.importDescA', 'Paste a share link')} (<span className="font-mono text-sky-400">#data=...</span>) {t('modOrganization.importDescB', 'or raw JSON setup code:')}
             </p>
 
             <form onSubmit={handleImportSubmit} className="space-y-4">
               <textarea
                 value={importJsonText}
                 onChange={(e) => setImportJsonText(e.target.value)}
-                placeholder='Paste share link or JSON code here...'
+                placeholder={t('modOrganization.importPlaceholder', 'Paste share link or JSON code here...')}
                 rows={6}
                 className="w-full bg-[var(--surface)] border border-[var(--border)] focus:border-purple-500/80 rounded-xl p-3.5 font-mono text-xs text-[var(--text-primary)] focus:outline-none custom-scrollbar"
               />
@@ -529,7 +531,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                   onClick={() => setShowImportModal(false)}
                   className="px-4 py-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] rounded-xl text-xs font-bold"
                 >
-                  Cancel
+                  {t('common.cancel', 'Cancel')}
                 </button>
                 <button
                   type="submit"
@@ -537,7 +539,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                   className="px-5 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-purple-500/20 transition-all disabled:opacity-50"
                 >
                   <Upload className="w-4 h-4" />
-                  <span>Import JSON</span>
+                  <span>{t('modOrganization.importJson', 'Import JSON')}</span>
                 </button>
               </div>
             </form>

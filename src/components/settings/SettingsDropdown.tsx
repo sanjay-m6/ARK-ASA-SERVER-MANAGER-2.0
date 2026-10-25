@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Option {
     value: string;
@@ -20,6 +21,7 @@ export function SettingsDropdown({
     description,
     onChange
 }: SettingsDropdownProps) {
+    const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -83,7 +85,7 @@ export function SettingsDropdown({
                     <div className="border-t border-slate-700 p-2">
                         <input
                             type="text"
-                            placeholder="Enter custom value..."
+                            placeholder={t('settingsDropdown.customPlaceholder', 'Enter custom value...')}
                             className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
@@ -93,7 +95,7 @@ export function SettingsDropdown({
                             }}
                             onClick={(e) => e.stopPropagation()}
                         />
-                        <p className="text-xs text-slate-500 mt-1 pl-1">Press Enter to set custom value</p>
+                        <p className="text-xs text-slate-500 mt-1 pl-1">{t('settingsDropdown.pressEnter', 'Press Enter to set custom value')}</p>
                     </div>
                 </div>
             )}

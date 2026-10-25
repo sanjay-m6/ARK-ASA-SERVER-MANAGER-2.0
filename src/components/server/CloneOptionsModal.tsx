@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Copy, Settings, Database, X, Server, ArrowRight, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/helpers';
 import { Server as ServerType } from '../../types';
 
@@ -25,6 +26,7 @@ export default function CloneOptionsModal({
     onTransferSettings,
     onExtractData,
 }: CloneOptionsModalProps) {
+    const { t } = useTranslation();
     const [selectedAction, setSelectedAction] = useState<ActionType>(null);
     const [targetServerId, setTargetServerId] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -68,8 +70,8 @@ export default function CloneOptionsModal({
                             <Copy className="w-5 h-5 text-sky-400" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold text-white">Server Actions</h2>
-                            <p className="text-sm text-slate-400">Source: {sourceServer.name}</p>
+                            <h2 className="text-lg font-bold text-white">{t('cloneOptions.serverActions', 'Server Actions')}</h2>
+                            <p className="text-sm text-slate-400">{t('cloneOptions.source', { defaultValue: 'Source: {{name}}', name: sourceServer.name })}</p>
                         </div>
                     </div>
                     <button
@@ -103,8 +105,8 @@ export default function CloneOptionsModal({
                                 )} />
                             </div>
                             <div>
-                                <h3 className="font-semibold text-white">Clone Server</h3>
-                                <p className="text-sm text-slate-400">Create a duplicate with offset ports (+10)</p>
+                                <h3 className="font-semibold text-white">{t('cloneOptions.cloneServer', 'Clone Server')}</h3>
+                                <p className="text-sm text-slate-400">{t('cloneOptions.cloneDesc', 'Create a duplicate of this server with ports offset by +10')}</p>
                             </div>
                         </div>
                     </button>
@@ -130,8 +132,8 @@ export default function CloneOptionsModal({
                                 )} />
                             </div>
                             <div>
-                                <h3 className="font-semibold text-white">Transfer Settings</h3>
-                                <p className="text-sm text-slate-400">Copy INI config to another server</p>
+                                <h3 className="font-semibold text-white">{t('cloneOptions.transferSettings', 'Transfer Settings')}</h3>
+                                <p className="text-sm text-slate-400">{t('cloneOptions.transferDesc', 'Copy INI config files to another server')}</p>
                             </div>
                         </div>
                     </button>
@@ -157,8 +159,8 @@ export default function CloneOptionsModal({
                                 )} />
                             </div>
                             <div>
-                                <h3 className="font-semibold text-white">Extract Save Data</h3>
-                                <p className="text-sm text-slate-400">Copy world/player data to another server</p>
+                                <h3 className="font-semibold text-white">{t('cloneOptions.extractData', 'Extract Save Data')}</h3>
+                                <p className="text-sm text-slate-400">{t('cloneOptions.extractDesc', 'Copy world/player data to another server')}</p>
                             </div>
                         </div>
                     </button>
@@ -168,11 +170,11 @@ export default function CloneOptionsModal({
                         <div className="mt-4 p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 animate-in slide-in-from-top-2 duration-200">
                             <div className="flex items-center gap-2 mb-3">
                                 <ArrowRight className="w-4 h-4 text-slate-400" />
-                                <span className="text-sm font-medium text-slate-300">Select Target Server</span>
+                                <span className="text-sm font-medium text-slate-300">{t('cloneOptions.selectTarget', 'Select Target Server')}</span>
                             </div>
 
                             {targetServers.length === 0 ? (
-                                <p className="text-sm text-slate-500 italic">No other servers available</p>
+                                <p className="text-sm text-slate-500 italic">{t('cloneOptions.noOtherServers', 'No other servers available')}</p>
                             ) : (
                                 <div className="space-y-2 max-h-40 overflow-y-auto">
                                     {targetServers.map(server => (
@@ -203,7 +205,7 @@ export default function CloneOptionsModal({
                         onClick={handleClose}
                         className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
                     >
-                        Cancel
+                        {t('common.cancel', 'Cancel')}
                     </button>
                     <button
                         onClick={handleExecute}
@@ -224,11 +226,11 @@ export default function CloneOptionsModal({
                         {isLoading ? (
                             <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Processing...
+                                {t('cloneOptions.processing', 'Processing...')}
                             </>
                         ) : (
                             <>
-                                Execute
+                                {t('cloneOptions.execute', 'Execute')}
                             </>
                         )}
                     </button>

@@ -29,10 +29,12 @@ import {
   writeAseConfig
 } from '../utils/aseCommands';
 import { useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { AsePlayer, AsePlayerLists, AseGameConfig } from '../types/ase.types';
 import { cn } from '../../utils/helpers';
 
 export default function ASEPlayerManager() {
+  const { t } = useTranslation();
   const { servers, activeServer } = useAseServerStore();
   const location = useLocation();
   const [selectedServerId, setSelectedServerId] = useState<number | null>(
@@ -92,7 +94,7 @@ export default function ASEPlayerManager() {
       const cfg = await readAseConfig(serverId);
       setConfig(cfg);
     } catch (e) {
-      toast.error(`Failed to load player lists: ${e}`);
+      toast.error(t('ase.playerManager.loadFailed', { defaultValue: 'Failed to load player lists: {{error}}', error: String(e) }));
     } finally {
       setLoading(false);
     }
@@ -112,9 +114,9 @@ export default function ASEPlayerManager() {
     setConfig(updatedConfig);
     try {
       await writeAseConfig(selectedServerId, updatedConfig);
-      toast.success(checked ? 'Exclusive Join mode enabled (launch arg added)' : 'Exclusive Join mode disabled');
+      toast.success(checked ? t('ase.playerManager.exclusiveEnabled', 'Exclusive Join mode enabled (launch arg added)') : t('ase.playerManager.exclusiveDisabled', 'Exclusive Join mode disabled'));
     } catch (e) {
-      toast.error(`Failed to update configuration: ${e}`);
+      toast.error(t('ase.playerManager.updateFailed', { defaultValue: 'Failed to update configuration: {{error}}', error: String(e) }));
     }
   };
 
@@ -129,9 +131,9 @@ export default function ASEPlayerManager() {
         newLists.exclusive
       );
       setPlayers(newLists);
-      toast.success('Player list synchronized successfully');
+      toast.success(t('ase.playerManager.synced', 'Player list synchronized successfully'));
     } catch (e) {
-      toast.error(`Failed to synchronize lists: ${e}`);
+      toast.error(t('ase.playerManager.syncFailed', { defaultValue: 'Failed to synchronize lists: {{error}}', error: String(e) }));
     }
   };
 
@@ -169,12 +171,12 @@ export default function ASEPlayerManager() {
     const { steamId, playerName, platform, epicId, notes } = dialogPlayer;
 
     if (!steamId || !playerName) {
-      toast.error('SteamID64 and Player Name are required');
+      toast.error(t('ase.playerManager.required', 'SteamID64 and Player Name are required'));
       return;
     }
 
     if (!validateSteamId(steamId)) {
-      toast.error('Invalid SteamID64. Must be a 17-digit number starting with 7656.');
+      toast.error(t('ase.playerManager.invalidSteamId', 'Invalid SteamID64. Must be a 17-digit number starting with 7656.'));
       return;
     }
 
@@ -184,7 +186,7 @@ export default function ASEPlayerManager() {
     if (dialogMode === 'add') {
       const exists = targetList.some((p) => p.steamId === steamId);
       if (exists) {
-        toast.error('A player with this Steam ID already exists in this list');
+        toast.error(t('ase.playerManager.duplicate', 'A player with this Steam ID already exists in this list'));
         return;
       }
     }
@@ -232,7 +234,7 @@ export default function ASEPlayerManager() {
     const destList = [...players[toList]];
     
     if (destList.some((p) => p.steamId === player.steamId)) {
-      toast.error('Player is already in the target list');
+      toast.error(t('ase.playerManager.alreadyInTarget', 'Player is already in the target list'));
       return;
     }
 
@@ -248,7 +250,7 @@ export default function ASEPlayerManager() {
   // Copy to clipboard helper
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    toast.success(`${label} copied to clipboard`);
+    toast.success(t('ase.playerManager.copied', { defaultValue: '{{label}} copied to clipboard', label }));
   };
 
   // Import List (from file upload)
@@ -313,7 +315,7 @@ export default function ASEPlayerManager() {
         }
 
         if (uniquePlayers.length === 0) {
-          toast.error('No valid SteamID64s found in the file');
+          toast.error(t('ase.playerManager.noValidIds', 'No valid SteamID64s found in the file'));
           return;
         }
 
@@ -323,9 +325,9 @@ export default function ASEPlayerManager() {
         };
 
         saveLists(newLists);
-        toast.success(`Successfully imported ${uniquePlayers.length} players`);
+        toast.success(t('ase.playerManager.imported', { defaultValue: 'Successfully imported {{count}} players', count: uniquePlayers.length }));
       } catch (err) {
-        toast.error(`Failed to parse file: ${err}`);
+        toast.error(t('ase.playerManager.parseFailed', { defaultValue: 'Failed to parse file: {{error}}', error: String(err) }));
       }
     };
     reader.readAsText(file);
@@ -359,7 +361,7 @@ export default function ASEPlayerManager() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    toast.success(`Exported list as ${format.toUpperCase()}`);
+    toast.success(t('ase.playerManager.exported', { defaultValue: 'Exported list as {{format}}', format: format.toUpperCase() }));
   };
 
   // Filter lists based on search queries
@@ -392,10 +394,10 @@ export default function ASEPlayerManager() {
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
             <Users className="w-7 h-7 text-amber-400" />
-            Player Management
+            {t('ase.playerManager.title', 'Player Management')}
           </h1>
           <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">
-            Manage server administrators, whitelisted players to bypass slot limits, and exclusive access joining rules.
+            {t('ase.playerManager.subtitle', 'Manage server administrators, whitelisted players to bypass slot limits, and exclusive access joining rules.')}
           </p>
         </div>
 
@@ -414,7 +416,7 @@ export default function ASEPlayerManager() {
                     <Shield className="w-4 h-4 text-amber-400" />
                   </div>
                   <div>
-                    <h2 className="text-sm font-bold text-white">Administrators</h2>
+                    <h2 className="text-sm font-bold text-white">{t('ase.playerManager.administrators', 'Administrators')}</h2>
                     <p className="text-[10px] text-slate-500">AllowedCheaterSteamIDs.txt</p>
                   </div>
                 </div>
@@ -422,7 +424,7 @@ export default function ASEPlayerManager() {
                   <button
                     onClick={() => openAddDialog('admins')}
                     className="p-1.5 bg-slate-800/50 hover:bg-amber-500 hover:text-slate-950 text-slate-300 rounded-xl transition-all border border-white/5"
-                    title="Add Admin"
+                    title={t('ase.playerManager.addAdmin', 'Add Admin')}
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -440,22 +442,22 @@ export default function ASEPlayerManager() {
                       <Download className="w-4 h-4" />
                     </button>
                     <div className="absolute right-0 top-full mt-1.5 hidden group-focus-within:block group-hover:block bg-slate-950 border border-slate-800 rounded-xl py-1 z-30 shadow-2xl min-w-[120px]">
-                      <button onClick={() => handleExport('admins', 'txt')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">Export TXT</button>
-                      <button onClick={() => handleExport('admins', 'csv')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">Export CSV</button>
-                      <button onClick={() => handleExport('admins', 'json')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">Export JSON</button>
+                      <button onClick={() => handleExport('admins', 'txt')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">{t('ase.playerManager.exportAs', { defaultValue: 'Export {{format}}', format: 'TXT' })}</button>
+                      <button onClick={() => handleExport('admins', 'csv')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">{t('ase.playerManager.exportAs', { defaultValue: 'Export {{format}}', format: 'CSV' })}</button>
+                      <button onClick={() => handleExport('admins', 'json')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">{t('ase.playerManager.exportAs', { defaultValue: 'Export {{format}}', format: 'JSON' })}</button>
                     </div>
                   </div>
                   <button
                     onClick={() => setIsAdminGuideOpen(true)}
                     className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-xl transition-all border border-amber-500/30"
-                    title="In-Game Admin & Cheats Guide"
+                    title={t('wiki.docTitles.InGameAdmin', 'In-Game Admin & Cheats Guide')}
                   >
                     <Key className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => loadData(selectedServerId)}
                     className="p-1.5 bg-slate-800/50 hover:bg-slate-700/60 text-slate-300 rounded-xl transition-all border border-white/5"
-                    title="Reload"
+                    title={t('ase.playerManager.reload', 'Reload')}
                   >
                     <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
                   </button>
@@ -470,7 +472,7 @@ export default function ASEPlayerManager() {
                     type="text"
                     value={searchAdmins}
                     onChange={(e) => setSearchAdmins(e.target.value)}
-                    placeholder="Search admins by name or SteamID..."
+                    placeholder={t('ase.playerManager.searchAdmins', 'Search admins by name or SteamID...')}
                     className="w-full pl-9 pr-4 py-1.5 bg-slate-950/50 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 transition-colors"
                   />
                 </div>
@@ -498,7 +500,7 @@ export default function ASEPlayerManager() {
                         <button
                           onClick={() => openEditDialog('admins', p)}
                           className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors"
-                          title="Edit Info"
+                          title={t('ase.playerManager.editInfo', 'Edit Info')}
                         >
                           <Edit className="w-3.5 h-3.5" />
                         </button>
@@ -507,14 +509,14 @@ export default function ASEPlayerManager() {
                           target="_blank"
                           rel="noreferrer"
                           className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors"
-                          title="Steam Profile"
+                          title={t('ase.playerManager.steamProfile', 'Steam Profile')}
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                         </a>
                         <button
                           onClick={() => handleRemovePlayer('admins', p.steamId)}
                           className="p-1 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition-colors"
-                          title="Remove"
+                          title={t('common.remove', 'Remove')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -524,7 +526,7 @@ export default function ASEPlayerManager() {
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-slate-500 py-16">
                     <Shield className="w-8 h-8 opacity-20 mb-2" />
-                    <span className="text-xs">No admins configured</span>
+                    <span className="text-xs">{t('ase.playerManager.noAdmins', 'No admins configured')}</span>
                   </div>
                 )}
               </div>
@@ -538,7 +540,7 @@ export default function ASEPlayerManager() {
                     <CheckCircle className="w-4 h-4 text-emerald-400" />
                   </div>
                   <div>
-                    <h2 className="text-sm font-bold text-white">Whitelist</h2>
+                    <h2 className="text-sm font-bold text-white">{t('ase.playerManager.whitelist', 'Whitelist')}</h2>
                     <p className="text-[10px] text-slate-500">PlayersExclusiveJoinList.txt</p>
                   </div>
                 </div>
@@ -546,7 +548,7 @@ export default function ASEPlayerManager() {
                   <button
                     onClick={() => openAddDialog('whitelist')}
                     className="p-1.5 bg-slate-800/50 hover:bg-emerald-500 hover:text-slate-950 text-slate-300 rounded-xl transition-all border border-white/5"
-                    title="Add Whitelisted Player"
+                    title={t('ase.playerManager.addWhitelisted', 'Add Whitelisted Player')}
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -564,15 +566,15 @@ export default function ASEPlayerManager() {
                       <Download className="w-4 h-4" />
                     </button>
                     <div className="absolute right-0 top-full mt-1.5 hidden group-focus-within:block group-hover:block bg-slate-950 border border-slate-800 rounded-xl py-1 z-30 shadow-2xl min-w-[120px]">
-                      <button onClick={() => handleExport('whitelist', 'txt')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">Export TXT</button>
-                      <button onClick={() => handleExport('whitelist', 'csv')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">Export CSV</button>
-                      <button onClick={() => handleExport('whitelist', 'json')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">Export JSON</button>
+                      <button onClick={() => handleExport('whitelist', 'txt')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">{t('ase.playerManager.exportAs', { defaultValue: 'Export {{format}}', format: 'TXT' })}</button>
+                      <button onClick={() => handleExport('whitelist', 'csv')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">{t('ase.playerManager.exportAs', { defaultValue: 'Export {{format}}', format: 'CSV' })}</button>
+                      <button onClick={() => handleExport('whitelist', 'json')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">{t('ase.playerManager.exportAs', { defaultValue: 'Export {{format}}', format: 'JSON' })}</button>
                     </div>
                   </div>
                   <button
                     onClick={() => loadData(selectedServerId)}
                     className="p-1.5 bg-slate-800/50 hover:bg-slate-700/60 text-slate-300 rounded-xl transition-all border border-white/5"
-                    title="Reload"
+                    title={t('ase.playerManager.reload', 'Reload')}
                   >
                     <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
                   </button>
@@ -587,7 +589,7 @@ export default function ASEPlayerManager() {
                     type="text"
                     value={searchWhitelist}
                     onChange={(e) => setSearchWhitelist(e.target.value)}
-                    placeholder="Search whitelisted players..."
+                    placeholder={t('ase.playerManager.searchWhitelist', 'Search whitelisted players...')}
                     className="w-full pl-9 pr-4 py-1.5 bg-slate-950/50 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
                   />
                 </div>
@@ -614,21 +616,21 @@ export default function ASEPlayerManager() {
                         <button
                           onClick={() => handleMovePlayer('whitelist', 'admins', p)}
                           className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors"
-                          title="Promote to Admin"
+                          title={t('ase.playerManager.promote', 'Promote to Admin')}
                         >
                           <Shield className="w-3.5 h-3.5 text-amber-400" />
                         </button>
                         <button
                           onClick={() => openEditDialog('whitelist', p)}
                           className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors"
-                          title="Edit Info"
+                          title={t('ase.playerManager.editInfo', 'Edit Info')}
                         >
                           <Edit className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleRemovePlayer('whitelist', p.steamId)}
                           className="p-1 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition-colors"
-                          title="Remove"
+                          title={t('common.remove', 'Remove')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -638,7 +640,7 @@ export default function ASEPlayerManager() {
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-slate-500 py-16">
                     <CheckCircle className="w-8 h-8 opacity-20 mb-2" />
-                    <span className="text-xs">No whitelisted players</span>
+                    <span className="text-xs">{t('ase.playerManager.noWhitelist', 'No whitelisted players')}</span>
                   </div>
                 )}
               </div>
@@ -653,7 +655,7 @@ export default function ASEPlayerManager() {
                       <Lock className="w-4 h-4 text-sky-400" />
                     </div>
                     <div>
-                      <h2 className="text-sm font-bold text-white">Exclusive Join</h2>
+                      <h2 className="text-sm font-bold text-white">{t('ase.playerManager.exclusiveJoin', 'Exclusive Join')}</h2>
                       <p className="text-[10px] text-slate-500">PlayersJoinNoCheckList.txt</p>
                     </div>
                   </div>
@@ -661,7 +663,7 @@ export default function ASEPlayerManager() {
                     <button
                       onClick={() => openAddDialog('exclusive')}
                       className="p-1.5 bg-slate-800/50 hover:bg-sky-500 hover:text-slate-950 text-slate-300 rounded-xl transition-all border border-white/5"
-                      title="Add Exclusive Player"
+                      title={t('ase.playerManager.addExclusive', 'Add Exclusive Player')}
                     >
                       <Plus className="w-4 h-4" />
                     </button>
@@ -679,15 +681,15 @@ export default function ASEPlayerManager() {
                         <Download className="w-4 h-4" />
                       </button>
                       <div className="absolute right-0 top-full mt-1.5 hidden group-focus-within:block group-hover:block bg-slate-950 border border-slate-800 rounded-xl py-1 z-30 shadow-2xl min-w-[120px]">
-                        <button onClick={() => handleExport('exclusive', 'txt')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">Export TXT</button>
-                        <button onClick={() => handleExport('exclusive', 'csv')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">Export CSV</button>
-                        <button onClick={() => handleExport('exclusive', 'json')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">Export JSON</button>
+                        <button onClick={() => handleExport('exclusive', 'txt')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">{t('ase.playerManager.exportAs', { defaultValue: 'Export {{format}}', format: 'TXT' })}</button>
+                        <button onClick={() => handleExport('exclusive', 'csv')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">{t('ase.playerManager.exportAs', { defaultValue: 'Export {{format}}', format: 'CSV' })}</button>
+                        <button onClick={() => handleExport('exclusive', 'json')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">{t('ase.playerManager.exportAs', { defaultValue: 'Export {{format}}', format: 'JSON' })}</button>
                       </div>
                     </div>
                     <button
                       onClick={() => loadData(selectedServerId)}
                       className="p-1.5 bg-slate-800/50 hover:bg-slate-700/60 text-slate-300 rounded-xl transition-all border border-white/5"
-                      title="Reload"
+                      title={t('ase.playerManager.reload', 'Reload')}
                     >
                       <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
                     </button>
@@ -704,8 +706,8 @@ export default function ASEPlayerManager() {
                         <Unlock className="w-4 h-4 text-slate-500" />
                       )}
                       <div>
-                        <span className="text-xs font-bold text-white">Enable Exclusive Join</span>
-                        <p className="text-[9px] text-slate-500 mt-0.5">Launches server with -exclusivejoin</p>
+                        <span className="text-xs font-bold text-white">{t('ase.playerManager.enableExclusive', 'Enable Exclusive Join')}</span>
+                        <p className="text-[9px] text-slate-500 mt-0.5">{t('ase.playerManager.enableExclusiveDesc', 'Launches server with -exclusivejoin')}</p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -729,7 +731,7 @@ export default function ASEPlayerManager() {
                     type="text"
                     value={searchExclusive}
                     onChange={(e) => setSearchExclusive(e.target.value)}
-                    placeholder="Search exclusive players..."
+                    placeholder={t('ase.playerManager.searchExclusive', 'Search exclusive players...')}
                     className="w-full pl-9 pr-4 py-1.5 bg-slate-950/50 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/50 transition-colors"
                   />
                 </div>
@@ -756,14 +758,14 @@ export default function ASEPlayerManager() {
                         <button
                           onClick={() => openEditDialog('exclusive', p)}
                           className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors"
-                          title="Edit Info"
+                          title={t('ase.playerManager.editInfo', 'Edit Info')}
                         >
                           <Edit className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleRemovePlayer('exclusive', p.steamId)}
                           className="p-1 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition-colors"
-                          title="Remove"
+                          title={t('common.remove', 'Remove')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -773,7 +775,7 @@ export default function ASEPlayerManager() {
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-slate-500 py-16">
                     <Lock className="w-8 h-8 opacity-20 mb-2" />
-                    <span className="text-xs">No exclusive join players</span>
+                    <span className="text-xs">{t('ase.playerManager.noExclusive', 'No exclusive join players')}</span>
                   </div>
                 )}
               </div>
@@ -785,7 +787,7 @@ export default function ASEPlayerManager() {
           <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-3xl backdrop-blur-md relative overflow-hidden">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <Users className="w-4 h-4 text-emerald-400" />
-              Online Players (RCON)
+              {t('ase.playerManager.online', 'Online Players (RCON)')}
             </h3>
             
             {rconState?.isConnected ? (
@@ -794,9 +796,9 @@ export default function ASEPlayerManager() {
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="border-b border-white/5 text-slate-400 pb-2">
-                        <th className="py-2.5 font-semibold">Player Name</th>
+                        <th className="py-2.5 font-semibold">{t('translator.playerNameLabel', 'Player Name')}</th>
                         <th className="py-2.5 font-semibold">SteamID64</th>
-                        <th className="py-2.5 font-semibold text-right">Quick Actions</th>
+                        <th className="py-2.5 font-semibold text-right">{t('aiAssistant.quickActions', 'Quick Actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -818,10 +820,10 @@ export default function ASEPlayerManager() {
                             <td 
                               onClick={() => {
                                 navigator.clipboard.writeText(player.steamId);
-                                toast.success('SteamID copied to clipboard');
+                                toast.success(t('ase.playerManager.steamIdCopied', 'SteamID copied to clipboard'));
                               }}
                               className="py-3 font-mono text-slate-400 hover:text-cyan-400 cursor-pointer transition-colors inline-flex items-center gap-1.5 group/id"
-                              title="Click to copy SteamID"
+                              title={t('ase.playerManager.clickCopy', 'Click to copy SteamID')}
                             >
                               <span>{player.steamId}</span>
                               <Copy className="w-3 h-3 opacity-0 group-hover/id:opacity-100 transition-opacity text-cyan-400" />
@@ -830,13 +832,13 @@ export default function ASEPlayerManager() {
                               <button
                                 onClick={() => {
                                   navigator.clipboard.writeText(player.steamId);
-                                  toast.success('SteamID copied to clipboard');
+                                  toast.success(t('ase.playerManager.steamIdCopied', 'SteamID copied to clipboard'));
                                 }}
                                 className="px-2 py-1 rounded text-[10px] font-bold transition-all border bg-slate-800 hover:bg-cyan-500 hover:text-slate-950 text-cyan-400 border-cyan-500/20 inline-flex items-center gap-1"
-                                title="Copy SteamID to clipboard"
+                                title={t('ase.playerManager.copySteamId', 'Copy SteamID to clipboard')}
                               >
                                 <Copy className="w-3 h-3" />
-                                Copy ID
+                                {t('ase.playerManager.copyId', 'Copy ID')}
                               </button>
                               <button
                                 disabled={isPlayerAdmin}
@@ -848,7 +850,7 @@ export default function ASEPlayerManager() {
                                     : "bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-400 border-amber-500/20"
                                 )}
                               >
-                                {isPlayerAdmin ? 'Admin' : '+ Admin'}
+                                {isPlayerAdmin ? t('ase.playerManager.admin', 'Admin') : t('ase.playerManager.plusAdmin', '+ Admin')}
                               </button>
                               <button
                                 disabled={isPlayerWhitelisted}
@@ -860,7 +862,7 @@ export default function ASEPlayerManager() {
                                     : "bg-slate-800 hover:bg-emerald-500 hover:text-slate-950 text-emerald-400 border-emerald-500/20"
                                 )}
                               >
-                                {isPlayerWhitelisted ? 'Whitelisted' : '+ Whitelist'}
+                                {isPlayerWhitelisted ? t('ase.playerManager.whitelisted', 'Whitelisted') : t('ase.playerManager.plusWhitelist', '+ Whitelist')}
                               </button>
                               <button
                                 disabled={isPlayerExclusive}
@@ -872,7 +874,7 @@ export default function ASEPlayerManager() {
                                     : "bg-slate-800 hover:bg-sky-500 hover:text-slate-950 text-sky-400 border-sky-500/20"
                                 )}
                               >
-                                {isPlayerExclusive ? 'Exclusive' : '+ Exclusive'}
+                                {isPlayerExclusive ? t('ase.playerManager.exclusive', 'Exclusive') : t('ase.playerManager.plusExclusive', '+ Exclusive')}
                               </button>
                             </td>
                           </tr>
@@ -881,13 +883,13 @@ export default function ASEPlayerManager() {
                     </tbody>
                   </table>
                 ) : (
-                  <p className="text-slate-500 text-xs py-4 text-center">No players currently online.</p>
+                  <p className="text-slate-500 text-xs py-4 text-center">{t('ase.playerManager.noOnline', 'No players currently online.')}</p>
                 )}
               </div>
             ) : (
               <div className="mt-4 p-4 bg-slate-950/40 border border-white/5 rounded-2xl flex items-center justify-between">
-                <span className="text-slate-400 text-xs">Connect to RCON to monitor online players and manage them instantly.</span>
-                <span className="px-2 py-1 bg-slate-800 text-slate-400 border border-white/5 rounded-lg text-[10px] font-bold uppercase">RCON Offline</span>
+                <span className="text-slate-400 text-xs">{t('ase.playerManager.connectRcon', 'Connect to RCON to monitor online players and manage them instantly.')}</span>
+                <span className="px-2 py-1 bg-slate-800 text-slate-400 border border-white/5 rounded-lg text-[10px] font-bold uppercase">{t('ase.playerManager.rconOffline', 'RCON Offline')}</span>
               </div>
             )}
           </div>
@@ -895,7 +897,7 @@ export default function ASEPlayerManager() {
       ) : (
         <div className="flex flex-col items-center justify-center p-12 bg-slate-900/40 border border-slate-800 rounded-3xl min-h-[300px]">
           <Users className="w-12 h-12 text-slate-600 animate-pulse mb-3" />
-          <span className="text-sm text-slate-400">Please select an ASE Server to begin.</span>
+          <span className="text-sm text-slate-400">{t('ase.playerManager.selectServer', 'Please select an ASE Server to begin.')}</span>
         </div>
       )}
 
@@ -910,13 +912,13 @@ export default function ASEPlayerManager() {
               className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl p-6 space-y-4"
             >
               <h3 className="text-sm font-bold text-white">
-                {dialogMode === 'add' ? 'Add Player to ' : 'Edit Player in '}
-                <span className="text-amber-400 capitalize">{dialogTargetList}</span>
+                {dialogMode === 'add' ? t('ase.playerManager.addPlayerTo', 'Add Player to') : t('ase.playerManager.editPlayerIn', 'Edit Player in')}{' '}
+                <span className="text-amber-400 capitalize">{t(`ase.playerManager.lists.${dialogTargetList}`, dialogTargetList)}</span>
               </h3>
 
               <div className="space-y-3.5 text-xs text-slate-300">
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-400">SteamID64 (17 digits)</label>
+                  <label className="font-semibold text-slate-400">{t('ase.playerManager.steamIdLabel', 'SteamID64 (17 digits)')}</label>
                   <input
                     type="text"
                     disabled={dialogMode === 'edit'}
@@ -928,7 +930,7 @@ export default function ASEPlayerManager() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-400">Epic Account ID (optional)</label>
+                  <label className="font-semibold text-slate-400">{t('ase.playerManager.epicId', 'Epic Account ID (optional)')}</label>
                   <input
                     type="text"
                     value={dialogPlayer.epicId || ''}
@@ -939,18 +941,18 @@ export default function ASEPlayerManager() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-400">Player Name</label>
+                  <label className="font-semibold text-slate-400">{t('translator.playerNameLabel', 'Player Name')}</label>
                   <input
                     type="text"
                     value={dialogPlayer.playerName || ''}
                     onChange={(e) => setDialogPlayer(prev => ({ ...prev, playerName: e.target.value }))}
-                    placeholder="e.g. John Doe"
+                    placeholder={t('ase.playerManager.namePlaceholder', 'e.g. John Doe')}
                     className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl focus:outline-none focus:border-amber-500/50 text-white"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-400">Platform</label>
+                  <label className="font-semibold text-slate-400">{t('ase.playerManager.platform', 'Platform')}</label>
                   <select
                     value={dialogPlayer.platform || 'Steam'}
                     onChange={(e) => setDialogPlayer(prev => ({ ...prev, platform: e.target.value }))}
@@ -962,11 +964,11 @@ export default function ASEPlayerManager() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-400">Notes / Reasons</label>
+                  <label className="font-semibold text-slate-400">{t('ase.playerManager.notes', 'Notes / Reasons')}</label>
                   <textarea
                     value={dialogPlayer.notes || ''}
                     onChange={(e) => setDialogPlayer(prev => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Add notes about this player..."
+                    placeholder={t('ase.playerManager.notesPlaceholder', 'Add notes about this player...')}
                     rows={3}
                     className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl focus:outline-none focus:border-amber-500/50 text-white resize-none"
                   />
@@ -978,13 +980,13 @@ export default function ASEPlayerManager() {
                   onClick={() => setDialogOpen(false)}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors text-xs font-semibold"
                 >
-                  Cancel
+                  {t('common.cancel', 'Cancel')}
                 </button>
                 <button
                   onClick={handleDialogSave}
                   className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl transition-colors text-xs font-bold"
                 >
-                  Save
+                  {t('common.save', 'Save')}
                 </button>
               </div>
             </motion.div>

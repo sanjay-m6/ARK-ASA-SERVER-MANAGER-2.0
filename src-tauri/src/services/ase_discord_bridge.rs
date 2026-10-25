@@ -252,9 +252,14 @@ impl GatewayHandler {
             None => return false,
         };
 
-        // If no roles configured, allow all (backward compatible)
+        // If no roles configured, deny (fail closed) so anyone in the channel
+        // cannot control servers
         if cfg.admin_role_ids.is_empty() && cfg.moderator_role_ids.is_empty() {
-            return true;
+            log::warn!(
+                "Discord command from '{}' denied: no admin/moderator roles configured. Configure Discord bot roles in settings to enable commands.",
+                msg.author.name
+            );
+            return false;
         }
 
         // Get member roles
@@ -885,6 +890,10 @@ impl SerenityEventHandler for GatewayHandler {
                 }
             }
             "!update" => {
+                if !self.check_permission(&ctx, &msg, PermLevel::Admin).await {
+                    let _ = msg.channel_id.send_message(&ctx.http, CreateMessage::new().embed(error_embed("Admin permission required."))).await;
+                    return;
+                }
                 if args.is_empty() {
                     let _ = msg
                         .reply(&ctx.http, "❌ Usage: `!update <server_id>`")
@@ -920,6 +929,10 @@ impl SerenityEventHandler for GatewayHandler {
                 }
             }
             "!broadcast" | "!say" => {
+                if !self.check_permission(&ctx, &msg, PermLevel::Moderator).await {
+                    let _ = msg.channel_id.send_message(&ctx.http, CreateMessage::new().embed(error_embed("You don't have permission."))).await;
+                    return;
+                }
                 if args.len() < 2 {
                     let _ = msg
                         .reply(&ctx.http, "❌ Usage: `!broadcast <server_id> <message>`")
@@ -951,6 +964,10 @@ impl SerenityEventHandler for GatewayHandler {
                 }
             }
             "!kick" => {
+                if !self.check_permission(&ctx, &msg, PermLevel::Moderator).await {
+                    let _ = msg.channel_id.send_message(&ctx.http, CreateMessage::new().embed(error_embed("You don't have permission."))).await;
+                    return;
+                }
                 if args.len() < 2 {
                     let _ = msg
                         .reply(&ctx.http, "❌ Usage: `!kick <server_id> <steam_id>`")

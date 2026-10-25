@@ -155,7 +155,7 @@ export default function ASEEditClusterDialog({
                             value={clusterName}
                             onChange={e => setClusterName(e.target.value)}
                             className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
-                            placeholder="My Cluster"
+                            placeholder={t('ase.editCluster.namePlaceholder', 'My Cluster')}
                         />
                     </div>
 

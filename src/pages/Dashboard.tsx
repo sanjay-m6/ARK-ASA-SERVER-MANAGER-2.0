@@ -164,7 +164,7 @@ export default function Dashboard() {
 
     // Search query
     const cust = snapshot?.servers?.find((s: any) => s.id === server.id)?.customization;
-    const displayName = cust?.display_name || server.name;
+    const displayName = cust?.displayName || server.name;
     const searchLower = searchQuery.toLowerCase().trim();
     if (searchLower) {
       const matchesSearch = displayName.toLowerCase().includes(searchLower) ||
@@ -222,8 +222,9 @@ export default function Dashboard() {
         const updatedCustom = { ...custom, displayName: newName };
         await apiUpdateServerCustomization(updatedCustom);
         updateServerCustomization(updatedCustom);
+        fetchOrgSnapshot();
 
-        toast.success(t('serverManager.toast.nameUpdated', `Profile name updated to "${newName}"`));
+        toast.success(t('serverManager.toast.nameUpdated', { name: newName, defaultValue: `Profile name updated to "${newName}"` }));
       } catch (err) {
         console.error("Failed to rename server profile:", err);
         toast.error(t('serverManager.renameFailed', 'Failed to update profile name.'));
@@ -379,8 +380,6 @@ export default function Dashboard() {
     // Sync with backend state (initial, uses refreshServers to preserve existing statuses)
     refreshServers();
 
-    refreshServers();
-
     // Poll every 10s for smooth chart data (60 points = 10 min history)
     const perfInterval = setInterval(() => {
       if (document.visibilityState === 'visible') fetchSystemInfo();
@@ -411,14 +410,14 @@ export default function Dashboard() {
       console.error('🧩 Mod Load Failure:', payload);
       const { server_id, error_type, details, suggestions } = payload;
       const srv = servers.find(s => s.id === server_id);
-      const serverName = srv ? srv.name : `Server ${server_id}`;
+      const serverName = srv ? srv.name : t('dashboard.serverFallbackName', { id: server_id, defaultValue: `Server ${server_id}` });
 
       import('../stores/crashNotificationStore').then(({ useCrashNotificationStore }) => {
         useCrashNotificationStore.getState().handleCrashEvent({
           serverId: server_id,
           serverName,
           anomalyType: error_type,
-          details: `${details}\n\nSuggestions:\n${suggestions.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`
+          details: `${details}\n\n${t('dashboard.suggestionsLabel', 'Suggestions:')}\n${suggestions.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`
         });
       });
     }
@@ -430,7 +429,7 @@ export default function Dashboard() {
       console.log('🔥 Log Anomaly Detected:', payload);
       const { server_id, anomaly_type, details } = payload;
       const srv = servers.find(s => s.id === server_id);
-      const serverName = srv ? srv.name : `Server ${server_id}`;
+      const serverName = srv ? srv.name : t('dashboard.serverFallbackName', { id: server_id, defaultValue: `Server ${server_id}` });
 
       import('../stores/crashNotificationStore').then(({ useCrashNotificationStore }) => {
         useCrashNotificationStore.getState().handleCrashEvent({
@@ -526,8 +525,8 @@ export default function Dashboard() {
         {/* Host Telemetry Dials Card */}
         <div className="lg:col-span-2 glass-panel rounded-2xl p-4 sm:p-5 flex flex-col border border-[var(--border)] shadow-sm">
           <div className="flex items-center justify-between border-b border-[var(--border)] pb-3 mb-3">
-            <span className="text-xs text-[var(--text-primary)] uppercase tracking-wider font-bold">Host Allocation Telemetry</span>
-            <span className="text-[10px] text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold tracking-wide">STREAMING</span>
+            <span className="text-xs text-[var(--text-primary)] uppercase tracking-wider font-bold">{t('dashboard.hostTelemetry', 'Host Allocation Telemetry')}</span>
+            <span className="text-[10px] text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold tracking-wide">{t('dashboard.streaming', 'STREAMING')}</span>
           </div>
           <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4 py-1">
             {/* CPU Dial */}
@@ -561,10 +560,10 @@ export default function Dashboard() {
               <div className="text-center mt-3">
                 <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
-                  CPU LOAD
+                  {t('dashboard.cpuLoad', 'CPU LOAD')}
                 </p>
                 <p className="text-[11px] text-[var(--text-secondary)] font-mono mt-0.5 font-bold">
-                  {systemInfo ? `${systemInfo.cpuUsage.toFixed(1)}% Cores` : 'Auditing...'}
+                  {systemInfo ? t('dashboard.cpuCores', { value: systemInfo.cpuUsage.toFixed(1), defaultValue: '{{value}}% Cores' }) : t('dashboard.auditing', 'Auditing...')}
                 </p>
               </div>
             </div>
@@ -600,10 +599,10 @@ export default function Dashboard() {
               <div className="text-center mt-3">
                 <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
-                  MEMORY
+                  {t('dashboard.memory', 'MEMORY')}
                 </p>
                 <p className="text-[11px] text-[var(--text-secondary)] font-mono mt-0.5 font-bold">
-                  {systemInfo ? `${(systemInfo.ramUsage / 1024).toFixed(1)}G / ${(systemInfo.ramTotal / 1024).toFixed(1)}G` : 'Active'}
+                  {systemInfo ? `${(systemInfo.ramUsage / 1024).toFixed(1)}G / ${(systemInfo.ramTotal / 1024).toFixed(1)}G` : t('common.active', 'Active')}
                 </p>
               </div>
             </div>
@@ -639,10 +638,10 @@ export default function Dashboard() {
               <div className="text-center mt-3">
                 <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  DISK SPACE
+                  {t('dashboard.diskSpace', 'DISK SPACE')}
                 </p>
                 <p className="text-[11px] text-[var(--text-secondary)] font-mono mt-0.5 font-bold">
-                  {systemInfo ? `${(systemInfo.diskUsage).toFixed(1)}G Used` : 'Active'}
+                  {systemInfo ? t('dashboard.diskUsed', { value: (systemInfo.diskUsage).toFixed(1), defaultValue: '{{value}}G Used' }) : t('common.active', 'Active')}
                 </p>
               </div>
             </div>
@@ -665,7 +664,7 @@ export default function Dashboard() {
                   <span className="tracking-wide">{t('dashboard.serverControlHub', 'Server Control Hub')}</span>
                 </h2>
                 <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                  Real-time cluster monitoring and instance management
+                  {t('dashboard.controlHubSubtitle', 'Real-time cluster monitoring and instance management')}
                 </p>
               </div>
             </div>
@@ -683,7 +682,7 @@ export default function Dashboard() {
                       : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                   )}
                 >
-                  <span>All</span>
+                  <span>{t('common.all', 'All')}</span>
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold bg-black/10 dark:bg-white/15 leading-none">
                     {servers.length}
                   </span>
@@ -702,7 +701,7 @@ export default function Dashboard() {
                     "w-1.5 h-1.5 rounded-full shrink-0",
                     statusFilter === 'online' ? "bg-white" : "bg-emerald-500"
                   )} />
-                  <span>Online</span>
+                  <span>{t('common.online', 'Online')}</span>
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold bg-black/10 dark:bg-white/15 leading-none">
                     {onlineServersCount}
                   </span>
@@ -717,7 +716,7 @@ export default function Dashboard() {
                       : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                   )}
                 >
-                  <span>Offline</span>
+                  <span>{t('common.offline', 'Offline')}</span>
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold bg-black/10 dark:bg-white/15 leading-none">
                     {stoppedServersCount}
                   </span>
@@ -734,7 +733,7 @@ export default function Dashboard() {
                     )}
                   >
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                    <span>Outdated</span>
+                    <span>{t('dashboard.outdated', 'Outdated')}</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold bg-black/10 dark:bg-white/15 leading-none">
                       {outdatedServersCount}
                     </span>
@@ -749,17 +748,17 @@ export default function Dashboard() {
                   type="text"
                   id="asa-server-search"
                   name="searchQuery"
-                  aria-label="Search servers"
+                  aria-label={t('dashboard.searchServers', 'Search servers')}
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search servers..."
+                  placeholder={t('dashboard.searchServersPlaceholder', 'Search servers...')}
                   className="pl-9 pr-8 py-2 bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 w-44 sm:w-52 transition-all shadow-sm"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
                     className="absolute right-2.5 top-2.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-0.5 cursor-pointer"
-                    title="Clear search"
+                    title={t('dashboard.clearSearch', 'Clear search')}
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -770,27 +769,27 @@ export default function Dashboard() {
               <button
                 onClick={() => setDraftOpen(true)}
                 className="text-xs font-bold px-4 py-2 bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-slate-950 rounded-xl transition-all shadow-md shadow-sky-500/20 flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-                aria-label="Deploy Server"
+                aria-label={t('dashboard.deployServer', 'Deploy Server')}
               >
                 <Zap className="w-3.5 h-3.5 fill-current" />
-                <span>Deploy Server</span>
+                <span>{t('dashboard.deployServer', 'Deploy Server')}</span>
               </button>
 
               {/* Server Organization Button */}
               <button
                 onClick={() => navigate('/tools/organization')}
                 className="text-xs font-bold px-3.5 py-2 bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] border border-[var(--border)] hover:border-sky-500/30 rounded-xl transition-all flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm"
-                aria-label="Server Organization Page"
+                aria-label={t('dashboard.organizationPage', 'Server Organization Page')}
               >
                 <Folder className="w-3.5 h-3.5 text-sky-500" />
-                <span>Organization</span>
+                <span>{t('dashboard.organization', 'Organization')}</span>
               </button>
 
               {/* Manage All Button */}
               <button
                 onClick={() => navigate('/servers')}
                 className="text-xs font-bold px-3.5 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/25 hover:border-sky-500/40 rounded-xl transition-all flex items-center gap-1 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm"
-                aria-label="Manage all servers"
+                aria-label={t('dashboard.manageAllServers', 'Manage all servers')}
               >
                 <span>{t('dashboard.manageAll', 'Manage All')}</span>
                 <span className="text-sky-500">→</span>
@@ -813,10 +812,10 @@ export default function Dashboard() {
                 <div className="flex-1 flex flex-col gap-6 w-full text-left">
                   <div>
                     <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1.5">
-                      Initialize Server Cluster
+                      {t('dashboard.initClusterTitle', 'Initialize Server Cluster')}
                     </h3>
                     <p className="text-[var(--text-secondary)] text-xs sm:text-sm leading-relaxed max-w-xl">
-                      Deploy, customize, and manage your high-performance ARK: Survival Evolved & Ascended servers from a clean, unified dashboard.
+                      {t('dashboard.initClusterDesc', 'Deploy, customize, and manage your high-performance ARK: Survival Evolved & Ascended servers from a clean, unified dashboard.')}
                     </p>
                   </div>
 
@@ -830,8 +829,8 @@ export default function Dashboard() {
                         <div className="w-8 h-8 rounded-xl bg-sky-500/15 flex items-center justify-center text-sky-500 mb-3 group-hover:scale-105 transition-all">
                           <Zap className="w-4 h-4 fill-current" />
                         </div>
-                        <h4 className="text-xs sm:text-sm font-bold text-[var(--text-primary)] group-hover:text-sky-500 transition-colors">Deploy Server Node</h4>
-                        <p className="text-[11px] text-[var(--text-secondary)] mt-1 line-clamp-2">Configure and download a clean server installation with our guided wizard.</p>
+                        <h4 className="text-xs sm:text-sm font-bold text-[var(--text-primary)] group-hover:text-sky-500 transition-colors">{t('dashboard.deployServerNode', 'Deploy Server Node')}</h4>
+                        <p className="text-[11px] text-[var(--text-secondary)] mt-1 line-clamp-2">{t('dashboard.deployServerNodeDesc', 'Configure and download a clean server installation with our guided wizard.')}</p>
                       </div>
                     </div>
 
@@ -843,8 +842,8 @@ export default function Dashboard() {
                         <div className="w-8 h-8 rounded-xl bg-slate-500/10 flex items-center justify-center text-slate-400 mb-3 group-hover:scale-105 transition-all">
                           <Server className="w-4 h-4" />
                         </div>
-                        <h4 className="text-xs sm:text-sm font-bold text-[var(--text-primary)] transition-colors">Import Instance</h4>
-                        <p className="text-[11px] text-[var(--text-secondary)] mt-1 line-clamp-2">Link an existing ShooterGame installation directory to manage it here.</p>
+                        <h4 className="text-xs sm:text-sm font-bold text-[var(--text-primary)] transition-colors">{t('dashboard.importInstance', 'Import Instance')}</h4>
+                        <p className="text-[11px] text-[var(--text-secondary)] mt-1 line-clamp-2">{t('dashboard.importInstanceDesc', 'Link an existing ShooterGame installation directory to manage it here.')}</p>
                       </div>
                     </div>
                   </div>
@@ -853,16 +852,16 @@ export default function Dashboard() {
             ) : filteredServers.length === 0 ? (
               <div className="p-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-center flex flex-col items-center justify-center shadow-sm">
                 <Search className="w-8 h-8 text-[var(--text-muted)] mb-3" />
-                <h4 className="text-sm font-bold text-[var(--text-primary)]">No servers match your criteria</h4>
+                <h4 className="text-sm font-bold text-[var(--text-primary)]">{t('dashboard.noMatchTitle', 'No servers match your criteria')}</h4>
                 <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-sm">
-                  Try adjusting your search query or reset status filters to view all configured server profiles.
+                  {t('dashboard.noMatchDesc', 'Try adjusting your search query or reset status filters to view all configured server profiles.')}
                 </p>
                 <div className="flex items-center gap-2 mt-4">
                   <button
                     onClick={() => { setSearchQuery(''); setStatusFilter('all'); setSelectedFolderId(null); }}
                     className="px-4 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/30 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
                   >
-                    Reset Filters
+                    {t('dashboard.resetFilters', 'Reset Filters')}
                   </button>
                 </div>
               </div>
@@ -870,8 +869,8 @@ export default function Dashboard() {
               <div className="flex flex-col gap-3">
                 {filteredServers.map((server) => {
                   const cust = snapshot?.servers?.find((s: any) => s.id === server.id)?.customization;
-                  const displayName = cust?.display_name || server.name;
-                  const hasColor = !!cust?.color_tag;
+                  const displayName = cust?.displayName || server.name;
+                  const hasColor = !!cust?.colorTag;
                   const isOnline = server.status === 'online' || server.status === 'running';
                   const isStarting = server.status === 'starting';
                   const isUpdating = server.status === 'updating';
@@ -893,7 +892,7 @@ export default function Dashboard() {
                       {hasColor && (
                         <div
                           className="absolute left-1.5 top-3 bottom-3 w-1.5 rounded-full opacity-90 shadow-sm"
-                          style={{ backgroundColor: cust.color_tag }}
+                          style={{ backgroundColor: cust.colorTag }}
                         />
                       )}
 
@@ -927,14 +926,14 @@ export default function Dashboard() {
                               <button
                                 onClick={() => handleRenameSave(server)}
                                 className="p-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-500 border border-emerald-500/40 rounded-lg transition-colors cursor-pointer"
-                                title="Save Profile Name"
+                                title={t('dashboard.saveProfileName', 'Save Profile Name')}
                               >
                                 <Check className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => setEditingServerId(null)}
                                 className="p-1.5 bg-[var(--surface-hover)] text-[var(--text-muted)] rounded-lg transition-colors cursor-pointer"
-                                title="Cancel"
+                                title={t('common.cancel', 'Cancel')}
                               >
                                 <X className="w-3.5 h-3.5" />
                               </button>
@@ -947,14 +946,14 @@ export default function Dashboard() {
                                   className="font-bold text-[var(--text-primary)] text-sm sm:text-base hover:text-sky-500 cursor-pointer transition-colors"
                                   onClick={(e) => handleRenameStart(server, e)}
                                   onDoubleClick={(e) => handleRenameStart(server, e)}
-                                  title="Click to rename profile"
+                                  title={t('dashboard.clickToRename', 'Click to rename profile')}
                                 >
                                   {displayName}
                                 </h3>
                                 <button
                                   onClick={(e) => handleRenameStart(server, e)}
                                   className="p-1 text-[var(--text-muted)] hover:text-sky-500 hover:bg-sky-500/10 rounded-md transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
-                                  title="Rename Profile"
+                                  title={t('dashboard.renameProfile', 'Rename Profile')}
                                 >
                                   <Edit2 className="w-3 h-3" />
                                 </button>
@@ -967,13 +966,13 @@ export default function Dashboard() {
                                     e.stopPropagation();
                                     try {
                                       await openInExplorer(server.installPath);
-                                      toast.success("Opened server directory in Explorer");
+                                      toast.success(t('dashboard.openedFolder', 'Opened server directory in Explorer'));
                                     } catch (err) {
-                                      toast.error(`Cannot open folder: ${err}`);
+                                      toast.error(t('dashboard.cannotOpenFolder', { error: String(err), defaultValue: `Cannot open folder: ${err}` }));
                                     }
                                   }}
                                   className="p-1.5 bg-[var(--surface)] hover:bg-sky-500/20 text-[var(--text-muted)] hover:text-sky-500 border border-[var(--border)] hover:border-sky-500/30 rounded-lg transition-all shrink-0 cursor-pointer shadow-sm"
-                                  title={`Open server install folder:\n${server.installPath}`}
+                                  title={t('dashboard.openInstallFolder', { path: server.installPath, defaultValue: `Open server install folder:\n${server.installPath}` })}
                                 >
                                   <FolderOpen className="w-3 h-3 text-sky-500" />
                                 </button>
@@ -981,10 +980,10 @@ export default function Dashboard() {
 
                               {/* Favorite & Pin Badges */}
                               {cust?.favorite && <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />}
-                              {cust?.is_pinned && <Bookmark className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />}
+                              {cust?.isPinned && <Bookmark className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />}
                               {server.autoStart && (
                                 <span className="text-[9px] px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-bold tracking-wide uppercase">
-                                  AUTOSTART
+                                  {t('dashboard.autostartBadge', 'AUTOSTART')}
                                 </span>
                               )}
                             </div>
@@ -1008,9 +1007,9 @@ export default function Dashboard() {
 
                             {/* Ports Tag */}
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-[11px] font-mono text-[var(--text-muted)] shadow-sm">
-                              <span>Port: {server.ports.gamePort}</span>
+                              <span>{t('dashboard.portLabel', 'Port:')} {server.ports.gamePort}</span>
                               <span className="text-[var(--text-muted)] opacity-40">|</span>
-                              <span>Query: {server.ports.queryPort}</span>
+                              <span>{t('dashboard.queryLabel', 'Query:')} {server.ports.queryPort}</span>
                             </span>
 
                             {/* Version Badge */}
@@ -1025,7 +1024,7 @@ export default function Dashboard() {
                             {isServerOutdated(server.id) && (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded-lg text-xs font-bold shadow-sm animate-pulse" title={t('serverManager.tooltips.updateAvailable', 'New version available on Steam!')}>
                                 <AlertTriangle className="w-3 h-3 text-amber-500" />
-                                <span>Update Available</span>
+                                <span>{t('dashboard.updateAvailable', 'Update Available')}</span>
                               </span>
                             )}
 
@@ -1038,7 +1037,7 @@ export default function Dashboard() {
                                   : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/25"
                               )}>
                                 <span className={cn("w-1.5 h-1.5 rounded-full", server.reachability === 'Public' ? "bg-emerald-500" : "bg-rose-500")} />
-                                <span>{server.reachability === 'Public' ? 'PUBLIC' : server.reachability}</span>
+                                <span>{server.reachability === 'Public' ? t('dashboard.statusPublic', 'PUBLIC') : server.reachability}</span>
                               </span>
                             )}
 
@@ -1061,22 +1060,22 @@ export default function Dashboard() {
                           <button
                             onClick={() => handleStartServer(server.id)}
                             className="h-9 px-4 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
-                            title="Start Server"
-                            aria-label={`Start Server ${displayName}`}
+                            title={t('dashboard.startServer', 'Start Server')}
+                            aria-label={t('dashboard.startServerAria', { name: displayName, defaultValue: `Start Server ${displayName}` })}
                           >
                             <Play className="w-3.5 h-3.5 fill-current" />
-                            <span>Start</span>
+                            <span>{t('common.start', 'Start')}</span>
                           </button>
                         ) : isOnline && !isStopping ? (
                           <div className="relative group/stop" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => setTimedShutdownServer(server)}
                               className="h-9 px-4 flex items-center gap-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold text-xs shadow-md shadow-rose-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
-                              title="Stop / Shutdown Options"
-                              aria-label={`Stop Server ${displayName}`}
+                              title={t('dashboard.stopOptions', 'Stop / Shutdown Options')}
+                              aria-label={t('dashboard.stopServerAria', { name: displayName, defaultValue: `Stop Server ${displayName}` })}
                             >
                               <Square className="w-3.5 h-3.5 fill-current" />
-                              <span>Stop</span>
+                              <span>{t('common.stop', 'Stop')}</span>
                             </button>
 
                             {/* Stop Options Dropdown */}
@@ -1087,8 +1086,8 @@ export default function Dashboard() {
                               >
                                 <Timer className="w-4 h-4 text-amber-500 shrink-0" />
                                 <div className="flex flex-col">
-                                  <span>Timed Shutdown</span>
-                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Countdown with broadcasts</span>
+                                  <span>{t('dashboard.timedShutdown', 'Timed Shutdown')}</span>
+                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('dashboard.timedShutdownDesc', 'Countdown with broadcasts')}</span>
                                 </div>
                               </button>
                               <button
@@ -1097,8 +1096,8 @@ export default function Dashboard() {
                               >
                                 <Square className="w-4 h-4 fill-current text-rose-500 shrink-0" />
                                 <div className="flex flex-col">
-                                  <span>Immediate Stop</span>
-                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Halt process right away</span>
+                                  <span>{t('dashboard.immediateStop', 'Immediate Stop')}</span>
+                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">{t('dashboard.immediateStopDesc', 'Halt process right away')}</span>
                                 </div>
                               </button>
                             </div>
@@ -1116,7 +1115,7 @@ export default function Dashboard() {
                           >
                             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                             <span>
-                              {isStopping ? 'Stopping...' : isStarting ? 'Starting...' : isUpdating ? 'Updating...' : 'Processing...'}
+                              {isStopping ? t('dashboard.stopping', 'Stopping...') : isStarting ? t('dashboard.starting', 'Starting...') : isUpdating ? t('dashboard.updating', 'Updating...') : t('dashboard.processing', 'Processing...')}
                             </span>
                           </div>
                         )}
@@ -1126,8 +1125,8 @@ export default function Dashboard() {
                           <button
                             disabled={server.status === 'stopped'}
                             className="h-9 w-9 flex items-center justify-center bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
-                            title="Restart Options"
-                            aria-label={`Restart options for Server ${displayName}`}
+                            title={t('dashboard.restartOptions', 'Restart Options')}
+                            aria-label={t('dashboard.restartOptionsAria', { name: displayName, defaultValue: `Restart options for Server ${displayName}` })}
                           >
                             <RotateCw className="w-3.5 h-3.5" />
                           </button>
@@ -1144,7 +1143,7 @@ export default function Dashboard() {
                             <button
                               onClick={() => handleRestartServer(server.id, true)}
                               className="w-full text-left px-3.5 py-2.5 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 transition-colors flex items-center gap-2 border-t border-[var(--border)] text-xs font-bold cursor-pointer"
-                              title="Gracefully restart the server and wipe all wild dinosaurs"
+                              title={t('dashboard.restartWipeDinosTooltip', 'Gracefully restart the server and wipe all wild dinosaurs')}
                             >
                               <RefreshCw className="w-3.5 h-3.5 text-amber-500" />
                               <span>{t('dashboard.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
@@ -1161,8 +1160,8 @@ export default function Dashboard() {
                               ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-500"
                               : "bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border-[var(--border)]"
                           )}
-                          title="Copy Direct IP Connection"
-                          aria-label={`Copy IP address for Server ${displayName}`}
+                          title={t('dashboard.copyDirectIp', 'Copy Direct IP Connection')}
+                          aria-label={t('dashboard.copyIpAria', { name: displayName, defaultValue: `Copy IP address for Server ${displayName}` })}
                         >
                           {copiedServerId === server.id ? (
                             <CheckCheck className="w-3.5 h-3.5 text-emerald-500" />
@@ -1175,8 +1174,8 @@ export default function Dashboard() {
                         <button
                           onClick={() => openCloneModal(server)}
                           className="h-9 w-9 flex items-center justify-center bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] rounded-xl transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
-                          title="Clone & Profile Transfer Tools"
-                          aria-label={`Clone or transfer Server ${displayName}`}
+                          title={t('dashboard.cloneTools', 'Clone & Profile Transfer Tools')}
+                          aria-label={t('dashboard.cloneAria', { name: displayName, defaultValue: `Clone or transfer Server ${displayName}` })}
                         >
                           <Puzzle className="w-3.5 h-3.5" />
                         </button>
@@ -1185,8 +1184,8 @@ export default function Dashboard() {
                         <button
                           onClick={() => navigate('/config', { state: { serverId: server.id } })}
                           className="h-9 w-9 flex items-center justify-center bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] rounded-xl transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
-                          title="Open in Config Editor"
-                          aria-label={`Open Config Editor for Server ${displayName}`}
+                          title={t('dashboard.openConfigEditor', 'Open in Config Editor')}
+                          aria-label={t('dashboard.openConfigEditorAria', { name: displayName, defaultValue: `Open Config Editor for Server ${displayName}` })}
                         >
                           <FileEdit className="w-3.5 h-3.5" />
                         </button>
@@ -1207,7 +1206,7 @@ export default function Dashboard() {
                             isStarting || isUpdating ? "bg-sky-500 animate-pulse" :
                             "bg-slate-400 dark:bg-slate-600"
                           )} />
-                          <span>{server.status.toUpperCase()}</span>
+                          <span>{t(`dashboard.serverStatus.${server.status}`, server.status).toUpperCase()}</span>
                         </div>
                       </div>
                     </div>
@@ -1235,15 +1234,15 @@ export default function Dashboard() {
                 <span className="relative flex h-2 w-2">
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
                 </span>
-                Startup & Boot Options
+                {t('dashboard.startupOptions', 'Startup & Boot Options')}
               </h3>
 
               <div className="space-y-3">
                 {/* Run at System Boot */}
                 <div className="flex items-center justify-between p-3.5 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:bg-[var(--surface-hover)] transition-colors shadow-sm">
                   <div className="min-w-0 pr-2">
-                    <p className="text-xs font-bold text-[var(--text-primary)]">Run at System Boot</p>
-                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 truncate">Auto-start app when PC starts</p>
+                    <p className="text-xs font-bold text-[var(--text-primary)]">{t('dashboard.runAtBoot', 'Run at System Boot')}</p>
+                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 truncate">{t('dashboard.runAtBootDesc', 'Auto-start app when PC starts')}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer shrink-0">
                     <input
@@ -1260,8 +1259,8 @@ export default function Dashboard() {
                 {/* Enable Global Auto-Start */}
                 <div className="flex items-center justify-between p-3.5 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:bg-[var(--surface-hover)] transition-colors shadow-sm">
                   <div className="min-w-0 pr-2">
-                    <p className="text-xs font-bold text-[var(--text-primary)]">Auto-Start Server Profiles</p>
-                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 truncate">Launch servers on app boot</p>
+                    <p className="text-xs font-bold text-[var(--text-primary)]">{t('dashboard.autoStartProfiles', 'Auto-Start Server Profiles')}</p>
+                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 truncate">{t('dashboard.autoStartProfilesDesc', 'Launch servers on app boot')}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer shrink-0">
                     <input
@@ -1278,8 +1277,8 @@ export default function Dashboard() {
                 {/* Bypass UAC (Task Scheduler) */}
                 <div className="flex items-center justify-between p-3.5 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:bg-[var(--surface-hover)] transition-colors shadow-sm">
                   <div className="min-w-0 pr-2">
-                    <p className="text-xs font-bold text-[var(--text-primary)]">Bypass UAC (Admin Level)</p>
-                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 truncate">Elevated run via Task Scheduler</p>
+                    <p className="text-xs font-bold text-[var(--text-primary)]">{t('dashboard.bypassUac', 'Bypass UAC (Admin Level)')}</p>
+                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 truncate">{t('dashboard.bypassUacDesc', 'Elevated run via Task Scheduler')}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer shrink-0">
                     <input
@@ -1295,7 +1294,7 @@ export default function Dashboard() {
               </div>
 
               <p className="text-[10px] text-[var(--text-secondary)] mt-3 text-center">
-                Additional options are available in <button onClick={() => navigate('/settings')} className="text-amber-500 hover:underline font-bold cursor-pointer">Settings</button>
+                {t('dashboard.additionalOptionsIn', 'Additional options are available in')} <button onClick={() => navigate('/settings')} className="text-amber-500 hover:underline font-bold cursor-pointer">{t('dashboard.settingsLink', 'Settings')}</button>
               </p>
             </div>
           </div>

@@ -12,6 +12,13 @@ import {
 } from '../../data/presets';
 import { cn } from '../../utils/helpers';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
+
+// Built-in presets (non-custom ids) get translated names/descriptions; custom presets keep user text
+export const presetDisplayName = (t: any, preset: ConfigPreset) =>
+    preset.id.startsWith('custom_') ? preset.name : t(`presetSelector.builtin.${preset.id}.name`, { defaultValue: preset.name });
+export const presetDisplayDescription = (t: any, preset: ConfigPreset) =>
+    preset.id.startsWith('custom_') ? preset.description : t(`presetSelector.builtin.${preset.id}.description`, { defaultValue: preset.description });
 
 interface PresetSelectorProps {
     onApplyPreset: (preset: ConfigPreset) => void;
@@ -21,6 +28,7 @@ interface PresetSelectorProps {
 }
 
 export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPreset, onUpdatePresetWithCurrent }: PresetSelectorProps) => {
+    const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [customPresets, setCustomPresets] = useState<ConfigPreset[]>([]);
     const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -47,9 +55,9 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
             const preset = importPresetFromJson(text);
             saveCustomPreset(preset);
             setCustomPresets(getCustomPresets());
-            toast.success(`Preset "${preset.name}" imported successfully`);
+            toast.success(t('presetSelector.toasts.imported', { defaultValue: 'Preset "{{name}}" imported successfully', name: preset.name }));
         } catch (err) {
-            toast.error(`Import failed: ${err}`);
+            toast.error(t('presetSelector.toasts.importFailed', { defaultValue: 'Import failed: {{error}}', error: String(err) }));
         }
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
@@ -58,17 +66,17 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
         e.stopPropagation();
         deleteCustomPreset(presetId);
         setCustomPresets(getCustomPresets());
-        toast.success('Preset deleted');
+        toast.success(t('presetSelector.toasts.deleted', 'Preset deleted'));
     };
 
     const handleExportPreset = (preset: ConfigPreset, e: React.MouseEvent) => {
         e.stopPropagation();
         exportPresetToJson(preset);
-        toast.success(`Preset "${preset.name}" exported`);
+        toast.success(t('presetSelector.toasts.exported', { defaultValue: 'Preset "{{name}}" exported', name: presetDisplayName(t, preset) }));
     };
 
     const handleSavePreset = () => {
-        if (!saveName.trim()) { toast.error('Please enter a name'); return; }
+        if (!saveName.trim()) { toast.error(t('presetSelector.toasts.enterName', 'Please enter a name')); return; }
         if (onSaveCurrentAsPreset) {
             onSaveCurrentAsPreset(saveName.trim(), saveDesc.trim());
         }
@@ -90,7 +98,7 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
     const handleSaveEdit = (alsoUpdateSettings: boolean = false) => {
         if (!editingPreset) return;
         if (!editName.trim()) {
-            toast.error('Please enter a name');
+            toast.error(t('presetSelector.toasts.enterName', 'Please enter a name'));
             return;
         }
 
@@ -106,7 +114,7 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
         setShowEditDialog(false);
         setEditingPreset(null);
         setCustomPresets(getCustomPresets());
-        toast.success(`Preset "${editName.trim()}" updated`);
+        toast.success(t('presetSelector.toasts.updated', { defaultValue: 'Preset "{{name}}" updated', name: editName.trim() }));
     };
 
     return (
@@ -123,7 +131,7 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
                 className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-sm text-slate-200 transition-all shadow-sm"
             >
                 <Sparkles className="w-4 h-4 text-purple-400" />
-                <span>Presets</span>
+                <span>{t('presetSelector.button', 'Presets')}</span>
                 <ChevronDown className={cn("w-4 h-4 transition-transform", isOpen && "rotate-180")} />
             </button>
 
@@ -134,7 +142,7 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
                 accept=".json"
                 onChange={handleImportFile}
                 className="hidden"
-                aria-label="Import preset file"
+                aria-label={t('presetSelector.importFileAria', 'Import preset file')}
             />
 
             {isOpen && (
@@ -149,13 +157,13 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
                     >
                         {/* Header with actions */}
                         <div className="p-2 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between">
-                            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Quick Apply</h3>
+                            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{t('presetSelector.quickApply', 'Quick Apply')}</h3>
                             <div className="flex items-center gap-1">
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
                                     className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"
-                                    title="Import Preset (.json)"
-                                    aria-label="Import preset from file"
+                                    title={t('presetSelector.importTitle', 'Import Preset (.json)')}
+                                    aria-label={t('presetSelector.importAria', 'Import preset from file')}
                                 >
                                     <Upload className="w-3.5 h-3.5" />
                                 </button>
@@ -163,8 +171,8 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
                                     <button
                                         onClick={() => { setShowSaveDialog(true); setIsOpen(false); }}
                                         className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors"
-                                        title="Save Current as Preset"
-                                        aria-label="Save current settings as preset"
+                                        title={t('presetSelector.saveCurrent', 'Save Current as Preset')}
+                                        aria-label={t('presetSelector.saveCurrentAria', 'Save current settings as preset')}
                                     >
                                         <Save className="w-3.5 h-3.5" />
                                     </button>
@@ -195,15 +203,15 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
-                                                <h4 className="font-semibold text-white">{preset.name}</h4>
+                                                <h4 className="font-semibold text-white">{presetDisplayName(t, preset)}</h4>
                                                 {currentPreset === preset.id && (
                                                     <Check className="w-4 h-4 text-green-400" />
                                                 )}
                                             </div>
-                                            <p className="text-xs text-slate-400 mt-0.5">{preset.description}</p>
+                                            <p className="text-xs text-slate-400 mt-0.5">{presetDisplayDescription(t, preset)}</p>
                                             <div className="flex flex-wrap gap-1 mt-2">
                                                 <span className="text-xs px-2 py-0.5 bg-slate-900 rounded text-slate-300">
-                                                    {Object.keys(preset.settings.GameUserSettings).length + Object.keys(preset.settings.Game).length} settings
+                                                    {t('presetSelector.settingsCount', { defaultValue: '{{count}} settings', count: Object.keys(preset.settings.GameUserSettings).length + Object.keys(preset.settings.Game).length })}
                                                 </span>
                                             </div>
                                         </div>
@@ -211,8 +219,8 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
                                         <button
                                             onClick={(e) => handleExportPreset(preset, e)}
                                             className="p-1 hover:bg-white/10 rounded text-slate-500 hover:text-white transition-colors flex-shrink-0"
-                                            title="Export this preset"
-                                            aria-label={`Export ${preset.name} preset`}
+                                            title={t('presetSelector.exportThis', 'Export this preset')}
+                                            aria-label={t('presetSelector.exportAria', { defaultValue: 'Export {{name}}', name: presetDisplayName(t, preset) })}
                                         >
                                             <Download className="w-3.5 h-3.5" />
                                         </button>
@@ -224,7 +232,7 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
                             {customPresets.length > 0 && (
                                 <>
                                     <div className="px-3 py-2 bg-slate-900/30 border-y border-slate-700/50">
-                                        <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Custom Presets</span>
+                                        <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">{t('presetSelector.customPresets', 'Custom Presets')}</span>
                                     </div>
                                     {customPresets.map((preset) => (
                                         <button
@@ -247,24 +255,24 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
                                                     <button
                                                         onClick={(e) => handleOpenEditDialog(preset, e)}
                                                         className="p-1 hover:bg-white/10 rounded text-slate-500 hover:text-sky-400 transition-colors"
-                                                        title="Rename / Edit"
-                                                        aria-label={`Edit ${preset.name}`}
+                                                        title={t('presetSelector.renameEdit', 'Rename / Edit')}
+                                                        aria-label={t('presetSelector.editAria', { defaultValue: 'Edit {{name}}', name: preset.name })}
                                                     >
                                                         <Pencil className="w-3.5 h-3.5" />
                                                     </button>
                                                     <button
                                                         onClick={(e) => handleExportPreset(preset, e)}
                                                         className="p-1 hover:bg-white/10 rounded text-slate-500 hover:text-white transition-colors"
-                                                        title="Export"
-                                                        aria-label={`Export ${preset.name}`}
+                                                        title={t('presetSelector.export', 'Export')}
+                                                        aria-label={t('presetSelector.exportAria', { defaultValue: 'Export {{name}}', name: preset.name })}
                                                     >
                                                         <Download className="w-3.5 h-3.5" />
                                                     </button>
                                                     <button
                                                         onClick={(e) => handleDeleteCustom(preset.id, e)}
                                                         className="p-1 hover:bg-red-500/20 rounded text-slate-500 hover:text-red-400 transition-colors"
-                                                        title="Delete"
-                                                        aria-label={`Delete ${preset.name}`}
+                                                        title={t('common.delete', 'Delete')}
+                                                        aria-label={t('presetSelector.deleteAria', { defaultValue: 'Delete {{name}}', name: preset.name })}
                                                     >
                                                         <Trash2 className="w-3.5 h-3.5" />
                                                     </button>
@@ -278,7 +286,7 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
 
                         <div className="p-2 border-t border-slate-700 bg-slate-900/50">
                             <p className="text-xs text-slate-500 text-center">
-                                Click to apply • Export/Import with JSON
+                                {t('presetSelector.footer', 'Click to apply • Export/Import with JSON')}
                             </p>
                         </div>
                     </div>
@@ -290,39 +298,39 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-96 shadow-2xl">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-bold text-white">Save Current as Preset</h3>
-                            <button onClick={() => setShowSaveDialog(false)} className="p-1 hover:bg-white/10 rounded" aria-label="Close save dialog">
+                            <h3 className="text-lg font-bold text-white">{t('presetSelector.saveCurrent', 'Save Current as Preset')}</h3>
+                            <button onClick={() => setShowSaveDialog(false)} className="p-1 hover:bg-white/10 rounded" aria-label={t('common.close', 'Close')}>
                                 <X className="w-5 h-5 text-slate-400" />
                             </button>
                         </div>
                         <div className="space-y-3">
                             <div>
-                                <label htmlFor="preset-name" className="block text-sm text-slate-400 mb-1">Preset Name</label>
+                                <label htmlFor="preset-name" className="block text-sm text-slate-400 mb-1">{t('presetSelector.presetName', 'Preset Name')}</label>
                                 <input
                                     id="preset-name"
                                     type="text"
                                     value={saveName}
                                     onChange={(e) => setSaveName(e.target.value)}
                                     className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-orange-500"
-                                    placeholder="My Server Config"
+                                    placeholder={t('presetSelector.namePlaceholder', 'My Server Config')}
                                 />
                             </div>
                             <div>
-                                <label htmlFor="preset-desc" className="block text-sm text-slate-400 mb-1">Description (optional)</label>
+                                <label htmlFor="preset-desc" className="block text-sm text-slate-400 mb-1">{t('presetSelector.descriptionOptional', 'Description (optional)')}</label>
                                 <input
                                     id="preset-desc"
                                     type="text"
                                     value={saveDesc}
                                     onChange={(e) => setSaveDesc(e.target.value)}
                                     className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-orange-500"
-                                    placeholder="High rates PvE setup"
+                                    placeholder={t('presetSelector.descPlaceholder', 'High rates PvE setup')}
                                 />
                             </div>
                             <button
                                 onClick={handleSavePreset}
                                 className="w-full py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-orange-500/20 transition-all text-sm"
                             >
-                                Save Preset
+                                {t('presetSelector.savePreset', 'Save Preset')}
                             </button>
                         </div>
                     </div>
@@ -334,33 +342,33 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-96 shadow-2xl animate-fadeIn">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-bold text-white">Edit Preset</h3>
-                            <button onClick={() => { setShowEditDialog(false); setEditingPreset(null); }} className="p-1 hover:bg-white/10 rounded" aria-label="Close edit dialog">
+                            <h3 className="text-lg font-bold text-white">{t('presetSelector.editPreset', 'Edit Preset')}</h3>
+                            <button onClick={() => { setShowEditDialog(false); setEditingPreset(null); }} className="p-1 hover:bg-white/10 rounded" aria-label={t('common.close', 'Close')}>
                                 <X className="w-5 h-5 text-slate-400" />
                             </button>
                         </div>
                         <div className="space-y-4">
                             <div>
-                                <label htmlFor="edit-preset-name" className="block text-sm text-slate-400 mb-1">Preset Name</label>
+                                <label htmlFor="edit-preset-name" className="block text-sm text-slate-400 mb-1">{t('presetSelector.presetName', 'Preset Name')}</label>
                                 <input
                                     id="edit-preset-name"
                                     type="text"
                                     value={editName}
                                     onChange={(e) => setEditName(e.target.value)}
                                     className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-orange-500"
-                                    placeholder="Preset Name"
+                                    placeholder={t('presetSelector.presetName', 'Preset Name')}
                                     autoFocus
                                 />
                             </div>
                             <div>
-                                <label htmlFor="edit-preset-desc" className="block text-sm text-slate-400 mb-1">Description (optional)</label>
+                                <label htmlFor="edit-preset-desc" className="block text-sm text-slate-400 mb-1">{t('presetSelector.descriptionOptional', 'Description (optional)')}</label>
                                 <input
                                     id="edit-preset-desc"
                                     type="text"
                                     value={editDesc}
                                     onChange={(e) => setEditDesc(e.target.value)}
                                     className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-orange-500"
-                                    placeholder="Description"
+                                    placeholder={t('common.description', 'Description')}
                                 />
                             </div>
                             <div className="flex flex-col gap-2 pt-2">
@@ -368,16 +376,16 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
                                     onClick={() => handleSaveEdit(false)}
                                     className="w-full py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-orange-500/20 transition-all text-sm cursor-pointer"
                                 >
-                                    Save Changes
+                                    {t('common.saveChanges', 'Save Changes')}
                                 </button>
                                 {onUpdatePresetWithCurrent && (
                                     <button
                                         onClick={() => handleSaveEdit(true)}
                                         className="w-full py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-medium rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                                        title="Overwrite preset settings with current configuration rates and rules"
+                                        title={t('presetSelector.overwriteTitle', 'Overwrite preset settings with current configuration rates and rules')}
                                     >
                                         <RefreshCw className="w-3.5 h-3.5 text-sky-400" />
-                                        <span>Save & Update With Current Settings</span>
+                                        <span>{t('presetSelector.saveAndUpdate', 'Save & Update With Current Settings')}</span>
                                     </button>
                                 )}
                             </div>

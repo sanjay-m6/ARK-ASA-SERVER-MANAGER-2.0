@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Tag, Check } from 'lucide-react';
 import { useModOrganizationStore } from '../../stores/modOrganizationStore';
+import { useTranslation } from 'react-i18next';
 
 interface ModCategorySelectorProps {
   modId: string | number;
@@ -17,6 +18,7 @@ export default function ModCategorySelector({
   modTags,
   className = '',
 }: ModCategorySelectorProps) {
+  const { t } = useTranslation();
   const { 
     categories, getModCategoryIds, assignModToCategory, 
     removeModFromCategory, autoCategorizeMod 
@@ -74,7 +76,7 @@ export default function ModCategorySelector({
               color: cat.color,
               boxShadow: `0 0 10px ${cat.color}15`
             }}
-            title={`Assigned to ${cat.name}. Click to edit.`}
+            title={t('modCategorySelector.assignedTo', { name: cat.name, defaultValue: `Assigned to ${cat.name}. Click to edit.` })}
           >
             <span
               className="w-2 h-2 rounded-full shrink-0 shadow-sm"
@@ -88,10 +90,10 @@ export default function ModCategorySelector({
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           className="px-3 py-1.5 rounded-xl bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-primary)] border border-[var(--border)] hover:border-sky-500/40 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
-          title="Assign or edit categories"
+          title={t('modCategorySelector.assignTooltip', 'Assign or edit categories')}
         >
           <Tag className="w-3.5 h-3.5 text-sky-400" />
-          <span>{assignedCategories.length === 0 ? 'Categorize' : '+ Add'}</span>
+          <span>{assignedCategories.length === 0 ? t('modCategorySelector.categorize', 'Categorize') : `+ ${t('common.add', 'Add')}`}</span>
         </button>
       </div>
 
@@ -101,7 +103,7 @@ export default function ModCategorySelector({
           <div className="px-2.5 py-1.5 border-b border-[var(--border)] mb-1.5 flex items-center justify-between">
             <span className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
               <Tag className="w-3 h-3 text-sky-400" />
-              <span>Assign Categories</span>
+              <span>{t('modCategorySelector.assignCategories', 'Assign Categories')}</span>
             </span>
           </div>
 

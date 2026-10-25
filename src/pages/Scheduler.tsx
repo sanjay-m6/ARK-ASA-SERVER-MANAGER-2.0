@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { RoutinesPanel } from '../components/scheduler/RoutinesPanel';
 import {
     Save,
     Trash2,
@@ -37,6 +38,7 @@ import {
     type SchedulerSettings,
     type ScheduledTask
 } from '../utils/tauri';
+import { NumberInput } from '../components/ui/NumberInput';
 
 const TASK_TYPES = [
     { value: 'restart', labelKey: 'scheduler.restart', icon: RefreshCw, color: 'text-orange-400', border: 'border-orange-500/50', bg: 'bg-orange-500/10' },
@@ -59,7 +61,7 @@ function CustomDropdown({
     options,
     value,
     onChange,
-    placeholder = 'Select option...',
+    placeholder,
     className
 }: {
     options: CustomSelectOption[];
@@ -68,6 +70,7 @@ function CustomDropdown({
     placeholder?: string;
     className?: string;
 }) {
+    const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const selectedOption = options.find(o => String(o.value) === String(value)) || options[0];
 
@@ -95,7 +98,7 @@ function CustomDropdown({
                     {selectedOption?.icon && (
                         <selectedOption.icon className="w-4 h-4 text-purple-400 shrink-0" />
                     )}
-                    <span className="truncate">{selectedOption?.label || placeholder}</span>
+                    <span className="truncate">{selectedOption?.label || placeholder || t('scheduler.selectOption', 'Select option...')}</span>
                 </div>
                 <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ml-2", isOpen && "rotate-180")} />
             </button>
@@ -453,42 +456,46 @@ export default function Scheduler() {
     // Days of week moved after t is available if needed, but labels are hardcoded 3-letter. 
     // Usually these are fine, or we can use dayjs/date-fns/Intl. But for now keeping as is or translating short days.
     const daysOfWeek = [
-        { label: 'Sun', value: 0 }, { label: 'Mon', value: 1 }, { label: 'Tue', value: 2 },
-        { label: 'Wed', value: 3 }, { label: 'Thu', value: 4 }, { label: 'Fri', value: 5 }, { label: 'Sat', value: 6 },
+        { label: t('scheduler.days.sunday', 'Sunday'), value: 0 }, { label: t('scheduler.days.monday', 'Monday'), value: 1 }, { label: t('scheduler.days.tuesday', 'Tuesday'), value: 2 },
+        { label: t('scheduler.days.wednesday', 'Wednesday'), value: 3 }, { label: t('scheduler.days.thursday', 'Thursday'), value: 4 }, { label: t('scheduler.days.friday', 'Friday'), value: 5 }, { label: t('scheduler.days.saturday', 'Saturday'), value: 6 },
     ];
 
     const describeCron = (cron: string): string => {
-        if (!cron || cron.trim() === '') return 'Type a custom expression or pick a quick preset below';
+        if (!cron || cron.trim() === '') return t('scheduler.cron.empty', 'Type a custom expression or pick a quick preset below');
         const trimmed = cron.trim();
 
         // Standard presets
-        if (trimmed === '@online') return 'Executes immediately whenever the server starts up';
-        if (trimmed === '* * * * *') return 'Executes every minute';
-        if (trimmed === '*/5 * * * *') return 'Executes every 5 minutes';
-        if (trimmed === '*/15 * * * *') return 'Executes every 15 minutes';
-        if (trimmed === '*/30 * * * *') return 'Executes every 30 minutes';
-        if (trimmed === '0 * * * *') return 'Executes every hour at minute 0';
-        if (trimmed === '0 */2 * * *') return 'Executes every 2 hours at minute 0';
-        if (trimmed === '0 */3 * * *') return 'Executes every 3 hours at minute 0';
-        if (trimmed === '0 */4 * * *') return 'Executes every 4 hours at minute 0';
-        if (trimmed === '0 */6 * * *') return 'Executes every 6 hours at minute 0';
-        if (trimmed === '0 */12 * * *') return 'Executes every 12 hours at minute 0';
-        if (trimmed === '0 0 * * *') return 'Executes every day at midnight (00:00)';
+        if (trimmed === '@online') return t('scheduler.cron.online', 'Executes immediately whenever the server starts up');
+        if (trimmed === '* * * * *') return t('scheduler.cron.everyMinute', 'Executes every minute');
+        if (trimmed === '*/5 * * * *') return t('scheduler.cron.everyNMinutes', { n: 5, defaultValue: 'Executes every {{n}} minutes' });
+        if (trimmed === '*/15 * * * *') return t('scheduler.cron.everyNMinutes', { n: 15, defaultValue: 'Executes every {{n}} minutes' });
+        if (trimmed === '*/30 * * * *') return t('scheduler.cron.everyNMinutes', { n: 30, defaultValue: 'Executes every {{n}} minutes' });
+        if (trimmed === '0 * * * *') return t('scheduler.cron.everyHour', 'Executes every hour at minute 0');
+        if (trimmed === '0 */2 * * *') return t('scheduler.cron.everyNHours', { n: 2, minute: 0, defaultValue: 'Executes every {{n}} hours at minute {{minute}}' });
+        if (trimmed === '0 */3 * * *') return t('scheduler.cron.everyNHours', { n: 3, minute: 0, defaultValue: 'Executes every {{n}} hours at minute {{minute}}' });
+        if (trimmed === '0 */4 * * *') return t('scheduler.cron.everyNHours', { n: 4, minute: 0, defaultValue: 'Executes every {{n}} hours at minute {{minute}}' });
+        if (trimmed === '0 */6 * * *') return t('scheduler.cron.everyNHours', { n: 6, minute: 0, defaultValue: 'Executes every {{n}} hours at minute {{minute}}' });
+        if (trimmed === '0 */12 * * *') return t('scheduler.cron.everyNHours', { n: 12, minute: 0, defaultValue: 'Executes every {{n}} hours at minute {{minute}}' });
+        if (trimmed === '0 0 * * *') return t('scheduler.cron.midnight', 'Executes every day at midnight (00:00)');
 
         const parts = trimmed.split(/\s+/);
         if (parts.length === 5) {
             const [min, hr, dom, m, dow] = parts;
-            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const days = [
+                t('scheduler.days.sunday', 'Sunday'), t('scheduler.days.monday', 'Monday'), t('scheduler.days.tuesday', 'Tuesday'),
+                t('scheduler.days.wednesday', 'Wednesday'), t('scheduler.days.thursday', 'Thursday'), t('scheduler.days.friday', 'Friday'),
+                t('scheduler.days.saturday', 'Saturday'),
+            ];
 
             // 1. Check interval minutes (e.g. */10 * * * *)
             if (min.startsWith('*/') && hr === '*' && (dom === '*' || dom === '0') && (m === '*' || m === '0') && (dow === '*' || dow === '0')) {
-                return `Executes every ${min.replace('*/', '')} minutes`;
+                return t('scheduler.cron.everyNMinutes', { n: min.replace('*/', ''), defaultValue: 'Executes every {{n}} minutes' });
             }
 
             // 2. Check interval hours (e.g. 0 */4 * * *)
             if (hr.startsWith('*/') && (dom === '*' || dom === '0') && (m === '*' || m === '0') && (dow === '*' || dow === '0')) {
                 const mStr = min === '*' ? '0' : min;
-                return `Executes every ${hr.replace('*/', '')} hours at minute ${mStr}`;
+                return t('scheduler.cron.everyNHours', { n: hr.replace('*/', ''), minute: mStr, defaultValue: 'Executes every {{n}} hours at minute {{minute}}' });
             }
 
             // 3. Time formatting (e.g. 0 12 or 30 4)
@@ -501,27 +508,27 @@ export default function Scheduler() {
                 const displayM = mNum < 10 ? `0${mNum}` : `${mNum}`;
                 timeStr = `${displayH}:${displayM} ${ampm}`;
             } else if (hr === '*' && !isNaN(Number(min))) {
-                timeStr = `at minute ${min} of every hour`;
+                timeStr = t('scheduler.cron.atMinuteEveryHour', { minute: min, defaultValue: 'at minute {{minute}} of every hour' });
             }
 
             // Daily at HH:MM
             if (timeStr && (dom === '*' || dom === '0') && (m === '*' || m === '0') && (dow === '*' || dow === '0')) {
-                return `Executes daily at ${timeStr}`;
+                return t('scheduler.cron.dailyAt', { time: timeStr, defaultValue: 'Executes daily at {{time}}' });
             }
 
             // Weekly on specific Day of Week (e.g. 0 3 * * 0)
             if (timeStr && (dom === '*' || dom === '0') && (m === '*' || m === '0') && !isNaN(Number(dow))) {
-                const dayName = days[Number(dow) % 7] || `Day ${dow}`;
-                return `Executes every ${dayName} at ${timeStr}`;
+                const dayName = days[Number(dow) % 7] || t('scheduler.cron.dayN', { n: dow, defaultValue: 'Day {{n}}' });
+                return t('scheduler.cron.weeklyAt', { day: dayName, time: timeStr, defaultValue: 'Executes every {{day}} at {{time}}' });
             }
 
             // Specific Day of Month (e.g. 0 0 1 * *)
             if (timeStr && !isNaN(Number(dom)) && Number(dom) > 0 && (m === '*' || m === '0') && (dow === '*' || dow === '0')) {
-                return `Executes on day ${dom} of every month at ${timeStr}`;
+                return t('scheduler.cron.monthlyAt', { day: dom, time: timeStr, defaultValue: 'Executes on day {{day}} of every month at {{time}}' });
             }
         }
 
-        return `Custom schedule: "${trimmed}"`;
+        return t('scheduler.cron.custom', { expr: trimmed, defaultValue: 'Custom schedule: "{{expr}}"' });
     };
 
     const applyStandard6hPreset = () => {
@@ -549,7 +556,7 @@ export default function Scheduler() {
             advancedRestart: true,
             advancedDinoWipe: true
         });
-        toast.success(t('scheduler.presetApplied', 'Applied Daily 3:00 AM Maintenance Chain Preset'));
+        toast.success(t('scheduler.presetAppliedDaily', 'Applied Daily 3:00 AM Maintenance Chain Preset'));
     };
 
     const applyHourlyDinoWipeTask = async () => {
@@ -557,7 +564,7 @@ export default function Scheduler() {
         try {
             await createScheduledTask(
                 selectedServerId,
-                'Hourly Wild Dino Wipe',
+                t('scheduler.ui.hourlyDinoWipe', 'Hourly Wild Dino Wipe'),
                 'destroy-wild-dinos',
                 '0 * * * *',
                 null,
@@ -567,7 +574,7 @@ export default function Scheduler() {
             toast.success(t('scheduler.taskCreated', 'Created Hourly Dino Wipe Task'));
             fetchTasks();
         } catch (err) {
-            toast.error('Failed to create task');
+            toast.error(t('scheduler.ui.createTaskFailed', 'Failed to create task'));
         }
     };
 
@@ -576,7 +583,7 @@ export default function Scheduler() {
         try {
             await createScheduledTask(
                 selectedServerId,
-                '3-Hour World Save Snapshot',
+                t('scheduler.ui.saveSnapshotTaskName', '3-Hour World Save Snapshot'),
                 'save-world',
                 '0 */3 * * *',
                 null,
@@ -586,7 +593,7 @@ export default function Scheduler() {
             toast.success(t('scheduler.taskCreated', 'Created 3-Hour World Save Task'));
             fetchTasks();
         } catch (err) {
-            toast.error('Failed to create task');
+            toast.error(t('scheduler.ui.createTaskFailed', 'Failed to create task'));
         }
     };
 
@@ -606,19 +613,22 @@ export default function Scheduler() {
                         <ServerIcon className="w-4 h-4 text-purple-400" />
                         <div>
                             <div className="text-xs font-bold text-[var(--text-primary)]">{activeServer.name}</div>
-                            <div className="text-[10px] text-[var(--text-muted)] font-mono">ID #{activeServer.id} • Port {activeServer.ports?.gamePort || 7777}</div>
+                            <div className="text-[10px] text-[var(--text-muted)] font-mono">ID #{activeServer.id} • {t('common.port', 'Port')} {activeServer.ports?.gamePort || 7777}</div>
                         </div>
                     </div>
                 )}
             </div>
 
+            {/* Routines: chained steps for opening hours, maintenance and events */}
+            <RoutinesPanel serverId={selectedServerId} />
+
             {/* Quick Preset One-Click Automation Recipes */}
             <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 space-y-3">
                 <div className="flex items-center justify-between">
                     <h2 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-amber-400" /> 1-Click Automation Preset Recipes
+                        <Zap className="w-4 h-4 text-amber-400" /> {t('scheduler.ui.recipesTitle', '1-Click Automation Preset Recipes')}
                     </h2>
-                    <span className="text-[10px] text-[var(--text-muted)] font-mono">Select a pre-configured template to activate instantly</span>
+                    <span className="text-[10px] text-[var(--text-muted)] font-mono">{t('scheduler.ui.recipesDesc', 'Select a pre-configured template to activate instantly')}</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <button
@@ -627,9 +637,9 @@ export default function Scheduler() {
                     >
                         <div className="flex items-center gap-2 text-xs font-bold text-green-400 mb-1">
                             <RefreshCw className="w-4 h-4 text-green-400 group-hover:rotate-180 transition-transform duration-500" />
-                            6-Hour Maintenance Loop
+                            {t('scheduler.ui.recipe6h', '6-Hour Maintenance Loop')}
                         </div>
-                        <p className="text-[11px] text-[var(--text-muted)] leading-tight">Restarts server every 6 hrs with 15m, 10m, 5m, 1m warnings & RCON SaveWorld.</p>
+                        <p className="text-[11px] text-[var(--text-muted)] leading-tight">{t('scheduler.ui.recipe6hDesc', 'Restarts server every 6 hrs with 15m, 10m, 5m, 1m warnings & RCON SaveWorld.')}</p>
                     </button>
 
                     <button
@@ -638,9 +648,9 @@ export default function Scheduler() {
                     >
                         <div className="flex items-center gap-2 text-xs font-bold text-purple-400 mb-1">
                             <Shield className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
-                            Daily 3 AM Full Pipeline
+                            {t('scheduler.ui.recipeDaily', 'Daily 3 AM Full Pipeline')}
                         </div>
-                        <p className="text-[11px] text-[var(--text-muted)] leading-tight">SaveWorld → Graceful Stop → Pre-Backup → SteamCMD Mod Update → Dino Wipe.</p>
+                        <p className="text-[11px] text-[var(--text-muted)] leading-tight">{t('scheduler.ui.recipeDailyDesc', 'SaveWorld → Graceful Stop → Pre-Backup → SteamCMD Mod Update → Dino Wipe.')}</p>
                     </button>
 
                     <button
@@ -649,9 +659,9 @@ export default function Scheduler() {
                     >
                         <div className="flex items-center gap-2 text-xs font-bold text-red-400 mb-1">
                             <Zap className="w-4 h-4 text-red-400 group-hover:scale-110 transition-transform" />
-                            Hourly Wild Dino Wipe
+                            {t('scheduler.ui.hourlyDinoWipe', 'Hourly Wild Dino Wipe')}
                         </div>
-                        <p className="text-[11px] text-[var(--text-muted)] leading-tight">Runs DestroyWildDinos RCON command every hour on minute 0.</p>
+                        <p className="text-[11px] text-[var(--text-muted)] leading-tight">{t('scheduler.ui.recipeDinoDesc', 'Runs DestroyWildDinos RCON command every hour on minute 0.')}</p>
                     </button>
 
                     <button
@@ -660,9 +670,9 @@ export default function Scheduler() {
                     >
                         <div className="flex items-center gap-2 text-xs font-bold text-blue-400 mb-1">
                             <Save className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
-                            3-Hour Save Snapshot
+                            {t('scheduler.ui.recipeSave', '3-Hour Save Snapshot')}
                         </div>
-                        <p className="text-[11px] text-[var(--text-muted)] leading-tight">Issues RCON SaveWorld every 3 hours to prevent data loss.</p>
+                        <p className="text-[11px] text-[var(--text-muted)] leading-tight">{t('scheduler.ui.recipeSaveDesc', 'Issues RCON SaveWorld every 3 hours to prevent data loss.')}</p>
                     </button>
                 </div>
             </div>
@@ -671,9 +681,9 @@ export default function Scheduler() {
             <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
                 <div>
                     <h2 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-purple-400" /> Scheduler Engine Status
+                        <Activity className="w-4 h-4 text-purple-400" /> {t('scheduler.ui.engineStatus', 'Scheduler Engine Status')}
                     </h2>
-                    <p className="text-xs text-[var(--text-muted)] mt-0.5">Switch between Disabled, Basic Loop Restart, or Advanced Maintenance Chain mode.</p>
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5">{t('scheduler.ui.engineStatusDesc', 'Switch between Disabled, Basic Loop Restart, or Advanced Maintenance Chain mode.')}</p>
                 </div>
                 <div className="flex items-center gap-3 bg-[var(--bg-primary)] p-1.5 rounded-2xl border border-[var(--border)] shadow-inner">
                     <button
@@ -685,7 +695,7 @@ export default function Scheduler() {
                                 : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                         )}
                     >
-                        <X className="w-3.5 h-3.5" /> Disabled (Off)
+                        <X className="w-3.5 h-3.5" /> {t('scheduler.ui.modeDisabled', 'Disabled (Off)')}
                     </button>
 
                     <button
@@ -697,7 +707,7 @@ export default function Scheduler() {
                                 : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                         )}
                     >
-                        <RefreshCw className="w-3.5 h-3.5" /> Basic Loop Mode
+                        <RefreshCw className="w-3.5 h-3.5" /> {t('scheduler.ui.modeBasic', 'Basic Loop Mode')}
                     </button>
 
                     <button
@@ -709,7 +719,7 @@ export default function Scheduler() {
                                 : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                         )}
                     >
-                        <Zap className="w-3.5 h-3.5" /> Advanced Pipeline
+                        <Zap className="w-3.5 h-3.5" /> {t('scheduler.ui.modeAdvanced', 'Advanced Pipeline')}
                     </button>
                 </div>
             </div>
@@ -727,11 +737,11 @@ export default function Scheduler() {
                     </h2>
                     {settings.mode === 'basic' ? (
                         <span className="flex items-center gap-1 text-xs font-bold text-green-400 bg-green-900/40 px-3 py-1 rounded-full uppercase tracking-wider border border-green-500/30">
-                            <CheckCircle className="w-3 h-3" /> ACTIVE
+                            <CheckCircle className="w-3 h-3" /> {t('scheduler.ui.activeUpper', 'ACTIVE')}
                         </span>
                     ) : (
                         <span className="text-xs font-bold text-[var(--text-muted)] bg-[var(--surface-active)] px-3 py-1 rounded-full uppercase tracking-wider border border-[var(--border)]">
-                            INACTIVE
+                            {t('scheduler.ui.inactiveUpper', 'INACTIVE')}
                         </span>
                     )}
                 </div>
@@ -746,8 +756,8 @@ export default function Scheduler() {
                         <CustomDropdown
                             options={[1, 2, 3, 4, 6, 8, 12, 24].map(h => ({
                                 value: h,
-                                label: `${h} ${h === 1 ? 'Hour' : 'Hours'}`,
-                                desc: `Restarts every ${h} ${h === 1 ? 'hour' : 'hours'}`,
+                                label: t('scheduler.ui.hoursLabel', { count: h, defaultValue: `${h} ${h === 1 ? 'Hour' : 'Hours'}` }),
+                                desc: t('scheduler.ui.restartsEvery', { count: h, defaultValue: `Restarts every ${h} ${h === 1 ? 'hour' : 'hours'}` }),
                                 icon: Clock
                             }))}
                             value={settings.basicIntervalHours}
@@ -769,7 +779,7 @@ export default function Scheduler() {
                                 onClick={() => handleSave({ ...settings, mode: 'disabled' })}
                                 className="px-5 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-sm font-medium transition-all flex items-center gap-2 shadow-sm"
                             >
-                                <X className="w-4 h-4" /> Disable Basic Schedule
+                                <X className="w-4 h-4" /> {t('scheduler.ui.disableBasic', 'Disable Basic Schedule')}
                             </button>
                         )}
                         <div className={cn("ml-auto text-sm font-mono", settings.mode === 'basic' ? "text-green-400" : "text-[var(--text-muted)]")}>
@@ -841,13 +851,14 @@ export default function Scheduler() {
                                                     aria-pressed={isChecked}
                                                     aria-label={day.label}
                                                     className={cn(
-                                                        "w-9 h-9 rounded-lg text-xs font-bold transition-all border focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none",
+                                                        "min-w-11 h-9 px-2 rounded-lg text-xs font-bold transition-all border focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none",
                                                         isChecked
                                                             ? "bg-sky-500 text-white border-sky-400 shadow-[0_0_10px_rgba(14,165,233,0.3)]"
                                                             : "bg-[var(--surface-hover)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)]"
                                                     )}
                                                 >
-                                                    {day.label.slice(0, 1)}
+                                                    {/* 3 letters: one letter is ambiguous in many languages (pt-BR: S, S, S, Q, Q) */}
+                                                    {day.label.slice(0, 3)}
                                                 </button>
                                             );
                                         })}
@@ -867,7 +878,7 @@ export default function Scheduler() {
                                             className="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg pl-10 pr-4 py-2 text-[var(--text-primary)] text-sm focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 focus:outline-none font-mono placeholder:text-[var(--text-muted)] transition-all"
                                         />
                                     </div>
-                                    <p className="text-[10px] text-[var(--text-muted)] mt-1.5 ml-1">Comma-separated minutes before shutdown to warn players.</p>
+                                    <p className="text-[10px] text-[var(--text-muted)] mt-1.5 ml-1">{t('scheduler.ui.warningHint', 'Comma-separated minutes before shutdown to warn players.')}</p>
                                 </div>
                             </div>
                         </div>
@@ -1050,14 +1061,14 @@ export default function Scheduler() {
                                 onClick={() => handleSave({ ...settings, mode: 'disabled' })}
                                 className="px-6 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 hover:border-red-500/50 rounded-xl font-semibold transition-all flex items-center gap-2 text-sm"
                             >
-                                <X className="w-4 h-4" /> Disable Advanced Mode
+                                <X className="w-4 h-4" /> {t('scheduler.ui.disableAdvanced', 'Disable Advanced Mode')}
                             </button>
                         ) : (
                             <button
                                 onClick={() => handleSave({ ...settings, mode: 'advanced' })}
                                 className="px-6 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-900/30 text-sm"
                             >
-                                <Zap className="w-4 h-4 fill-current" /> Enable Advanced Mode
+                                <Zap className="w-4 h-4 fill-current" /> {t('scheduler.ui.enableAdvanced', 'Enable Advanced Mode')}
                             </button>
                         )}
                     </div>
@@ -1076,14 +1087,14 @@ export default function Scheduler() {
                                     <Shield className="w-6 h-6 shrink-0" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">Guardian Watchdog</h2>
-                                    <p className="text-xs text-amber-400/80 font-medium">Automatic Process Crash Guard</p>
+                                    <h2 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">{t('scheduler.ui.watchdogTitle', 'Guardian Watchdog')}</h2>
+                                    <p className="text-xs text-amber-400/80 font-medium">{t('scheduler.ui.watchdogSubtitle', 'Automatic Process Crash Guard')}</p>
                                 </div>
                             </div>
                             <button
                                 role="switch"
                                 aria-checked={settings.watchdogEnabled}
-                                aria-label="Guardian Watchdog"
+                                aria-label={t('scheduler.ui.watchdogTitle', 'Guardian Watchdog')}
                                 onClick={() => handleSave({ ...settings, watchdogEnabled: !settings.watchdogEnabled })}
                                 className={cn(
                                     "relative w-14 h-7 rounded-full transition-all duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 hover:scale-105",
@@ -1101,24 +1112,24 @@ export default function Scheduler() {
                             </button>
                         </div>
                         <p className="text-sm text-[var(--text-secondary)] leading-relaxed font-normal">
-                            The <span className="font-bold text-[var(--text-primary)]">Watchdog Heartbeat</span> continuously monitors server connectivity and process status. If the server process crashes or terminates unexpectedly, it automatically initiates a secure recovery restart sequence.
+                            {t('scheduler.ui.watchdogDescA', 'The')} <span className="font-bold text-[var(--text-primary)]">{t('scheduler.ui.watchdogHeartbeat', 'Watchdog Heartbeat')}</span> {t('scheduler.ui.watchdogDescB', 'continuously monitors server connectivity and process status. If the server process crashes or terminates unexpectedly, it automatically initiates a secure recovery restart sequence.')}
                         </p>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[var(--bg-primary)] p-4 border border-[var(--border)] rounded-2xl text-[11px] font-mono shadow-inner">
                             <div className="space-y-0.5">
-                                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[10px] block font-sans font-bold">Check Speed</span>
-                                <span className="text-amber-400 font-bold">15 SECONDS</span>
+                                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[10px] block font-sans font-bold">{t('scheduler.ui.checkSpeed', 'Check Speed')}</span>
+                                <span className="text-amber-400 font-bold">{t('scheduler.ui.fifteenSeconds', '15 SECONDS')}</span>
                             </div>
                             <div className="space-y-0.5">
-                                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[10px] block font-sans font-bold">Safe-Guards</span>
-                                <span className="text-emerald-400 font-bold">ENABLED</span>
+                                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[10px] block font-sans font-bold">{t('scheduler.ui.safeGuards', 'Safe-Guards')}</span>
+                                <span className="text-emerald-400 font-bold">{t('scheduler.ui.enabledUpper', 'ENABLED')}</span>
                             </div>
                             <div className="space-y-0.5">
-                                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[10px] block font-sans font-bold">Auto-Restart</span>
-                                <span className={cn("font-bold", settings.watchdogEnabled ? "text-amber-400" : "text-[var(--text-muted)]")}>{settings.watchdogEnabled ? 'ON' : 'OFF'}</span>
+                                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[10px] block font-sans font-bold">{t('scheduler.ui.autoRestart', 'Auto-Restart')}</span>
+                                <span className={cn("font-bold", settings.watchdogEnabled ? "text-amber-400" : "text-[var(--text-muted)]")}>{settings.watchdogEnabled ? t('scheduler.ui.on', 'ON') : t('scheduler.ui.off', 'OFF')}</span>
                             </div>
                             <div className="space-y-0.5">
-                                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[10px] block font-sans font-bold">Last Beat</span>
-                                <span className="text-cyan-400 font-bold">JUST NOW</span>
+                                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[10px] block font-sans font-bold">{t('scheduler.ui.lastBeat', 'Last Beat')}</span>
+                                <span className="text-cyan-400 font-bold">{t('scheduler.ui.justNow', 'JUST NOW')}</span>
                             </div>
                         </div>
                     </div>
@@ -1139,10 +1150,10 @@ export default function Scheduler() {
                             )} />
                         </div>
                         <div className="text-center relative z-10">
-                            <p className="text-xs font-bold text-[var(--text-primary)]">Monitoring Service</p>
+                            <p className="text-xs font-bold text-[var(--text-primary)]">{t('scheduler.ui.monitoringService', 'Monitoring Service')}</p>
                             <p className="text-[10px] text-[var(--text-muted)] mt-1 tracking-wider uppercase font-extrabold flex items-center gap-1.5 justify-center">
                                 <span className={cn("w-2 h-2 rounded-full inline-block shrink-0", settings.watchdogEnabled ? "bg-emerald-400 animate-ping" : "bg-[var(--surface-active)]")} />
-                                {settings.watchdogEnabled ? 'ACTIVE Heartbeat' : 'INACTIVE Standby'}
+                                {settings.watchdogEnabled ? t('scheduler.ui.activeHeartbeat', 'ACTIVE Heartbeat') : t('scheduler.ui.inactiveStandby', 'INACTIVE Standby')}
                             </p>
                         </div>
                     </div>
@@ -1155,7 +1166,7 @@ export default function Scheduler() {
                     <div className="flex items-center justify-between">
                         <div>
                             <h3 className="text-xl font-bold text-white tracking-tight">{t('scheduler.scheduledTasks')}</h3>
-                            <p className="text-xs text-slate-400">Automated server events and RCON cron jobs</p>
+                            <p className="text-xs text-slate-400">{t('scheduler.ui.tasksSubtitle', 'Automated server events and RCON cron jobs')}</p>
                         </div>
                         <button
                             onClick={() => {
@@ -1180,8 +1191,8 @@ export default function Scheduler() {
                             <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-2xl text-purple-400">
                                 <Calendar className="w-8 h-8" />
                             </div>
-                            <h4 className="text-base font-bold text-[var(--text-primary)]">No Scheduled Tasks Configured</h4>
-                            <p className="text-xs text-[var(--text-muted)] max-w-sm">Create automated server restarts, wild dino wipes, RCON broadcasts, or world save tasks to execute on a set schedule.</p>
+                            <h4 className="text-base font-bold text-[var(--text-primary)]">{t('scheduler.ui.noTasksTitle', 'No Scheduled Tasks Configured')}</h4>
+                            <p className="text-xs text-[var(--text-muted)] max-w-sm">{t('scheduler.ui.noTasksDesc', 'Create automated server restarts, wild dino wipes, RCON broadcasts, or world save tasks to execute on a set schedule.')}</p>
                             <button
                                 onClick={() => {
                                     setEditingTaskId(null);
@@ -1245,7 +1256,7 @@ export default function Scheduler() {
                                                     </span>
                                                     {task.preWarningMinutes > 0 && (
                                                         <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-md shrink-0">
-                                                            ⚠️ {task.preWarningMinutes}m Warning
+                                                            ⚠️ {t('scheduler.ui.minWarning', { mins: task.preWarningMinutes, defaultValue: `${task.preWarningMinutes}m Warning` })}
                                                         </span>
                                                     )}
                                                 </div>
@@ -1258,13 +1269,13 @@ export default function Scheduler() {
                                             {/* RCON Broadcast or Command Preview */}
                                             {task.message && (
                                                 <div className="text-xs text-[var(--text-secondary)] bg-[var(--surface-active)]/50 p-2.5 rounded-xl border border-[var(--border)] font-sans line-clamp-2">
-                                                    <span className="text-purple-400 font-bold mr-1">📢 Broadcast:</span>
+                                                    <span className="text-purple-400 font-bold mr-1">📢 {t('scheduler.ui.broadcastLabel', 'Broadcast:')}</span>
                                                     "{task.message}"
                                                 </div>
                                             )}
                                             {task.command && task.taskType === 'rcon-command' && (
                                                 <div className="text-xs text-emerald-400 bg-[var(--surface-active)]/50 p-2.5 rounded-xl border border-[var(--border)] font-mono truncate">
-                                                    <span className="text-[var(--text-muted)] font-sans font-bold mr-1">💻 Command:</span>
+                                                    <span className="text-[var(--text-muted)] font-sans font-bold mr-1">💻 {t('scheduler.ui.commandLabel', 'Command:')}</span>
                                                     {task.command}
                                                 </div>
                                             )}
@@ -1400,7 +1411,7 @@ export default function Scheduler() {
                                 </div>
 
                                 <div className="p-3 bg-purple-500/5 border border-purple-500/15 rounded-lg text-[11px] text-purple-300/80 leading-relaxed">
-                                    💡 Select a task type to configure standard maintenance or execution routines.
+                                    💡 {t('scheduler.ui.taskTypeHint', 'Select a task type to configure standard maintenance or execution routines.')}
                                 </div>
                             </div>
 
@@ -1411,13 +1422,13 @@ export default function Scheduler() {
                                     <label htmlFor="new-task-schedule" className="block text-xs font-bold text-[var(--text-muted)] mb-2 uppercase tracking-wider">{t('scheduler.schedule')}</label>
                                     <CustomDropdown
                                         options={[
-                                            { value: '0 */1 * * *', label: `${t('scheduler.every')} 1 Hour`, desc: 'Runs every single hour', icon: Clock },
-                                            { value: '0 */3 * * *', label: `${t('scheduler.every')} 3 ${t('scheduler.hours')}`, desc: 'Runs 8 times per day', icon: Clock },
-                                            { value: '0 */6 * * *', label: `${t('scheduler.every')} 6 ${t('scheduler.hours')}`, desc: 'Runs 4 times per day', icon: Clock },
-                                            { value: '0 */12 * * *', label: `${t('scheduler.every')} 12 ${t('scheduler.hours')}`, desc: 'Runs twice a day', icon: Clock },
-                                            { value: '0 4 * * *', label: `${t('scheduler.daily')} ${t('scheduler.at')} 4:00 AM`, desc: 'Runs once every night', icon: Calendar },
-                                            { value: '@online', label: t('scheduler.onServerOnline', 'When Server Comes Online'), desc: 'Executes on server startup', icon: Zap },
-                                            { value: 'custom', label: 'Custom Cron Expression', desc: 'Define your own cron schedule', icon: Terminal },
+                                            { value: '0 */1 * * *', label: t('scheduler.ui.every1Hour', 'Every 1 Hour'), desc: t('scheduler.ui.runsEveryHour', 'Runs every single hour'), icon: Clock },
+                                            { value: '0 */3 * * *', label: `${t('scheduler.every')} 3 ${t('scheduler.hours')}`, desc: t('scheduler.ui.runs8xDay', 'Runs 8 times per day'), icon: Clock },
+                                            { value: '0 */6 * * *', label: `${t('scheduler.every')} 6 ${t('scheduler.hours')}`, desc: t('scheduler.ui.runs4xDay', 'Runs 4 times per day'), icon: Clock },
+                                            { value: '0 */12 * * *', label: `${t('scheduler.every')} 12 ${t('scheduler.hours')}`, desc: t('scheduler.ui.runsTwiceDay', 'Runs twice a day'), icon: Clock },
+                                            { value: '0 4 * * *', label: `${t('scheduler.daily')} ${t('scheduler.at')} 4:00 AM`, desc: t('scheduler.ui.runsNightly', 'Runs once every night'), icon: Calendar },
+                                            { value: '@online', label: t('scheduler.onServerOnline', 'When Server Comes Online'), desc: t('scheduler.ui.runsOnStartup', 'Executes on server startup'), icon: Zap },
+                                            { value: 'custom', label: t('scheduler.ui.customCron', 'Custom Cron Expression'), desc: t('scheduler.ui.customCronDesc', 'Define your own cron schedule'), icon: Terminal },
                                         ]}
                                         value={cronSchedule}
                                         onChange={(val) => setCronSchedule(String(val))}
@@ -1428,10 +1439,10 @@ export default function Scheduler() {
                                             <div className="relative">
                                                 <input
                                                     type="text"
-                                                    aria-label="Custom cron expression"
+                                                    aria-label={t('scheduler.ui.customCron', 'Custom Cron Expression')}
                                                     value={customCron}
                                                     onChange={(e) => setCustomCron(e.target.value)}
-                                                    placeholder="e.g. 0 3 * * 0"
+                                                    placeholder={t('scheduler.ui.cronPlaceholder', 'e.g. 0 3 * * 0')}
                                                     className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-[var(--text-primary)] font-mono text-sm focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 focus:outline-none transition-all placeholder:text-[var(--text-muted)]"
                                                 />
                                                 {customCron && (
@@ -1440,30 +1451,30 @@ export default function Scheduler() {
                                                         onClick={() => setCustomCron('')}
                                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xs font-mono bg-[var(--surface-hover)] px-1.5 py-0.5 rounded border border-[var(--border)]"
                                                     >
-                                                        clear
+                                                        {t('scheduler.ui.clear', 'clear')}
                                                     </button>
                                                 )}
                                             </div>
 
                                             {/* Format Legend */}
                                             <div className="flex items-center justify-between text-[10px] font-mono text-[var(--text-muted)] px-1">
-                                                <span>MINUTE</span>
-                                                <span>HOUR</span>
-                                                <span>DAY-OF-MONTH</span>
-                                                <span>MONTH</span>
-                                                <span>DAY-OF-WEEK</span>
+                                                <span>{t('scheduler.ui.cronMinute', 'MINUTE')}</span>
+                                                <span>{t('scheduler.ui.cronHour', 'HOUR')}</span>
+                                                <span>{t('scheduler.ui.cronDom', 'DAY-OF-MONTH')}</span>
+                                                <span>{t('scheduler.ui.cronMonth', 'MONTH')}</span>
+                                                <span>{t('scheduler.ui.cronDow', 'DAY-OF-WEEK')}</span>
                                             </div>
 
                                             {/* Quick Preset Chips */}
                                             <div>
-                                                <span className="block text-[10px] font-bold text-[var(--text-muted)] mb-1.5 uppercase tracking-wider">Quick Presets</span>
+                                                <span className="block text-[10px] font-bold text-[var(--text-muted)] mb-1.5 uppercase tracking-wider">{t('scheduler.ui.quickPresets', 'Quick Presets')}</span>
                                                 <div className="flex flex-wrap gap-1.5">
                                                     {[
-                                                        { label: 'Every 15m', expr: '*/15 * * * *' },
-                                                        { label: 'Every 30m', expr: '*/30 * * * *' },
-                                                        { label: 'Every 2h', expr: '0 */2 * * *' },
-                                                        { label: 'Midnight', expr: '0 0 * * *' },
-                                                        { label: 'Sunday 3 AM', expr: '0 3 * * 0' },
+                                                        { label: t('scheduler.ui.every15m', 'Every 15m'), expr: '*/15 * * * *' },
+                                                        { label: t('scheduler.ui.every30m', 'Every 30m'), expr: '*/30 * * * *' },
+                                                        { label: t('scheduler.ui.every2h', 'Every 2h'), expr: '0 */2 * * *' },
+                                                        { label: t('scheduler.ui.midnight', 'Midnight'), expr: '0 0 * * *' },
+                                                        { label: t('scheduler.ui.sunday3am', 'Sunday 3 AM'), expr: '0 3 * * 0' },
                                                     ].map(preset => (
                                                         <button
                                                             key={preset.expr}
@@ -1509,7 +1520,7 @@ export default function Scheduler() {
                                 {/* Automated RCON Broadcast Message */}
                                 <div className="animate-in slide-in-from-top-2 duration-200 space-y-2">
                                     <label htmlFor="new-task-announcement" className="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase tracking-wider flex items-center justify-between">
-                                        <span>Automated RCON Broadcast Message</span>
+                                        <span>{t('scheduler.ui.broadcastTitle', 'Automated RCON Broadcast Message')}</span>
                                         <span className="text-[10px] text-[var(--text-muted)] font-normal normal-case">({t('common.optional')})</span>
                                     </label>
                                     <div className="relative">
@@ -1517,7 +1528,7 @@ export default function Scheduler() {
                                             id="new-task-announcement"
                                             value={announcementMsg}
                                             onChange={(e) => setAnnouncementMsg(e.target.value)}
-                                            placeholder="e.g. Server Notice: Scheduled task executing in {mins} minutes!"
+                                            placeholder={t('scheduler.ui.broadcastPlaceholder', 'e.g. Server Notice: Scheduled task executing in {mins} minutes!')}
                                             className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 min-h-[85px] transition-all text-sm placeholder:text-[var(--text-muted)] resize-none font-sans"
                                         />
                                         {announcementMsg && (
@@ -1526,7 +1537,7 @@ export default function Scheduler() {
                                                 onClick={() => setAnnouncementMsg('')}
                                                 className="absolute right-3 bottom-3 text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xs font-mono bg-[var(--surface-hover)] px-1.5 py-0.5 rounded border border-[var(--border)]"
                                             >
-                                                clear
+                                                {t('scheduler.ui.clear', 'clear')}
                                             </button>
                                         )}
                                     </div>
@@ -1534,15 +1545,15 @@ export default function Scheduler() {
                                     {/* Broadcast Message Preset Template Chips */}
                                     <div>
                                         <div className="flex items-center justify-between text-[10px] font-bold text-[var(--text-muted)] mb-1 uppercase tracking-wider">
-                                            <span>Quick Message Templates</span>
-                                            <span className="text-purple-400 font-mono text-[9px]">Tags: {"{mins}"}, {"{server}"}</span>
+                                            <span>{t('scheduler.ui.quickTemplates', 'Quick Message Templates')}</span>
+                                            <span className="text-purple-400 font-mono text-[9px]">{t('scheduler.ui.tags', 'Tags:')} {"{mins}"}, {"{server}"}</span>
                                         </div>
                                         <div className="flex flex-wrap gap-1.5">
                                             {[
-                                                { label: '🔄 Restart Warning', text: 'Server restart in {mins} minutes. Please find a safe location and log off!' },
-                                                { label: '🦖 Dino Wipe Notice', text: 'Wild Dino Wipe executing in {mins} minutes. Finish taming now!' },
-                                                { label: '💾 Save Snapshot', text: 'World Save Snapshot taking place in {mins} minutes.' },
-                                                { label: '🛠️ Maintenance', text: 'Scheduled server maintenance starting in {mins} minutes.' },
+                                                { label: `🔄 ${t('scheduler.ui.tplRestart', 'Restart Warning')}`, text: t('scheduler.ui.tplRestartText', 'Server restart in {mins} minutes. Please find a safe location and log off!') },
+                                                { label: `🦖 ${t('scheduler.ui.tplDino', 'Dino Wipe Notice')}`, text: t('scheduler.ui.tplDinoText', 'Wild Dino Wipe executing in {mins} minutes. Finish taming now!') },
+                                                { label: `💾 ${t('scheduler.ui.tplSave', 'Save Snapshot')}`, text: t('scheduler.ui.tplSaveText', 'World Save Snapshot taking place in {mins} minutes.') },
+                                                { label: `🛠️ ${t('scheduler.ui.tplMaintenance', 'Maintenance')}`, text: t('scheduler.ui.tplMaintenanceText', 'Scheduled server maintenance starting in {mins} minutes.') },
                                             ].map(tpl => (
                                                 <button
                                                     key={tpl.label}
@@ -1560,17 +1571,18 @@ export default function Scheduler() {
                                             ))}
                                         </div>
                                     </div>
-                                    <p className="text-[11px] text-[var(--text-muted)]">Sent in-game over RCON to all online players prior to task execution.</p>
+                                    <p className="text-[11px] text-[var(--text-muted)]">{t('scheduler.ui.broadcastHint', 'Sent in-game over RCON to all online players prior to task execution.')}</p>
                                 </div>
 
                                 {/* Pre-Warning Minutes */}
                                 <div>
                                     <label htmlFor="new-task-warning" className="block text-xs font-bold text-[var(--text-muted)] mb-2 uppercase tracking-wider">{t('scheduler.preWarning')}</label>
-                                    <input
+                                    <NumberInput
                                         id="new-task-warning"
-                                        type="number"
+                                        integer
+                                        min={0}
                                         value={preWarning}
-                                        onChange={(e) => setPreWarning(Number(e.target.value))}
+                                        onValueChange={setPreWarning}
                                         className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-sm font-mono"
                                     />
                                     <p className="text-[11px] text-[var(--text-muted)] mt-1.5 leading-normal">{t('scheduler.preWarningDesc')}</p>

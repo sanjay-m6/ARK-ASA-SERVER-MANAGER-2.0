@@ -11,6 +11,8 @@ import {
   User, HardDrive, Users, FolderOpen, Terminal, ShieldCheck
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
+import i18n from 'i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAseModStore } from '../stores/aseModStore';
 import { useAseServerStore } from '../stores/aseServerStore';
@@ -47,7 +49,7 @@ const resolveModDetails = (mod: any) => {
   const description = mod.description || 'No description available on Steam Workshop.';
   const previewUrl = getModImageSrc(mod);
   const remotePreviewUrl = mod.remotePreviewUrl || mod.previewUrl || '';
-  const author = mod.author || "Steam Mod Author";
+  const author = mod.author || i18n.t('ase.modManager.steamModAuthor', 'Steam Mod Author');
   const fileSize = mod.fileSize || 0;
   const subscribers = mod.subscribers || mod.subscriberCount || 0;
   const tags = mod.tags || [];
@@ -105,6 +107,7 @@ const ModImage = ({ mod, className }: { mod: any; className?: string }) => {
 };
 
 export default function ASEModManager() {
+  const { t } = useTranslation();
   const { servers, activeServer } = useAseServerStore();
   const { 
     installedMods, 
@@ -210,25 +213,25 @@ export default function ASEModManager() {
     try {
       if (forceRedownload) {
         const { forceDownloadAseMod } = await import('../utils/aseCommands');
-        toast('Force redownloading and extracting mod files...');
+        toast(t('ase.modManager.redownloading', 'Force redownloading and extracting mod files...'));
         await forceDownloadAseMod(selectedServer, workshopId);
-        toast.success('Mod successfully redownloaded and reinstalled!');
+        toast.success(t('ase.modManager.redownloaded', 'Mod successfully redownloaded and reinstalled!'));
         setSelectedModDetail(null);
         refreshInstalledMods(selectedServer);
       } else {
         const { repairAseMod } = await import('../utils/aseCommands');
-        toast('Running rapid structural repair locally...');
+        toast(t('ase.modManager.repairing', 'Running rapid structural repair locally...'));
         const report = await repairAseMod(selectedServer, workshopId);
         if (report.isValid) {
-          toast.success('Mod successfully repaired and re-validated!');
+          toast.success(t('ase.modManager.repaired', 'Mod successfully repaired and re-validated!'));
         } else {
-          toast.error('Local repair completed, but some validation issues remain.');
+          toast.error(t('ase.modManager.repairIssues', 'Local repair completed, but some validation issues remain.'));
         }
         refreshInstalledMods(selectedServer);
       }
     } catch (error) {
       console.error('Failed to repair mod:', error);
-      toast.error('Failed to repair/reinstall mod.');
+      toast.error(t('ase.modManager.repairFailed', 'Failed to repair/reinstall mod.'));
     } finally {
       setIsRepairing(false);
     }
@@ -243,7 +246,7 @@ export default function ASEModManager() {
       setDiagnosticResult(result);
     } catch (error) {
       console.error('Failed to run diagnostics:', error);
-      toast.error('Failed to run spawn diagnostics.');
+      toast.error(t('ase.modManager.diagFailed', 'Failed to run spawn diagnostics.'));
       setShowDiagnosticModal(false);
     } finally {
       setIsDiagnosing(false);
@@ -254,7 +257,7 @@ export default function ASEModManager() {
     if (!selectedServer) return;
     const serverObj = servers.find(s => s.id === selectedServer);
     if (!serverObj) {
-      toast.error("No active server selected");
+      toast.error(t('ase.modManager.noServer', 'No active server selected'));
       return;
     }
     const path = `${serverObj.installPath}/ShooterGame/Content/Mods/${workshopId}`;
@@ -262,7 +265,7 @@ export default function ASEModManager() {
       const { invoke } = await import('@tauri-apps/api/core');
       await invoke('open_in_explorer', { path });
     } catch (err) {
-      toast.error('Failed to open folder: ' + err);
+      toast.error(t('ase.modManager.openFolderFailed', { defaultValue: 'Failed to open folder: {{error}}', error: String(err) }));
     }
   };
 
@@ -391,11 +394,11 @@ export default function ASEModManager() {
     try {
       await downloadWorkshopMod(selectedServer, workshopId, modName);
       updateQueueStatus(workshopId, 'completed');
-      toast.success(`Mod "${modName}" installed successfully!`);
+      toast.success(t('ase.modManager.installed', { defaultValue: 'Mod "{{name}}" installed successfully!', name: modName }));
       refreshInstalledMods(selectedServer);
     } catch (e) {
       updateQueueStatus(workshopId, 'failed', String(e));
-      toast.error(`Failed to install "${modName}": ${e}`);
+      toast.error(t('ase.modManager.installFailed', { defaultValue: 'Failed to install "{{name}}": {{error}}', name: modName, error: String(e) }));
     } finally {
       setIsInstalling(null);
     }
@@ -408,22 +411,22 @@ export default function ASEModManager() {
       const results = await searchWorkshop(query); 
       setSearchResults(results); 
     } catch (e) { 
-      toast.error(`Search failed: ${e}`); 
+      toast.error(t('ase.modManager.searchFailed', { defaultValue: 'Search failed: {{error}}', error: String(e) })); 
     } finally { 
       setIsSearching(false); 
     }
   };
 
   const handleInstallSingle = (workshopId: string, modName: string, modImage?: string) => {
-    if (!selectedServer) { toast.error('Select a server first'); return; }
-    if (isInstalled(workshopId)) { toast.error('Mod is already installed'); return; }
+    if (!selectedServer) { toast.error(t('ase.modManager.selectServer', 'Select a server first')); return; }
+    if (isInstalled(workshopId)) { toast.error(t('ase.modManager.alreadyInstalled', 'Mod is already installed')); return; }
     
     addToQueue(workshopId, modName, modImage);
-    toast.success(`Added "${modName}" to download queue!`);
+    toast.success(t('ase.modManager.addedToQueue', { defaultValue: 'Added "{{name}}" to download queue!', name: modName }));
   };
 
   const handleBulkInstall = () => {
-    if (!selectedServer) { toast.error('Select a server first'); return; }
+    if (!selectedServer) { toast.error(t('ase.modManager.selectServer', 'Select a server first')); return; }
     if (selectedModIds.length === 0) return;
 
     let addedCount = 0;
@@ -437,15 +440,15 @@ export default function ASEModManager() {
     });
 
     if (addedCount > 0) {
-      toast.success(`Added ${addedCount} mods to download queue!`);
+      toast.success(t('ase.modManager.addedManyToQueue', { defaultValue: 'Added {{count}} mods to download queue!', count: addedCount }));
     } else {
-      toast.error('Selected mods are already installed');
+      toast.error(t('ase.modManager.selectedAlreadyInstalled', 'Selected mods are already installed'));
     }
     setSelectedModIds([]); // Clear selection
   };
 
   const handleManualInstall = () => {
-    if (!selectedServer) { toast.error('Select a server first'); return; }
+    if (!selectedServer) { toast.error(t('ase.modManager.selectServer', 'Select a server first')); return; }
     if (!manualModId.trim()) return;
     
     const idParts = manualModId.split(/[\s,]+/);
@@ -471,15 +474,15 @@ export default function ASEModManager() {
     });
 
     if (invalidIds.length > 0) {
-      toast.error(`Invalid Workshop ID(s): ${invalidIds.join(', ')}. Must be numeric values.`);
+      toast.error(t('ase.modManager.invalidIds', { defaultValue: 'Invalid Workshop ID(s): {{ids}}. Must be numeric values.', ids: invalidIds.join(', ') }));
     }
 
     if (alreadyInstalledIds.length > 0) {
-      toast(`Mod ID(s) already installed: ${alreadyInstalledIds.join(', ')}`, { icon: 'ℹ️' });
+      toast(t('ase.modManager.alreadyInstalledIds', { defaultValue: 'Mod ID(s) already installed: {{ids}}', ids: alreadyInstalledIds.join(', ') }), { icon: 'ℹ️' });
     }
 
     if (addedIds.length > 0) {
-      toast.success(`Added ${addedIds.length} mod(s) to download queue!`);
+      toast.success(t('ase.modManager.addedManyToQueue', { defaultValue: 'Added {{count}} mods to download queue!', count: addedIds.length }));
       setManualModId('');
 
       // Fetch details asynchronously in a batch
@@ -500,10 +503,10 @@ export default function ASEModManager() {
 
   const handleRemove = async (workshopId: string) => {
     if (!selectedServer) return;
-    if (!confirm('Remove this mod and delete its files?')) return;
+    if (!confirm(t('ase.modManager.confirmRemove', 'Remove this mod and delete its files?'))) return;
     try { 
       await removeWorkshopMod(selectedServer, workshopId); 
-      toast.success('Mod removed successfully'); 
+      toast.success(t('ase.modManager.removed', 'Mod removed successfully')); 
       refreshInstalledMods(selectedServer); 
     } catch (e) { 
       toast.error(`${e}`); 
@@ -515,10 +518,10 @@ export default function ASEModManager() {
     try {
       const { toggleAseMod } = await import('../utils/aseCommands');
       await toggleAseMod(selectedServer, workshopId, !currentEnabled);
-      toast.success(currentEnabled ? 'Mod disabled in load order' : 'Mod enabled in load order');
+      toast.success(currentEnabled ? t('ase.modManager.disabledInOrder', 'Mod disabled in load order') : t('ase.modManager.enabledInOrder', 'Mod enabled in load order'));
       refreshInstalledMods(selectedServer);
     } catch (e) {
-      toast.error(`Failed to toggle mod: ${e}`);
+      toast.error(t('ase.modManager.toggleFailed', { defaultValue: 'Failed to toggle mod: {{error}}', error: String(e) }));
     }
   };
 
@@ -537,10 +540,10 @@ export default function ASEModManager() {
 
     try {
       await updateAseModOrder(selectedServer, previousIds);
-      toast.success('Undo: Reordered mods');
+      toast.success(t('ase.modManager.undone', 'Undo: Reordered mods'));
       refreshInstalledMods(selectedServer);
     } catch (e) {
-      toast.error(`Undo failed: ${e}`);
+      toast.error(t('ase.modManager.undoFailed', { defaultValue: 'Undo failed: {{error}}', error: String(e) }));
     }
   };
 
@@ -554,10 +557,10 @@ export default function ASEModManager() {
 
     try {
       await updateAseModOrder(selectedServer, nextIds);
-      toast.success('Redo: Reordered mods');
+      toast.success(t('ase.modManager.redone', 'Redo: Reordered mods'));
       refreshInstalledMods(selectedServer);
     } catch (e) {
-      toast.error(`Redo failed: ${e}`);
+      toast.error(t('ase.modManager.redoFailed', { defaultValue: 'Redo failed: {{error}}', error: String(e) }));
     }
   };
 
@@ -597,10 +600,10 @@ export default function ASEModManager() {
 
     try {
       await updateAseModOrder(selectedServer, orderedIds);
-      toast.success('Load order updated');
+      toast.success(t('ase.modManager.orderUpdated', 'Load order updated'));
       refreshInstalledMods(selectedServer);
     } catch (e) {
-      toast.error(`Failed to update order: ${e}`);
+      toast.error(t('ase.modManager.orderFailed', { defaultValue: 'Failed to update order: {{error}}', error: String(e) }));
     }
   };
 
@@ -636,10 +639,10 @@ export default function ASEModManager() {
               <h4 className="text-sm font-bold text-[var(--text-primary)] truncate pr-4 flex flex-wrap items-center gap-2">
                 {resolved.name}
                 {pinnedModIds.includes(mod.workshopId) && (
-                  <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[8px] text-amber-400 font-black uppercase tracking-wider">Pinned</span>
+                  <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[8px] text-amber-400 font-black uppercase tracking-wider">{t('ase.modManager.pinned', 'Pinned')}</span>
                 )}
                 {!mod.enabled && (
-                  <span className="px-2 py-0.5 rounded bg-[var(--surface-active)] border border-[var(--border)] text-[8px] text-[var(--text-muted)] font-black uppercase tracking-wider">Disabled</span>
+                  <span className="px-2 py-0.5 rounded bg-[var(--surface-active)] border border-[var(--border)] text-[8px] text-[var(--text-muted)] font-black uppercase tracking-wider">{t('ase.modManager.disabled', 'Disabled')}</span>
                 )}
               </h4>
               <p className="text-[10px] text-[var(--text-muted)] mt-1 font-mono flex items-center gap-1.5 flex-wrap">
@@ -683,10 +686,10 @@ export default function ASEModManager() {
     
     try {
       await updateAseModOrder(selectedServer, orderedIds);
-      toast.success('Load order updated');
+      toast.success(t('ase.modManager.orderUpdated', 'Load order updated'));
       refreshInstalledMods(selectedServer);
     } catch (e) {
-      toast.error(`Failed to update order: ${e}`);
+      toast.error(t('ase.modManager.orderFailed', { defaultValue: 'Failed to update order: {{error}}', error: String(e) }));
     }
   };
 
@@ -694,15 +697,15 @@ export default function ASEModManager() {
     if (!selectedServer) return;
     
     if (action === 'uninstall_all') {
-      if (!confirm('Are you absolutely sure you want to uninstall ALL mods? This will erase all mod assets.')) return;
+      if (!confirm(t('ase.modManager.confirmUninstallAll', 'Are you absolutely sure you want to uninstall ALL mods? This will erase all mod assets.'))) return;
       try {
         for (const mod of installedMods) {
           await removeWorkshopMod(selectedServer, mod.workshopId);
         }
-        toast.success('All mods uninstalled');
+        toast.success(t('ase.modManager.allUninstalled', 'All mods uninstalled'));
         refreshInstalledMods(selectedServer);
       } catch (e) {
-        toast.error(`Failed to uninstall mods: ${e}`);
+        toast.error(t('ase.modManager.uninstallFailed', { defaultValue: 'Failed to uninstall mods: {{error}}', error: String(e) }));
       }
       return;
     }
@@ -714,10 +717,10 @@ export default function ASEModManager() {
           await toggleAseMod(selectedServer, mod.workshopId, enable);
         }
       }
-      toast.success(enable ? 'All mods enabled' : 'All mods disabled');
+      toast.success(enable ? t('modManager.allEnabled', 'All mods enabled') : t('modManager.allDisabled', 'All mods disabled'));
       refreshInstalledMods(selectedServer);
     } catch (e) {
-      toast.error(`Bulk action failed: ${e}`);
+      toast.error(t('ase.modManager.bulkFailed', { defaultValue: 'Bulk action failed: {{error}}', error: String(e) }));
     }
   };
 
@@ -800,9 +803,9 @@ export default function ASEModManager() {
             <div className="p-2.5 bg-amber-500/10 rounded-xl">
               <Puzzle className="w-6 h-6 text-amber-400" />
             </div>
-            Mod Manager
+            {t('ase.modManager.title', 'Mod Manager')}
           </h1>
-          <p className="text-sm text-slate-400 mt-1">Manage Steam Workshop mods for ARK: Survival Evolved</p>
+          <p className="text-sm text-slate-400 mt-1">{t('ase.modManager.subtitle', 'Manage Steam Workshop mods for ARK: Survival Evolved')}</p>
         </div>
 
       </div>
@@ -813,8 +816,8 @@ export default function ASEModManager() {
           <AlertCircle className="w-4 h-4 text-amber-400" />
         </div>
         <p className="text-sm text-amber-200/80 leading-relaxed">
-          ASE mods are automatically downloaded via SteamCMD (App ID 346110) and extracted to the server. 
-          The <code className="bg-amber-950/50 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/20 text-xs">ActiveMods=</code> line in <code className="text-slate-300">GameUserSettings.ini</code> is managed for you automatically.
+          {t('ase.modManager.infoDesc1', 'ASE mods are automatically downloaded via SteamCMD (App ID 346110) and extracted to the server.')}{' '}
+          {t('ase.modManager.infoDesc2', 'The')} <code className="bg-amber-950/50 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/20 text-xs">ActiveMods=</code> {t('ase.modManager.infoDesc3', 'line in')} <code className="text-slate-300">GameUserSettings.ini</code> {t('ase.modManager.infoDesc4', 'is managed for you automatically.')}
         </p>
       </div>
 
@@ -828,7 +831,7 @@ export default function ASEModManager() {
             type="text"
             value={activeTab === 'available' ? query : installedFilter}
             onChange={(e) => activeTab === 'available' ? setQuery(e.target.value) : setInstalledFilter(e.target.value)}
-            placeholder={activeTab === 'available' ? "Search Steam Workshop..." : "Filter installed mods..."}
+            placeholder={activeTab === 'available' ? t('ase.modManager.searchWorkshop', 'Search Steam Workshop...') : t('ase.modManager.filterInstalled', 'Filter installed mods...')}
             className="w-full pl-11 pr-10 py-3 bg-[#0A0F1C]/80 border border-white/5 rounded-2xl text-xs font-black uppercase tracking-wider text-slate-300 placeholder-slate-600 focus:outline-none focus:border-amber-500/30 focus:ring-4 focus:ring-amber-500/10 transition-all duration-300"
           />
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none z-10" />
@@ -850,7 +853,7 @@ export default function ASEModManager() {
               className="px-5 py-3 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 focus:outline-none flex items-center gap-2 shadow-lg shadow-amber-500/20 shrink-0 hover:scale-[1.02] active:scale-[0.98]"
             >
               {isSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-              Search
+              {t('common.search', 'Search')}
             </button>
           )}
 
@@ -863,7 +866,7 @@ export default function ASEModManager() {
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              Discover Mods
+              {t('ase.modManager.discover', 'Discover Mods')}
             </button>
             <button 
               onClick={() => setActiveTab('installed')} 
@@ -873,7 +876,7 @@ export default function ASEModManager() {
                   : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
               }`}
             >
-              Installed Mods
+              {t('ase.modManager.installedMods', 'Installed Mods')}
               <span 
                 style={{ borderRadius: '9999px' }}
                 className={`flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-black font-mono transition-all duration-300 ${
@@ -891,7 +894,7 @@ export default function ASEModManager() {
                   : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
               }`}
             >
-              Download Logs
+              {t('ase.modManager.downloadLogs', 'Download Logs')}
               {activeDownloadsCount > 0 && (
                 <span className={`w-1.5 h-1.5 rounded-full animate-ping ${
                   activeTab === 'logs' ? 'bg-slate-950' : 'bg-amber-400'
@@ -921,8 +924,8 @@ export default function ASEModManager() {
                     <PlusCircle className="w-5 h-5 text-amber-400" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Quick Install by Workshop ID</h3>
-                    <p className="text-xs text-[var(--text-muted)] mt-0.5">Directly download any unlisted or custom Steam Workshop mod</p>
+                    <h3 className="text-sm font-bold text-[var(--text-primary)]">{t('ase.modManager.quickInstall', 'Quick Install by Workshop ID')}</h3>
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5">{t('ase.modManager.quickInstallDesc', 'Directly download any unlisted or custom Steam Workshop mod')}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto">
@@ -930,7 +933,7 @@ export default function ASEModManager() {
                     type="text"
                     value={manualModId}
                     onChange={e => setManualModId(e.target.value)}
-                    placeholder="Enter Steam Workshop ID (e.g. 731604991)"
+                    placeholder={t('ase.modManager.workshopIdPlaceholder', 'Enter Steam Workshop ID (e.g. 731604991)')}
                     className="w-full md:w-72 px-4 py-2 bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-amber-500/50 transition-all font-mono"
                   />
                   <button
@@ -938,7 +941,7 @@ export default function ASEModManager() {
                     className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 text-xs font-bold rounded-xl flex items-center gap-1.5 shrink-0 transition-all shadow-md shadow-amber-500/10"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    Install
+                    {t('common.install', 'Install')}
                   </button>
                 </div>
               </div>
@@ -947,7 +950,7 @@ export default function ASEModManager() {
                 {isSearching ? (
                   <div className="col-span-full flex flex-col items-center justify-center py-32 gap-3">
                     <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
-                    <p className="text-sm text-[var(--text-muted)] font-medium">Querying Steam Workshop API...</p>
+                    <p className="text-sm text-[var(--text-muted)] font-medium">{t('ase.modManager.querying', 'Querying Steam Workshop API...')}</p>
                   </div>
                 ) : !query.trim() || query.trim().length < 2 ? (
                   <>
@@ -957,28 +960,28 @@ export default function ASEModManager() {
                         <div>
                           <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                             <Sparkles className="w-4 h-4 text-amber-400" />
-                            Steam Workshop Storefront
+                            {t('ase.modManager.storefront', 'Steam Workshop Storefront')}
                             {isLoadingStorefront ? (
                               <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-400 font-bold tracking-wider uppercase animate-pulse shrink-0">
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                                Syncing Live
+                                {t('ase.modManager.syncingLive', 'Syncing Live')}
                               </span>
                             ) : (
                               <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-400 font-bold tracking-wider uppercase shrink-0">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                Live Steam API
+                                {t('ase.modManager.liveApi', 'Live Steam API')}
                               </span>
                             )}
                           </h3>
-                          <p className="text-xs text-[var(--text-muted)] mt-0.5">Explore recommended, popular, and featured Steam mods</p>
+                          <p className="text-xs text-[var(--text-muted)] mt-0.5">{t('ase.modManager.storefrontDesc', 'Explore recommended, popular, and featured Steam mods')}</p>
                         </div>
                         <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full scrollbar-none bg-[var(--surface-active)]/40 p-1.5 rounded-2xl border border-[var(--border)] backdrop-blur-md">
                           {[
-                            { id: 'Featured', label: 'Featured', icon: Sparkles, color: 'amber' },
-                            { id: 'Structures', label: 'Structures', icon: Puzzle, color: 'orange' },
-                            { id: 'Dinos', label: 'Dinos', icon: Flame, color: 'emerald' },
-                            { id: 'Utilities', label: 'Utilities', icon: Wrench, color: 'cyan' },
-                            { id: 'All', label: 'All Mods', icon: Globe, color: 'sky' }
+                            { id: 'Featured', label: t('ase.modManager.catFeatured', 'Featured'), icon: Sparkles, color: 'amber' },
+                            { id: 'Structures', label: t('ase.modManager.catStructures', 'Structures'), icon: Puzzle, color: 'orange' },
+                            { id: 'Dinos', label: t('ase.modManager.catDinos', 'Dinos'), icon: Flame, color: 'emerald' },
+                            { id: 'Utilities', label: t('ase.modManager.catUtilities', 'Utilities'), icon: Wrench, color: 'cyan' },
+                            { id: 'All', label: t('ase.modManager.catAll', 'All Mods'), icon: Globe, color: 'sky' }
                           ].map((cat) => {
                             const IconComponent = cat.icon;
                             const isSelected = discoverCategory === cat.id;
@@ -1114,18 +1117,18 @@ export default function ASEModManager() {
                               <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5">
                                 {installed ? (
                                   <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md">
-                                    Installed
+                                    {t('ase.modManager.installedBadge', 'Installed')}
                                   </span>
                                 ) : isQueuedOrDownloading && queueItem ? (
                                   <span className="px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md animate-pulse">
-                                    {queueItem.status === 'queued' ? 'Queued' :
+                                    {queueItem.status === 'queued' ? t('ase.modManager.queued', 'Queued') :
                                      queueItem.status === 'downloading' ? (
                                        queueItem.totalBytes && queueItem.totalBytes > 0
                                          ? `${Math.round(queueItem.progress)}% (${(( queueItem.downloadedBytes || 0) / 1048576).toFixed(0)} / ${(queueItem.totalBytes / 1048576).toFixed(0)} MB)`
-                                         : `Downloading (${Math.round(queueItem.progress)}%)`
+                                         : t('ase.modManager.downloadingPct', { defaultValue: 'Downloading ({{pct}}%)', pct: Math.round(queueItem.progress) })
                                      ) :
-                                     queueItem.status === 'extracting' ? `Extracting (${Math.round(queueItem.progress)}%)` :
-                                     queueItem.status === 'failed' ? 'Failed' : 'Installing'}
+                                     queueItem.status === 'extracting' ? t('ase.modManager.extractingPct', { defaultValue: 'Extracting ({{pct}}%)', pct: Math.round(queueItem.progress) }) :
+                                     queueItem.status === 'failed' ? t('ase.modManager.failed', 'Failed') : t('ase.modManager.installing', 'Installing')}
                                   </span>
                                 ) : null}
                               </div>
@@ -1164,9 +1167,9 @@ export default function ASEModManager() {
                 ) : searchResults.length === 0 ? (
                   <div className="col-span-full text-center py-24 bg-[var(--surface)]/40 border-2 border-dashed border-[var(--border)] rounded-2xl flex flex-col items-center justify-center p-6 backdrop-blur-xl">
                     <Search className="w-14 h-14 text-[var(--text-muted)] mb-4 animate-pulse" />
-                    <h3 className="text-lg font-bold text-[var(--text-primary)]">No Mods Found</h3>
+                    <h3 className="text-lg font-bold text-[var(--text-primary)]">{t('ase.modManager.noMods', 'No Mods Found')}</h3>
                     <p className="text-[var(--text-secondary)] text-xs mt-1 max-w-sm leading-relaxed">
-                      We couldn't find any Steam Workshop mods matching "{query}". Double check your spelling or search by workshop ID directly.
+                      {t('ase.modManager.noModsDesc', { defaultValue: 'We couldn\'t find any Steam Workshop mods matching "{{query}}". Double check your spelling or search by workshop ID directly.', query })}
                     </p>
                   </div>
                 ) : (
@@ -1267,14 +1270,14 @@ export default function ASEModManager() {
                                   });
                                 }}
                                 className="p-2 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-xl transition-all"
-                                title="View on Steam Workshop"
+                                title={t('ase.modManager.viewOnWorkshop', 'View on Steam Workshop')}
                               >
                                 <ExternalLink className="w-4 h-4" />
                               </a>
                               
                               {installed ? (
                                 <div className="px-3.5 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm">
-                                  <CheckCircle2 className="w-3.5 h-3.5" /> Installed
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> {t('ase.modManager.installedBadge', 'Installed')}
                                 </div>
                               ) : workshopId === '0' ? (
                                 <div className="px-3.5 py-1.5 bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold flex items-center gap-1">
@@ -1283,14 +1286,14 @@ export default function ASEModManager() {
                               ) : isQueuedOrDownloading && queueItem ? (
                                 <div className="px-3.5 py-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-bold flex items-center gap-1.5 animate-pulse">
                                   <RefreshCw className={`w-3.5 h-3.5 ${queueItem.status !== 'queued' && queueItem.status !== 'failed' ? 'animate-spin' : ''}`} />
-                                  {queueItem.status === 'queued' ? 'In Queue' :
+                                  {queueItem.status === 'queued' ? t('ase.modManager.inQueue', 'In Queue') :
                                    queueItem.status === 'downloading' ? (
                                      queueItem.totalBytes && queueItem.totalBytes > 0
                                        ? `${Math.round(queueItem.progress)}% (${((queueItem.downloadedBytes || 0) / 1048576).toFixed(0)} / ${(queueItem.totalBytes / 1048576).toFixed(0)} MB)`
-                                       : `Downloading (${Math.round(queueItem.progress)}%)`
+                                       : t('ase.modManager.downloadingPct', { defaultValue: 'Downloading ({{pct}}%)', pct: Math.round(queueItem.progress) })
                                    ) :
-                                   queueItem.status === 'extracting' ? `Extracting (${Math.round(queueItem.progress)}%)` :
-                                   queueItem.status === 'failed' ? 'Failed' : 'Installing'}
+                                   queueItem.status === 'extracting' ? t('ase.modManager.extractingPct', { defaultValue: 'Extracting ({{pct}}%)', pct: Math.round(queueItem.progress) }) :
+                                   queueItem.status === 'failed' ? t('ase.modManager.failed', 'Failed') : t('ase.modManager.installing', 'Installing')}
                                 </div>
                               ) : (
                                 <button 
@@ -1298,7 +1301,7 @@ export default function ASEModManager() {
                                   className="px-4 py-1.5 bg-slate-800 hover:bg-amber-500 hover:text-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-white/5 hover:border-amber-500"
                                 >
                                   <Download className="w-3.5 h-3.5 animate-pulse" />
-                                  Install
+                                  {t('common.install', 'Install')}
                                 </button>
                               )}
                             </div>
@@ -1315,7 +1318,7 @@ export default function ASEModManager() {
                       className="px-6 py-3 bg-slate-900/60 hover:bg-amber-500 hover:text-slate-950 border border-white/5 hover:border-amber-500 text-slate-300 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2"
                     >
                       <PlusCircle className="w-4 h-4" />
-                      View More Mods
+                      {t('ase.modManager.viewMore', 'View More Mods')}
                     </button>
                   </div>
                 )}
@@ -1335,13 +1338,13 @@ export default function ASEModManager() {
                 <div>
                   <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-amber-400" />
-                    Active Mod Load Order
+                    {t('ase.modManager.loadOrderTitle', 'Active Mod Load Order')}
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-400 font-bold ml-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      Synced with INI
+                      {t('ase.modManager.syncedIni', 'Synced with INI')}
                     </span>
                   </h3>
-                  <p className="text-xs text-[var(--text-muted)] mt-0.5">ASE load order is automatically synced into your GameUserSettings.ini file</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">{t('ase.modManager.loadOrderDesc', 'ASE load order is automatically synced into your GameUserSettings.ini file')}</p>
                 </div>
                 
                 {installedMods.length > 0 && (
@@ -1352,7 +1355,7 @@ export default function ASEModManager() {
                         onClick={handleUndo}
                         disabled={undoHistory.length === 0}
                         className="p-1.5 rounded-xl bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border border-[var(--border)] disabled:opacity-30 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-                        title="Undo Reorder"
+                        title={t('ase.modManager.undoReorder', 'Undo Reorder')}
                       >
                         <Undo className="w-4 h-4" />
                       </button>
@@ -1360,7 +1363,7 @@ export default function ASEModManager() {
                         onClick={handleRedo}
                         disabled={redoHistory.length === 0}
                         className="p-1.5 rounded-xl bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border border-[var(--border)] disabled:opacity-30 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-                        title="Redo Reorder"
+                        title={t('ase.modManager.redoReorder', 'Redo Reorder')}
                       >
                         <Redo className="w-4 h-4" />
                       </button>
@@ -1372,25 +1375,25 @@ export default function ASEModManager() {
                       className="px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
                     >
                       {isDiagnosing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-                      Validate Spawns
+                      {t('ase.modManager.validateSpawns', 'Validate Spawns')}
                     </button>
                     <button
                       onClick={() => handleBulkInstalledAction('enable_all')}
                       className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-bold transition-all"
                     >
-                      Enable All
+                      {t('ase.modManager.enableAll', 'Enable All')}
                     </button>
                     <button
                       onClick={() => handleBulkInstalledAction('disable_all')}
                       className="px-3 py-1.5 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl text-xs font-bold transition-all"
                     >
-                      Disable All
+                      {t('ase.modManager.disableAll', 'Disable All')}
                     </button>
                     <button
                       onClick={() => handleBulkInstalledAction('uninstall_all')}
                       className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 hover:text-white border border-rose-500/20 text-rose-400 rounded-xl text-xs font-bold transition-all"
                     >
-                      Uninstall All
+                      {t('ase.modManager.uninstallAll', 'Uninstall All')}
                     </button>
                   </div>
                 )}
@@ -1402,7 +1405,7 @@ export default function ASEModManager() {
                   <Search className="absolute left-3 top-2.5 w-4 h-4 text-[var(--text-muted)]" />
                   <input
                     type="text"
-                    placeholder="Search active load order..."
+                    placeholder={t('ase.modManager.searchLoadOrder', 'Search active load order...')}
                     value={installedFilter}
                     onChange={(e) => setInstalledFilter(e.target.value)}
                     className="w-full pl-9 pr-4 py-2 bg-[var(--input-background)] border border-[var(--input-border)] focus:border-amber-500/55 rounded-xl text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none transition-all"
@@ -1418,7 +1421,7 @@ export default function ASEModManager() {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
-                  <span className="text-[10px] text-[var(--text-muted)] uppercase font-bold shrink-0">Sort By</span>
+                  <span className="text-[10px] text-[var(--text-muted)] uppercase font-bold shrink-0">{t('ase.modManager.sortBy', 'Sort By')}</span>
                   <div className="flex items-center bg-[var(--surface-active)] p-1 rounded-xl border border-[var(--border)] w-full md:w-auto justify-between gap-1 shadow-inner">
                     <button
                       onClick={() => setSortOrder('load_order')}
@@ -1429,7 +1432,7 @@ export default function ASEModManager() {
                           : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
                       }`}
                     >
-                      Load Order
+                      {t('ase.modManager.sortLoadOrder', 'Load Order')}
                     </button>
                     <button
                       onClick={() => setSortOrder('name')}
@@ -1440,7 +1443,7 @@ export default function ASEModManager() {
                           : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
                       }`}
                     >
-                      Name
+                      {t('ase.modManager.sortName', 'Name')}
                     </button>
                     <button
                       onClick={() => setSortOrder('size')}
@@ -1451,7 +1454,7 @@ export default function ASEModManager() {
                           : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
                       }`}
                     >
-                      Size
+                      {t('ase.modManager.sortSize', 'Size')}
                     </button>
                   </div>
                 </div>
@@ -1460,7 +1463,7 @@ export default function ASEModManager() {
               {sortOrder !== 'load_order' && (
                 <div className="px-3.5 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl text-[10px] font-bold flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  Drag-and-drop is disabled when custom sorting is active. Switch back to "Load Order" to rearrange mods.
+                  {t('ase.modManager.dragDisabled', 'Drag-and-drop is disabled when custom sorting is active. Switch back to "Load Order" to rearrange mods.')}
                 </div>
               )}
 
@@ -1478,12 +1481,12 @@ export default function ASEModManager() {
                         <Puzzle className="w-8 h-8 text-[var(--text-muted)]" />
                       </div>
                       <p className="font-bold text-[var(--text-primary)]">
-                        {installedMods.length === 0 ? 'No active mods found' : 'No matching active mods'}
+                        {installedMods.length === 0 ? t('ase.modManager.noActiveMods', 'No active mods found') : t('ase.modManager.noMatchingMods', 'No matching active mods')}
                       </p>
                       <p className="text-xs text-[var(--text-muted)] mt-1 max-w-sm leading-relaxed">
                         {installedMods.length === 0 
-                          ? 'Go to the Discover tab to search and download Steam workshop mods.' 
-                          : 'Try clearing your filter keyword.'}
+                          ? t('ase.modManager.goDiscover', 'Go to the Discover tab to search and download Steam workshop mods.') 
+                          : t('ase.modManager.tryClearing', 'Try clearing your filter keyword.')}
                       </p>
                     </div>
                   ) : (
@@ -1517,7 +1520,7 @@ export default function ASEModManager() {
                                       {...provided.dragHandleProps}
                                       className="cursor-grab active:cursor-grabbing p-1.5 text-[var(--text-muted)] hover:text-amber-400 hover:bg-[var(--surface-hover)] rounded-xl shrink-0 transition-all"
                                       onClick={(e) => e.stopPropagation()}
-                                      title="Drag to Reorder"
+                                      title={t('ase.modManager.dragReorder', 'Drag to Reorder')}
                                     >
                                       <GripVertical className="w-4 h-4" />
                                     </div>
@@ -1532,10 +1535,10 @@ export default function ASEModManager() {
                                     <h4 className="text-sm font-bold text-[var(--text-primary)] group-hover:text-amber-400 transition-colors truncate pr-4 flex flex-wrap items-center gap-2">
                                       {resolved.name}
                                       {pinnedModIds.includes(mod.workshopId) && (
-                                        <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[8px] text-amber-400 font-black uppercase tracking-wider">Pinned</span>
+                                        <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[8px] text-amber-400 font-black uppercase tracking-wider">{t('ase.modManager.pinned', 'Pinned')}</span>
                                       )}
                                       {!mod.enabled && (
-                                        <span className="px-2 py-0.5 rounded bg-[var(--surface-active)] border border-[var(--border)] text-[8px] text-[var(--text-muted)] font-black uppercase tracking-wider">Disabled</span>
+                                        <span className="px-2 py-0.5 rounded bg-[var(--surface-active)] border border-[var(--border)] text-[8px] text-[var(--text-muted)] font-black uppercase tracking-wider">{t('ase.modManager.disabled', 'Disabled')}</span>
                                       )}
                                       <div onClick={(e) => e.stopPropagation()}>
                                         <ModCategorySelector modId={mod.workshopId} modName={resolved.name} modDescription={resolved.description} />
@@ -1568,7 +1571,7 @@ export default function ASEModManager() {
                                         ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
                                         : 'bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                                     }`}
-                                    title={pinnedModIds.includes(mod.workshopId) ? "Unpin Mod" : "Pin to Top"}
+                                    title={pinnedModIds.includes(mod.workshopId) ? t('ase.modManager.unpin', 'Unpin Mod') : t('ase.modManager.pinTop', 'Pin to Top')}
                                   >
                                     <Pin className={`w-3.5 h-3.5 ${pinnedModIds.includes(mod.workshopId) ? 'fill-amber-400' : ''}`} />
                                   </button>
@@ -1592,7 +1595,7 @@ export default function ASEModManager() {
                                       disabled={i === 0 || sortOrder !== 'load_order'}
                                       onClick={() => handleMoveMod(i, 'up')}
                                       className="p-1.5 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-[var(--text-muted)] text-[var(--text-muted)] transition-colors rounded-lg"
-                                      title="Move Up"
+                                      title={t('ase.modManager.moveUp', 'Move Up')}
                                     >
                                       <ArrowUp className="w-3.5 h-3.5" />
                                     </button>
@@ -1600,7 +1603,7 @@ export default function ASEModManager() {
                                       disabled={i === installedMods.length - 1 || sortOrder !== 'load_order'}
                                       onClick={() => handleMoveMod(i, 'down')}
                                       className="p-1.5 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-[var(--text-muted)] text-[var(--text-muted)] transition-colors rounded-lg"
-                                      title="Move Down"
+                                      title={t('ase.modManager.moveDown', 'Move Down')}
                                     >
                                       <ArrowDown className="w-3.5 h-3.5" />
                                     </button>
@@ -1610,7 +1613,7 @@ export default function ASEModManager() {
                                   <button 
                                     onClick={() => handleRemove(mod.workshopId)} 
                                     className="p-2 text-slate-500 hover:text-rose-455 hover:bg-rose-500/10 rounded-xl transition-all focus:outline-none opacity-0 group-hover:opacity-100 shrink-0"
-                                    title="Uninstall Mod"
+                                    title={t('modManager.uninstallMod', 'Uninstall Mod')}
                                   >
                                     <Trash2 className="w-4 h-4" />
                                   </button>
@@ -1619,7 +1622,7 @@ export default function ASEModManager() {
                                   <button
                                     onClick={() => setExpandedModId(isExpanded ? null : mod.workshopId)}
                                     className="p-2 rounded-xl border bg-slate-950/60 border-white/5 text-slate-500 hover:text-slate-300 transition-all shrink-0"
-                                    title={isExpanded ? "Collapse Details" : "Expand Details"}
+                                    title={isExpanded ? t('ase.modManager.collapse', 'Collapse Details') : t('ase.modManager.expand', 'Expand Details')}
                                   >
                                     <ChevronDown className={`w-4 h-4 transform transition-transform duration-300 ${isExpanded ? 'rotate-180 text-amber-400' : ''}`} />
                                   </button>
@@ -1658,9 +1661,9 @@ export default function ASEModManager() {
                                                 <User className="w-3.5 h-3.5" />
                                               </div>
                                               <div className="min-w-0">
-                                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Author</p>
+                                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">{t('modManager.author', 'Author')}</p>
                                                 <p className="text-xs text-slate-200 font-bold truncate">
-                                                  {resolved.author && isNaN(Number(resolved.author)) ? resolved.author : "Steam Mod Author"}
+                                                  {resolved.author && isNaN(Number(resolved.author)) ? resolved.author : t('ase.modManager.steamModAuthor', 'Steam Mod Author')}
                                                 </p>
                                               </div>
                                             </div>
@@ -1670,7 +1673,7 @@ export default function ASEModManager() {
                                                 <HardDrive className="w-3.5 h-3.5" />
                                               </div>
                                               <div>
-                                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Disk Size</p>
+                                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">{t('ase.modManager.diskSize', 'Disk Size')}</p>
                                                 <p className="text-xs text-slate-200 font-mono font-bold">
                                                   {resolved.fileSize ? `${(resolved.fileSize / (1024 * 1024)).toFixed(1)} MB` : '0.0 MB'}
                                                 </p>
@@ -1682,7 +1685,7 @@ export default function ASEModManager() {
                                                 <Users className="w-3.5 h-3.5" />
                                               </div>
                                               <div>
-                                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Subscribers</p>
+                                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">{t('ase.modManager.subscribers', 'Subscribers')}</p>
                                                 <p className="text-xs text-slate-200 font-mono font-bold">
                                                   {resolved.subscribers ? resolved.subscribers.toLocaleString() : '0'}
                                                 </p>
@@ -1714,7 +1717,7 @@ export default function ASEModManager() {
                                         className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-white/10 hover:border-white/20 text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
                                       >
                                         <ExternalLink className="w-3.5 h-3.5" />
-                                        View on Workshop
+                                        {t('ase.modManager.viewWorkshop', 'View on Workshop')}
                                       </button>
                                       
                                       <button
@@ -1727,7 +1730,7 @@ export default function ASEModManager() {
                                         ) : (
                                           <RefreshCw className="w-3.5 h-3.5" />
                                         )}
-                                        Force Redownload
+                                        {t('ase.modManager.forceRedownload', 'Force Redownload')}
                                       </button>
 
                                       <button
@@ -1735,7 +1738,7 @@ export default function ASEModManager() {
                                         className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-white/10 hover:border-white/20 text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
                                       >
                                         <FolderOpen className="w-3.5 h-3.5" />
-                                        Open Mod Folder
+                                        {t('ase.modManager.openFolder', 'Open Mod Folder')}
                                       </button>
                                     </div>
                                   </motion.div>
@@ -1756,7 +1759,7 @@ export default function ASEModManager() {
               {installedMods.length > 0 && (
                 <div className="pt-4 border-t border-white/5 text-xs text-slate-500 flex items-center gap-2">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                  Active mods load order matches the <code className="bg-slate-900 px-1 rounded text-slate-400">ActiveMods=</code> line injected into GameUserSettings.ini.
+                  {t('ase.modManager.loadOrderMatches1', 'Active mods load order matches the')} <code className="bg-slate-900 px-1 rounded text-slate-400">ActiveMods=</code> {t('ase.modManager.loadOrderMatches2', 'line injected into GameUserSettings.ini.')}
                 </div>
               )}
             </motion.div>
@@ -1773,14 +1776,14 @@ export default function ASEModManager() {
                 <div>
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
                     <Terminal className="w-5 h-5 text-amber-400" />
-                    SteamCMD Mod Downloader Logs
+                    {t('ase.modManager.logsTitle', 'SteamCMD Mod Downloader Logs')}
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Real-time console output from SteamCMD workshop downloader wrapper</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{t('ase.modManager.logsDesc', 'Real-time console output from SteamCMD workshop downloader wrapper')}</p>
                 </div>
                 
                 {Object.keys(downloadLogs).length > 0 && (
                   <div className="flex items-center gap-2.5 w-full sm:w-auto">
-                    <span className="text-[10px] text-slate-500 uppercase font-bold shrink-0">Select Mod</span>
+                    <span className="text-[10px] text-slate-500 uppercase font-bold shrink-0">{t('ase.modManager.selectMod', 'Select Mod')}</span>
                     <select
                       value={selectedLogModId}
                       onChange={(e) => setSelectedLogModId(e.target.value)}
@@ -1804,9 +1807,9 @@ export default function ASEModManager() {
                         }
                       }}
                       className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 hover:border-white/10 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-all shrink-0"
-                      title="Clear console window"
+                      title={t('ase.modManager.clearConsole', 'Clear console window')}
                     >
-                      Clear
+                      {t('common.clear', 'Clear')}
                     </button>
                   </div>
                 )}
@@ -1816,9 +1819,9 @@ export default function ASEModManager() {
               {(!selectedLogModId || !downloadLogs[selectedLogModId] || downloadLogs[selectedLogModId].length === 0) ? (
                 <div className="flex flex-col items-center justify-center py-32 text-slate-500 text-center border-2 border-dashed border-white/5 rounded-2xl bg-slate-950/20">
                   <Terminal className="w-12 h-12 text-slate-800 mb-4 animate-pulse" />
-                  <p className="font-bold text-slate-400">No active download logs</p>
+                  <p className="font-bold text-slate-400">{t('ase.modManager.noLogs', 'No active download logs')}</p>
                   <p className="text-xs text-slate-500 mt-1 max-w-sm leading-relaxed">
-                    Start enqueuing or downloading Steam Workshop mods from the Discover tab, and their installation progress console logs will appear here.
+                    {t('ase.modManager.noLogsDesc', 'Start enqueuing or downloading Steam Workshop mods from the Discover tab, and their installation progress console logs will appear here.')}
                   </p>
                 </div>
               ) : (
@@ -1875,7 +1878,7 @@ export default function ASEModManager() {
               <Sparkles className="w-4.5 h-4.5 text-amber-400 animate-pulse" />
               <div>
                 <p className="text-xs font-bold text-white">{selectedModIds.length} Mod(s) Selected</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Ready to queue for download & extraction</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">{t('ase.modManager.readyQueue', 'Ready to queue for download & extraction')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1883,20 +1886,20 @@ export default function ASEModManager() {
                 onClick={handleSelectAll}
                 className="px-3.5 py-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition-all"
               >
-                Select All
+                {t('common.selectAll', 'Select All')}
               </button>
               <button
                 onClick={() => setSelectedModIds([])}
                 className="px-3.5 py-2 text-xs text-slate-400 hover:text-white transition-all"
               >
-                Cancel
+                {t('common.cancel', 'Cancel')}
               </button>
               <button
                 onClick={handleBulkInstall}
                 className="px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-900 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-lg shadow-amber-500/25 shrink-0"
               >
                 <Download className="w-3.5 h-3.5" />
-                Install Selection
+                {t('ase.modManager.installSelection', 'Install Selection')}
               </button>
             </div>
           </motion.div>
@@ -1924,7 +1927,7 @@ export default function ASEModManager() {
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 )}
                 <span className="text-xs font-bold text-white">
-                  Mod Queue ({completedDownloadsCount}/{totalInQueue})
+                  {t('ase.modManager.modQueue', 'Mod Queue')} ({completedDownloadsCount}/{totalInQueue})
                 </span>
                 {activeDownloadsCount > 0 && (
                   <span className="text-[10px] font-black font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 animate-pulse">
@@ -1959,7 +1962,7 @@ export default function ASEModManager() {
                       <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                     )}
                     <span className="text-xs font-bold text-white">
-                      Mod Downloader Queue ({completedDownloadsCount}/{totalInQueue})
+                      {t('ase.modManager.downloaderQueue', 'Mod Downloader Queue')} ({completedDownloadsCount}/{totalInQueue})
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
@@ -1967,7 +1970,7 @@ export default function ASEModManager() {
                     <button
                       onClick={() => setQueueState('minimized')}
                       className="p-1 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg transition-colors flex items-center justify-center"
-                      title="Minimize"
+                      title={t('dialogs.installServer.minimizeBtn', 'Minimize')}
                     >
                       <span className="block w-2.5 h-[2px] bg-current rounded-full" />
                     </button>
@@ -1989,7 +1992,7 @@ export default function ASEModManager() {
                     <button
                       onClick={clearQueue}
                       className="p-1 hover:bg-white/10 text-slate-450 hover:text-rose-450 rounded-lg transition-colors flex items-center justify-center ml-0.5"
-                      title="Clear Queue"
+                      title={t('ase.modManager.clearQueue', 'Clear Queue')}
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -2034,7 +2037,7 @@ export default function ASEModManager() {
                                   <button
                                     onClick={() => removeFromQueue(item.workshopId)}
                                     className="text-[var(--text-muted)] hover:text-rose-400 transition-colors p-0.5"
-                                    title="Cancel Download"
+                                    title={t('ase.modManager.cancelDownload', 'Cancel Download')}
                                   >
                                     <X className="w-3.5 h-3.5" />
                                   </button>
@@ -2074,18 +2077,18 @@ export default function ASEModManager() {
                             {item.error && (
                               <div className="flex items-center gap-2 mt-1">
                                 <p className="text-[9px] text-rose-400 leading-normal max-h-12 overflow-y-auto font-mono flex-1">
-                                  Error: {item.error}
+                                  {t('ase.modManager.errorLabel', 'Error:')} {item.error}
                                 </p>
                                 {item.status === 'failed' && (
                                   <button
                                     onClick={() => {
                                       removeFromQueue(item.workshopId);
                                       addToQueue(item.workshopId, item.modName, item.modImage);
-                                      toast.success(`Re-queued "${item.modName}" for download`);
+                                      toast.success(t('ase.modManager.requeued', { defaultValue: 'Re-queued "{{name}}" for download', name: item.modName }));
                                     }}
                                     className="px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded text-[9px] font-bold shrink-0 transition-colors"
                                   >
-                                    Retry
+                                    {t('common.retry', 'Retry')}
                                   </button>
                                 )}
                               </div>
@@ -2105,8 +2108,8 @@ export default function ASEModManager() {
                   >
                     <span>
                       {activeDownloadsCount > 0 
-                        ? `Currently downloading mod...`
-                        : 'All downloads in queue complete'
+                        ? t('ase.modManager.currentlyDownloading', 'Currently downloading mod...')
+                        : t('ase.modManager.allComplete', 'All downloads in queue complete')
                       }
                     </span>
                     <span className="font-mono text-[var(--text-primary)] font-bold bg-[var(--surface-hover)] px-2 py-0.5 rounded-md border border-[var(--border)]">
@@ -2159,7 +2162,7 @@ export default function ASEModManager() {
                 {/* Title & Author */}
                 <div className="absolute bottom-5 left-6 z-20 pr-6">
                   <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-amber-500/30">
-                    Steam Workshop Mod
+                    {t('ase.modManager.workshopMod', 'Steam Workshop Mod')}
                   </span>
                   <h3 className="text-xl font-bold text-[var(--text-primary)] mt-2 leading-tight drop-shadow-md">
                     {selectedModDetail.name}
@@ -2172,27 +2175,27 @@ export default function ASEModManager() {
                 {/* Metrics Badges */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-[var(--surface-hover)]/60 border border-[var(--border)] rounded-xl p-3 text-center">
-                    <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-wider">Workshop ID</p>
+                    <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-wider">{t('ase.modManager.workshopId', 'Workshop ID')}</p>
                     <button 
                       onClick={() => {
                         navigator.clipboard.writeText(selectedModDetail.workshopId);
-                        toast.success('Mod ID copied to clipboard!');
+                        toast.success(t('ase.modManager.idCopied', 'Mod ID copied to clipboard!'));
                       }}
                       className="text-xs text-amber-400 font-mono font-bold mt-1 hover:text-amber-300 transition-colors flex items-center justify-center gap-1.5 w-full"
-                      title="Copy ID"
+                      title={t('ase.modManager.copyId', 'Copy ID')}
                     >
                       {selectedModDetail.workshopId}
                       <Copy className="w-3 h-3 opacity-60" />
                     </button>
                   </div>
                   <div className="bg-[var(--surface-hover)]/60 border border-[var(--border)] rounded-xl p-3 text-center">
-                    <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-wider">Subscribers</p>
+                    <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-wider">{t('ase.modManager.subscribers', 'Subscribers')}</p>
                     <p className="text-xs text-[var(--text-primary)] font-bold mt-1">
                       {selectedModDetail.subscriptions ? selectedModDetail.subscriptions.toLocaleString() : selectedModDetail.subscriberCount ? selectedModDetail.subscriberCount.toLocaleString() : 'N/A'}
                     </p>
                   </div>
                   <div className="bg-[var(--surface-hover)]/60 border border-[var(--border)] rounded-xl p-3 text-center">
-                    <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-wider">Last Updated</p>
+                    <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-wider">{t('modManager.sort.lastUpdated', 'Last Updated')}</p>
                     <p className="text-xs text-[var(--text-primary)] font-bold mt-1">
                       {selectedModDetail.lastUpdated || 'N/A'}
                     </p>
@@ -2201,7 +2204,7 @@ export default function ASEModManager() {
 
                 {/* Description */}
                 <div className="space-y-2">
-                  <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Mod Description</h4>
+                  <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">{t('ase.modManager.description', 'Mod Description')}</h4>
                   <div className="bg-[var(--surface-active)]/40 border border-[var(--border)] rounded-xl p-4 text-sm text-[var(--text-secondary)] leading-relaxed max-h-48 overflow-y-auto font-sans whitespace-pre-wrap scrollbar-thin">
                     {selectedModDetail.description || 'No description available on Steam Workshop.'}
                   </div>
@@ -2216,14 +2219,14 @@ export default function ASEModManager() {
                       className="flex-1 py-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border border-[var(--border)] hover:border-amber-500/40 text-[var(--text-primary)] rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
                     >
                       {isRepairing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                      Force Redownload
+                      {t('ase.modManager.forceRedownload', 'Force Redownload')}
                     </button>
                     <button
                       onClick={() => handleOpenModFolder(selectedModDetail.workshopId)}
                       className="flex-1 py-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border border-[var(--border)] hover:border-amber-500/40 text-[var(--text-primary)] rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
                     >
                       <FolderOpen className="w-3.5 h-3.5" />
-                      Open Mod Folder
+                      {t('ase.modManager.openFolder', 'Open Mod Folder')}
                     </button>
                   </div>
                 )}
@@ -2245,7 +2248,7 @@ export default function ASEModManager() {
                   }}
                   className="flex items-center gap-2 px-4 py-2.5 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-primary)] rounded-xl text-xs font-bold transition-all border border-[var(--border)]"
                 >
-                  <ExternalLink className="w-4 h-4" /> View on Workshop
+                  <ExternalLink className="w-4 h-4" /> {t('ase.modManager.viewWorkshop', 'View on Workshop')}
                 </a>
 
                 <div className="flex gap-2">
@@ -2253,7 +2256,7 @@ export default function ASEModManager() {
                     onClick={() => setSelectedModDetail(null)} 
                     className="px-4 py-2.5 rounded-xl text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                   >
-                    Close
+                    {t('common.close', 'Close')}
                   </button>
                   {selectedModDetail.workshopId === '0' ? (
                     <button 
@@ -2270,7 +2273,7 @@ export default function ASEModManager() {
                       }}
                       className="px-5 py-2.5 bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-400 border border-rose-500/20 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
                     >
-                      <Trash2 className="w-4 h-4" /> Uninstall Mod
+                      <Trash2 className="w-4 h-4" /> {t('modManager.uninstallMod', 'Uninstall Mod')}
                     </button>
                   ) : (
                     <button 
@@ -2281,7 +2284,7 @@ export default function ASEModManager() {
                       className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-900 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-lg shadow-amber-500/25"
                     >
                       <Download className="w-4 h-4" />
-                      Install Mod
+                      {t('ase.modManager.installMod', 'Install Mod')}
                     </button>
                   )}
                 </div>
@@ -2314,8 +2317,8 @@ export default function ASEModManager() {
                     <ShieldCheck className="w-5 h-5 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-[var(--text-primary)]">Spawn Validation Diagnostics</h3>
-                    <p className="text-xs text-[var(--text-muted)]">Checking for modded creature spawn issues</p>
+                    <h3 className="font-bold text-[var(--text-primary)]">{t('ase.modManager.diagTitle', 'Spawn Validation Diagnostics')}</h3>
+                    <p className="text-xs text-[var(--text-muted)]">{t('ase.modManager.diagDesc', 'Checking for modded creature spawn issues')}</p>
                   </div>
                 </div>
                 {!isDiagnosing && (
@@ -2332,7 +2335,7 @@ export default function ASEModManager() {
                 {isDiagnosing ? (
                   <div className="flex flex-col items-center justify-center py-12 gap-4">
                     <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
-                    <p className="text-[var(--text-muted)] text-sm">Analyzing Game.ini configuration...</p>
+                    <p className="text-[var(--text-muted)] text-sm">{t('ase.modManager.analyzing', 'Analyzing Game.ini configuration...')}</p>
                   </div>
                 ) : diagnosticResult ? (
                   <div className="space-y-4">
@@ -2348,12 +2351,12 @@ export default function ASEModManager() {
                       )}
                       <div>
                         <h4 className={`font-bold ${diagnosticResult.issues_found ? 'text-amber-400' : 'text-emerald-400'}`}>
-                          {diagnosticResult.issues_found ? 'Issues Detected' : 'No Issues Found'}
+                          {diagnosticResult.issues_found ? t('ase.modManager.issuesDetected', 'Issues Detected') : t('ase.modManager.noIssues', 'No Issues Found')}
                         </h4>
                         <p className="text-sm mt-1 text-[var(--text-secondary)]">
                           {diagnosticResult.issues_found 
-                            ? 'The server configuration is missing required spawn container entries for some active mods.'
-                            : 'All active mods have their spawn containers properly registered in Game.ini.'}
+                            ? t('ase.modManager.issuesDesc', 'The server configuration is missing required spawn container entries for some active mods.')
+                            : t('ase.modManager.noIssuesDesc', 'All active mods have their spawn containers properly registered in Game.ini.')}
                         </p>
                       </div>
                     </div>
@@ -2361,7 +2364,7 @@ export default function ASEModManager() {
                     {diagnosticResult.missing_spawn_entries && diagnosticResult.missing_spawn_entries.length > 0 && (
                       <div className="bg-[var(--surface-active)]/40 rounded-xl border border-[var(--border)] overflow-hidden">
                         <div className="px-4 py-2 border-b border-[var(--border)] bg-[var(--surface-hover)]/50">
-                          <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Missing Config Entries</h4>
+                          <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">{t('ase.modManager.missingEntries', 'Missing Config Entries')}</h4>
                         </div>
                         <ul className="divide-y divide-[var(--border)]">
                           {diagnosticResult.missing_spawn_entries.map((entry: string, idx: number) => (
@@ -2376,7 +2379,7 @@ export default function ASEModManager() {
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 gap-4 text-rose-400">
                     <AlertCircle className="w-12 h-12" />
-                    <p>Failed to retrieve diagnostic data.</p>
+                    <p>{t('ase.modManager.diagNoData', 'Failed to retrieve diagnostic data.')}</p>
                   </div>
                 )}
               </div>
@@ -2387,7 +2390,7 @@ export default function ASEModManager() {
                   disabled={isDiagnosing}
                   className="px-4 py-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-primary)] rounded-xl text-sm font-bold transition-colors disabled:opacity-50 border border-[var(--border)]"
                 >
-                  Close
+                  {t('common.close', 'Close')}
                 </button>
               </div>
             </motion.div>

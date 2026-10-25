@@ -1,7 +1,7 @@
 // Configuration schema types and mappings for ARK Server settings
 // Enhanced with sliders, dropdowns, and categories for Visual Settings Manager
 
-export type FieldType = 'text' | 'number' | 'boolean' | 'slider' | 'dropdown' | 'array' | 'textarea' | 'crafting_costs' | 'engram_entries' | 'loot_crates' | 'dino_spawns' | 'engram_points_per_level';
+export type FieldType = 'text' | 'number' | 'boolean' | 'slider' | 'dropdown' | 'array' | 'textarea' | 'crafting_costs' | 'engram_entries' | 'loot_crates' | 'dino_spawns' | 'engram_points_per_level' | 'item_stack_overrides';
 
 export interface ConfigField {
     section: string;
@@ -124,6 +124,14 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 description: 'Message shown to players when they join. Use \\n for new lines.'
             },
             {
+                section: 'MessageOfTheDay',
+                key: 'Duration',
+                label: 'MOTD Duration (seconds)',
+                type: 'number',
+                defaultValue: '20',
+                description: 'How many seconds the Message of the Day stays on screen after a player joins.'
+            },
+            {
                 section: 'ServerSettings',
                 key: 'Port',
                 label: 'Game Port',
@@ -192,6 +200,14 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 max: 65535,
                 step: 1,
                 description: 'Port for RCON connections (default: 27020)'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'RCONServerGameLogBuffer',
+                label: 'RCON Game Log Buffer',
+                type: 'number',
+                defaultValue: '600',
+                description: 'Number of game log lines kept and sent through RCON.'
             },
             {
                 section: 'ServerSettings',
@@ -549,6 +565,71 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 type: 'boolean',
                 defaultValue: 'False',
                 description: 'Allow picking up placed structures'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'TheMaxStructuresInRange',
+                label: 'Max Structures In Range',
+                type: 'number',
+                defaultValue: '10500',
+                description: 'Maximum number of structures that can be built within the (hard-coded) range. Replaces NewMaxStructuresInRange.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'IgnoreLimitMaxStructuresInRangeTypeFlag',
+                label: 'Ignore Decorative Structure Limit',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, removes the 150 limit for decorative structures (flags, signs, dermis, etc.).'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'StructurePickupTimeAfterPlacement',
+                label: 'Quick Pickup Window (seconds)',
+                type: 'number',
+                defaultValue: '30',
+                description: 'How many seconds after placement a structure can still be quickly picked up.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'StructurePickupHoldDuration',
+                label: 'Quick Pickup Hold Duration',
+                type: 'slider',
+                defaultValue: '0.5',
+                min: 0,
+                max: 10,
+                step: 0.1,
+                description: 'How long (seconds) the use key must be held to quick pick up a structure. 0 = instant.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'PlatformSaddleBuildAreaBoundsMultiplier',
+                label: 'Platform Saddle Build Area',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'Higher values allow structures to be placed farther away from platform saddles.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'StructurePreventResourceRadiusMultiplier',
+                label: 'Structure Resource Prevention Radius',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0,
+                max: 10,
+                step: 0.1,
+                description: 'Multiplier for the radius around structures where resources do not respawn (stacks with ResourceNoReplenishRadiusStructures in Game.ini).'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'EnableExtraStructurePreventionVolumes',
+                label: 'Extra Build Prevention Zones',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, disables building in specific resource-rich areas (e.g. around the major mountains on The Island).'
             }
         ]
     },
@@ -556,30 +637,17 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
         title: 'Cryopods & Stasis',
         description: 'Configure Cryopod stasis, fridge requirements, and cooldowns',
         category: 'gameplay',
+        // Only keys documented for ASA on ark.wiki.gg (Server configuration). The previous entries
+        // (DisableCryopodStasis, DisableCryopodStructureRequirement, DisableCryopods, CryopodCooldown,
+        // AllowCryoCooldownOnPvE, EnableCryoSicknessPVP) are not real server options and had no effect.
         fields: [
             {
                 section: 'ServerSettings',
-                key: 'DisableCryopods',
-                label: 'Disable Cryopods Entirely',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Completely disables cryopod usage on the server.'
-            },
-            {
-                section: 'ServerSettings',
                 key: 'DisableCryopodFridgeRequirement',
-                label: 'Disable Cryo Fridge Requirement',
+                label: 'Use Cryopods Without a Cryofridge',
                 type: 'boolean',
                 defaultValue: 'False',
-                description: 'In ASA, setting this to True removes the requirement that a powered Cryofridge must be nearby to deploy cryopods.'
-            },
-            {
-                section: 'ServerSettings',
-                key: 'AllowCryoFridgeOnSaddle',
-                label: 'Allow Cryofridge on Saddles / Rafts',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Allows placing Cryofridges on platform saddles and rafts.'
+                description: 'If True, cryopods can be used without being in range of a powered Cryofridge.'
             },
             {
                 section: 'ServerSettings',
@@ -587,34 +655,15 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 label: 'Disable Enemy Check',
                 type: 'boolean',
                 defaultValue: 'False',
-                description: 'Allows deploying cryopods even if enemy players or structures are nearby.'
+                description: 'If True, cryopods can be used while enemies are nearby.'
             },
             {
                 section: 'ServerSettings',
-                key: 'AllowCryoCooldownOnPvE',
-                label: 'Allow Cryo Cooldown on PvE',
+                key: 'AllowCryoFridgeOnSaddle',
+                label: 'Allow Cryofridge on Platform Saddles',
                 type: 'boolean',
                 defaultValue: 'False',
-                description: 'Enables Cryo cooldown timer / sickness on PvE servers.'
-            },
-            {
-                section: 'ServerSettings',
-                key: 'EnableCryoSicknessPVP',
-                label: 'Enable Cryo Sickness (PvP)',
-                type: 'boolean',
-                defaultValue: 'True',
-                description: 'Enables cryo sickness debuff when deploying multiple cryopods in PvP.'
-            },
-            {
-                section: 'ServerSettings',
-                key: 'CryopodCooldown',
-                label: 'Cryopod Cooldown (Seconds)',
-                type: 'slider',
-                defaultValue: '0',
-                min: 0,
-                max: 300,
-                step: 5,
-                description: 'Cooldown time in seconds between cryopod deployments (0 to disable cooldown).'
+                description: 'If True, Cryofridges can be built on platform saddles and rafts.'
             }
         ]
     },
@@ -716,6 +765,17 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 defaultValue: '1.0',
                 min: 0.1, max: 10, step: 0.1,
                 description: 'Radius around structures where resources do not respawn'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'GreaterRiftActivationMultiplier',
+                label: 'Greater Rift Interval',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'Scales the interval between Greater Rift activations. Lower = more frequent, higher = rarer.'
             }
         ]
     },
@@ -739,6 +799,14 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 type: 'boolean',
                 defaultValue: 'False',
                 description: 'Allow building inside caves'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'AllowCaveBuildingPvP',
+                label: 'Allow Cave Building (PvP)',
+                type: 'boolean',
+                defaultValue: 'True',
+                description: 'If disabled, prevents building in caves when PvP is enabled.'
             },
             {
                 section: 'ServerSettings',
@@ -790,6 +858,14 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 max: 900,
                 step: 60,
                 description: 'Delay before offline protection activates (0 = immediate)'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'PvPDinoDecay',
+                label: 'PvP Dino Decay',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, tamed creatures decay in PvP while Offline Raid Prevention is active.'
             }
         ]
     },
@@ -832,11 +908,35 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
             },
             {
                 section: 'ServerSettings',
+                key: 'DontAlwaysNotifyPlayerJoined',
+                label: 'Don\'t Notify Player Joined',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, globally disables the "player joined" notifications.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'AdminLogging',
+                label: 'Admin Logging',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, all admin commands are logged to the in-game chat.'
+            },
+            {
+                section: 'ServerSettings',
                 key: 'ServerCrosshair',
                 label: 'Enable Crosshair',
                 type: 'boolean',
                 defaultValue: 'True',
                 description: 'Show crosshair'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'ServerForceNoHUD',
+                label: 'Force No HUD',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, the HUD (floating names/info) is always hidden for non-tribe-owned NPCs.'
             },
             {
                 section: 'ServerSettings',
@@ -900,6 +1000,38 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 type: 'boolean',
                 defaultValue: 'True',
                 description: 'Allow supply crates on buildings'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'ServerHardcore',
+                label: 'Hardcore Mode',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, characters are reset to level 1 when they die.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'PreventSpawnAnimations',
+                label: 'Disable Spawn Animations',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, players respawn without the wake-up animation.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'RandomSupplyCratePoints',
+                label: 'Random Supply Crate Locations',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, supply drops spawn at random locations. Can make some artifact caves inaccessible on certain maps.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'TribeNameChangeCooldown',
+                label: 'Tribe Rename Cooldown (minutes)',
+                type: 'number',
+                defaultValue: '15',
+                description: 'Minutes a tribe must wait between name changes.'
             }
         ]
     },
@@ -942,6 +1074,30 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
             },
             {
                 section: 'ServerSettings',
+                key: 'PreventUploadSurvivors',
+                label: 'Prevent Survivor Uploads',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, survivors cannot be uploaded to ARK Data (Obelisks/transmitters).'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'PreventUploadItems',
+                label: 'Prevent Item Uploads',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, items cannot be uploaded to ARK Data.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'PreventUploadDinos',
+                label: 'Prevent Dino Uploads',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, tamed creatures cannot be uploaded to ARK Data.'
+            },
+            {
+                section: 'ServerSettings',
                 key: 'CrossARKAllowForeignDinoDownloads',
                 label: 'Allow Foreign Dinos',
                 type: 'boolean',
@@ -970,6 +1126,17 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 type: 'boolean',
                 defaultValue: 'False',
                 description: 'Prevent unclaimed dinos from decaying in PvE'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'PvEDinoDecayPeriodMultiplier',
+                label: 'PvE Dino Decay Period',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'Multiplier for how long tamed creatures take to decay in PvE (requires DisableDinoDecayPvE = false).'
             },
             {
                 section: 'ServerSettings',
@@ -1178,6 +1345,17 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 max: 7200,
                 step: 300,
                 description: 'Kick players after idle time (0=disabled)'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'ListenServerTetherDistanceMultiplier',
+                label: 'Tether Distance (Non-Dedicated)',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'Scales the tether distance between host and players. Only affects non-dedicated (hosted) sessions.'
             }
         ]
     },
@@ -1303,6 +1481,28 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
             },
             {
                 section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'CustomRecipeEffectivenessMultiplier',
+                label: 'Custom Recipe Effectiveness',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'Multiplier for the effectiveness of custom recipes (food/drinks).'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'CustomRecipeSkillMultiplier',
+                label: 'Custom Recipe Skill',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'Multiplier for the effect of the Crafting Skill stat in the custom recipe formula.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
                 key: 'OverrideNamedEngramEntries',
                 label: 'Engram Overrides',
                 type: 'engram_entries',
@@ -1316,6 +1516,14 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 type: 'crafting_costs',
                 defaultValue: '',
                 description: 'Override the resource costs to craft specific items.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'ConfigOverrideItemMaxQuantity',
+                label: 'Item Stack Size Overrides',
+                type: 'item_stack_overrides',
+                defaultValue: '',
+                description: 'Set the max stack size of specific items (e.g. raw meat 40 → 200), optionally ignoring the global ItemStackSizeMultiplier.'
             }
         ]
     },
@@ -1378,6 +1586,83 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 max: 100,
                 step: 0.1,
                 description: 'Multiplier for special events'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'ExplorerNoteXPMultiplier',
+                label: 'Explorer Note XP Multiplier',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 100,
+                step: 0.1,
+                description: 'Multiplier for XP gained from collecting explorer notes.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'BossKillXPMultiplier',
+                label: 'Boss Kill XP Multiplier',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 100,
+                step: 0.1,
+                description: 'Multiplier for XP gained from killing bosses.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'AlphaKillXPMultiplier',
+                label: 'Alpha Kill XP Multiplier',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 100,
+                step: 0.1,
+                description: 'Multiplier for XP gained from killing alpha creatures.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'WildKillXPMultiplier',
+                label: 'Wild Kill XP Multiplier',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 100,
+                step: 0.1,
+                description: 'Multiplier for XP gained from killing wild creatures.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'CaveKillXPMultiplier',
+                label: 'Cave Kill XP Multiplier',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 100,
+                step: 0.1,
+                description: 'Multiplier for XP gained from killing creatures inside caves.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'TamedKillXPMultiplier',
+                label: 'Tamed Kill XP Multiplier',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 100,
+                step: 0.1,
+                description: 'Multiplier for XP gained from killing tamed creatures.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'UnclaimedKillXPMultiplier',
+                label: 'Unclaimed Kill XP Multiplier',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 100,
+                step: 0.1,
+                description: 'Multiplier for XP gained from killing unclaimed creatures.'
             }
         ]
     },
@@ -1498,6 +1783,17 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
             },
             {
                 section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'MatingSpeedMultiplier',
+                label: 'Mating Speed',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'How fast tamed creatures mate (fill the mating bar). Higher = faster.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
                 key: 'bDisableDinoBreeding',
                 label: 'Disable Breeding',
                 type: 'boolean',
@@ -1542,6 +1838,33 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 type: 'boolean',
                 defaultValue: 'True',
                 description: 'Show death marker on map'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'PlayerHarvestingDamageMultiplier',
+                label: 'Player Harvesting Damage',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'Multiplier for the damage players deal to harvestable resources. Higher = faster gathering.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bDisablePhotoMode',
+                label: 'Disable Photo Mode',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, players cannot use Photo Mode.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'PhotoModeRangeLimit',
+                label: 'Photo Mode Range Limit',
+                type: 'number',
+                defaultValue: '3000',
+                description: 'Maximum distance (Unreal units) the Photo Mode camera can move away from the player.'
             }
         ]
     },
@@ -1584,6 +1907,30 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 max: 10,
                 step: 0.1,
                 description: 'Harvesting damage multiplier for dinos'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bUseDinoLevelUpAnimations',
+                label: 'Dino Level-Up Animations',
+                type: 'boolean',
+                defaultValue: 'True',
+                description: 'If disabled, tamed creatures skip the level-up animation.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bFlyerPlatformAllowUnalignedDinoBasing',
+                label: 'Allow Unaligned Dinos on Flying Platforms',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, any non-allied tamed creature can stand on a Quetzal platform saddle while it is flying.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'DestroyTamesOverLevelClamp',
+                label: 'Destroy Tames Over Level',
+                type: 'number',
+                defaultValue: '0',
+                description: 'Tamed creatures above this level are deleted when the server starts. 0 = disabled (official servers use 450).'
             },
             {
                 section: '/Script/ShooterGame.ShooterGameMode',
@@ -1729,6 +2076,103 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 max: 10,
                 step: 0.1,
                 description: 'Damage dinos take from turrets'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bDisableFriendlyFire',
+                label: 'Disable Friendly Fire (PvP)',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, prevents friendly-fire damage among tribemates, their tames and structures.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bPvEAllowTribeWar',
+                label: 'Allow Tribe Wars (PvE)',
+                type: 'boolean',
+                defaultValue: 'True',
+                description: 'If disabled, tribes cannot declare war on each other on PvE servers.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bPvEAllowTribeWarCancel',
+                label: 'Allow Cancelling Tribe Wars (PvE)',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, an agreed tribe war can be cancelled before it starts.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bIncreasePvPRespawnInterval',
+                label: 'Increase PvP Respawn Interval',
+                type: 'boolean',
+                defaultValue: 'True',
+                description: 'If enabled, players killed repeatedly by enemies in PvP get an extra respawn wait time.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'IncreasePvPRespawnIntervalCheckPeriod',
+                label: 'PvP Respawn Check Period (seconds)',
+                type: 'number',
+                defaultValue: '300',
+                description: 'Time window (seconds) in which repeated deaths increase the respawn interval.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'IncreasePvPRespawnIntervalMultiplier',
+                label: 'PvP Respawn Interval Multiplier',
+                type: 'slider',
+                defaultValue: '2',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'Multiplier applied to the extra PvP respawn time on each repeated death.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'IncreasePvPRespawnIntervalBaseAmount',
+                label: 'PvP Respawn Base Amount (seconds)',
+                type: 'number',
+                defaultValue: '60',
+                description: 'Base extra respawn time (seconds) added in PvP.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bAutoPvETimer',
+                label: 'Scheduled PvE Mode',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, the server switches to PvE during the configured time window (PvPvE servers).'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bAutoPvEUseSystemTime',
+                label: 'Scheduled PvE Uses System Time',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, the PvE schedule uses the server system time instead of the in-game time.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'AutoPvEStartTimeSeconds',
+                label: 'Scheduled PvE Start (seconds)',
+                type: 'slider',
+                defaultValue: '0',
+                min: 0,
+                max: 86400,
+                step: 60,
+                description: 'Time of day (seconds since midnight, 0-86400) when PvE mode starts.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'AutoPvEStopTimeSeconds',
+                label: 'Scheduled PvE Stop (seconds)',
+                type: 'slider',
+                defaultValue: '0',
+                min: 0,
+                max: 86400,
+                step: 60,
+                description: 'Time of day (seconds since midnight, 0-86400) when PvE mode ends.'
             }
         ]
     },
@@ -1752,6 +2196,73 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 type: 'boolean',
                 defaultValue: 'False',
                 description: 'Spike walls and passive defenses damage riderless/wild dinos. Does NOT affect turrets.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bAllowPlatformSaddleMultiFloors',
+                label: 'Allow Multi-Floor Platform Saddles',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, multiple floors can be built on platform saddles.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bIgnoreStructuresPreventionVolumes',
+                label: 'Ignore Build Prevention Zones',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, allows building in areas where it is normally blocked (e.g. around Obelisks, in some caves).'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'StructureDamageRepairCooldown',
+                label: 'Structure Repair Cooldown (seconds)',
+                type: 'number',
+                defaultValue: '180',
+                description: 'Seconds a structure must wait after taking damage before it can be repaired. 0 = no cooldown.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'PvPZoneStructureDamageMultiplier',
+                label: 'Cave Structure Damage (PvP)',
+                type: 'slider',
+                defaultValue: '6',
+                min: 0,
+                max: 20,
+                step: 0.1,
+                description: 'Multiplier for the damage structures take inside caves (PvP zones). Lower = less damage.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bLimitTurretsInRange',
+                label: 'Limit Turrets In Range',
+                type: 'boolean',
+                defaultValue: 'True',
+                description: 'If enabled, limits how many turrets can be placed within a given range.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bHardLimitTurretsInRange',
+                label: 'Hard Turret Limit',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, the turret limit is enforced retroactively (turrets over the limit are disabled).'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'LimitTurretsRange',
+                label: 'Turret Limit Range',
+                type: 'number',
+                defaultValue: '10000',
+                description: 'Radius (Unreal units) in which turrets count toward the limit.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'LimitTurretsNum',
+                label: 'Max Turrets In Range',
+                type: 'number',
+                defaultValue: '100',
+                description: 'Maximum number of turrets allowed within the turret limit range.'
             }
         ]
     },
@@ -1778,6 +2289,33 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 max: 10000,
                 step: 100,
                 description: 'Maximum tribe log entries'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bDisableLootCrates',
+                label: 'Disable Loot Crates',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, loot crates (beacons) no longer spawn. Artifact crates still spawn.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'FuelConsumptionIntervalMultiplier',
+                label: 'Fuel Consumption Interval',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'Multiplier for the interval between fuel consumption. Higher = fuel lasts longer.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bShowCreativeMode',
+                label: 'Show Creative Mode Button',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'If enabled, adds a button to the pause menu to toggle creative mode.'
             }
         ]
     },
@@ -1906,6 +2444,14 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 type: 'number',
                 defaultValue: '0',
                 description: 'Total XP required for max level'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'OverrideMaxExperiencePointsDino',
+                label: 'Max Dino XP',
+                type: 'number',
+                defaultValue: '',
+                description: 'Overrides the maximum XP cap for tamed creatures (exact value). Leave empty for the game default.'
             },
             {
                 section: '/Script/ShooterGame.ShooterGameMode',

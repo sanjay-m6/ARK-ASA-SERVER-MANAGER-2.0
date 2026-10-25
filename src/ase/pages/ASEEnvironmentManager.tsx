@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { useAseServerStore } from '../stores/aseServerStore';
 import { AseGameConfig } from '../types/ase.types';
 
@@ -149,6 +150,7 @@ function serializeMultiplierMap(map: Map<string, number>): string {
 }
 
 import { cn } from '../../utils/helpers';
+import { NumberInput } from '../../components/ui/NumberInput';
 
 interface ASEEnvironmentManagerProps {
   embedded?: boolean;
@@ -159,6 +161,7 @@ interface ASEEnvironmentManagerProps {
 
 // ─── Component ──────────────────────────────────────────────────────────────────
 export default function ASEEnvironmentManager({ embedded = false, config: propConfig, onChange, externalSearchQuery }: ASEEnvironmentManagerProps = {}) {
+  const { t } = useTranslation();
   const { servers } = useAseServerStore();
   const selectedServer = servers[0];
 
@@ -223,7 +226,7 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
         setResourceMultipliers(parsed);
         setOriginalResourceMultipliers(new Map(parsed));
       } catch (e) {
-        toast.error(`Failed to load config: ${e}`);
+        toast.error(t('ase.environment.loadFailed', { defaultValue: 'Failed to load config: {{error}}', error: String(e) }));
       } finally {
         setLoading(false);
       }
@@ -371,7 +374,7 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
       });
     }
     setPresetDropdownOpen(false);
-    toast.success(`Applied ${preset.label} preset`);
+    toast.success(t('ase.environment.presetApplied', { defaultValue: 'Applied {{name}} preset', name: t(`ase.environment.presets.${preset.tag}`, preset.label) }));
   }, [embedded, propConfig, onChange]);
 
   // Save
@@ -387,9 +390,9 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
       setOriginalConfig(JSON.parse(JSON.stringify(finalConfig)));
       setConfig(finalConfig);
       setOriginalResourceMultipliers(new Map(resourceMultipliers));
-      toast.success('Environment configuration saved');
+      toast.success(t('ase.environment.saved', 'Environment configuration saved'));
     } catch (e) {
-      toast.error(`Failed to save: ${e}`);
+      toast.error(t('ase.environment.saveFailed', { defaultValue: 'Failed to save: {{error}}', error: String(e) }));
     } finally {
       setSaving(false);
     }
@@ -410,7 +413,7 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
       <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="text-center">
           <Globe className="w-10 h-10 text-amber-400 mx-auto mb-3 animate-pulse" />
-          <p className="text-slate-400 text-sm">Loading environment configuration...</p>
+          <p className="text-slate-400 text-sm">{t('ase.environment.loading', 'Loading environment configuration...')}</p>
         </div>
       </div>
     );
@@ -422,8 +425,8 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
       <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="text-center">
           <Globe className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-slate-300 mb-2">No Server Selected</h3>
-          <p className="text-slate-500 text-sm">Create or select an ASE server to manage environment settings.</p>
+          <h3 className="text-lg font-semibold text-slate-300 mb-2">{t('ase.environment.noServer', 'No Server Selected')}</h3>
+          <p className="text-slate-500 text-sm">{t('ase.environment.noServerDesc', 'Create or select an ASE server to manage environment settings.')}</p>
         </div>
       </div>
     );
@@ -444,7 +447,7 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
               <Globe className="w-5 h-5 text-lime-400" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white tracking-tight">Environment & Harvest</h1>
+              <h1 className="text-xl font-bold text-white tracking-tight">{t('ase.environment.title', 'Environment & Harvest')}</h1>
               <p className="text-xs text-slate-500 mt-0.5">
                 {selectedServer?.name} — Manage rates, resources, and taming economy
               </p>
@@ -452,7 +455,7 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
           </div>
           <div className="flex items-center gap-2">
             <div className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
-              <span className="text-[10px] font-bold text-amber-400 tracking-wider uppercase">ASE Engine</span>
+              <span className="text-[10px] font-bold text-amber-400 tracking-wider uppercase">{t('ase.environment.engine', 'ASE Engine')}</span>
             </div>
             {resourceMultipliers.size > 0 && (
               <div className="px-3 py-1 bg-lime-500/10 border border-lime-500/20 rounded-full">
@@ -470,7 +473,7 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-sm font-bold text-white flex items-center gap-2">
             <Sliders className="w-4 h-4 text-amber-400" />
-            Global Rate Multipliers
+            {t('ase.environment.globalRates', 'Global Rate Multipliers')}
           </h2>
           {/* Preset Dropdown */}
           <div className="relative z-20" ref={presetRef}>
@@ -479,7 +482,7 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
               className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:border-amber-500/30 transition-all focus:outline-none"
             >
               <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <span>Apply Preset</span>
+              <span>{t('ase.environment.applyPreset', 'Apply Preset')}</span>
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${presetDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
             <AnimatePresence>
@@ -499,7 +502,7 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
                     >
                       <span className={`w-2 h-2 rounded-full bg-${preset.color}-400`} />
                       <div className="flex-1">
-                        <p className="text-xs font-medium text-slate-200">{preset.label}</p>
+                        <p className="text-xs font-medium text-slate-200">{t(`ase.environment.presets.${preset.tag}`, preset.label)}</p>
                         <p className="text-[10px] text-slate-500">
                           H:{preset.harvestAmount}x T:{preset.tamingSpeed}x XP:{preset.xp}x
                         </p>
@@ -518,12 +521,12 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
         {/* Slider Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[
-            { key: 'harvestAmountMultiplier' as keyof AseGameConfig, label: 'Harvest Amount', icon: <Leaf className="w-4 h-4 text-lime-400" />, max: 20, step: 0.5, color: 'lime' },
-            { key: 'tamingSpeedMultiplier' as keyof AseGameConfig, label: 'Taming Speed', icon: <Sprout className="w-4 h-4 text-emerald-400" />, max: 50, step: 0.5, color: 'emerald' },
-            { key: 'dinoCountMultiplier' as keyof AseGameConfig, label: 'Dino Spawn Count', icon: <TreePine className="w-4 h-4 text-green-400" />, max: 5, step: 0.1, color: 'green' },
-            { key: 'resourcesRespawnPeriodMultiplier' as keyof AseGameConfig, label: 'Resource Respawn', icon: <RotateCw className="w-4 h-4 text-sky-400" />, max: 10, step: 0.1, color: 'sky' },
-            { key: 'harvestHealthMultiplier' as keyof AseGameConfig, label: 'Harvest Health', icon: <Mountain className="w-4 h-4 text-amber-400" />, max: 10, step: 0.1, color: 'amber' },
-            { key: 'xpMultiplier' as keyof AseGameConfig, label: 'XP Multiplier', icon: <Zap className="w-4 h-4 text-yellow-400" />, max: 50, step: 0.5, color: 'yellow' },
+            { key: 'harvestAmountMultiplier' as keyof AseGameConfig, label: t('ase.environment.harvestAmount', 'Harvest Amount'), icon: <Leaf className="w-4 h-4 text-lime-400" />, max: 20, step: 0.5, color: 'lime' },
+            { key: 'tamingSpeedMultiplier' as keyof AseGameConfig, label: t('ase.environment.tamingSpeed', 'Taming Speed'), icon: <Sprout className="w-4 h-4 text-emerald-400" />, max: 50, step: 0.5, color: 'emerald' },
+            { key: 'dinoCountMultiplier' as keyof AseGameConfig, label: t('ase.environment.dinoCount', 'Dino Spawn Count'), icon: <TreePine className="w-4 h-4 text-green-400" />, max: 5, step: 0.1, color: 'green' },
+            { key: 'resourcesRespawnPeriodMultiplier' as keyof AseGameConfig, label: t('ase.environment.resourceRespawn', 'Resource Respawn'), icon: <RotateCw className="w-4 h-4 text-sky-400" />, max: 10, step: 0.1, color: 'sky' },
+            { key: 'harvestHealthMultiplier' as keyof AseGameConfig, label: t('ase.environment.harvestHealth', 'Harvest Health'), icon: <Mountain className="w-4 h-4 text-amber-400" />, max: 10, step: 0.1, color: 'amber' },
+            { key: 'xpMultiplier' as keyof AseGameConfig, label: t('ase.environment.xpMultiplier', 'XP Multiplier'), icon: <Zap className="w-4 h-4 text-yellow-400" />, max: 50, step: 0.5, color: 'yellow' },
           ].map(slider => {
             const val = config[slider.key] as number;
             return (
@@ -534,13 +537,11 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
                     <span className="text-xs font-medium text-slate-300">{slider.label}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
+                    <NumberInput
                       value={val}
-                      onChange={e => updateGlobal(slider.key, parseFloat(e.target.value) || 0)}
+                      onValueChange={n => updateGlobal(slider.key, n)}
                       min={0}
                       max={slider.max}
-                      step={slider.step}
                       className="w-16 bg-[#0A0F1C]/80 border border-white/10 rounded-lg px-2 py-1 text-xs text-white text-center focus:outline-none focus:border-amber-500/40"
                     />
                     <span className="text-[10px] text-slate-500 font-mono">×</span>
@@ -566,8 +567,8 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
         {/* Toggle Checkboxes */}
         <div className="flex flex-wrap gap-4 mt-5 pt-4 border-t border-white/5">
           {[
-            { key: 'clampResourceHarvestDamage' as keyof AseGameConfig, label: 'Clamp Resource Harvest Damage', tip: 'Prevents excessive resource damage from high-level dinos' },
-            { key: 'optimizedHarvestingHealth' as keyof AseGameConfig, label: 'Use Optimized Harvesting Health', tip: 'Applies optimized health calculations for harvested resources' },
+            { key: 'clampResourceHarvestDamage' as keyof AseGameConfig, label: t('ase.environment.clampHarvest', 'Clamp Resource Harvest Damage'), tip: t('ase.environment.clampHarvestTip', 'Prevents excessive resource damage from high-level dinos') },
+            { key: 'optimizedHarvestingHealth' as keyof AseGameConfig, label: t('ase.environment.optimizedHarvest', 'Use Optimized Harvesting Health'), tip: t('ase.environment.optimizedHarvestTip', 'Applies optimized health calculations for harvested resources') },
           ].map(toggle => (
             <button
               key={toggle.key}
@@ -589,15 +590,15 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
       <div className="glass-panel rounded-2xl p-6 mb-6">
         <div className="flex items-center gap-2 mb-4">
           <Sprout className="w-5 h-5 text-emerald-400" />
-          <h2 className="text-base font-bold text-white">Agriculture & Ecosystem</h2>
+          <h2 className="text-base font-bold text-white">{t('ase.environment.agriculture', 'Agriculture & Ecosystem')}</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[
-            { key: 'cropGrowthSpeedMultiplier' as keyof AseGameConfig, label: 'Crop Growth Speed', icon: <Sprout className="w-4 h-4 text-emerald-400" />, max: 20, step: 0.1, color: 'emerald' },
-            { key: 'cropDecaySpeedMultiplier' as keyof AseGameConfig, label: 'Crop Decay Speed', icon: <Droplets className="w-4 h-4 text-sky-400" />, max: 20, step: 0.1, color: 'sky' },
-            { key: 'poopIntervalMultiplier' as keyof AseGameConfig, label: 'Poop Interval', icon: <Mountain className="w-4 h-4 text-amber-600" />, max: 10, step: 0.1, color: 'amber' },
-            { key: 'layEggIntervalMultiplier' as keyof AseGameConfig, label: 'Lay Egg Interval', icon: <Gem className="w-4 h-4 text-fuchsia-400" />, max: 10, step: 0.1, color: 'fuchsia' },
-            { key: 'hairGrowthSpeedMultiplier' as keyof AseGameConfig, label: 'Hair Growth Speed', icon: <Sparkles className="w-4 h-4 text-yellow-400" />, max: 10, step: 0.1, color: 'yellow' },
+            { key: 'cropGrowthSpeedMultiplier' as keyof AseGameConfig, label: t('ase.environment.cropGrowth', 'Crop Growth Speed'), icon: <Sprout className="w-4 h-4 text-emerald-400" />, max: 20, step: 0.1, color: 'emerald' },
+            { key: 'cropDecaySpeedMultiplier' as keyof AseGameConfig, label: t('ase.environment.cropDecay', 'Crop Decay Speed'), icon: <Droplets className="w-4 h-4 text-sky-400" />, max: 20, step: 0.1, color: 'sky' },
+            { key: 'poopIntervalMultiplier' as keyof AseGameConfig, label: t('ase.environment.poopInterval', 'Poop Interval'), icon: <Mountain className="w-4 h-4 text-amber-600" />, max: 10, step: 0.1, color: 'amber' },
+            { key: 'layEggIntervalMultiplier' as keyof AseGameConfig, label: t('ase.environment.layEgg', 'Lay Egg Interval'), icon: <Gem className="w-4 h-4 text-fuchsia-400" />, max: 10, step: 0.1, color: 'fuchsia' },
+            { key: 'hairGrowthSpeedMultiplier' as keyof AseGameConfig, label: t('ase.environment.hairGrowth', 'Hair Growth Speed'), icon: <Sparkles className="w-4 h-4 text-yellow-400" />, max: 10, step: 0.1, color: 'yellow' },
           ].map(slider => {
             const val = config[slider.key] as number ?? 1.0;
             return (
@@ -608,13 +609,11 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
                     <span className="text-xs font-medium text-slate-300">{slider.label}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
+                    <NumberInput
                       value={val}
-                      onChange={e => updateGlobal(slider.key, parseFloat(e.target.value) || 0)}
+                      onValueChange={n => updateGlobal(slider.key, n)}
                       min={0}
                       max={slider.max}
-                      step={slider.step}
                       className="w-16 bg-[#0A0F1C]/80 border border-white/10 rounded-lg px-2 py-1 text-xs text-white text-center focus:outline-none focus:border-amber-500/40"
                     />
                     <span className="text-[10px] text-slate-500 font-mono">×</span>
@@ -643,7 +642,7 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-5 gap-3">
           <h2 className="text-sm font-bold text-white flex items-center gap-2">
             <Wheat className="w-4 h-4 text-lime-400" />
-            Custom Harvest Amount Multipliers
+            {t('ase.environment.customHarvest', 'Custom Harvest Amount Multipliers')}
             <span className="text-[10px] font-normal text-slate-500 ml-1">
               (per-resource overrides in Game.ini)
             </span>
@@ -655,7 +654,7 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search resources..."
+              placeholder={t('ase.environment.searchResources', 'Search resources...')}
               className="w-full pl-9 pr-4 py-2 bg-[#0A0F1C]/80 border border-white/5 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/30 transition-colors"
             />
           </div>
@@ -674,7 +673,7 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
               }`}
             >
               {CATEGORY_ICONS[cat] || <Filter className="w-3.5 h-3.5" />}
-              <span>{cat}</span>
+              <span>{t(`ase.environment.categories.${cat}`, cat)}</span>
               {cat !== 'All' && (
                 <span className="text-[9px] opacity-60">
                   ({allResources.filter(r => r.category === cat).length})
@@ -688,12 +687,12 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
         <div className="space-y-1.5">
           {/* Header */}
           <div className="grid grid-cols-12 gap-3 px-4 py-2 text-[10px] text-slate-500 uppercase tracking-wider font-bold">
-            <div className="col-span-1">Icon</div>
-            <div className="col-span-3">Resource</div>
-            <div className="col-span-3">Class Name</div>
-            <div className="col-span-1">Source</div>
-            <div className="col-span-3">Multiplier</div>
-            <div className="col-span-1 text-right">Reset</div>
+            <div className="col-span-1">{t('ase.environment.colIcon', 'Icon')}</div>
+            <div className="col-span-3">{t('ase.environment.colResource', 'Resource')}</div>
+            <div className="col-span-3">{t('ase.environment.colClass', 'Class Name')}</div>
+            <div className="col-span-1">{t('ase.environment.colSource', 'Source')}</div>
+            <div className="col-span-3">{t('ase.environment.colMultiplier', 'Multiplier')}</div>
+            <div className="col-span-1 text-right">{t('ase.environment.colReset', 'Reset')}</div>
           </div>
 
           {/* Rows */}
@@ -745,13 +744,11 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
                         background: `linear-gradient(to right, hsl(45 80% 50%) 0%, hsl(45 80% 50%) ${(mult / 20) * 100}%, rgba(255,255,255,0.05) ${(mult / 20) * 100}%, rgba(255,255,255,0.05) 100%)`,
                       }}
                     />
-                    <input
-                      type="number"
+                    <NumberInput
                       value={mult}
-                      onChange={e => updateResourceMultiplier(resource.className, parseFloat(e.target.value) || 0)}
+                      onValueChange={n => updateResourceMultiplier(resource.className, n)}
                       min={0}
                       max={20}
-                      step={0.1}
                       className="w-14 bg-[#0A0F1C]/80 border border-white/10 rounded-lg px-1.5 py-1 text-[11px] text-white text-center focus:outline-none focus:border-amber-500/40"
                     />
                     <span className="text-[10px] text-slate-500">×</span>
@@ -761,7 +758,7 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
                       <button
                         onClick={() => removeResourceMultiplier(resource.className)}
                         className="p-1 hover:bg-rose-500/10 rounded transition-colors group focus:outline-none"
-                        title="Remove custom override"
+                        title={t('ase.environment.removeOverride', 'Remove custom override')}
                       >
                         <X className="w-3.5 h-3.5 text-slate-500 group-hover:text-rose-400 transition-colors" />
                       </button>
@@ -775,7 +772,7 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
           {filteredResources.length === 0 && (
             <div className="text-center py-10">
               <Search className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-              <p className="text-sm text-slate-500">No resources match your search</p>
+              <p className="text-sm text-slate-500">{t('ase.environment.noMatch', 'No resources match your search')}</p>
             </div>
           )}
         </div>
@@ -784,7 +781,7 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
             <p className="text-[10px] text-slate-500">
-              Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredResources.length)} of {filteredResources.length}
+              {t('ase.environment.showingRange', { defaultValue: 'Showing {{from}}–{{to}} of {{total}}', from: ((currentPage - 1) * ITEMS_PER_PAGE) + 1, to: Math.min(currentPage * ITEMS_PER_PAGE, filteredResources.length), total: filteredResources.length })}
             </p>
             <div className="flex items-center gap-1.5">
               <button
@@ -843,12 +840,12 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
             >
               <div className="flex items-center gap-3 px-5 py-3 bg-[#0f1729]/95 backdrop-blur-xl border border-amber-500/30 rounded-2xl shadow-2xl shadow-amber-900/20">
                 <AlertTriangle className="w-4 h-4 text-amber-400" />
-                <span className="text-xs text-slate-300 font-medium">Unsaved environment changes</span>
+                <span className="text-xs text-slate-300 font-medium">{t('ase.environment.unsaved', 'Unsaved environment changes')}</span>
                 <button
                   onClick={handleRevert}
                   className="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-white border border-white/10 rounded-lg hover:bg-white/5 transition-all focus:outline-none"
                 >
-                  Revert
+                  {t('ase.environment.revert', 'Revert')}
                 </button>
                 <button
                   onClick={handleSave}
@@ -856,7 +853,7 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
                   className="px-4 py-1.5 text-xs font-bold text-slate-900 bg-amber-500 hover:bg-amber-400 rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5 focus:outline-none"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  {saving ? t('ase.environment.saving', 'Saving...') : t('ase.environment.saveChanges', 'Save Changes')}
                 </button>
               </div>
             </motion.div>

@@ -1,4 +1,5 @@
 import { Sparkles, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { AiMessage } from '../../utils/aiAgent';
@@ -34,6 +35,7 @@ const CompactMarkdown: import('react-markdown').Components = {
 };
 
 export function CopilotMessage({ message }: { message: AiMessage }) {
+    const { t } = useTranslation();
     const isUser = message.role === 'user';
 
     if (message.role === 'tool') return null;
@@ -49,7 +51,7 @@ export function CopilotMessage({ message }: { message: AiMessage }) {
                 {!isUser && (
                     <div className="flex items-center gap-1 mb-1">
                         <Sparkles className="w-3 h-3 text-cyan-400" />
-                        <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-wider">AI</span>
+                        <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-wider">{t('copilot.aiLabel', 'AI')}</span>
                     </div>
                 )}
                 {isUser ? (
@@ -73,12 +75,13 @@ export function CopilotMessage({ message }: { message: AiMessage }) {
 }
 
 export function CopilotStreamBubble({ content }: { content: string }) {
+    const { t } = useTranslation();
     return (
         <div className="flex justify-start px-3 py-1">
             <div className="max-w-[90%] rounded-xl px-3 py-2 text-[13px] leading-relaxed bg-white/[0.03] border border-white/5 text-slate-200">
                 <div className="flex items-center gap-1 mb-1">
                     <Sparkles className="w-3 h-3 text-cyan-400 animate-pulse" />
-                    <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-wider">AI</span>
+                    <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-wider">{t('copilot.aiLabel', 'AI')}</span>
                 </div>
                 {content ? (
                     <div className="break-words max-w-full overflow-hidden">
@@ -89,7 +92,7 @@ export function CopilotStreamBubble({ content }: { content: string }) {
                 ) : (
                     <div className="flex items-center gap-1.5 text-slate-400">
                         <Loader2 className="w-3 h-3 animate-spin" />
-                        <span className="text-[11px]">Thinking...</span>
+                        <span className="text-[11px]">{t('copilot.thinking', 'Thinking...')}</span>
                     </div>
                 )}
             </div>

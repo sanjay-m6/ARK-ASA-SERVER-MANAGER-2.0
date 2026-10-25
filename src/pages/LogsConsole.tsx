@@ -57,12 +57,12 @@ interface RconResponse {
 }
 
 const QUICK_COMMANDS = [
-    { label: 'Save World', command: 'SaveWorld', icon: Save, color: 'hover:border-emerald-500/50 hover:bg-emerald-500/10 text-emerald-400' },
-    { label: 'List Players', command: 'ListPlayers', icon: Users, color: 'hover:border-blue-500/50 hover:bg-blue-500/10 text-blue-400' },
-    { label: 'Broadcast', command: 'Broadcast Server announcement here...', icon: Radio, color: 'hover:border-purple-500/50 hover:bg-purple-500/10 text-purple-400' },
-    { label: 'Destroy Wild Dinos', command: 'DestroyWildDinos', icon: RefreshCw, color: 'hover:border-amber-500/50 hover:bg-amber-500/10 text-amber-400' },
-    { label: 'Set Day (12:00)', command: 'SetTimeOfDay 12:00', icon: Sun, color: 'hover:border-yellow-500/50 hover:bg-yellow-500/10 text-yellow-400' },
-    { label: 'Do Exit (Save & Stop)', command: 'DoExit', icon: ShieldAlert, color: 'hover:border-rose-500/50 hover:bg-rose-500/10 text-rose-400' },
+    { labelKey: 'logs.quickCommands.saveWorld', label: 'Save World', command: 'SaveWorld', icon: Save, color: 'hover:border-emerald-500/50 hover:bg-emerald-500/10 text-emerald-400' },
+    { labelKey: 'logs.quickCommands.listPlayers', label: 'List Players', command: 'ListPlayers', icon: Users, color: 'hover:border-blue-500/50 hover:bg-blue-500/10 text-blue-400' },
+    { labelKey: 'logs.quickCommands.broadcast', label: 'Broadcast', command: 'Broadcast Server announcement here...', icon: Radio, color: 'hover:border-purple-500/50 hover:bg-purple-500/10 text-purple-400' },
+    { labelKey: 'logs.quickCommands.destroyDinos', label: 'Destroy Wild Dinos', command: 'DestroyWildDinos', icon: RefreshCw, color: 'hover:border-amber-500/50 hover:bg-amber-500/10 text-amber-400' },
+    { labelKey: 'logs.quickCommands.setDay', label: 'Set Day (12:00)', command: 'SetTimeOfDay 12:00', icon: Sun, color: 'hover:border-yellow-500/50 hover:bg-yellow-500/10 text-yellow-400' },
+    { labelKey: 'logs.quickCommands.doExit', label: 'Do Exit (Save & Stop)', command: 'DoExit', icon: ShieldAlert, color: 'hover:border-rose-500/50 hover:bg-rose-500/10 text-rose-400' },
 ];
 
 function parseLogLevel(line: string): 'info' | 'warning' | 'error' | 'debug' | 'cfcore' | 'rcon' {
@@ -278,7 +278,7 @@ export default function LogsConsole() {
 
             const rconResult: RconResponse = {
                 command: finalCmd,
-                response: response.message || (response.success ? 'Command executed successfully' : 'Execution failed with no output'),
+                response: response.message || (response.success ? t('logs.commandExecuted', 'Command executed successfully') : t('logs.executionFailedNoOutput', 'Execution failed with no output')),
                 success: response.success,
                 timestamp: execTime,
             };
@@ -298,7 +298,7 @@ export default function LogsConsole() {
                     timestamp: execTime,
                     level: response.success ? 'info' : 'error',
                     source: 'RCON',
-                    message: response.message || (response.success ? 'Success' : 'Failed'),
+                    message: response.message || (response.success ? t('common.success', 'Success') : t('logs.failed', 'Failed')),
                     raw: `[RCON Response] ${response.message}`,
                 }
             ]);
@@ -402,7 +402,7 @@ export default function LogsConsole() {
                             >
                                 {servers.map(s => (
                                     <option key={s.id} value={s.id} className="bg-slate-900 text-white">
-                                        {s.name} ({s.config?.mapName || 'Map'} - Port {s.ports?.gamePort || '7777'})
+                                        {s.name} ({s.config?.mapName || t('logs.map', 'Map')} - {t('logs.portLabel', { defaultValue: 'Port {{port}}', port: s.ports?.gamePort || '7777' })})
                                     </option>
                                 ))}
                             </select>
@@ -419,7 +419,7 @@ export default function LogsConsole() {
                                 "font-medium capitalize",
                                 isServerOnline ? "text-emerald-400" : "text-slate-400"
                             )}>
-                                {selectedServer.status || 'Offline'}
+                                {selectedServer.status ? t(`logs.serverStatus.${selectedServer.status}`, { defaultValue: selectedServer.status }) : t('common.offline', 'Offline')}
                             </span>
                         </div>
                     )}
@@ -461,7 +461,7 @@ export default function LogsConsole() {
                         )}
                     >
                         <Info className="w-3.5 h-3.5 text-blue-400" />
-                        <span>INFO</span>
+                        <span>{t('logs.levels.info', 'INFO')}</span>
                         <span className="px-1.5 py-0.5 bg-blue-500/20 rounded-md text-[10px] font-mono leading-none">{logStats.info}</span>
                     </button>
 
@@ -475,7 +475,7 @@ export default function LogsConsole() {
                         )}
                     >
                         <AlertTriangle className="w-3.5 h-3.5 text-yellow-400" />
-                        <span>WARN</span>
+                        <span>{t('logs.filterWarn', 'WARN')}</span>
                         <span className="px-1.5 py-0.5 bg-yellow-500/20 rounded-md text-[10px] font-mono leading-none">{logStats.warning}</span>
                     </button>
 
@@ -489,7 +489,7 @@ export default function LogsConsole() {
                         )}
                     >
                         <Bug className="w-3.5 h-3.5 text-rose-400" />
-                        <span>ERROR</span>
+                        <span>{t('logs.levels.error', 'ERROR')}</span>
                         <span className="px-1.5 py-0.5 bg-rose-500/20 rounded-md text-[10px] font-mono leading-none">{logStats.error}</span>
                     </button>
 
@@ -503,7 +503,7 @@ export default function LogsConsole() {
                         )}
                     >
                         <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                        <span>MODS</span>
+                        <span>{t('logs.filterMods', 'MODS')}</span>
                         <span className="px-1.5 py-0.5 bg-cyan-500/20 rounded-md text-[10px] font-mono leading-none">{logStats.cfcore}</span>
                     </button>
 
@@ -535,7 +535,7 @@ export default function LogsConsole() {
                         title={wordWrap ? t('logs.disableWordWrap', 'Disable Word Wrap') : t('logs.enableWordWrap', 'Enable Word Wrap')}
                     >
                         <WrapText className="w-3.5 h-3.5 text-slate-300" />
-                        <span>{wordWrap ? 'Wrap' : 'No Wrap'}</span>
+                        <span>{wordWrap ? t('logs.wrap', 'Wrap') : t('logs.noWrap', 'No Wrap')}</span>
                     </button>
 
                     <button
@@ -549,7 +549,7 @@ export default function LogsConsole() {
                         title={autoScroll ? t('logs.pauseAutoScroll', 'Pause auto-scroll') : t('logs.resumeAutoScroll', 'Resume auto-scroll')}
                     >
                         {autoScroll ? <Pause className="w-3.5 h-3.5 text-emerald-400" /> : <Play className="w-3.5 h-3.5 text-amber-400" />}
-                        <span>{autoScroll ? 'Auto-Scroll' : 'Paused'}</span>
+                        <span>{autoScroll ? t('logs.autoScrollShort', 'Auto-Scroll') : t('logs.paused', 'Paused')}</span>
                     </button>
 
                     <button
@@ -558,7 +558,7 @@ export default function LogsConsole() {
                         title={t('logs.copyAllLogs', 'Copy all logs to clipboard')}
                     >
                         {copiedAll ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
-                        <span>{copiedAll ? 'Copied!' : 'Copy'}</span>
+                        <span>{copiedAll ? t('logs.copiedShort', 'Copied!') : t('common.copy', 'Copy')}</span>
                     </button>
 
                     <button
@@ -603,7 +603,7 @@ export default function LogsConsole() {
                     <div className="flex items-center gap-3 text-[11px]">
                         {searchQuery && (
                             <span className="text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                                {filteredLogs.length} matches
+                                {t('logs.matches', { defaultValue: '{{count}} matches', count: filteredLogs.length })}
                             </span>
                         )}
                         <span className="text-slate-500 flex items-center gap-1">
@@ -722,7 +722,7 @@ export default function LogsConsole() {
                         {selectedServer && (
                             <span className="text-xs text-slate-400 flex items-center gap-1.5 ml-2">
                                 <span className={cn("w-2 h-2 rounded-full", isServerOnline ? "bg-emerald-500 animate-pulse" : "bg-slate-600")} />
-                                <span>{selectedServer.name} (Port {selectedServer.ports?.rconPort || '27020'})</span>
+                                <span>{selectedServer.name} ({t('logs.portLabel', { defaultValue: 'Port {{port}}', port: selectedServer.ports?.rconPort || '27020' })})</span>
                             </span>
                         )}
                     </div>
@@ -731,7 +731,7 @@ export default function LogsConsole() {
                         {isExecutingRcon && (
                             <span className="text-xs text-emerald-400 flex items-center gap-1 animate-pulse">
                                 <RefreshCw className="w-3 h-3 animate-spin" />
-                                Executing...
+                                {t('logs.executing', 'Executing...')}
                             </span>
                         )}
                         <button className="p-1 text-slate-400 hover:text-white">
@@ -746,7 +746,7 @@ export default function LogsConsole() {
                         <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs font-semibold text-slate-400 mr-1 select-none flex items-center gap-1">
                                 <Radio className="w-3 h-3 text-cyan-400" />
-                                Quick Actions:
+                                {t('logs.quickActions', 'Quick Actions:')}
                             </span>
                             {QUICK_COMMANDS.map((cmd) => (
                                 <button
@@ -765,7 +765,7 @@ export default function LogsConsole() {
                                     )}
                                 >
                                     <cmd.icon className="w-3.5 h-3.5" />
-                                    <span>{cmd.label}</span>
+                                    <span>{t(cmd.labelKey, cmd.label)}</span>
                                 </button>
                             ))}
                         </div>

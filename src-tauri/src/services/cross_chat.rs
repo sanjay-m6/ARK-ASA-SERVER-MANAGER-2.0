@@ -248,8 +248,9 @@ impl CrossChatService {
 
                 for server in &servers_rcon {
                     if let Ok(chat_resp) = service_rcon.rcon_service.send_command(server.server_id, "GetChat").await {
-                        if !chat_resp.message.trim().is_empty() && !chat_resp.message.contains("No chat messages") {
-                            for line in chat_resp.message.lines() {
+                        let chat_text = chat_resp.data.unwrap_or_default();
+                        if !chat_text.trim().is_empty() && !chat_text.contains("No chat messages") {
+                            for line in chat_text.lines() {
                                 if let Some((player_name, message)) = parse_ark_chat_line(line) {
                                     let cache_key = format!("{}:{}:{}", server.server_id, player_name, message);
                                     let mut cache = cache_rcon.lock().await;

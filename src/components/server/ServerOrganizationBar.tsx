@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Folder, Layers, FolderOpen, Sparkles, Filter } from 'lucide-react';
 import { useServerOrganizationStore } from '../../stores/serverOrganizationStore';
 import { getOrganizationSnapshot } from '../../utils/serverOrganization';
@@ -19,6 +20,7 @@ export default function ServerOrganizationBar({
   className
 }: Props) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { folders, setFolders, setSnapshot, setSelectedFolder } = useServerOrganizationStore();
   const [internalFolderId, setInternalFolderId] = useState<number | null>(null);
 
@@ -62,7 +64,7 @@ export default function ServerOrganizationBar({
         <div className="flex items-center gap-2 flex-wrap overflow-x-auto py-0.5 max-w-full">
           <div className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] border-r border-[var(--border)] mr-1 shrink-0">
             <Filter className="w-3.5 h-3.5 text-sky-500" />
-            <span>Categories</span>
+            <span>{t('serverOrgBar.categories', 'Categories')}</span>
           </div>
 
           <button
@@ -75,7 +77,7 @@ export default function ServerOrganizationBar({
             )}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>All Servers</span>
+            <span>{t('serverOrgBar.allServers', 'All Servers')}</span>
             <span className="ml-1 px-1.5 py-0.5 bg-black/15 dark:bg-white/20 rounded-full text-[10px] font-mono leading-none">
               {serversCount}
             </span>
@@ -110,10 +112,10 @@ export default function ServerOrganizationBar({
           <button
             onClick={() => navigate('/tools/organization')}
             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 hover:border-sky-500/50 text-sky-600 dark:text-sky-400 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
-            title="Open full Server Organization page"
+            title={t('serverOrgBar.openPage', 'Open full Server Organization page')}
           >
             <Folder className="w-3.5 h-3.5 text-sky-500" />
-            <span>Server Organization</span>
+            <span>{t('sidebar.serverOrganization', 'Server Organization')}</span>
             <Sparkles className="w-3 h-3 text-sky-500 ml-0.5" />
           </button>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import {
     Terminal as TerminalIcon,
     Send,
@@ -48,6 +48,7 @@ import { useServerStore } from '../stores/serverStore';
 import { useRconStore, RconPlayer, CommandHistoryEntry } from '../stores/rconStore';
 import RconHelpModal from '../components/ui/RconHelpModal';
 import InGameAdminModal from '../components/server/InGameAdminModal';
+import { NumberInput } from '../components/ui/NumberInput';
 
 
 interface RconResponse {
@@ -260,21 +261,30 @@ const PRESET_ITEMS = [
     { name: 'Dedicated Storage', category: 'Structures', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_DedicatedStorage.PrimalItemStructure_DedicatedStorage'" }
 ];
 
-function classifyError(errMsg: string): { category: string; icon: typeof AlertTriangle; colorClass: string } {
+function classifyError(errMsg: string): { categoryKey: string; category: string; icon: typeof AlertTriangle; colorClass: string } {
     const lower = errMsg.toLowerCase();
     if (lower.includes('authentication failed') || lower.includes('wrong admin password')) {
-        return { category: 'Authentication Failed', icon: ShieldAlert, colorClass: 'text-red-400 border-red-500/20 bg-red-950/20' };
+        return { categoryKey: 'rcon.errorCategory.authFailed', category: 'Authentication Failed', icon: ShieldAlert, colorClass: 'text-red-400 border-red-500/20 bg-red-950/20' };
     }
     if (lower.includes('timed out') || lower.includes('timeout')) {
-        return { category: 'Command Timeout', icon: Timer, colorClass: 'text-amber-400 border-amber-500/20 bg-amber-950/20' };
+        return { categoryKey: 'rcon.errorCategory.timeout', category: 'Command Timeout', icon: Timer, colorClass: 'text-amber-400 border-amber-500/20 bg-amber-950/20' };
     }
     if (lower.includes('connection lost') || lower.includes('reconnect failed') || lower.includes('socket closed')) {
-        return { category: 'Connection Lost', icon: Unplug, colorClass: 'text-orange-400 border-orange-500/20 bg-orange-950/20' };
+        return { categoryKey: 'rcon.errorCategory.connectionLost', category: 'Connection Lost', icon: Unplug, colorClass: 'text-orange-400 border-orange-500/20 bg-orange-950/20' };
     }
     if (lower.includes('no active rcon connection')) {
-        return { category: 'Not Connected', icon: WifiOff, colorClass: 'text-slate-400 border-slate-700/50 bg-slate-900/50' };
+        return { categoryKey: 'rcon.errorCategory.notConnected', category: 'Not Connected', icon: WifiOff, colorClass: 'text-slate-400 border-slate-700/50 bg-slate-900/50' };
     }
-    return { category: 'Error', icon: AlertTriangle, colorClass: 'text-red-400 border-red-500/20 bg-red-950/20' };
+    return { categoryKey: 'rcon.errorCategory.error', category: 'Error', icon: AlertTriangle, colorClass: 'text-red-400 border-red-500/20 bg-red-950/20' };
+}
+
+// Translation key slug for a preset item category (e.g. 'Apex Drops' -> 'apexdrops')
+const categoryKey = (cat: string) => `rcon.giveItem.categories.${cat.toLowerCase().replace(/\s+/g, '')}`;
+
+type MaintLogKind = 'info' | 'start' | 'success' | 'error';
+interface MaintLogEntry {
+    text: string;
+    kind: MaintLogKind;
 }
 
 const EMPTY_PLAYERS: RconPlayer[] = [];
@@ -345,7 +355,7 @@ export default function RconConsole() {
             toast.success(t('rcon.toasts.backupSuccess', 'Server backup created successfully!'), { id: toastId });
         } catch (error) {
             console.error('Failed to create backup:', error);
-            toast.error(t('rcon.toasts.backupFailed', `Failed to create backup: ${error}`), { id: toastId });
+            toast.error(t('rcon.toasts.backupFailed', { error: String(error), defaultValue: `Failed to create backup: ${error}` }), { id: toastId });
         } finally {
             setIsBackupInProgress(false);
         }
@@ -360,7 +370,7 @@ export default function RconConsole() {
 
     const [isMaintRunning, setIsMaintRunning] = useState(false);
     const [maintStep, setMaintStep] = useState(0); // 0 = idle, 1 = stop, 2 = backup, 3 = update, 4 = start, 5 = wipe, 6 = complete
-    const [maintLogs, setMaintLogs] = useState<string[]>([]);
+    const [maintLogs, setMaintLogs] = useState<MaintLogEntry[]>([]);
     const maintAbortRef = useRef(false);
 
     const checkServerStatus = (id: number): string | null => {
@@ -372,7 +382,7 @@ export default function RconConsole() {
     const handleAbortSequence = () => {
         maintAbortRef.current = true;
         const timestamp = new Date().toLocaleTimeString();
-        setMaintLogs(prev => [...prev, `[${timestamp}] ⚠️ Abort requested by user. Terminating visualization immediately.`]);
+        setMaintLogs(prev => [...prev, { text: `[${timestamp}] ⚠️ ${t('rcon.maint.log.abortRequested', 'Abort requested by user. Terminating visualization immediately.')}`, kind: 'info' }]);
         setIsMaintRunning(false);
         setMaintStep(0);
         toast.success(t('rcon.maint.seqAborted', 'Maintenance sequence aborted.'));
@@ -386,14 +396,14 @@ export default function RconConsole() {
         setMaintStep(0);
 
         const server = useServerStore.getState().servers.find(s => s.id === selectedServerId);
-        const serverName = server ? server.name : `Server #${selectedServerId}`;
+        const serverName = server ? server.name : t('rcon.serverNumber', { id: selectedServerId, defaultValue: `Server #${selectedServerId}` });
 
-        const log = (msg: string) => {
+        const log = (msg: string, kind: MaintLogKind = 'info') => {
             const timestamp = new Date().toLocaleTimeString();
-            setMaintLogs(prev => [...prev, `[${timestamp}] ${msg}`]);
+            setMaintLogs(prev => [...prev, { text: `[${timestamp}] ${msg}`, kind }]);
         };
 
-        log(`?? Starting automated maintenance sequence for "${serverName}"...`);
+        log(t('rcon.maint.log.starting', { serverName, defaultValue: `Starting automated maintenance sequence for "${serverName}"...` }), 'start');
 
         try {
             // STEP 1: STOP SERVER
@@ -402,7 +412,7 @@ export default function RconConsole() {
                 setMaintStep(1);
                 const statusBefore = checkServerStatus(selectedServerId);
                 if (statusBefore !== 'stopped') {
-                    log("Step 1/5: Requesting graceful server shutdown...");
+                    log(t('rcon.maint.log.step1', 'Step 1/5: Requesting graceful server shutdown...'));
                     await invoke('stop_server', { serverId: selectedServerId });
                     if (maintAbortRef.current) return;
                     
@@ -417,13 +427,13 @@ export default function RconConsole() {
                             isStopped = true;
                             break;
                         }
-                        log(`Waiting for shutdown (current status: ${currentStatus || 'unknown'})...`);
+                        log(t('rcon.maint.log.waitingShutdown', { status: currentStatus || 'unknown', defaultValue: `Waiting for shutdown (current status: ${currentStatus || 'unknown'})...` }));
                     }
                     if (maintAbortRef.current) return;
-                    if (!isStopped) throw new Error("Timeout waiting for server to stop");
-                    log("Server stopped successfully.");
+                    if (!isStopped) throw new Error(t('rcon.maint.log.timeoutStop', 'Timeout waiting for server to stop'));
+                    log(t('rcon.maint.log.stopped', 'Server stopped successfully.'));
                 } else {
-                    log("Step 1/5: Server is already stopped. Skipping stop step.");
+                    log(t('rcon.maint.log.alreadyStopped', 'Step 1/5: Server is already stopped. Skipping stop step.'));
                 }
             }
 
@@ -431,23 +441,23 @@ export default function RconConsole() {
             if (maintBackup) {
                 if (maintAbortRef.current) return;
                 setMaintStep(2);
-                log("Step 2/5: Creating automated server backup...");
+                log(t('rcon.maint.log.step2', 'Step 2/5: Creating automated server backup...'));
                 await invoke('create_backup', { serverId: selectedServerId, backupType: 'manual' });
                 if (maintAbortRef.current) return;
-                log("Server backup created successfully.");
+                log(t('rcon.maint.log.backupCreated', 'Server backup created successfully.'));
             }
 
             // STEP 3: UPDATE SERVER
             if (maintUpdate) {
                 if (maintAbortRef.current) return;
                 setMaintStep(3);
-                log("Step 3/5: Launching SteamCMD update...");
+                log(t('rcon.maint.log.step3', 'Step 3/5: Launching SteamCMD update...'));
                 await invoke('update_server', { serverId: selectedServerId });
                 if (maintAbortRef.current) return;
                 
                 // Poll until status returns to stopped/starting
                 let isUpdated = false;
-                log("Waiting for SteamCMD update to complete...");
+                log(t('rcon.maint.log.waitingUpdate', 'Waiting for SteamCMD update to complete...'));
                 for (let i = 0; i < 300; i++) { // Max 10 mins (300 * 2s)
                     if (maintAbortRef.current) return;
                     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -459,15 +469,15 @@ export default function RconConsole() {
                     }
                 }
                 if (maintAbortRef.current) return;
-                if (!isUpdated) throw new Error("Timeout waiting for server update");
-                log("Server update complete.");
+                if (!isUpdated) throw new Error(t('rcon.maint.log.timeoutUpdate', 'Timeout waiting for server update'));
+                log(t('rcon.maint.log.updateComplete', 'Server update complete.'));
             }
 
             // STEP 4: START SERVER
             if (maintStart) {
                 if (maintAbortRef.current) return;
                 setMaintStep(4);
-                log("Step 4/5: Powering server process back up...");
+                log(t('rcon.maint.log.step4', 'Step 4/5: Powering server process back up...'));
                 await invoke('start_server', { serverId: selectedServerId, updateOnStart: false });
                 if (maintAbortRef.current) return;
                 
@@ -482,19 +492,19 @@ export default function RconConsole() {
                         isOnline = true;
                         break;
                     }
-                    log(`Waiting for server to boot (current status: ${currentStatus || 'starting'})...`);
+                    log(t('rcon.maint.log.waitingBoot', { status: currentStatus || 'starting', defaultValue: `Waiting for server to boot (current status: ${currentStatus || 'starting'})...` }));
                 }
                 if (maintAbortRef.current) return;
-                if (!isOnline) throw new Error("Timeout waiting for server to start");
-                log("Server is online.");
+                if (!isOnline) throw new Error(t('rcon.maint.log.timeoutStart', 'Timeout waiting for server to start'));
+                log(t('rcon.maint.log.online', 'Server is online.'));
             }
 
             // STEP 5: DESTROY WILD DINOS
             if (maintWipeDinos) {
                 if (maintAbortRef.current) return;
                 setMaintStep(5);
-                log("Step 5/5: Preparing wild dino wipe...");
-                log("Polling RCON subsystem until connection is established (max 90 seconds)...");
+                log(t('rcon.maint.log.step5', 'Step 5/5: Preparing wild dino wipe...'));
+                log(t('rcon.maint.log.pollingRcon', 'Polling RCON subsystem until connection is established (max 90 seconds)...'));
                 
                 let rconReady = false;
                 for (let i = 0; i < 45; i++) { // 45 * 2s = 90s max
@@ -512,24 +522,24 @@ export default function RconConsole() {
                 if (maintAbortRef.current) return;
                 
                 if (!rconReady) {
-                    log("⚠️ RCON subsystem did not respond in time. Proceeding with command transmission anyway...");
+                    log(`⚠️ ${t('rcon.maint.log.rconNoResponse', 'RCON subsystem did not respond in time. Proceeding with command transmission anyway...')}`);
                 } else {
-                    log("✅ RCON connection established successfully!");
+                    log(`✅ ${t('rcon.maint.log.rconConnected', 'RCON connection established successfully!')}`);
                 }
-                
-                log("Transmitting DestroyWildDinos command via RCON...");
+
+                log(t('rcon.maint.log.sendingWipe', 'Transmitting DestroyWildDinos command via RCON...'));
                 await invoke('rcon_send_command', { serverId: selectedServerId, command: 'DestroyWildDinos' });
                 if (maintAbortRef.current) return;
-                log("DestroyWildDinos command executed successfully!");
+                log(t('rcon.maint.log.wipeDone', 'DestroyWildDinos command executed successfully!'));
             }
 
             setMaintStep(6);
-            log("?? Server maintenance sequence completed successfully!");
+            log(t('rcon.maint.log.completed', 'Server maintenance sequence completed successfully!'), 'success');
             toast.success(t('rcon.maint.seqSuccess', 'Maintenance sequence completed successfully!'));
         } catch (error: any) {
             if (maintAbortRef.current) return;
-            log(`?? ERROR: ${error.message || error}`);
-            toast.error(t('rcon.maint.seqFailed', `Maintenance sequence failed: ${error.message || error}`));
+            log(t('rcon.maint.log.error', { error: String(error.message || error), defaultValue: `ERROR: ${error.message || error}` }), 'error');
+            toast.error(t('rcon.maint.seqFailed', { error: String(error.message || error), defaultValue: `Maintenance sequence failed: ${error.message || error}` }));
         } finally {
             setIsMaintRunning(false);
         }
@@ -736,7 +746,7 @@ export default function RconConsole() {
         if (!selectedServerId) return;
         let cleanResponse = response;
         if (cleanResponse && cleanResponse.trim() === 'Server received, But no response!!') {
-            cleanResponse = 'Command executed successfully';
+            cleanResponse = t('rcon.commandExecuted', 'Command executed successfully');
         }
         addHistory(selectedServerId, {
             command: cmd,
@@ -802,7 +812,7 @@ export default function RconConsole() {
             console.error('[RCON] Connection failed:', errMsg);
             setLastError(selectedServer.id, errMsg);
             toast.error(t('rcon.connectFailed', { error: errMsg, defaultValue: `Connection failed: ${errMsg}` }));
-            addToHistory('connect', `Failed: ${errMsg}`, false);
+            addToHistory('connect', t('common.failed', { error: errMsg, defaultValue: `Failed: ${errMsg}` }), false);
         } finally {
             setConnecting(selectedServer.id, false);
         }
@@ -852,14 +862,14 @@ export default function RconConsole() {
                         serverId: selectedServerId,
                         command: `Broadcast "${msg}"`,
                     });
-                    addToHistory(`Broadcast "${msg}"`, 'Broadcast sent successfully', true);
+                    addToHistory(`Broadcast "${msg}"`, t('rcon.broadcastSent', 'Broadcast sent successfully'), true);
                 } catch (e) {
                     console.error('Failed to send auto-broadcast before dino wipe:', e);
                     addToHistory(`Broadcast "${msg}"`, String(e), false);
                 }
             }
             if (dinoWipeBroadcastDelay > 0) {
-                toast.loading(`Waiting ${dinoWipeBroadcastDelay}s before Dino Wipe...`, { id: 'dino_wipe_toast' });
+                toast.loading(t('rcon.waitingBeforeDinoWipe', { seconds: dinoWipeBroadcastDelay, defaultValue: `Waiting ${dinoWipeBroadcastDelay}s before Dino Wipe...` }), { id: 'dino_wipe_toast' });
                 await new Promise(resolve => setTimeout(resolve, dinoWipeBroadcastDelay * 1000));
                 toast.dismiss('dino_wipe_toast');
             }
@@ -871,14 +881,14 @@ export default function RconConsole() {
                         serverId: selectedServerId,
                         command: `Broadcast "${msg}"`,
                     });
-                    addToHistory(`Broadcast "${msg}"`, 'Broadcast sent successfully', true);
+                    addToHistory(`Broadcast "${msg}"`, t('rcon.broadcastSent', 'Broadcast sent successfully'), true);
                 } catch (e) {
                     console.error('Failed to send auto-broadcast before save:', e);
                     addToHistory(`Broadcast "${msg}"`, String(e), false);
                 }
             }
             if (saveWorldBroadcastDelay > 0) {
-                toast.loading(`Waiting ${saveWorldBroadcastDelay}s before World Save...`, { id: 'save_world_toast' });
+                toast.loading(t('rcon.waitingBeforeSave', { seconds: saveWorldBroadcastDelay, defaultValue: `Waiting ${saveWorldBroadcastDelay}s before World Save...` }), { id: 'save_world_toast' });
                 await new Promise(resolve => setTimeout(resolve, saveWorldBroadcastDelay * 1000));
                 toast.dismiss('save_world_toast');
             }
@@ -1253,13 +1263,13 @@ export default function RconConsole() {
                         serverId: selectedServerId,
                         command: `Broadcast "${msg}"`,
                     });
-                    addToHistory(`Broadcast "${msg}"`, 'Broadcast sent successfully', true);
+                    addToHistory(`Broadcast "${msg}"`, t('rcon.broadcastSent', 'Broadcast sent successfully'), true);
                 } catch (e) {
                     console.error('Failed to send auto-broadcast before manual save:', e);
                     addToHistory(`Broadcast "${msg}"`, String(e), false);
                 }
                 if (saveWorldBroadcastDelay > 0) {
-                    toast.loading(`Waiting ${saveWorldBroadcastDelay}s before World Save...`, { id: 'save_world_toast' });
+                    toast.loading(t('rcon.waitingBeforeSave', { seconds: saveWorldBroadcastDelay, defaultValue: `Waiting ${saveWorldBroadcastDelay}s before World Save...` }), { id: 'save_world_toast' });
                     await new Promise(resolve => setTimeout(resolve, saveWorldBroadcastDelay * 1000));
                     toast.dismiss('save_world_toast');
                 }
@@ -1285,7 +1295,7 @@ export default function RconConsole() {
                 setSaveValidationHistory(prev => [
                     {
                         serverId: selectedServerId,
-                        serverName: selectedServer?.name || `Server #${selectedServerId}`,
+                        serverName: selectedServer?.name || t('rcon.serverNumber', { id: selectedServerId, defaultValue: `Server #${selectedServerId}` }),
                         timestamp: new Date(),
                         info: validationInfo
                     },
@@ -1298,7 +1308,7 @@ export default function RconConsole() {
         } catch (error) {
             console.error('Manual save failed:', error);
             setSaveProgressState('error');
-            toast.error(t('rcon.saveFailed', `Manual save failed: ${error}`));
+            toast.error(t('rcon.saveFailed', { error: String(error), defaultValue: `Manual save failed: ${error}` }));
         }
     };
 
@@ -1320,12 +1330,12 @@ export default function RconConsole() {
     };
 
     const renderErrorResponse = (response: string) => {
-        const { category, icon: ErrorIcon, colorClass } = classifyError(response);
+        const { categoryKey: errCategoryKey, category, icon: ErrorIcon, colorClass } = classifyError(response);
         return (
             <div className={cn("pl-4 mt-1.5 flex items-start gap-2.5 p-2 rounded-lg border text-sm font-sans", colorClass)}>
                 <ErrorIcon className="w-4 h-4 mt-0.5 shrink-0" />
                 <div>
-                    <span className="font-bold">{category}:</span>{' '}
+                    <span className="font-bold">{t(errCategoryKey, category)}:</span>{' '}
                     <span className="whitespace-pre-wrap opacity-90">{response}</span>
                 </div>
             </div>
@@ -1349,16 +1359,16 @@ export default function RconConsole() {
                     <button
                         onClick={() => setIsAdminGuideOpen(true)}
                         className="flex items-center gap-1.5 px-3.5 py-2.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
-                        title="In-Game Admin Authentication & Cheats Guide"
+                        title={t('rcon.adminGuideTitle', 'In-Game Admin Authentication & Cheats Guide')}
                     >
                         <Key className="w-4 h-4" />
-                        <span className="hidden sm:inline">In-Game Admin (`enablecheats`)</span>
+                        <span className="hidden sm:inline">{t('rcon.inGameAdminBtn', 'In-Game Admin (`enablecheats`)')}</span>
                     </button>
 
                     <button
                         onClick={() => setIsHelpOpen(true)}
                         className="p-2.5 bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] hover:text-cyan-400 rounded-xl text-[var(--text-muted)] transition-colors shadow-sm"
-                        title="RCON Commands Guide"
+                        title={t('rcon.commandsGuide', 'RCON Commands Guide')}
                     >
                         <HelpCircle className="w-5 h-5" />
                     </button>
@@ -1483,7 +1493,7 @@ export default function RconConsole() {
                                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4 px-4 py-3 bg-cyan-950/20 border border-cyan-800/30 rounded-xl text-xs font-mono text-cyan-400">
                                     <div className="flex items-center gap-2.5">
                                         <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
-                                        <span>{t('rcon.connectedTo', { address: `${connectionInfo.address}:${connectionInfo.port}`, defaultValue: `Connected to ${connectionInfo.address}:${connectionInfo.port}` })}</span>
+                                        <span>{t('rcon.connectedTo', { address: connectionInfo.address, port: connectionInfo.port, defaultValue: `Connected to ${connectionInfo.address}:${connectionInfo.port}` })}</span>
                                     </div>
                                     {connectionInfo.connectedSince && (
                                         <span className="text-cyan-500/60 font-sans">
@@ -1549,7 +1559,7 @@ export default function RconConsole() {
                                     if (selectedServerId) clearServerState(selectedServerId);
                                 }}
                                     className="flex items-center gap-2 px-3.5 py-2 bg-[var(--surface-active)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border)] rounded-xl text-xs ml-auto transition-all active:scale-95"
-                                    title="Clear output console log buffer"
+                                    title={t('rcon.clearOutputTitle', 'Clear output console log buffer')}
                                 >
                                     <Trash2 className="w-4 h-4" />
                                     <span>{t('rcon.clearLogs', 'Clear')}</span>
@@ -1568,10 +1578,10 @@ export default function RconConsole() {
                                         <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
                                             <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5">
                                                 <Sliders className="w-4 h-4 text-cyan-400" />
-                                                Auto-Broadcast Action Alerts
+                                                {t('rcon.autoBroadcast.title', 'Auto-Broadcast Action Alerts')}
                                             </span>
                                             <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
-                                                Configure alerts sent to players before actions
+                                                {t('rcon.autoBroadcast.subtitle', 'Configure alerts sent to players before actions')}
                                             </span>
                                         </div>
 
@@ -1586,28 +1596,28 @@ export default function RconConsole() {
                                                             onChange={(e) => setDinoWipeBroadcastEnabled(e.target.checked)}
                                                             className="rounded border-[var(--border)] bg-[var(--surface-active)] text-cyan-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
                                                         />
-                                                        Auto Broadcast on Dino Wipe
+                                                        {t('rcon.autoBroadcast.onDinoWipe', 'Auto Broadcast on Dino Wipe')}
                                                     </label>
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    <span className="text-[10px] text-[var(--text-muted)]">Alert Message</span>
+                                                    <span className="text-[10px] text-[var(--text-muted)]">{t('rcon.autoBroadcast.alertMessage', 'Alert Message')}</span>
                                                     <input
                                                         type="text"
                                                         value={dinoWipeBroadcastMsg}
                                                         onChange={(e) => setDinoWipeBroadcastMsg(e.target.value)}
                                                         disabled={!dinoWipeBroadcastEnabled}
-                                                        placeholder="Message to display..."
+                                                        placeholder={t('rcon.autoBroadcast.messagePlaceholder', 'Message to display...')}
                                                         className="w-full bg-[var(--surface-active)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-cyan-500/50 disabled:opacity-50"
                                                     />
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] text-[var(--text-muted)]">Execution Delay (Seconds):</span>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        max="60"
+                                                    <span className="text-[10px] text-[var(--text-muted)]">{t('rcon.autoBroadcast.delay', 'Execution Delay (Seconds):')}</span>
+                                                    <NumberInput
+                                                        integer
+                                                        min={0}
+                                                        max={60}
                                                         value={dinoWipeBroadcastDelay}
-                                                        onChange={(e) => setDinoWipeBroadcastDelay(parseInt(e.target.value, 10) || 0)}
+                                                        onValueChange={setDinoWipeBroadcastDelay}
                                                         disabled={!dinoWipeBroadcastEnabled}
                                                         className="w-16 bg-[var(--surface-active)] border border-[var(--border)] rounded-lg px-2 py-1 text-center text-[var(--text-primary)] focus:outline-none focus:border-cyan-500/50 disabled:opacity-50"
                                                     />
@@ -1624,28 +1634,28 @@ export default function RconConsole() {
                                                             onChange={(e) => setSaveWorldBroadcastEnabled(e.target.checked)}
                                                             className="rounded border-[var(--border)] bg-[var(--surface-active)] text-cyan-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
                                                         />
-                                                        Auto Broadcast on Save World
+                                                        {t('rcon.autoBroadcast.onSaveWorld', 'Auto Broadcast on Save World')}
                                                     </label>
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    <span className="text-[10px] text-[var(--text-muted)]">Alert Message</span>
+                                                    <span className="text-[10px] text-[var(--text-muted)]">{t('rcon.autoBroadcast.alertMessage', 'Alert Message')}</span>
                                                     <input
                                                         type="text"
                                                         value={saveWorldBroadcastMsg}
                                                         onChange={(e) => setSaveWorldBroadcastMsg(e.target.value)}
                                                         disabled={!saveWorldBroadcastEnabled}
-                                                        placeholder="Message to display..."
+                                                        placeholder={t('rcon.autoBroadcast.messagePlaceholder', 'Message to display...')}
                                                         className="w-full bg-[var(--surface-active)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-cyan-500/50 disabled:opacity-50"
                                                     />
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] text-[var(--text-muted)]">Execution Delay (Seconds):</span>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        max="60"
+                                                    <span className="text-[10px] text-[var(--text-muted)]">{t('rcon.autoBroadcast.delay', 'Execution Delay (Seconds):')}</span>
+                                                    <NumberInput
+                                                        integer
+                                                        min={0}
+                                                        max={60}
                                                         value={saveWorldBroadcastDelay}
-                                                        onChange={(e) => setSaveWorldBroadcastDelay(parseInt(e.target.value, 10) || 0)}
+                                                        onValueChange={setSaveWorldBroadcastDelay}
                                                         disabled={!saveWorldBroadcastEnabled}
                                                         className="w-16 bg-[var(--surface-active)] border border-[var(--border)] rounded-lg px-2 py-1 text-center text-[var(--text-primary)] focus:outline-none focus:border-cyan-500/50 disabled:opacity-50"
                                                     />
@@ -1717,7 +1727,7 @@ export default function RconConsole() {
                                 {autocompleteVisible && suggestions.length > 0 && (
                                     <div className="absolute left-0 bottom-full mb-2 w-full bg-[var(--surface)]/95 backdrop-blur-md border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden z-50 animate-in slide-in-from-bottom-2 duration-200">
                                         <div className="bg-[var(--surface-active)]/50 px-4 py-2 border-b border-[var(--border)] text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">
-                                            RCON Command Autocomplete (Use ↑ ↓ Tab / Enter to select)
+                                            {t('rcon.autocompleteHeader', 'RCON Command Autocomplete (Use ↑ ↓ Tab / Enter to select)')}
                                         </div>
                                         <div className="max-h-[220px] overflow-y-auto">
                                             {suggestions.map((s, idx) => (
@@ -1736,7 +1746,7 @@ export default function RconConsole() {
                                                     )}
                                                 >
                                                     <span className="font-mono font-semibold">{s.command}</span>
-                                                    <span className="text-[var(--text-muted)] text-[11px] font-sans truncate ml-4 max-w-[60%]">{s.desc}</span>
+                                                    <span className="text-[var(--text-muted)] text-[11px] font-sans truncate ml-4 max-w-[60%]">{t(`rcon.autocomplete.${s.command}`, s.desc)}</span>
                                                 </button>
                                             ))}
                                         </div>
@@ -1764,12 +1774,12 @@ export default function RconConsole() {
                                         {isStreamingLogs ? (
                                             <>
                                                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                                <span>Log Streaming Active</span>
+                                                <span>{t('rcon.logStream.active', 'Log Streaming Active')}</span>
                                             </>
                                         ) : (
                                             <>
                                                 <EyeOff className="w-4 h-4" />
-                                                <span>Enable Log Streaming</span>
+                                                <span>{t('rcon.logStream.enable', 'Enable Log Streaming')}</span>
                                             </>
                                         )}
                                     </button>
@@ -1782,7 +1792,7 @@ export default function RconConsole() {
                                                 ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20 hover:bg-cyan-500/20"
                                                 : "bg-[var(--surface-active)] text-[var(--text-muted)] border-[var(--border)] hover:text-[var(--text-primary)]"
                                         )}
-                                        title={autoScrollLogs ? "Auto-scroll logs enabled" : "Auto-scroll logs paused"}
+                                        title={autoScrollLogs ? t('rcon.logStream.autoScrollOn', 'Auto-scroll logs enabled') : t('rcon.logStream.autoScrollOff', 'Auto-scroll logs paused')}
                                     >
                                         {autoScrollLogs ? <Check className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
                                     </button>
@@ -1790,7 +1800,7 @@ export default function RconConsole() {
                                     <button
                                         onClick={() => setLogStream([])}
                                         className="p-2 bg-[var(--surface-active)] border border-[var(--border)] hover:border-rose-500/40 rounded-xl text-[var(--text-muted)] hover:text-rose-400 transition-colors"
-                                        title="Clear live logs"
+                                        title={t('rcon.logStream.clear', 'Clear live logs')}
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
@@ -1802,7 +1812,7 @@ export default function RconConsole() {
                                         type="text"
                                         value={logSearchQuery}
                                         onChange={(e) => setLogSearchQuery(e.target.value)}
-                                        placeholder="Quick filter log content..."
+                                        placeholder={t('rcon.logStream.filterPlaceholder', 'Quick filter log content...')}
                                         className="w-full bg-[var(--surface-active)] border border-[var(--border)] rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500/50 text-[var(--text-primary)]"
                                     />
                                 </div>
@@ -1816,8 +1826,8 @@ export default function RconConsole() {
                                 {filteredLogs.length === 0 ? (
                                     <div className="text-[var(--text-muted)] italic text-center py-12">
                                         {isStreamingLogs 
-                                            ? "Waiting for ShooterGame.log events... (or search found zero hits)" 
-                                            : "Streaming is disabled. Enable it above to listen to live server logs in real time."}
+                                            ? t('rcon.logStream.waiting', 'Waiting for ShooterGame.log events... (or search found zero hits)')
+                                            : t('rcon.logStream.disabled', 'Streaming is disabled. Enable it above to listen to live server logs in real time.')}
                                     </div>
                                 ) : (
                                     filteredLogs.map((entry, idx) => (
@@ -1837,9 +1847,9 @@ export default function RconConsole() {
                             <div className="p-4 bg-[var(--surface-active)]/40 border border-[var(--border)] rounded-xl">
                                 <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2 flex items-center gap-2">
                                     <Layers className="w-4 h-4 text-cyan-400" />
-                                    <span>Cluster wide target server selection</span>
+                                    <span>{t('rcon.cluster.targetSelection', 'Cluster wide target server selection')}</span>
                                 </h3>
-                                <p className="text-xs text-[var(--text-muted)] mb-4">Select which active servers this command will execute on simultaneously:</p>
+                                <p className="text-xs text-[var(--text-muted)] mb-4">{t('rcon.cluster.selectHint', 'Select which active servers this command will execute on simultaneously:')}</p>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {servers.map(server => (
@@ -1880,7 +1890,7 @@ export default function RconConsole() {
                                     type="text"
                                     value={clusterCommand}
                                     onChange={(e) => setClusterCommand(e.target.value)}
-                                    placeholder="Enter command to broadcast/run on all cluster members simultaneously..."
+                                    placeholder={t('rcon.cluster.commandPlaceholder', 'Enter command to broadcast/run on all cluster members simultaneously...')}
                                     className="flex-1 bg-transparent text-[var(--text-primary)] text-sm focus:outline-none font-mono placeholder:text-[var(--text-muted)]"
                                     disabled={clusterIsExecuting}
                                 />
@@ -1890,7 +1900,7 @@ export default function RconConsole() {
                                     className="flex items-center gap-2 px-5 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-xl text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     {clusterIsExecuting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                                    <span>Execute</span>
+                                    <span>{t('rcon.cluster.execute', 'Execute')}</span>
                                 </button>
                             </div>
 
@@ -1898,7 +1908,7 @@ export default function RconConsole() {
                             <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                                 {Object.keys(clusterProgress).length === 0 ? (
                                     <div className="text-[var(--text-muted)] italic text-xs py-8 text-center bg-[var(--surface-active)]/20 rounded-xl border border-[var(--border)]">
-                                        No cluster executions triggered yet in this session.
+                                        {t('rcon.cluster.noExecutions', 'No cluster executions triggered yet in this session.')}
                                     </div>
                                 ) : (
                                     Object.entries(clusterProgress).map(([idStr, val]) => {
@@ -1910,31 +1920,31 @@ export default function RconConsole() {
                                                 className="bg-[var(--surface)] rounded-xl p-4 border border-[var(--border)] flex items-start gap-4 hover:border-cyan-500/30 transition-colors duration-200"
                                             >
                                                 <div className="w-40 truncate">
-                                                    <p className="text-xs font-bold text-[var(--text-primary)] truncate">{server?.name || `Server #${sId}`}</p>
+                                                    <p className="text-xs font-bold text-[var(--text-primary)] truncate">{server?.name || t('rcon.serverNumber', { id: sId, defaultValue: `Server #${sId}` })}</p>
                                                     <div className="mt-1">
                                                         {val.status === 'sending' && (
                                                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                                                 <RefreshCw className="w-2.5 h-2.5 animate-spin" />
-                                                                <span>Executing</span>
+                                                                <span>{t('rcon.cluster.executing', 'Executing')}</span>
                                                             </span>
                                                         )}
                                                         {val.status === 'success' && (
                                                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                                                 <Check className="w-2.5 h-2.5" />
-                                                                <span>Success</span>
+                                                                <span>{t('common.success', 'Success')}</span>
                                                             </span>
                                                         )}
                                                         {val.status === 'error' && (
                                                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
                                                                 <XCircle className="w-2.5 h-2.5" />
-                                                                <span>Failed</span>
+                                                                <span>{t('rcon.cluster.failed', 'Failed')}</span>
                                                             </span>
                                                         )}
                                                     </div>
                                                 </div>
 
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-[var(--text-muted)] text-[10px] uppercase font-bold tracking-wider">Response</p>
+                                                    <p className="text-[var(--text-muted)] text-[10px] uppercase font-bold tracking-wider">{t('rcon.cluster.response', 'Response')}</p>
                                                     <div className="mt-1 font-mono text-[11px] text-[var(--text-secondary)] whitespace-pre-wrap bg-[var(--surface-active)]/30 p-2.5 rounded-lg border border-[var(--border)] truncate max-h-[100px] overflow-y-auto">
                                                         {val.response}
                                                     </div>
@@ -1960,10 +1970,14 @@ export default function RconConsole() {
                                 <div className="space-y-2 max-w-lg">
                                     <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
                                         <Database className="w-5 h-5 text-cyan-400" />
-                                        <span>Verified Save World Engine</span>
+                                        <span>{t('rcon.saveEngine.title', 'Verified Save World Engine')}</span>
                                     </h3>
                                     <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                                        Triggers the <code className="text-cyan-400 font-semibold font-mono bg-cyan-500/10 px-1 py-0.5 rounded">SaveWorld</code> engine command via RCON and verifies that the output save file is successfully written to disk, checking size and timestamp metrics in real time.
+                                        <Trans
+                                            i18nKey="rcon.saveEngine.desc"
+                                            defaults="Triggers the <0>SaveWorld</0> engine command via RCON and verifies that the output save file is successfully written to disk, checking size and timestamp metrics in real time."
+                                            components={[<code className="text-cyan-400 font-semibold font-mono bg-cyan-500/10 px-1 py-0.5 rounded" />]}
+                                        />
                                     </p>
                                 </div>
 
@@ -1983,29 +1997,29 @@ export default function RconConsole() {
                                         ) : (
                                             <Save className="w-5 h-5" />
                                         )}
-                                        <span>Trigger Verified Save</span>
+                                        <span>{t('rcon.saveEngine.trigger', 'Trigger Verified Save')}</span>
                                     </button>
 
                                     {/* Action Status Label */}
                                     {saveProgressState === 'sending' && (
-                                        <span className="text-[10px] text-amber-400 font-semibold animate-pulse">1. Sending RCON command...</span>
+                                        <span className="text-[10px] text-amber-400 font-semibold animate-pulse">{t('rcon.saveEngine.step1', '1. Sending RCON command...')}</span>
                                     )}
                                     {saveProgressState === 'syncing' && (
-                                        <span className="text-[10px] text-amber-500 font-semibold animate-pulse">2. Waiting for server disk sync (3s)...</span>
+                                        <span className="text-[10px] text-amber-500 font-semibold animate-pulse">{t('rcon.saveEngine.step2', '2. Waiting for server disk sync (3s)...')}</span>
                                     )}
                                     {saveProgressState === 'verifying' && (
-                                        <span className="text-[10px] text-cyan-400 font-semibold animate-pulse">3. Scanning file integrity...</span>
+                                        <span className="text-[10px] text-cyan-400 font-semibold animate-pulse">{t('rcon.saveEngine.step3', '3. Scanning file integrity...')}</span>
                                     )}
                                     {saveProgressState === 'success' && (
                                         <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
                                             <Check className="w-3.5 h-3.5" />
-                                            <span>Save verified successfully!</span>
+                                            <span>{t('rcon.saveEngine.verified', 'Save verified successfully!')}</span>
                                         </span>
                                     )}
                                     {saveProgressState === 'error' && (
                                         <span className="text-[10px] text-rose-400 font-bold flex items-center gap-1">
                                             <XCircle className="w-3.5 h-3.5" />
-                                            <span>Save verification failed</span>
+                                            <span>{t('rcon.saveEngine.verifyFailed', 'Save verification failed')}</span>
                                         </span>
                                     )}
                                 </div>
@@ -2015,35 +2029,35 @@ export default function RconConsole() {
                             {saveValidationResult && (
                                 <div className="bg-[var(--surface-active)]/40 rounded-2xl p-5 border border-[var(--border)] shadow-inner grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                     <div className="bg-[var(--surface-hover)]/50 p-4 rounded-xl border border-[var(--border)]">
-                                        <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Save File Name</p>
+                                        <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">{t('rcon.saveEngine.fileName', 'Save File Name')}</p>
                                         <p className="text-sm font-semibold text-[var(--text-primary)] truncate font-mono mt-1" title={saveValidationResult.file_name}>
                                             {saveValidationResult.file_name}
                                         </p>
                                     </div>
                                     <div className="bg-[var(--surface-hover)]/50 p-4 rounded-xl border border-[var(--border)]">
-                                        <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">File Size</p>
+                                        <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">{t('rcon.saveEngine.fileSize', 'File Size')}</p>
                                         <p className="text-sm font-semibold text-cyan-400 font-mono mt-1">
                                             {formatBytes(saveValidationResult.file_size_bytes)}
                                         </p>
                                     </div>
                                     <div className="bg-[var(--surface-hover)]/50 p-4 rounded-xl border border-[var(--border)]">
-                                        <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Last Modified</p>
+                                        <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">{t('rcon.saveEngine.lastModified', 'Last Modified')}</p>
                                         <p className="text-sm font-semibold text-[var(--text-primary)] truncate font-mono mt-1">
                                             {saveValidationResult.last_modified}
                                         </p>
                                     </div>
                                     <div className="bg-[var(--surface-hover)]/50 p-4 rounded-xl border border-[var(--border)]">
-                                        <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">FS Integrity Scan</p>
+                                        <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">{t('rcon.saveEngine.integrityScan', 'FS Integrity Scan')}</p>
                                         <div className="mt-1">
                                             {saveValidationResult.integrity_ok ? (
                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                                                    <span>OK (PASSED)</span>
+                                                    <span>{t('rcon.saveEngine.passed', 'OK (PASSED)')}</span>
                                                 </span>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
                                                     <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-                                                    <span>CORRUPTED/FAILED</span>
+                                                    <span>{t('rcon.saveEngine.corrupted', 'CORRUPTED/FAILED')}</span>
                                                 </span>
                                             )}
                                         </div>
@@ -2055,12 +2069,12 @@ export default function RconConsole() {
                             <div className="space-y-3">
                                 <h4 className="text-xs font-bold text-[var(--text-muted)] flex items-center gap-2">
                                     <History className="w-4 h-4" />
-                                    <span>Verified Save validation logs history</span>
+                                    <span>{t('rcon.saveEngine.historyTitle', 'Verified Save validation logs history')}</span>
                                 </h4>
 
                                 <div className="space-y-2 max-h-[180px] overflow-y-auto">
                                     {saveValidationHistory.length === 0 ? (
-                                        <p className="text-[11px] text-[var(--text-muted)] italic py-4">No validation history records for this session.</p>
+                                        <p className="text-[11px] text-[var(--text-muted)] italic py-4">{t('rcon.saveEngine.noHistory', 'No validation history records for this session.')}</p>
                                     ) : (
                                         saveValidationHistory.map((h, i) => (
                                             <div
@@ -2092,10 +2106,10 @@ export default function RconConsole() {
                                 <div className="space-y-2 max-w-lg">
                                     <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
                                         <RefreshCw className={cn("w-5 h-5 text-sky-400", isMaintRunning && "animate-spin")} />
-                                        <span>Server Maintenance Sequence</span>
+                                        <span>{t('rcon.maint.title', 'Server Maintenance Sequence')}</span>
                                     </h3>
                                     <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                                        Coordinate and execute a safe, step-by-step update and restart sequence on the server. Select the operations to perform below and monitor progress in real-time.
+                                        {t('rcon.maint.description', 'Coordinate and execute a safe, step-by-step update and restart sequence on the server. Select the operations to perform below and monitor progress in real-time.')}
                                     </p>
                                 </div>
 
@@ -2106,7 +2120,7 @@ export default function RconConsole() {
                                             className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-rose-600 hover:bg-rose-500 text-white shadow-xl transition-all duration-300 transform active:scale-95 shadow-rose-950/20"
                                         >
                                             <XCircle className="w-5 h-5 animate-pulse" />
-                                            <span>Abort Sequence</span>
+                                            <span>{t('rcon.maint.abort', 'Abort Sequence')}</span>
                                         </button>
                                     ) : (
                                         <button
@@ -2115,7 +2129,7 @@ export default function RconConsole() {
                                             className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white shadow-xl transition-all duration-300 transform active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                                         >
                                             <Play className="w-5 h-5" />
-                                            <span>Run Sequence</span>
+                                            <span>{t('rcon.maint.run', 'Run Sequence')}</span>
                                         </button>
                                     )}
                                 </div>
@@ -2126,7 +2140,7 @@ export default function RconConsole() {
                                 
                                 {/* Step Selection Config (Left 2 Columns) */}
                                 <div className="lg:col-span-2 space-y-3.5">
-                                    <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider pl-1">Configuration Steps</h4>
+                                    <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider pl-1">{t('rcon.maint.configSteps', 'Configuration Steps')}</h4>
                                     
                                     {/* Step 1 Toggle */}
                                     <div 
@@ -2140,8 +2154,8 @@ export default function RconConsole() {
                                         <div className="flex items-center gap-3">
                                             <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintStop ? "bg-red-500/10 text-red-400 border border-red-500/30" : "bg-[var(--surface-active)] text-[var(--text-muted)] border border-[var(--border)]")}>1</div>
                                             <div>
-                                                <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Graceful Shutdown</p>
-                                                <p className="text-[10px] text-[var(--text-muted)] font-sans">Stop server before maintenance</p>
+                                                <p className="text-xs font-bold text-[var(--text-primary)] font-sans">{t('rcon.maint.stepStop', 'Graceful Shutdown')}</p>
+                                                <p className="text-[10px] text-[var(--text-muted)] font-sans">{t('rcon.maint.stepStopDesc', 'Stop server before maintenance')}</p>
                                             </div>
                                         </div>
                                         <input type="checkbox" checked={maintStop} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-active)] text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
@@ -2159,8 +2173,8 @@ export default function RconConsole() {
                                         <div className="flex items-center gap-3">
                                             <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintBackup ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-[var(--surface-active)] text-[var(--text-muted)] border border-[var(--border)]")}>2</div>
                                             <div>
-                                                <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Create Backup</p>
-                                                <p className="text-[10px] text-[var(--text-muted)] font-sans">Zip world save & configs</p>
+                                                <p className="text-xs font-bold text-[var(--text-primary)] font-sans">{t('rcon.maint.stepBackup', 'Create Backup')}</p>
+                                                <p className="text-[10px] text-[var(--text-muted)] font-sans">{t('rcon.maint.stepBackupDesc', 'Zip world save & configs')}</p>
                                             </div>
                                         </div>
                                         <input type="checkbox" checked={maintBackup} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-active)] text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
@@ -2178,8 +2192,8 @@ export default function RconConsole() {
                                         <div className="flex items-center gap-3">
                                             <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintUpdate ? "bg-blue-500/10 text-blue-400 border border-blue-500/30" : "bg-[var(--surface-active)] text-[var(--text-muted)] border border-[var(--border)]")}>3</div>
                                             <div>
-                                                <p className="text-xs font-bold text-[var(--text-primary)] font-sans">SteamCMD Update</p>
-                                                <p className="text-[10px] text-[var(--text-muted)] font-sans">Fetch latest server binary files</p>
+                                                <p className="text-xs font-bold text-[var(--text-primary)] font-sans">{t('rcon.maint.stepUpdate', 'SteamCMD Update')}</p>
+                                                <p className="text-[10px] text-[var(--text-muted)] font-sans">{t('rcon.maint.stepUpdateDesc', 'Fetch latest server binary files')}</p>
                                             </div>
                                         </div>
                                         <input type="checkbox" checked={maintUpdate} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-active)] text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
@@ -2197,8 +2211,8 @@ export default function RconConsole() {
                                         <div className="flex items-center gap-3">
                                             <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintStart ? "bg-sky-500/10 text-sky-400 border border-sky-500/30" : "bg-[var(--surface-active)] text-[var(--text-muted)] border border-[var(--border)]")}>4</div>
                                             <div>
-                                                <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Start Server</p>
-                                                <p className="text-[10px] text-[var(--text-muted)] font-sans">Launch process and watch bootup</p>
+                                                <p className="text-xs font-bold text-[var(--text-primary)] font-sans">{t('rcon.maint.stepStart', 'Start Server')}</p>
+                                                <p className="text-[10px] text-[var(--text-muted)] font-sans">{t('rcon.maint.stepStartDesc', 'Launch process and watch bootup')}</p>
                                             </div>
                                         </div>
                                         <input type="checkbox" checked={maintStart} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-active)] text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
@@ -2216,8 +2230,8 @@ export default function RconConsole() {
                                         <div className="flex items-center gap-3">
                                             <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintWipeDinos ? "bg-amber-500/10 text-amber-400 border border-amber-500/30" : "bg-[var(--surface-active)] text-[var(--text-muted)] border border-[var(--border)]")}>5</div>
                                             <div>
-                                                <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Destroy Wild Dinos</p>
-                                                <p className="text-[10px] text-[var(--text-muted)] font-sans">Wipe map populations via RCON</p>
+                                                <p className="text-xs font-bold text-[var(--text-primary)] font-sans">{t('rcon.maint.stepWipe', 'Destroy Wild Dinos')}</p>
+                                                <p className="text-[10px] text-[var(--text-muted)] font-sans">{t('rcon.maint.stepWipeDesc', 'Wipe map populations via RCON')}</p>
                                             </div>
                                         </div>
                                         <input type="checkbox" checked={maintWipeDinos} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-active)] text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
@@ -2230,20 +2244,20 @@ export default function RconConsole() {
                                         
                                         {/* Status Header */}
                                         <div className="flex items-center justify-between">
-                                            <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider font-sans">Sequence Status</span>
+                                            <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider font-sans">{t('rcon.maint.status', 'Sequence Status')}</span>
                                             {isMaintRunning ? (
                                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 font-sans">
                                                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                                    <span>Running Step {maintStep}/5</span>
+                                                    <span>{t('rcon.maint.runningStep', { step: maintStep, defaultValue: `Running Step ${maintStep}/5` })}</span>
                                                 </span>
                                             ) : maintStep === 6 ? (
                                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-sans">
                                                     <Check className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                                                    <span>Completed</span>
+                                                    <span>{t('rcon.maint.completed', 'Completed')}</span>
                                                 </span>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[var(--surface-active)] text-[var(--text-muted)] border border-[var(--border)] font-sans">
-                                                    <span>Idle</span>
+                                                    <span>{t('rcon.maint.idle', 'Idle')}</span>
                                                 </span>
                                             )}
                                         </div>
@@ -2262,11 +2276,11 @@ export default function RconConsole() {
                                             )}
 
                                             {[
-                                                { label: 'Stop', step: 1, icon: Power, enabled: maintStop },
-                                                { label: 'Backup', step: 2, icon: Database, enabled: maintBackup },
-                                                { label: 'Update', step: 3, icon: Download, enabled: maintUpdate },
-                                                { label: 'Start', step: 4, icon: Play, enabled: maintStart },
-                                                { label: 'Wipe', step: 5, icon: Zap, enabled: maintWipeDinos }
+                                                { label: t('rcon.maint.short.stop', 'Stop'), step: 1, icon: Power, enabled: maintStop },
+                                                { label: t('rcon.maint.short.backup', 'Backup'), step: 2, icon: Database, enabled: maintBackup },
+                                                { label: t('rcon.maint.short.update', 'Update'), step: 3, icon: Download, enabled: maintUpdate },
+                                                { label: t('rcon.maint.short.start', 'Start'), step: 4, icon: Play, enabled: maintStart },
+                                                { label: t('rcon.maint.short.wipe', 'Wipe'), step: 5, icon: Zap, enabled: maintWipeDinos }
                                              ].map((s) => {
                                                 const Icon = s.icon;
                                                 const isSkipped = !s.enabled;
@@ -2282,7 +2296,7 @@ export default function RconConsole() {
                                                                 isActive ? "bg-sky-500 border-sky-500 text-white animate-pulse shadow-[0_0_10px_rgba(14,165,233,0.4)]" :
                                                                 "bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-muted)]"
                                                             )}
-                                                            title={isSkipped ? "This step is skipped" : undefined}
+                                                            title={isSkipped ? t('rcon.maint.stepSkipped', 'This step is skipped') : undefined}
                                                         >
                                                             {isActive ? (
                                                                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -2306,22 +2320,22 @@ export default function RconConsole() {
 
                                         {/* Console Logs */}
                                         <div className="flex-1 flex flex-col space-y-2">
-                                            <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider pl-1 font-sans">Execution Console Logs</span>
+                                            <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider pl-1 font-sans">{t('rcon.maint.consoleLogs', 'Execution Console Logs')}</span>
                                             <div className="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3.5 font-mono text-[10px] leading-relaxed text-[var(--text-secondary)] overflow-y-auto min-h-[160px] max-h-[220px]">
                                                 {maintLogs.length === 0 ? (
-                                                    <p className="text-[var(--text-muted)] italic">Logs will appear here once execution starts.</p>
+                                                    <p className="text-[var(--text-muted)] italic">{t('rcon.maint.logsEmpty', 'Logs will appear here once execution starts.')}</p>
                                                 ) : (
                                                     maintLogs.map((logLine, idx) => (
                                                         <div 
                                                             key={idx} 
                                                             className={cn(
                                                                 "py-0.5 border-b border-[var(--border)]/30 last:border-b-0",
-                                                                logLine.includes("ERROR:") ? "text-rose-400" : 
-                                                                logLine.includes("completed successfully") ? "text-emerald-400 font-bold" :
-                                                                logLine.includes("Starting") ? "text-sky-400 font-bold" : ""
+                                                                logLine.kind === 'error' ? "text-rose-400" : 
+                                                                logLine.kind === 'success' ? "text-emerald-400 font-bold" :
+                                                                logLine.kind === 'start' ? "text-sky-400 font-bold" : ""
                                                             )}
                                                         >
-                                                            {logLine}
+                                                            {logLine.text}
                                                         </div>
                                                     ))
                                                 )}
@@ -2352,8 +2366,16 @@ export default function RconConsole() {
                                         <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 flex items-start gap-2 text-amber-400/90 text-xs shadow-inner">
                                             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
                                             <p className="leading-relaxed">
-                                                <strong className="text-amber-500 font-medium">Vanilla ARK Warning:</strong> <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300 font-mono text-[10px]">GiveItemToPlayer</code> requires the internal <strong>UE4 Player ID</strong>. Steam IDs or EOS IDs from the Online list will result in <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300 font-mono text-[10px]">GiveItemToPlayer 0</code>.
-                                                <br/>If you don't use API plugins, select <strong>Manual ID</strong> and enter the UE4 Player ID.
+                                                <Trans
+                                                    i18nKey="rcon.giveItem.vanillaWarning"
+                                                    defaults="<0>Vanilla ARK Warning:</0> <1>GiveItemToPlayer</1> requires the internal <2>UE4 Player ID</2>. Steam IDs or EOS IDs from the Online list will result in <1>GiveItemToPlayer 0</1>.<3/>If you don't use API plugins, select <2>Manual ID</2> and enter the UE4 Player ID."
+                                                    components={[
+                                                        <strong className="text-amber-500 font-medium" />,
+                                                        <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300 font-mono text-[10px]" />,
+                                                        <strong />,
+                                                        <br />,
+                                                    ]}
+                                                />
                                             </p>
                                         </div>
                                         
@@ -2411,12 +2433,12 @@ export default function RconConsole() {
                                                             {isResolvingIds ? (
                                                                 <span className="text-amber-400 animate-pulse flex items-center gap-1">
                                                                     <RefreshCw className="w-3 h-3 animate-spin" />
-                                                                    Resolving UE4 Player ID...
+                                                                    {t('rcon.giveItem.resolving', 'Resolving UE4 Player ID...')}
                                                                 </span>
                                                             ) : resolvedPlayerIds[giveSelectedPlayerId] ? (
                                                                 <span className="text-emerald-400 font-medium flex items-center gap-1">
                                                                     <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                                                    Resolved UE4 Player ID: <code 
+                                                                    {t('rcon.giveItem.resolved', 'Resolved UE4 Player ID:')} <code 
                                                                         onClick={() => {
                                                                             navigator.clipboard.writeText(resolvedPlayerIds[giveSelectedPlayerId]);
                                                                             toast.success(t('rcon.idCopied', 'Player ID copied to clipboard'));
@@ -2431,7 +2453,7 @@ export default function RconConsole() {
                                                             ) : (
                                                                 <span className="text-rose-400 font-medium flex items-center gap-1 leading-normal">
                                                                     <XCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                                                                    Could not resolve Player ID automatically (save profile not found).
+                                                                    {t('rcon.giveItem.resolveFailed', 'Could not resolve Player ID automatically (save profile not found).')}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -2447,7 +2469,7 @@ export default function RconConsole() {
                                                     type="text"
                                                     value={giveManualPlayerId}
                                                     onChange={(e) => setGiveManualPlayerId(e.target.value)}
-                                                    placeholder="e.g. 123456789 or 76561198..."
+                                                    placeholder={t('rcon.giveItem.playerIdPlaceholder', 'e.g. 123456789 or 76561198...')}
                                                     className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-amber-500/50 font-mono transition-all"
                                                 />
                                             </div>
@@ -2503,7 +2525,7 @@ export default function RconConsole() {
                                                     {t('rcon.giveItem.quality', 'Quality Index')}
                                                 </label>
                                                 <span className="text-xs font-mono font-bold text-amber-400">
-                                                    {giveItemQuality === 0 ? 'Primitive (0)' : giveItemQuality === 2 ? 'Ramshackle (2)' : giveItemQuality === 4 ? 'Apprentice (4)' : giveItemQuality === 6 ? 'Journeyman (6)' : giveItemQuality === 10 ? 'Mastercraft (10)' : giveItemQuality === 20 ? 'Ascendant (20)' : `Custom (${giveItemQuality})`}
+                                                    {giveItemQuality === 0 ? t('rcon.giveItem.qualityLevels.primitive', 'Primitive (0)') : giveItemQuality === 2 ? t('rcon.giveItem.qualityLevels.ramshackle', 'Ramshackle (2)') : giveItemQuality === 4 ? t('rcon.giveItem.qualityLevels.apprentice', 'Apprentice (4)') : giveItemQuality === 6 ? t('rcon.giveItem.qualityLevels.journeyman', 'Journeyman (6)') : giveItemQuality === 10 ? t('rcon.giveItem.qualityLevels.mastercraft', 'Mastercraft (10)') : giveItemQuality === 20 ? t('rcon.giveItem.qualityLevels.ascendant', 'Ascendant (20)') : t('rcon.giveItem.qualityLevels.custom', { value: giveItemQuality, defaultValue: `Custom (${giveItemQuality})` })}
                                                 </span>
                                             </div>
                                             <input
@@ -2515,7 +2537,7 @@ export default function RconConsole() {
                                                 className="w-full h-1.5 bg-[var(--surface-active)] rounded-lg appearance-none cursor-pointer accent-amber-500"
                                             />
                                             <div className="flex gap-1.5">
-                                                {[[0, 'Prim'], [2, 'Ram'], [4, 'App'], [6, 'Journ'], [10, 'Mast'], [20, 'Asc']].map(([val, label]) => (
+                                                {[[0, t('rcon.giveItem.qualityShort.prim', 'Prim')], [2, t('rcon.giveItem.qualityShort.ram', 'Ram')], [4, t('rcon.giveItem.qualityShort.app', 'App')], [6, t('rcon.giveItem.qualityShort.journ', 'Journ')], [10, t('rcon.giveItem.qualityShort.mast', 'Mast')], [20, t('rcon.giveItem.qualityShort.asc', 'Asc')]].map(([val, label]) => (
                                                     <button
                                                         key={val}
                                                         type="button"
@@ -2699,7 +2721,7 @@ export default function RconConsole() {
                                                                     </p>
                                                                 </div>
                                                                 <span className={cn("text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shrink-0 ml-2 transition-colors", badgeClass)}>
-                                                                    {item.category}
+                                                                    {t(categoryKey(item.category), item.category)}
                                                                 </span>
                                                             </button>
                                                         );
@@ -2716,7 +2738,7 @@ export default function RconConsole() {
                                                 rows={5}
                                                 value={giveCustomBlueprint}
                                                 onChange={(e) => setGiveCustomBlueprint(e.target.value)}
-                                                placeholder={`e.g. Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Wood.PrimalItemResource_Wood'`}
+                                                placeholder={t('rcon.giveItem.blueprintPlaceholder', { path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Wood.PrimalItemResource_Wood'", defaultValue: "e.g. {{path}}" })}
                                                 className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-3.5 py-3 text-xs text-[var(--text-primary)] focus:outline-none focus:border-amber-500/50 font-mono transition-all resize-none leading-relaxed"
                                             />
                                             <p className="text-[10px] text-[var(--text-muted)] leading-normal">
@@ -2741,7 +2763,7 @@ export default function RconConsole() {
                             onClick={refreshPlayers}
                             disabled={!isConnected}
                             className="p-2 bg-[var(--surface-hover)] border border-[var(--border)] hover:bg-[var(--surface-active)] rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                            title="Refresh player list"
+                            title={t('rcon.refreshPlayers', 'Refresh player list')}
                         >
                             <RefreshCw className="w-4 h-4 text-[var(--text-muted)]" />
                         </button>

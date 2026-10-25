@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Timer, AlertTriangle, X, Save, Square } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useTimedShutdownStore } from '../../stores/timedShutdownStore';
+import { NumberInput } from '../ui/NumberInput';
 
 interface TimedShutdownModalProps {
     isOpen: boolean;
@@ -13,11 +15,11 @@ interface TimedShutdownModalProps {
 }
 
 const PRESET_TIMERS = [
-    { label: '1 Min', minutes: 1, seconds: 60 },
-    { label: '2 Mins', minutes: 2, seconds: 120 },
-    { label: '5 Mins', minutes: 5, seconds: 300 },
-    { label: '10 Mins', minutes: 10, seconds: 600 },
-    { label: '15 Mins', minutes: 15, seconds: 900 },
+    { minutes: 1, seconds: 60 },
+    { minutes: 2, seconds: 120 },
+    { minutes: 5, seconds: 300 },
+    { minutes: 10, seconds: 600 },
+    { minutes: 15, seconds: 900 },
 ];
 
 export const TimedShutdownModal: React.FC<TimedShutdownModalProps> = ({
@@ -28,6 +30,7 @@ export const TimedShutdownModal: React.FC<TimedShutdownModalProps> = ({
     serverType = 'ASA',
     onImmediateStop,
 }) => {
+    const { t } = useTranslation();
     const startShutdown = useTimedShutdownStore((state) => state.startShutdown);
 
     const [selectedPreset, setSelectedPreset] = useState<number>(300); // Default 5 mins (300s)
@@ -35,7 +38,7 @@ export const TimedShutdownModal: React.FC<TimedShutdownModalProps> = ({
     const [customSeconds, setCustomSeconds] = useState<number>(0);
     const [isCustom, setIsCustom] = useState<boolean>(false);
     const [messageTemplate, setMessageTemplate] = useState<string>(
-        'Server shutting down in {time}! Please save your items and log out.'
+        t('timedShutdown.defaultMessage', 'Server shutting down in {time}! Please save your items and log out.')
     );
     const [saveWorld, setSaveWorld] = useState<boolean>(true);
 
@@ -64,10 +67,10 @@ export const TimedShutdownModal: React.FC<TimedShutdownModalProps> = ({
                         </div>
                         <div>
                             <h3 className="text-base font-bold text-white flex items-center gap-2">
-                                Timed Graceful Shutdown
+                                {t('timedShutdown.title', 'Timed Graceful Shutdown')}
                             </h3>
                             <p className="text-xs text-slate-400 font-medium truncate max-w-[280px]">
-                                Server: <span className="text-sky-400 font-bold">{serverName}</span>
+                                {t('timedShutdown.serverLabel', 'Server')}: <span className="text-sky-400 font-bold">{serverName}</span>
                             </p>
                         </div>
                     </div>
@@ -82,7 +85,7 @@ export const TimedShutdownModal: React.FC<TimedShutdownModalProps> = ({
                 {/* Preset Timers */}
                 <div className="space-y-2">
                     <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-                        Select Countdown Duration
+                        {t('timedShutdown.selectDuration', 'Select Countdown Duration')}
                     </label>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                         {PRESET_TIMERS.map((preset) => (
@@ -99,7 +102,7 @@ export const TimedShutdownModal: React.FC<TimedShutdownModalProps> = ({
                                         : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
                                 }`}
                             >
-                                {preset.label}
+                                {t('timedShutdown.presetMinutes', { count: preset.minutes, defaultValue: '{{count}} Mins' })}
                             </button>
                         ))}
                         <button
@@ -111,7 +114,7 @@ export const TimedShutdownModal: React.FC<TimedShutdownModalProps> = ({
                                     : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
                             }`}
                         >
-                            Custom
+                            {t('timedShutdown.custom', 'Custom')}
                         </button>
                     </div>
 
@@ -119,24 +122,24 @@ export const TimedShutdownModal: React.FC<TimedShutdownModalProps> = ({
                     {isCustom && (
                         <div className="flex items-center gap-3 pt-2">
                             <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs">
-                                <span className="text-slate-400 font-medium">Minutes:</span>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="180"
+                                <span className="text-slate-400 font-medium">{t('timedShutdown.minutesLabel', 'Minutes:')}</span>
+                                <NumberInput
+                                    integer
+                                    min={0}
+                                    max={180}
                                     value={customMinutes}
-                                    onChange={(e) => setCustomMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+                                    onValueChange={setCustomMinutes}
                                     className="w-12 bg-transparent text-white font-bold font-mono focus:outline-none text-center"
                                 />
                             </div>
                             <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs">
-                                <span className="text-slate-400 font-medium">Seconds:</span>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="59"
+                                <span className="text-slate-400 font-medium">{t('timedShutdown.secondsLabel', 'Seconds:')}</span>
+                                <NumberInput
+                                    integer
+                                    min={0}
+                                    max={59}
                                     value={customSeconds}
-                                    onChange={(e) => setCustomSeconds(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                                    onValueChange={setCustomSeconds}
                                     className="w-12 bg-transparent text-white font-bold font-mono focus:outline-none text-center"
                                 />
                             </div>
@@ -148,9 +151,9 @@ export const TimedShutdownModal: React.FC<TimedShutdownModalProps> = ({
                 <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                         <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-                            In-Game Broadcast Message
+                            {t('timedShutdown.broadcastMessage', 'In-Game Broadcast Message')}
                         </label>
-                        <span className="text-[10px] text-slate-500 font-mono">Use {'{time}'} for countdown</span>
+                        <span className="text-[10px] text-slate-500 font-mono">{t('timedShutdown.useTimeHint', { defaultValue: 'Use {{token}} for countdown', token: '{time}' })}</span>
                     </div>
                     <textarea
                         value={messageTemplate}
@@ -171,7 +174,7 @@ export const TimedShutdownModal: React.FC<TimedShutdownModalProps> = ({
                         />
                         <div className="flex items-center gap-1.5 text-xs text-slate-300 group-hover:text-white transition-colors">
                             <Save className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>Save World (<span className="font-mono text-emerald-400">SaveWorld</span>) before stopping</span>
+                            <span>{t('timedShutdown.saveWorldBefore', 'Save World before stopping')} (<span className="font-mono text-emerald-400">SaveWorld</span>)</span>
                         </div>
                     </label>
                 </div>
@@ -180,7 +183,7 @@ export const TimedShutdownModal: React.FC<TimedShutdownModalProps> = ({
                 <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-2.5">
                     <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                     <p className="text-[11px] text-amber-200/80 leading-relaxed">
-                        In-game broadcast announcements will be sent to players at standard interval checkpoints (15m, 10m, 5m, 2m, 1m, 30s, 10s) until the final shutdown.
+                        {t('timedShutdown.infoNote', 'In-game broadcast announcements will be sent to players at standard interval checkpoints (15m, 10m, 5m, 2m, 1m, 30s, 10s) until the final shutdown.')}
                     </p>
                 </div>
 
@@ -194,10 +197,10 @@ export const TimedShutdownModal: React.FC<TimedShutdownModalProps> = ({
                                 onImmediateStop();
                             }}
                             className="px-3.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                            title="Force stop the server immediately without waiting for countdown"
+                            title={t('timedShutdown.stopNowTitle', 'Force stop the server immediately without waiting for countdown')}
                         >
                             <Square className="w-3.5 h-3.5 fill-current" />
-                            <span>Stop Immediately</span>
+                            <span>{t('timedShutdown.stopNow', 'Stop Immediately')}</span>
                         </button>
                     ) : (
                         <div></div>
@@ -208,7 +211,7 @@ export const TimedShutdownModal: React.FC<TimedShutdownModalProps> = ({
                             onClick={onClose}
                             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
                         >
-                            Cancel
+                            {t('common.cancel', 'Cancel')}
                         </button>
                         <button
                             type="button"
@@ -216,7 +219,7 @@ export const TimedShutdownModal: React.FC<TimedShutdownModalProps> = ({
                             className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all active:scale-95 cursor-pointer"
                         >
                             <Timer className="w-4 h-4" />
-                            <span>Start Shutdown Countdown</span>
+                            <span>{t('timedShutdown.start', 'Start Shutdown Countdown')}</span>
                         </button>
                     </div>
                 </div>

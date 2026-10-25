@@ -18,7 +18,7 @@ export default function ImportServerDialog({ onClose, initialType = 'ASA' }: Pro
     const { addServer } = useServerStore();
     const { addServer: addAseServer } = useAseServerStore();
     const [installPath, setInstallPath] = useState('');
-    const [serverName, setServerName] = useState(t('dialogs.importServer.namePlaceholder', 'My ARK Server'));
+    const [serverName, setServerName] = useState(t('dialogs.importServer.defaultName', 'My ARK Server'));
     const [serverType, setServerType] = useState<'ASA' | 'ASE'>(initialType);
     const [isImporting, setIsImporting] = useState(false);
     const [isPreviewing, setIsPreviewing] = useState(false);
@@ -79,7 +79,7 @@ export default function ImportServerDialog({ onClose, initialType = 'ASA' }: Pro
 
     const handleImport = async () => {
         if (!installPath || !serverName) {
-            setError(t('dialogs.importServer.error', 'Please fill in all required fields.'));
+            setError(t('dialogs.importServer.fillRequired', 'Please fill in all required fields.'));
             return;
         }
 
@@ -138,7 +138,7 @@ export default function ImportServerDialog({ onClose, initialType = 'ASA' }: Pro
                     <div>
                         <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
                             <Server className="w-4 h-4" />
-                            Server Type
+                            {t('dialogs.importServer.serverType', 'Server Type')}
                         </label>
                         <div className="flex gap-2">
                             <button
@@ -217,7 +217,7 @@ export default function ImportServerDialog({ onClose, initialType = 'ASA' }: Pro
                     {isPreviewing && (
                         <div className="flex items-center gap-3 p-4 bg-slate-800/50 border border-slate-700/50 rounded-xl">
                             <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
-                            <span className="text-sm text-slate-300">Detecting server settings...</span>
+                            <span className="text-sm text-slate-300">{t('dialogs.importServer.detecting', 'Detecting server settings...')}</span>
                         </div>
                     )}
 
@@ -225,59 +225,59 @@ export default function ImportServerDialog({ onClose, initialType = 'ASA' }: Pro
                         <div className="space-y-3">
                             <div className="flex items-center gap-2 text-sm font-medium text-slate-300">
                                 <Eye className="w-4 h-4 text-amber-400" />
-                                Detected Settings
+                                {t('dialogs.importServer.detectedSettings', 'Detected Settings')}
                             </div>
                             <div className="grid grid-cols-2 gap-2 p-4 bg-slate-800/30 border border-slate-700/30 rounded-xl text-xs">
                                 <div className="flex items-center gap-2">
                                     <MapPin className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                                    <span className="text-slate-400">Map:</span>
+                                    <span className="text-slate-400">{t('dialogs.importServer.map', 'Map')}:</span>
                                     <span className="text-white font-medium truncate">{preview.mapName}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Users className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
-                                    <span className="text-slate-400">Players:</span>
+                                    <span className="text-slate-400">{t('dialogs.importServer.players', 'Players')}:</span>
                                     <span className="text-white font-medium">{preview.maxPlayers}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Wifi className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
-                                    <span className="text-slate-400">Game Port:</span>
+                                    <span className="text-slate-400">{t('dialogs.importServer.gamePort', 'Game Port')}:</span>
                                     <span className="text-white font-medium">{preview.gamePort}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Wifi className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
-                                    <span className="text-slate-400">Query Port:</span>
+                                    <span className="text-slate-400">{t('dialogs.importServer.queryPort', 'Query Port')}:</span>
                                     <span className="text-white font-medium">{preview.queryPort}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Terminal className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-                                    <span className="text-slate-400">RCON Port:</span>
+                                    <span className="text-slate-400">{t('dialogs.importServer.rconPort', 'RCON Port')}:</span>
                                     <span className="text-white font-medium">{preview.rconPort}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Shield className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
-                                    <span className="text-slate-400">Admin Pass:</span>
-                                    <span className="text-white font-medium">{preview.adminPassword ? '••••••' : 'Not set'}</span>
+                                    <span className="text-slate-400">{t('dialogs.importServer.adminPass', 'Admin Pass')}:</span>
+                                    <span className="text-white font-medium">{preview.adminPassword ? '••••••' : t('dialogs.importServer.notSet', 'Not set')}</span>
                                 </div>
                                 {preview.ipAddress && (
                                     <div className="flex items-center gap-2 col-span-2">
                                         <Wifi className="w-3.5 h-3.5 text-teal-400 flex-shrink-0" />
-                                        <span className="text-slate-400">IP Address:</span>
+                                        <span className="text-slate-400">{t('dialogs.importServer.ipAddress', 'IP Address')}:</span>
                                         <span className="text-white font-medium">{preview.ipAddress}</span>
                                     </div>
                                 )}
                                 {preview.activeMods && (
                                     <div className="flex items-center gap-2 col-span-2">
                                         <Package className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
-                                        <span className="text-slate-400">Active Mods:</span>
+                                        <span className="text-slate-400">{t('dialogs.importServer.activeMods', 'Active Mods')}:</span>
                                         <span className="text-white font-medium">
-                                            {preview.activeMods.split(',').filter(Boolean).length} mod(s)
+                                            {t('dialogs.importServer.modCount', { defaultValue: '{{count}} mod(s)', count: preview.activeMods.split(',').filter(Boolean).length })}
                                         </span>
                                     </div>
                                 )}
                                 {preview.clusterId && (
                                     <div className="flex items-center gap-2 col-span-2">
                                         <Server className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />
-                                        <span className="text-slate-400">Cluster ID:</span>
+                                        <span className="text-slate-400">{t('dialogs.importServer.clusterId', 'Cluster ID')}:</span>
                                         <span className="text-white font-medium truncate">{preview.clusterId}</span>
                                     </div>
                                 )}
@@ -311,11 +311,11 @@ export default function ImportServerDialog({ onClose, initialType = 'ASA' }: Pro
                         <div className="text-sm text-amber-300/80">
                             <p className="font-medium mb-1">{t('dialogs.importServer.whatImports', 'What will be imported:')}</p>
                             <ul className="list-disc list-inside text-xs space-y-0.5 opacity-80">
-                                <li>Map name, session name, and player count</li>
+                                <li>{t('dialogs.importServer.importDetails.mapSession', 'Map name, session name, and player count')}</li>
                                 <li>{t('dialogs.importServer.importDetails.ports', 'Game, Query, and RCON ports')}</li>
                                 <li>{t('dialogs.importServer.importDetails.admin', 'Admin and server passwords')}</li>
-                                <li>Active mods and cluster settings</li>
-                                <li>IP address and custom launch arguments</li>
+                                <li>{t('dialogs.importServer.importDetails.modsCluster', 'Active mods and cluster settings')}</li>
+                                <li>{t('dialogs.importServer.importDetails.ipArgs', 'IP address and custom launch arguments')}</li>
                             </ul>
                         </div>
                     </div>
