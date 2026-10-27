@@ -14,7 +14,7 @@ describe('Cryopod INI Configuration & Key Aliasing', () => {
 
         const fridgeReqField = cryoGroup?.fields.find(f => f.key === 'DisableCryopodFridgeRequirement');
         expect(fridgeReqField).toBeDefined();
-        expect(fridgeReqField?.label).toBe('Disable Cryo Fridge Requirement');
+        expect(fridgeReqField?.label).toBe('Use Cryopods Without a Cryofridge');
 
         const saddleField = cryoGroup?.fields.find(f => f.key === 'AllowCryoFridgeOnSaddle');
         expect(saddleField).toBeDefined();
