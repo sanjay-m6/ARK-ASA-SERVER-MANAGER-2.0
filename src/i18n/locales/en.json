@@ -574,7 +574,11 @@
       "warningTitle": "Time-consuming operation",
       "warningDesc": "Depending on the size of the save data and server files, this operation may take several minutes. Please do not close the application during this process.",
       "confirmMove": "Confirm Move",
-      "storageMigration": "STORAGE MIGRATION"
+      "storageMigration": "STORAGE MIGRATION",
+      "targetFolderName": "Folder Name",
+      "currentLocation": "Current Folder Path",
+      "newLocation": "New Path Preview",
+      "destinationDirectory": "Destination Directory"
     },
     "conflicts": {
       "hardTitle": "Critical Port Conflict",
@@ -716,7 +720,10 @@
       "checkApplyUpdates": "Check and apply Steam updates",
       "verifyFilesLaunch": "Verify files before launch",
       "installPatchesAuto": "Install Steam patches automatically",
-      "managementConfig": "Management & Config"
+      "managementConfig": "Management & Config",
+      "changeFolder": "Change / Rename",
+      "clickToChangeFolder": "Click to change folder name or move server",
+      "moveFolderTooltip": "Change folder name or move server to a new directory"
     },
     "guide": {
       "and": "and",
@@ -1476,12 +1483,12 @@
         "description": "Prevents cryopods from placing dinos in stasis"
       },
       "DisableCryopodFridgeRequirement": {
-        "label": "Disable Cryo Fridge Requirement",
-        "description": "Allows deploying dinos without requiring a nearby powered Cryofridge"
+        "label": "Use Cryopods Without a Cryofridge",
+        "description": "If True, cryopods can be used without being in range of a powered Cryofridge."
       },
       "AllowCryoFridgeOnSaddle": {
-        "label": "Allow Cryofridge on Saddles / Rafts",
-        "description": "Allows placing Cryofridges on platform saddles and rafts"
+        "label": "Allow Cryofridge on Platform Saddles",
+        "description": "If True, Cryofridges can be built on platform saddles and rafts."
       },
       "DisableCryopodStructureRequirement": {
         "label": "Disable Cryo Fridge Requirement (Legacy)",
@@ -1830,14 +1837,6 @@
       "OverrideMaxExperiencePointsDino": {
         "label": "Max Dino XP",
         "description": "Overrides the maximum XP cap for tamed creatures (exact value). Leave empty for the game default."
-      },
-      "DisableCryopodFridgeRequirement": {
-        "label": "Use Cryopods Without a Cryofridge",
-        "description": "If True, cryopods can be used without being in range of a powered Cryofridge."
-      },
-      "AllowCryoFridgeOnSaddle": {
-        "label": "Allow Cryofridge on Platform Saddles",
-        "description": "If True, Cryofridges can be built on platform saddles and rafts."
       }
     },
     "groups": {

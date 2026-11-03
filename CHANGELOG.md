@@ -5,6 +5,27 @@ All notable changes to the ARK ASA Server Manager are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.34] — 2026-11-03
+
+### Fixed & Improved
+- **📁 Direct Server Folder Rename & Relocate Action (`INSTALLATIONSPFAD`)**:
+  - Added an intuitive **Change / Rename** action button and click-to-edit capability directly on the `INSTALLATIONSPFAD` field in both Card View and List View (supporting both ASA and ASE servers).
+  - Added a direct Explorer button to open the server installation folder on disk with one click.
+- **⚡ Fast Instant Rename on Same Drive (Zero-Downtime Migration)**:
+  - Implemented atomic same-volume filesystem rename in the Rust backend (`move_server`), completing server folder renames in milliseconds instead of slow 20-minute disk copies.
+  - Automatically falls back to resilient streaming copy + cleanup if moving across different physical drives.
+- **🔄 Smart Re-linking for Manually Renamed/Relocated Folders**:
+  - If a server folder was already renamed or moved externally in Windows Explorer, the manager automatically detects the existing files and updates the database installation path cleanly without "source not found" errors.
+- **🗂️ Interactive Move & Rename Modal (`MoveServerDialog`)**:
+  - Displays clear Current Folder Path vs. New Destination Path.
+  - Added an editable text input to customize the destination folder name (e.g. changing `server1` to `TheIsland`) with real-time path preview.
+  - Added integrated directory browser ("Browse Folder...") for effortless multi-drive relocation.
+- **🛡️ Bulk Server Migration Subfolder Isolation & Safety Safeguards**:
+  - Fixed bulk move so each selected server instance is migrated into its own isolated subfolder instead of merging multiple servers into a single directory.
+  - Added clear notification safeguards requiring servers to be stopped before initiating a move or rename.
+
+---
+
 ## [4.6.33] — 2026-10-12
 
 ### Fixed & Improved

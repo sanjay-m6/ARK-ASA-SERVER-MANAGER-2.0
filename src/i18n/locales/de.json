@@ -487,7 +487,11 @@
       "dialogDesc": "Sind Sie sicher, dass Sie {{name}} an den neuen Speicherort verschieben möchten?",
       "warningTitle": "Zeitaufwändiger Vorgang",
       "warningDesc": "Abhängig von der Größe der Speicherdaten und Serverdateien kann dieser Vorgang mehrere Minuten dauern. Bitte schließen Sie die Anwendung während dieses Vorgangs nicht.",
-      "confirmMove": "Bestätigen Sie das Verschieben"
+      "confirmMove": "Bestätigen Sie das Verschieben",
+      "targetFolderName": "Ordnername",
+      "currentLocation": "Aktueller Pfad",
+      "newLocation": "Neuer Zielpfad (Vorschau)",
+      "destinationDirectory": "Zielverzeichnis"
     },
     "conflicts": {
       "hardTitle": "Kritischer Portkonflikt",
@@ -540,6 +544,11 @@
     },
     "status": {
       "updateAvailable": "Update verfügbar"
+    },
+    "actions": {
+      "changeFolder": "Ordner ändern / umbenennen",
+      "clickToChangeFolder": "Klicken, um den Ordnernamen zu ändern oder den Server zu verschieben",
+      "moveFolderTooltip": "Serverordner umbenennen oder in ein anderes Verzeichnis verschieben"
     }
   },
   "configEditor": {

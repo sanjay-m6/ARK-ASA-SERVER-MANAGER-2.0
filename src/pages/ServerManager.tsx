@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
     Plus, Play, Square, RotateCw, Trash2, Download, Settings, Terminal, Globe, Shield,
     ChevronDown, ChevronUp, Copy, AppWindow, RefreshCw, ExternalLink,
-    Check, XCircle, GripVertical, Network, FolderOpen, Users, PenLine, Cpu, HelpCircle,
+    Check, XCircle, GripVertical, Network, FolderOpen, FolderInput, Users, PenLine, Cpu, HelpCircle,
     Loader2, AlertTriangle, GitBranch, FileText, Edit2, LayoutGrid, LayoutList, Sparkles, Timer,
     Stethoscope
 } from 'lucide-react';
@@ -410,25 +410,32 @@ export default function ServerManager() {
             if (!server) return;
             
             if (server.status !== 'stopped' && server.status !== 'crashed') {
-                toast.error(t('serverManager.move.mustBeStopped', 'Server must be stopped before moving.'));
+                toast.error(t('serverManager.move.mustBeStopped', 'Server must be stopped before moving or changing folder.'));
                 return;
             }
 
+            setMoveServerTarget(server);
+            setMoveServerPath(server.installPath);
+            setIsBulkMove(false);
+            setShowMoveDialog(true);
+        } catch (error) {
+            console.error('Failed to prepare move server:', error);
+            toast.error(t('serverManager.move.failed', 'Failed to prepare move server.'));
+        }
+    };
+
+    const handleBrowseMoveFolder = async () => {
+        try {
             const selectedPath = await open({
                 directory: true,
                 multiple: false,
                 title: t('serverManager.move.selectFolder', 'Select New Server Directory')
             });
-
             if (selectedPath && !Array.isArray(selectedPath)) {
-                setMoveServerTarget(server);
                 setMoveServerPath(selectedPath as string);
-                setIsBulkMove(false);
-                setShowMoveDialog(true);
             }
         } catch (error) {
-            console.error('Failed to prepare move server:', error);
-            toast.error(t('serverManager.move.failed', 'Failed to prepare move server.'));
+            console.error('Failed to browse folder:', error);
         }
     };
 
@@ -451,8 +458,9 @@ export default function ServerManager() {
         }
     };
 
-    const confirmMoveServer = async () => {
-        if (!moveServerPath) return;
+    const confirmMoveServer = async (customPath?: string) => {
+        const finalPath = customPath || moveServerPath;
+        if (!finalPath) return;
 
         if (isBulkMove) {
             try {
@@ -464,7 +472,9 @@ export default function ServerManager() {
                         const server = servers.find(s => s.id === serverId);
                         if (server) {
                             toast.loading(t('serverManager.move.movingServer', { name: server.name, defaultValue: `Moving ${server.name}...` }), { id: 'bulk-move' });
-                            await moveServer(serverId, moveServerPath, false);
+                            const folderName = server.installPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() || `server_${server.id}`;
+                            const serverTargetDir = `${finalPath.replace(/\\/g, '/').replace(/\/+$/, '')}/${folderName}`;
+                            await moveServer(serverId, serverTargetDir, false);
                             successCount++;
                         }
                     } catch (err) {
@@ -490,13 +500,13 @@ export default function ServerManager() {
             try {
                 toast.success(t('serverManager.move.started', 'Moving server...'));
                 
-                await moveServer(moveServerTarget.id, moveServerPath, false);
+                await moveServer(moveServerTarget.id, finalPath, false);
                 
                 toast.success(t('serverManager.move.success', 'Server moved successfully!'));
                 refreshServers();
             } catch (error) {
                 console.error('Failed to move server:', error);
-                toast.error(t('serverManager.move.failed', 'Failed to move server.'));
+                toast.error(String(error) || t('serverManager.move.failed', 'Failed to move server.'));
                 refreshServers();
             }
         }
@@ -1593,11 +1603,50 @@ export default function ServerManager() {
                         <div className="mt-4 p-4 bg-slate-900/40 backdrop-blur-md rounded-xl border border-white/10 shadow-inner">
                             <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div className="space-y-1.5 group/field">
-                                    <div className="flex items-center gap-1.5 text-slate-400 group-hover/field:text-slate-200 transition-colors">
-                                        <FolderOpen className="w-3.5 h-3.5 text-sky-400/80" />
-                                        <p className="text-[10px] uppercase tracking-wider font-bold select-none">{t('serverManager.serverDetails.installPath')}</p>
+                                    <div className="flex items-center justify-between text-slate-400 group-hover/field:text-slate-200 transition-colors">
+                                        <div className="flex items-center gap-1.5">
+                                            <FolderOpen className="w-3.5 h-3.5 text-sky-400/80" />
+                                            <p className="text-[10px] uppercase tracking-wider font-bold select-none">{t('serverManager.serverDetails.installPath')}</p>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleMoveServer(server.id);
+                                                }}
+                                                className="text-[10px] text-sky-400 hover:text-sky-300 flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 transition-all font-semibold cursor-pointer"
+                                                title={t('serverManager.actions.moveFolderTooltip', 'Change folder name or move server')}
+                                            >
+                                                <FolderInput className="w-3 h-3" />
+                                                <span>{t('serverManager.actions.changeFolder', 'Change / Rename')}</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    try {
+                                                        await openInExplorer(server.installPath);
+                                                        toast.success(t('dashboard.openedFolder', 'Opened server directory in Explorer'));
+                                                    } catch (err) {
+                                                        toast.error(t('dashboard.cannotOpenFolder', { error: String(err), defaultValue: `Cannot open folder: ${err}` }));
+                                                    }
+                                                }}
+                                                className="text-slate-400 hover:text-sky-400 p-0.5 rounded hover:bg-white/5 transition-colors cursor-pointer"
+                                                title={t('serverManager.labels.openInExplorer', 'Open in Explorer')}
+                                            >
+                                                <ExternalLink className="w-3 h-3" />
+                                            </button>
+                                        </div>
                                     </div>
-                                    <p className="text-slate-300 font-mono text-[11px] truncate bg-slate-950/40 p-2 rounded-lg border border-white/5 hover:border-white/10 transition-colors shadow-inner" title={server.installPath}>{server.installPath}</p>
+                                    <div 
+                                        onClick={() => handleMoveServer(server.id)}
+                                        className="flex items-center justify-between text-slate-300 font-mono text-[11px] bg-slate-950/40 p-2 rounded-lg border border-white/5 hover:border-sky-500/30 hover:bg-slate-950/60 transition-all shadow-inner cursor-pointer group/path"
+                                        title={t('serverManager.actions.clickToChangeFolder', 'Click to change folder name or move server')}
+                                    >
+                                        <span className="truncate" title={server.installPath}>{server.installPath}</span>
+                                        <Edit2 className="w-3 h-3 text-slate-500 group-hover/path:text-sky-400 shrink-0 ml-1.5 transition-colors" />
+                                    </div>
                                 </div>
                                 <div className="space-y-1.5 group/field">
                                     <div className="flex items-center gap-1.5 text-slate-400 group-hover/field:text-slate-200 transition-colors">
@@ -3378,6 +3427,9 @@ export default function ServerManager() {
                 isBulk={isBulkMove}
                 serverCount={selectedServers.length}
                 serverName={moveServerTarget?.name}
+                currentPath={moveServerTarget?.installPath}
+                targetPath={moveServerPath}
+                onBrowseFolder={handleBrowseMoveFolder}
             />
 
             {timedShutdownServer && (

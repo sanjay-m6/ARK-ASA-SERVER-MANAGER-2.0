@@ -4811,6 +4811,52 @@ pub async fn move_server(
             });
         };
         
+        emit_progress(5.0, "Validating directories...");
+        
+        // 1. Relink check: If old_path does not exist on disk, but new_path exists
+        // (e.g. user manually renamed or moved the server folder in Windows Explorer)
+        if !old_path.exists() && new_path.exists() {
+            emit_progress(90.0, "Old folder not found, but destination exists. Re-linking server path...");
+            let state = app_handle.state::<AppState>();
+            if let Ok(db) = state.db.lock() {
+                if let Ok(conn) = db.get_connection() {
+                    let sanitized_str = new_path.to_string_lossy().to_string();
+                    let table_name = if is_ase { "ase_servers" } else { "servers" };
+                    let _ = conn.execute(&format!("UPDATE {} SET install_path = ?1 WHERE id = ?2", table_name), rusqlite::params![sanitized_str, server_id]);
+                }
+            }
+            emit_progress(100.0, "Server re-linked successfully!");
+            return Ok(());
+        }
+
+        // 2. Fast rename on same drive/volume:
+        // If old_path exists and new_path does not exist (or exists as an empty directory created by folder picker)
+        let is_empty_dir = if new_path.exists() && new_path.is_dir() {
+            fs::read_dir(&new_path).map(|mut it| it.next().is_none()).unwrap_or(false)
+        } else {
+            false
+        };
+
+        if !new_path.exists() || is_empty_dir {
+            if is_empty_dir {
+                let _ = fs::remove_dir(&new_path);
+            }
+            emit_progress(20.0, "Attempting instant rename on same drive...");
+            if fs::rename(&old_path, &new_path).is_ok() {
+                emit_progress(95.0, "Updating database...");
+                let state = app_handle.state::<AppState>();
+                if let Ok(db) = state.db.lock() {
+                    if let Ok(conn) = db.get_connection() {
+                        let sanitized_str = new_path.to_string_lossy().to_string();
+                        let table_name = if is_ase { "ase_servers" } else { "servers" };
+                        let _ = conn.execute(&format!("UPDATE {} SET install_path = ?1 WHERE id = ?2", table_name), rusqlite::params![sanitized_str, server_id]);
+                    }
+                }
+                emit_progress(100.0, "Folder renamed successfully!");
+                return Ok(());
+            }
+        }
+
         emit_progress(5.0, "Calculating total file size...");
         
         // Ensure new path exists

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Server, Plus, Play, Square, RotateCw, Trash2, Search, Settings, Terminal, Globe, Shield, RefreshCw, Download, Save, ChevronDown, ChevronUp, FolderOpen, Users, PenLine, Cpu, Network, GripVertical, GitBranch, Loader2, Copy, AlertTriangle, FileText, Timer } from 'lucide-react';
+import { Server, Plus, Play, Square, RotateCw, Trash2, Search, Settings, Terminal, Globe, Shield, RefreshCw, Download, Save, ChevronDown, ChevronUp, FolderOpen, FolderInput, Edit2, ExternalLink, Users, PenLine, Cpu, Network, GripVertical, GitBranch, Loader2, Copy, AlertTriangle, FileText, Timer } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
@@ -21,7 +21,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import ServerStatusBar from '../../components/server/ServerStatusBar';
 import MoveServerDialog from '../../components/server/MoveServerDialog';
-import { moveServer } from '../../utils/tauri';
+import { moveServer, openInExplorer } from '../../utils/tauri';
 import { open } from '@tauri-apps/plugin-dialog';
 import { NumberInput } from '../../components/ui/NumberInput';
 
@@ -353,30 +353,38 @@ export default function ASEServerManager() {
       if (!server) return;
       
       if (server.status !== 'stopped' && server.status !== 'crashed') {
-        toast.error(t('serverManager.move.mustBeStopped', 'Server must be stopped before moving.'));
+        toast.error(t('serverManager.move.mustBeStopped', 'Server must be stopped before moving or changing folder.'));
         return;
       }
 
-      const selectedPath = await open({
-        directory: true,
-        multiple: false,
-        title: t('serverManager.move.selectFolder', 'Select New Server Directory')
-      });
-
-      if (selectedPath && !Array.isArray(selectedPath)) {
-        setMoveServerTarget(server);
-        setMoveServerPath(selectedPath as string);
-        setIsBulkMove(false);
-        setShowMoveDialog(true);
-      }
+      setMoveServerTarget(server);
+      setMoveServerPath(server.installPath);
+      setIsBulkMove(false);
+      setShowMoveDialog(true);
     } catch (error) {
       console.error('Failed to prepare move server:', error);
       toast.error(t('serverManager.move.failed', 'Failed to prepare move server.'));
     }
   };
 
-  const confirmMoveServer = async () => {
-    if (!moveServerPath) return;
+  const handleBrowseMoveFolder = async () => {
+    try {
+      const selectedPath = await open({
+        directory: true,
+        multiple: false,
+        title: t('serverManager.move.selectFolder', 'Select New Server Directory')
+      });
+      if (selectedPath && !Array.isArray(selectedPath)) {
+        setMoveServerPath(selectedPath as string);
+      }
+    } catch (error) {
+      console.error('Failed to browse folder:', error);
+    }
+  };
+
+  const confirmMoveServer = async (customPath?: string) => {
+    const finalPath = customPath || moveServerPath;
+    if (!finalPath) return;
 
     if (isBulkMove) {
       try {
@@ -388,7 +396,9 @@ export default function ASEServerManager() {
             const server = servers.find(s => s.id === serverId);
             if (server) {
               toast.loading(t('serverManager.move.movingServer', { name: server.name, defaultValue: `Moving ${server.name}...` }), { id: 'bulk-move-ase' });
-              await moveServer(serverId, moveServerPath, true); // true for isAse
+              const folderName = server.installPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() || `server_${server.id}`;
+              const serverTargetDir = `${finalPath.replace(/\\/g, '/').replace(/\/+$/, '')}/${folderName}`;
+              await moveServer(serverId, serverTargetDir, true); // true for isAse
               successCount++;
             }
           } catch (err) {
@@ -414,13 +424,13 @@ export default function ASEServerManager() {
       try {
         toast.success(t('serverManager.move.started', 'Moving server...'));
         
-        await moveServer(moveServerTarget.id, moveServerPath, true); // true for isAse
+        await moveServer(moveServerTarget.id, finalPath, true); // true for isAse
         
         toast.success(t('serverManager.move.success', 'Server moved successfully!'));
         refreshServers();
       } catch (error) {
         console.error('Failed to move server:', error);
-        toast.error(t('serverManager.move.failed', 'Failed to move server.'));
+        toast.error(String(error) || t('serverManager.move.failed', 'Failed to move server.'));
         refreshServers();
       }
     }
@@ -1019,11 +1029,50 @@ export default function ASEServerManager() {
                     <div className="bg-[var(--surface-hover)] backdrop-blur-md rounded-2xl border border-[var(--border)] p-5 shadow-sm">
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-6 text-sm">
                         <div className="space-y-2 group/field">
-                            <div className="flex items-center gap-2 text-[var(--text-muted)] group-hover/field:text-[var(--text-primary)] transition-colors">
-                                <FolderOpen className="w-4 h-4 text-amber-500" />
-                                <p className="text-[11px] uppercase tracking-wider font-bold select-none">{t('serverManager.serverDetails.installPath', 'Install Path')}</p>
+                            <div className="flex items-center justify-between text-[var(--text-muted)] group-hover/field:text-[var(--text-primary)] transition-colors">
+                                <div className="flex items-center gap-2">
+                                    <FolderOpen className="w-4 h-4 text-amber-500" />
+                                    <p className="text-[11px] uppercase tracking-wider font-bold select-none">{t('serverManager.serverDetails.installPath', 'Install Path')}</p>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleMoveServer(srv.id);
+                                        }}
+                                        className="text-[10px] text-amber-500 hover:text-amber-400 flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-all font-semibold cursor-pointer"
+                                        title={t('serverManager.actions.moveFolderTooltip', 'Change folder name or move server')}
+                                    >
+                                        <FolderInput className="w-3 h-3" />
+                                        <span>{t('serverManager.actions.changeFolder', 'Change / Rename')}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={async (e) => {
+                                            e.stopPropagation();
+                                            try {
+                                                await openInExplorer(srv.installPath);
+                                                toast.success(t('dashboard.openedFolder', 'Opened server directory in Explorer'));
+                                            } catch (err) {
+                                                toast.error(t('dashboard.cannotOpenFolder', { error: String(err), defaultValue: `Cannot open folder: ${err}` }));
+                                            }
+                                        }}
+                                        className="text-[var(--text-muted)] hover:text-amber-400 p-0.5 rounded hover:bg-white/5 transition-colors cursor-pointer"
+                                        title={t('serverManager.labels.openInExplorer', 'Open in Explorer')}
+                                    >
+                                        <ExternalLink className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
                             </div>
-                            <p className="text-[var(--text-secondary)] font-mono text-xs truncate bg-[var(--surface)] p-2.5 rounded-xl border border-[var(--border)] transition-colors shadow-inner" title={srv.installPath}>{srv.installPath}</p>
+                            <div 
+                                onClick={() => handleMoveServer(srv.id)}
+                                className="flex items-center justify-between text-[var(--text-secondary)] font-mono text-xs bg-[var(--surface)] p-2.5 rounded-xl border border-[var(--border)] hover:border-amber-500/30 hover:bg-[var(--surface-hover)] transition-all shadow-inner cursor-pointer group/path"
+                                title={t('serverManager.actions.clickToChangeFolder', 'Click to change folder name or move server')}
+                            >
+                                <span className="truncate" title={srv.installPath}>{srv.installPath}</span>
+                                <Edit2 className="w-3 h-3 text-slate-500 group-hover/path:text-amber-400 shrink-0 ml-1.5 transition-colors" />
+                            </div>
                         </div>
                         <div className="space-y-2 group/field">
                             <div className="flex items-center gap-2 text-[var(--text-muted)] group-hover/field:text-[var(--text-primary)] transition-colors">
@@ -1327,6 +1376,9 @@ export default function ASEServerManager() {
         isBulk={isBulkMove}
         serverCount={selectedServers.length}
         serverName={moveServerTarget?.name}
+        currentPath={moveServerTarget?.installPath}
+        targetPath={moveServerPath}
+        onBrowseFolder={handleBrowseMoveFolder}
       />
 
       {timedShutdownServer && (

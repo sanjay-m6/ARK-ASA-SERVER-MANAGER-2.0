@@ -1,14 +1,19 @@
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HardDrive, AlertTriangle, X, Check } from 'lucide-react';
+import { HardDrive, AlertTriangle, X, Check, FolderOpen, FolderInput, Edit3, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
 interface MoveServerDialogProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: () => void;
+    onConfirm: (destinationPath?: string) => void;
     isBulk?: boolean;
     serverCount?: number;
     serverName?: string;
+    currentPath?: string;
+    targetPath?: string;
+    onBrowseFolder?: () => void;
 }
 
 export default function MoveServerDialog({
@@ -17,11 +22,44 @@ export default function MoveServerDialog({
     onConfirm,
     isBulk = false,
     serverCount = 0,
-    serverName = ''
+    serverName = '',
+    currentPath = '',
+    targetPath = '',
+    onBrowseFolder
 }: MoveServerDialogProps) {
     const { t } = useTranslation();
 
+    // Editable folder name state for single-server move
+    const [customFolderName, setCustomFolderName] = useState('');
+    const [baseDirectory, setBaseDirectory] = useState('');
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const effectiveTarget = targetPath || currentPath || '';
+        if (effectiveTarget) {
+            const normalized = effectiveTarget.replace(/\\/g, '/').replace(/\/+$/, '');
+            const lastSlash = normalized.lastIndexOf('/');
+            if (lastSlash !== -1) {
+                setBaseDirectory(normalized.substring(0, lastSlash));
+                setCustomFolderName(normalized.substring(lastSlash + 1));
+            } else {
+                setBaseDirectory(normalized);
+                setCustomFolderName('');
+            }
+        }
+    }, [isOpen, targetPath, currentPath]);
+
     if (typeof document === 'undefined') return null;
+
+    const computedTargetPath = baseDirectory && customFolderName 
+        ? `${baseDirectory}/${customFolderName}`.replace(/\//g, '\\')
+        : (targetPath || currentPath);
+
+    const handleConfirm = () => {
+        onConfirm(computedTargetPath);
+        onClose();
+    };
 
     return createPortal(
         <AnimatePresence>
@@ -71,7 +109,7 @@ export default function MoveServerDialog({
                                     <h2 className="text-lg font-bold text-white tracking-tight truncate">
                                         {isBulk 
                                             ? t('serverManager.move.dialogTitleBulk', 'Move Multiple Servers')
-                                            : t('serverManager.move.dialogTitle', 'Move Server')}
+                                            : t('serverManager.move.dialogTitle', 'Move / Rename Server Folder')}
                                     </h2>
                                 </div>
                             </div>
@@ -93,18 +131,102 @@ export default function MoveServerDialog({
                                       })
                                     : t('serverManager.move.dialogDesc', { 
                                         name: serverName, 
-                                        defaultValue: `Are you sure you want to move ${serverName} to the new location?` 
+                                        defaultValue: `Change the folder name or relocate the server installation for "${serverName}".` 
                                       })}
                             </div>
+
+                            {/* Path and Folder Name Details */}
+                            {!isBulk && (currentPath || targetPath) && (
+                                <div className="p-4 bg-slate-950/60 rounded-2xl border border-white/5 space-y-3 shadow-inner">
+                                    {currentPath && (
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                                                {t('serverManager.move.currentLocation', 'Current Folder Path')}
+                                            </span>
+                                            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/80 border border-white/5 text-slate-300 font-mono text-xs break-all select-all">
+                                                <FolderOpen className="w-4 h-4 text-slate-400 shrink-0" />
+                                                <span className="truncate" title={currentPath}>{currentPath}</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Editable Destination Folder Name */}
+                                    <div className="space-y-1.5 pt-1">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] uppercase font-bold tracking-wider text-sky-400 flex items-center gap-1.5">
+                                                <Edit3 className="w-3 h-3 text-sky-400" />
+                                                <span>{t('serverManager.move.targetFolderName', 'Folder Name')}</span>
+                                            </label>
+                                            {onBrowseFolder && (
+                                                <button
+                                                    type="button"
+                                                    onClick={onBrowseFolder}
+                                                    className="text-[11px] text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+                                                >
+                                                    <FolderInput className="w-3 h-3" />
+                                                    <span>{t('common.browse', 'Browse Folder...')}</span>
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="text"
+                                                value={customFolderName}
+                                                onChange={(e) => setCustomFolderName(e.target.value.replace(/[\\/:*?"<>|]/g, ''))}
+                                                placeholder="e.g. server1, TheIsland..."
+                                                className="w-full px-3 py-2 bg-slate-900 border border-sky-500/30 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 shadow-inner"
+                                            />
+                                        </div>
+
+                                        {/* Resulting Destination Preview */}
+                                        <div className="pt-1.5 flex items-start gap-1.5 text-[11px] text-slate-400">
+                                            <ArrowRight className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                                            <div className="min-w-0">
+                                                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">
+                                                    {t('serverManager.move.newLocation', 'New Path Preview')}:
+                                                </span>
+                                                <span className="font-mono text-emerald-400 break-all select-all font-semibold">
+                                                    {computedTargetPath}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {isBulk && targetPath && (
+                                <div className="p-4 bg-slate-950/60 rounded-2xl border border-white/5 space-y-2 shadow-inner">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] uppercase font-bold tracking-wider text-sky-400 block">
+                                            {t('serverManager.move.destinationDirectory', 'Destination Directory')}
+                                        </span>
+                                        {onBrowseFolder && (
+                                            <button
+                                                type="button"
+                                                onClick={onBrowseFolder}
+                                                className="text-[11px] text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+                                            >
+                                                <FolderInput className="w-3 h-3" />
+                                                <span>{t('common.browse', 'Browse...')}</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/80 border border-white/5 text-emerald-400 font-mono text-xs break-all select-all">
+                                        <FolderInput className="w-4 h-4 text-sky-400 shrink-0" />
+                                        <span className="truncate font-semibold" title={targetPath}>{targetPath}</span>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="flex items-start gap-3.5 rounded-2xl border border-amber-500/25 bg-amber-500/10 p-4">
                                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
                                 <div className="text-xs text-amber-200/90 leading-relaxed">
                                     <p className="font-bold text-amber-400 uppercase tracking-wider text-[11px] mb-0.5">
-                                        {t('serverManager.move.warningTitle', 'Time-consuming operation')}
+                                        {t('serverManager.move.warningTitle', 'Safe Migration')}
                                     </p>
                                     <p>
-                                        {t('serverManager.move.warningDesc', 'Depending on the size of the save data and server files, this operation may take several minutes. Please do not close the application during this process.')}
+                                        {t('serverManager.move.warningDesc', 'Renaming on the same drive is instant. Across different drives, files will be copied safely. Please ensure the server remains stopped during this process.')}
                                     </p>
                                 </div>
                             </div>
@@ -119,14 +241,12 @@ export default function MoveServerDialog({
                                 {t('common.cancel', 'Cancel')}
                             </button>
                             <button
-                                onClick={() => {
-                                    onConfirm();
-                                    onClose();
-                                }}
-                                className="px-6 py-2.5 rounded-xl font-bold text-xs tracking-wider uppercase transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 text-white bg-gradient-to-r from-sky-600 via-sky-500 to-blue-600 hover:from-sky-500 hover:to-blue-500 shadow-[0_0_24px_rgba(14,165,233,0.4)] hover:shadow-[0_0_32px_rgba(14,165,233,0.6)] border border-sky-400/40 cursor-pointer"
+                                onClick={handleConfirm}
+                                disabled={!computedTargetPath}
+                                className="px-6 py-2.5 rounded-xl font-bold text-xs tracking-wider uppercase transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 text-white bg-gradient-to-r from-sky-600 via-sky-500 to-blue-600 hover:from-sky-500 hover:to-blue-500 shadow-[0_0_24px_rgba(14,165,233,0.4)] hover:shadow-[0_0_32px_rgba(14,165,233,0.6)] border border-sky-400/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                             >
                                 <Check className="h-4 w-4" />
-                                <span>{t('serverManager.move.confirmMove', 'Confirm Move')}</span>
+                                <span>{t('serverManager.move.confirmMove', 'Confirm Move / Rename')}</span>
                             </button>
                         </div>
                     </motion.div>
