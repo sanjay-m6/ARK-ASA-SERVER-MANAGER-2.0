@@ -24,7 +24,8 @@ const SUPPORTED_LANGUAGES = [
   { code: 'it', name: 'Italian (Italiano)' },
   { code: 'pl', name: 'Polish (Polski)' },
   { code: 'ja', name: 'Japanese (日本語)' },
-  { code: 'ko', name: 'Korean (한국어)' }
+  { code: 'ko', name: 'Korean (한국어)' },
+  { code: 'km', name: 'Khmer (ភាសាខ្មែរ)' }
 ];
 
 export default function ChatTranslator() {
