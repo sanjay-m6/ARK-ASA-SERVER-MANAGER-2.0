@@ -15,6 +15,7 @@ import ko from './locales/ko.json';
 import zhCN from './locales/zh-CN.json';
 import zhTW from './locales/zh-TW.json';
 import ta from './locales/ta.json';
+import km from './locales/km.json';
 
 export const supportedLanguages = [
     { code: 'en', name: 'English', nativeName: 'English', flag: '🇬🇧' },
@@ -30,6 +31,7 @@ export const supportedLanguages = [
     { code: 'zh-CN', name: 'Simplified Chinese', nativeName: '简体中文', flag: '🇨🇳' },
     { code: 'zh-TW', name: 'Traditional Chinese', nativeName: '繁體中文', flag: '🇹🇼' },
     { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்', flag: '🇮🇳' },
+    { code: 'km', name: 'Khmer', nativeName: 'ភាសាខ្មែរ', flag: '🇰🇭' },
 ] as const;
 
 export type LanguageCode = typeof supportedLanguages[number]['code'];
@@ -52,6 +54,7 @@ i18n
             'zh-CN': { translation: zhCN },
             'zh-TW': { translation: zhTW },
             ta: { translation: ta },
+            km: { translation: km },
         },
         fallbackLng: 'en',
         interpolation: {
@@ -64,5 +67,16 @@ i18n
         },
         saveMissing: false,
     });
+
+const applyDocumentLanguage = (lng?: string) => {
+    if (typeof document === 'undefined') return;
+    const code = (lng || i18n.language || 'en').split('-')[0];
+    document.documentElement.lang = lng || 'en';
+    document.documentElement.setAttribute('data-lang', lng || 'en');
+    document.documentElement.classList.toggle('lang-km', code === 'km');
+};
+
+i18n.on('languageChanged', applyDocumentLanguage);
+applyDocumentLanguage(i18n.language);
 
 export default i18n;
