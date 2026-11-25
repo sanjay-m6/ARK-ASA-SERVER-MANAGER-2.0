@@ -692,9 +692,44 @@ pub async fn clone_ase_server(
         .map_err(|e| format!("Source ASE server not found: {}", e))?
     };
 
-    let new_name = {
+    let source_path = PathBuf::from(&install_path);
+    let base_folder = source_path
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    let parent_dir = source_path.parent().unwrap_or(&source_path);
+
+    let (new_name, new_install_path, new_port, new_query_port, new_rcon_port) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+        let mut existing_paths: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut used_ports: std::collections::HashSet<u16> = std::collections::HashSet::new();
+        if let Ok(mut stmt) = conn.prepare("SELECT install_path, port, query_port, rcon_port FROM ase_servers") {
+            if let Ok(mut rows) = stmt.query([]) {
+                while let Ok(Some(row)) = rows.next() {
+                    if let Ok(p) = row.get::<_, String>(0) {
+                        existing_paths.insert(p.replace('\\', "/").trim_end_matches('/').to_lowercase());
+                    }
+                    if let Ok(gp) = row.get::<_, u16>(1) { if gp > 0 { used_ports.insert(gp); } }
+                    if let Ok(qp) = row.get::<_, u16>(2) { if qp > 0 { used_ports.insert(qp); } }
+                    if let Ok(rp) = row.get::<_, u16>(3) { if rp > 0 { used_ports.insert(rp); } }
+                }
+            }
+        }
+        if let Ok(mut stmt) = conn.prepare("SELECT install_path, game_port, query_port, rcon_port FROM servers") {
+            if let Ok(mut rows) = stmt.query([]) {
+                while let Ok(Some(row)) = rows.next() {
+                    if let Ok(p) = row.get::<_, String>(0) {
+                        existing_paths.insert(p.replace('\\', "/").trim_end_matches('/').to_lowercase());
+                    }
+                    if let Ok(gp) = row.get::<_, u16>(1) { if gp > 0 { used_ports.insert(gp); } }
+                    if let Ok(qp) = row.get::<_, u16>(2) { if qp > 0 { used_ports.insert(qp); } }
+                    if let Ok(rp) = row.get::<_, u16>(3) { if rp > 0 { used_ports.insert(rp); } }
+                }
+            }
+        }
 
         let base_name = name.clone();
         let mut candidate = format!("{} (Clone)", base_name);
@@ -702,7 +737,7 @@ pub async fn clone_ase_server(
         loop {
             let exists: bool = conn
                 .query_row(
-                    "SELECT EXISTS(SELECT 1 FROM ase_servers WHERE name = ?1)",
+                    "SELECT EXISTS(SELECT 1 FROM ase_servers WHERE LOWER(name) = LOWER(?1))",
                     [&candidate],
                     |row| row.get(0),
                 )
@@ -713,21 +748,36 @@ pub async fn clone_ase_server(
             candidate = format!("{} (Clone {})", base_name, counter);
             counter += 1;
         }
-        candidate
+
+        let mut copy_counter = 1u32;
+        let chosen_path = loop {
+            let folder = if copy_counter == 1 {
+                format!("{}_copy", base_folder)
+            } else {
+                format!("{}_copy_{}", base_folder, copy_counter)
+            };
+            let cand_path = parent_dir.join(&folder);
+            let norm_cand = cand_path.to_string_lossy().replace('\\', "/").trim_end_matches('/').to_lowercase();
+            if !existing_paths.contains(&norm_cand) && !cand_path.exists() {
+                break cand_path;
+            }
+            copy_counter += 1;
+        };
+
+        let pick_free_port = |base: u16, extra_used: &[u16]| -> u16 {
+            let mut p = base.saturating_add(10);
+            if p < 1024 { p = 7787; }
+            while used_ports.contains(&p) || extra_used.contains(&p) {
+                p = if p >= 65500 { 10000 } else { p + 10 };
+            }
+            p
+        };
+        let gp = pick_free_port(port, &[]);
+        let qp = pick_free_port(query_port, &[gp]);
+        let rp = pick_free_port(rcon_port, &[gp, qp]);
+
+        (candidate, chosen_path, gp, qp, rp)
     };
-
-    let source_path = PathBuf::from(&install_path);
-    let new_install_path = source_path.parent().unwrap_or(&source_path).join(format!(
-        "{}_copy",
-        source_path
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-    ));
-
-    let new_port = port + 10;
-    let new_query_port = query_port + 10;
-    let new_rcon_port = rcon_port + 10;
 
     std::fs::create_dir_all(&new_install_path)
         .map_err(|e| format!("Failed to create directory: {}", e))?;
@@ -749,31 +799,15 @@ pub async fn clone_ase_server(
         let gus_path = dest_config_dir.join("GameUserSettings.ini");
         if gus_path.exists() {
             if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&gus_path) {
-                let mut gus_data = crate::ase::ini_parser::IniData::parse(&content);
-                let ss = gus_data.ensure_section("ServerSettings");
-                
-                if let Some(entry) = ss.entries.iter_mut().find(|e| e.key.to_lowercase() == "sessionname") {
-                    entry.value = new_name.clone();
-                } else {
-                    ss.entries.push(crate::ase::ini_parser::IniEntry {
-                        key: "SessionName".to_string(),
-                        value: new_name.clone(),
-                        comment: None,
-                    });
-                }
-                
-                let sss = gus_data.ensure_section("SessionSettings");
-                if let Some(entry) = sss.entries.iter_mut().find(|e| e.key.to_lowercase() == "sessionname") {
-                    entry.value = new_name.clone();
-                } else {
-                    sss.entries.push(crate::ase::ini_parser::IniEntry {
-                        key: "SessionName".to_string(),
-                        value: new_name.clone(),
-                        comment: None,
-                    });
-                }
-                
-                let _ = crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &gus_data.serialize());
+                let mut updated = content;
+                updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "SessionName", &new_name);
+                updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "Port", &new_port.to_string());
+                updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "QueryPort", &new_query_port.to_string());
+                updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "RCONPort", &new_rcon_port.to_string());
+                updated = crate::services::ini_parser::IniParser::update_key(&updated, "URL", "Port", &new_port.to_string());
+                updated = crate::services::ini_parser::IniParser::update_key(&updated, "URL", "QueryPort", &new_query_port.to_string());
+                updated = crate::services::ini_parser::IniParser::update_key(&updated, "SessionSettings", "SessionName", &new_name);
+                let _ = crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &updated);
             }
         }
     }

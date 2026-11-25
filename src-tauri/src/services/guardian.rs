@@ -396,6 +396,20 @@ impl GuardianService {
                             });
                         }
                     } else {
+                        let is_intentionally_stopping: bool = {
+                            let mut stopping = stopping_servers.lock().await;
+                            let removed_pos = stopping.remove(&server_id);
+                            let removed_neg = stopping.remove(&(-server_id));
+                            removed_pos || removed_neg
+                        };
+
+                        if is_intentionally_stopping {
+                            println!("🛡️ Guardian Watchdog: Server {} (PID {}) intentionally stopped. Skipping handoff & crash recovery.", server_id, pid);
+                            let mut pids = server_pids.lock().await;
+                            pids.remove(&server_id);
+                            continue;
+                        }
+
                         let other_pids: Vec<u32> = {
                             let pids = server_pids.lock().await;
                             pids.iter().filter(|(&sid, _)| sid != server_id).map(|(_, &p)| p).collect()
@@ -476,7 +490,9 @@ impl GuardianService {
 
                         let is_intentionally_stopping: bool = {
                             let mut stopping = stopping_servers.lock().await;
-                            stopping.remove(&server_id) || stopping.remove(&(-server_id))
+                            let removed_pos = stopping.remove(&server_id);
+                            let removed_neg = stopping.remove(&(-server_id));
+                            removed_pos || removed_neg
                         };
 
                         let server_name: String = {

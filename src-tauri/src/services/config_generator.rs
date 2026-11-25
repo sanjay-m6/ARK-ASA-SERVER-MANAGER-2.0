@@ -603,7 +603,7 @@ impl ConfigGenerator {
             .iter()
             .map(|m| m.trim().to_string())
             .filter(|m| {
-                !m.is_empty() && m != "0" && m != "927083" && m.chars().all(|c| c.is_ascii_digit())
+                !m.is_empty() && m != "0" && m.chars().all(|c| c.is_ascii_digit())
             })
             .collect();
 
@@ -1703,12 +1703,13 @@ pub fn resolve_map_mod_id(map: &str, active_mods: &[String]) -> Option<String> {
         || trimmed.eq_ignore_ascii_case("Svartalfheim_WP")
         || trimmed.eq_ignore_ascii_case("SVARTALFHEIM")
     {
-        // Check for Free version (893657 or 927084), else default to Premium (962796)
+        // Check for Free version (893657 or 928623), else default to Premium (962796)
+        // Note: 927084 is the official Love Ascended event mod, not Svartalfheim
         if active_mods.iter().any(|m| m == "893657") {
             return Some("893657".to_string());
         }
-        if active_mods.iter().any(|m| m == "927084") {
-            return Some("927084".to_string());
+        if active_mods.iter().any(|m| m == "928623") {
+            return Some("928623".to_string());
         }
         return Some("962796".to_string());
     }

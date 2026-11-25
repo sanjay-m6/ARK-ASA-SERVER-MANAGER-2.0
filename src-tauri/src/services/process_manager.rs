@@ -215,7 +215,10 @@ fn find_process_by_image_path_snapshot(norm_install: &str, is_ase: bool, exclude
                             let mut size = buf.len() as u32;
                             if QueryFullProcessImageNameW(handle, 0, buf.as_mut_ptr(), &mut size) != 0 && size > 0 {
                                 let full_path = String::from_utf16_lossy(&buf[..size as usize]).replace('\\', "/").to_lowercase();
-                                if norm_install.is_empty() || full_path.contains(norm_install) || full_path.starts_with(norm_install) {
+                                let matches_boundary = norm_install.is_empty()
+                                    || full_path == norm_install
+                                    || full_path.starts_with(&format!("{}/", norm_install));
+                                if matches_boundary {
                                     matches.push(pid);
                                 }
                             }
@@ -406,6 +409,42 @@ pub fn find_game_server_pid_by_install_path(
         s.trim_end_matches('/').to_string()
     }
 
+    fn path_is_in_install_dir(candidate: &str, norm_install: &str) -> bool {
+        if norm_install.is_empty() {
+            return true;
+        }
+        candidate == norm_install || candidate.starts_with(&format!("{}/", norm_install))
+    }
+
+    fn cmdline_conflicts_with_ports(cmd_str: &str, query_port: Option<u16>, game_port: Option<u16>) -> bool {
+        let lower = cmd_str.to_lowercase();
+        let extract_val = |key: &str| -> Option<u16> {
+            for prefix in [format!("-{}=", key), format!("?{}=", key)] {
+                if let Some(idx) = lower.find(&prefix) {
+                    let rest = &lower[idx + prefix.len()..];
+                    let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+                    if let Ok(p) = digits.parse::<u16>() {
+                        if p > 0 {
+                            return Some(p);
+                        }
+                    }
+                }
+            }
+            None
+        };
+        if let (Some(qp), Some(cmd_qp)) = (query_port, extract_val("queryport")) {
+            if qp > 0 && cmd_qp != qp {
+                return true;
+            }
+        }
+        if let (Some(gp), Some(cmd_gp)) = (game_port, extract_val("port")) {
+            if gp > 0 && cmd_gp != gp {
+                return true;
+            }
+        }
+        false
+    }
+
     let norm_install = normalize_path(install_path);
 
     // 2. Sysinfo parent PID matching (fallback)
@@ -441,14 +480,14 @@ pub fn find_game_server_pid_by_install_path(
                     let mut path_matches = false;
                     if let Some(exe_path) = process.exe() {
                         let norm_exe = normalize_path(&exe_path.to_string_lossy());
-                        if norm_exe.contains(&norm_install) || norm_exe.starts_with(&norm_install) {
+                        if path_is_in_install_dir(&norm_exe, &norm_install) {
                             path_matches = true;
                         }
                     }
                     if !path_matches {
                         if let Some(cwd_path) = process.cwd() {
                             let norm_cwd = normalize_path(&cwd_path.to_string_lossy());
-                            if norm_cwd.contains(&norm_install) || norm_cwd.starts_with(&norm_install) {
+                            if path_is_in_install_dir(&norm_cwd, &norm_install) {
                                 path_matches = true;
                             }
                         }
@@ -528,11 +567,11 @@ pub fn find_game_server_pid_by_install_path(
                                                 if !norm_install.is_empty() {
                                                     let exe_match = proc.exe().map_or(false, |e| {
                                                         let ne = normalize_path(&e.to_string_lossy());
-                                                        ne.contains(&norm_install) || ne.starts_with(&norm_install)
+                                                        path_is_in_install_dir(&ne, &norm_install)
                                                     });
                                                     let cwd_match = proc.cwd().map_or(false, |c| {
                                                         let nc = normalize_path(&c.to_string_lossy());
-                                                        nc.contains(&norm_install) || nc.starts_with(&norm_install)
+                                                        path_is_in_install_dir(&nc, &norm_install)
                                                     });
                                                     exe_match || cwd_match
                                                 } else {
@@ -576,8 +615,16 @@ pub fn find_game_server_pid_by_install_path(
         let image_matches = find_process_by_image_path_snapshot(&norm_install, is_ase, excluded_slice);
         if image_matches.len() == 1 {
             let candidate_pid = image_matches[0];
-            println!("  🎯 [Handoff] Found unambiguous server PID {} matching install path {:?}", candidate_pid, norm_install);
-            return Some(candidate_pid);
+            let port_conflict = sys.process(sysinfo::Pid::from_u32(candidate_pid)).map_or(false, |proc| {
+                let cmd_str = proc.cmd().iter().map(|a| a.to_string_lossy()).collect::<Vec<_>>().join(" ");
+                cmdline_conflicts_with_ports(&cmd_str, query_port, game_port)
+            });
+            if !port_conflict {
+                println!("  🎯 [Handoff] Found unambiguous server PID {} matching install path {:?}", candidate_pid, norm_install);
+                return Some(candidate_pid);
+            } else {
+                println!("  🛡️ [Handoff] Ignoring PID {} in {:?} because its CLI ports belong to another server.", candidate_pid, norm_install);
+            }
         } else if image_matches.len() > 1 {
             // Multiple instances in this directory — try to match by command line ports
             for &cpid in &image_matches {
@@ -613,20 +660,23 @@ pub fn find_game_server_pid_by_install_path(
                 let mut path_matches = false;
                 if let Some(exe_path) = process.exe() {
                     let norm_exe = normalize_path(&exe_path.to_string_lossy());
-                    if norm_exe.contains(&norm_install) || norm_exe.starts_with(&norm_install) {
+                    if path_is_in_install_dir(&norm_exe, &norm_install) {
                         path_matches = true;
                     }
                 }
                 if !path_matches {
                     if let Some(cwd_path) = process.cwd() {
                         let norm_cwd = normalize_path(&cwd_path.to_string_lossy());
-                        if norm_cwd.contains(&norm_install) || norm_cwd.starts_with(&norm_install) {
+                        if path_is_in_install_dir(&norm_cwd, &norm_install) {
                             path_matches = true;
                         }
                     }
                 }
                 if path_matches {
-                    candidates.push(pid_u32);
+                    let cmd_str = process.cmd().iter().map(|a| a.to_string_lossy()).collect::<Vec<_>>().join(" ");
+                    if !cmdline_conflicts_with_ports(&cmd_str, query_port, game_port) {
+                        candidates.push(pid_u32);
+                    }
                 }
             }
         }
@@ -715,23 +765,30 @@ impl ProcessManager {
                         if let Some(ref mut child) = proc.child {
                             match child.try_wait() {
                                 Ok(Some(status)) => {
-                                    // Parent exited. Check if handoff exists (with retry since it may take a moment to spawn)
+                                    // Parent exited. Only search for child handoff if launched via an API loader
+                                    // and no intentional stop was requested for this server.
+                                    let is_stopping_server = monitor_stop_reasons
+                                        .lock()
+                                        .map(|r| r.contains_key(id))
+                                        .unwrap_or(false);
                                     let mut handoff_pid = None;
-                                    for _ in 0..40 {
-                                        if let Some(new_pid) = find_game_server_pid_by_install_path(
-                                            &proc.install_path.to_string_lossy(),
-                                            &proc.server_type,
-                                            Some(proc.pid),
-                                            Some(proc.query_port),
-                                            Some(proc.game_port),
-                                            Some(&other_pids),
-                                        ) {
-                                            if !other_pids.contains(&new_pid) {
-                                                handoff_pid = Some(new_pid);
-                                                break;
+                                    if proc.is_loader && !is_stopping_server {
+                                        for _ in 0..10 {
+                                            if let Some(new_pid) = find_game_server_pid_by_install_path(
+                                                &proc.install_path.to_string_lossy(),
+                                                &proc.server_type,
+                                                Some(proc.pid),
+                                                Some(proc.query_port),
+                                                Some(proc.game_port),
+                                                Some(&other_pids),
+                                            ) {
+                                                if !other_pids.contains(&new_pid) {
+                                                    handoff_pid = Some(new_pid);
+                                                    break;
+                                                }
                                             }
+                                            std::thread::sleep(std::time::Duration::from_millis(250));
                                         }
-                                        std::thread::sleep(std::time::Duration::from_millis(500));
                                     }
 
                                     if let Some(new_pid) = handoff_pid {
@@ -788,7 +845,12 @@ impl ProcessManager {
                             };
 
                             // If targeted PID not found, try to locate game server via install path/ports before declaring dead
-                            if !is_alive {
+                            // unless an intentional stop was already requested for this server.
+                            let is_stopping_server = monitor_stop_reasons
+                                .lock()
+                                .map(|r| r.contains_key(id))
+                                .unwrap_or(false);
+                            if !is_alive && !is_stopping_server {
                                 if let Some(new_pid) = find_game_server_pid_by_install_path(
                                     &proc.install_path.to_string_lossy(),
                                     &proc.server_type,
@@ -1637,7 +1699,7 @@ impl ProcessManager {
                 if wait_attempts < 6 {
                     wait_attempts += 1;
                     println!("  ⏳ [Startup Port Check] {} Port {} still busy/closing. Waiting 500ms (attempt {}/6)...", port_name, port_val, wait_attempts);
-                    Self::kill_processes_on_ports(&[port_val]);
+                    self.kill_server_ports_safe(server_id, &[port_val]);
                     std::thread::sleep(std::time::Duration::from_millis(500));
                 } else {
                     return Err(anyhow::anyhow!(
@@ -1754,7 +1816,7 @@ impl ProcessManager {
 
                 mod_list.iter()
                     .map(|m| m.trim().to_string())
-                    .filter(|m| !m.is_empty() && m != "0" && m != "927083" && m.chars().all(|c| c.is_ascii_digit()))
+                    .filter(|m| !m.is_empty() && m != "0" && m.chars().all(|c| c.is_ascii_digit()))
                     .collect()
             }
             None => Vec::new(),
@@ -1799,7 +1861,7 @@ impl ProcessManager {
                 for part in custom.split_whitespace() {
                     if part.to_lowercase().starts_with("-mapmodid=") {
                         let id = part.split_once('=').map(|(_, v)| v.trim()).unwrap_or("");
-                        if !id.is_empty() && id != "0" && id != "927083" && id != "960144" && id != "982315" && id != "980421" && id.chars().all(|c| c.is_ascii_digit()) {
+                        if !id.is_empty() && id != "0" && id != "960144" && id != "982315" && id != "980421" && id.chars().all(|c| c.is_ascii_digit()) {
                             detected_map_mod = Some(id.to_string());
                             println!("  🔍 Detected custom map mod ID from launch args: {}", id);
                             break;
@@ -1824,7 +1886,7 @@ impl ProcessManager {
         // Also loading standalone custom map mods (e.g. Bjarnheim 1376189, Amissa 940428) when running an official map (e.g. TheIsland_WP) causes fatal crash.
         let known_map_mods = [
             ("893657", "Svartalfheim (Free)"),
-            ("927084", "Svartalfheim (Alt)"),
+            ("928623", "Svartalfheim"),
             ("962796", "Svartalfheim (Premium)"),
             ("945244", "Forglar (Free)"),
             ("952876", "Forglar (Premium)"),
@@ -2008,6 +2070,15 @@ impl ProcessManager {
 
                 for s in custom_parts {
                     let lower = s.to_lowercase();
+                    // In ARK: Survival Ascended, seasonal events are delivered as CurseForge mods (-mods=),
+                    // NOT legacy ASE -activeevent= flags (which have no effect in ASA).
+                    if server_type != "ASE" && lower.starts_with("-activeevent=") {
+                        println!(
+                            "  🧹 Stripped legacy ASE {} flag for ASA server {} (events in ASA use CurseForge mods via -mods=)",
+                            s, server_id
+                        );
+                        continue;
+                    }
                     // Strip -MapModID if this is an official map or if it points to rogue mods
                     if lower.starts_with("-mapmodid=") {
                         if is_official || lower.contains("960144") || lower.contains("982315") || lower.contains("980421") {
@@ -2675,7 +2746,85 @@ impl ProcessManager {
     }
 
     /// Terminate any process currently holding a socket on the specified ports
-    pub fn kill_processes_on_ports(_ports: &[u16]) {
+    pub fn kill_processes_on_ports(ports: &[u16]) {
+        Self::kill_processes_on_ports_excluding(ports, &[]);
+    }
+
+    /// Kill lingering ARK processes holding `ports`, never touching `exclude_pids`
+    /// or ports actively assigned to other running managed servers.
+    pub fn kill_server_ports_safe(&self, server_id: i64, ports: &[u16]) {
+        let other_pids: Vec<u32> = {
+            let procs = self.processes.lock().unwrap_or_else(|e| e.into_inner());
+            procs
+                .iter()
+                .filter(|(&sid, _)| sid != server_id)
+                .map(|(_, p)| p.pid)
+                .collect()
+        };
+        Self::kill_processes_on_ports_for_server_with_pids(&self.app_handle, server_id, ports, &other_pids);
+    }
+
+    fn kill_processes_on_ports_for_server_with_pids(
+        app_handle: &AppHandle,
+        server_id: i64,
+        ports: &[u16],
+        other_pids: &[u32],
+    ) {
+        let mut protected_pids: Vec<u32> = other_pids.to_vec();
+        let mut protected_ports: Vec<u16> = Vec::new();
+
+        if let Some(state) = app_handle.try_state::<crate::AppState>() {
+            if let Ok(db_guard) = state.db.lock() {
+                if let Ok(conn) = db_guard.get_connection() {
+                    if let Ok(mut stmt) = conn.prepare(
+                        "SELECT game_port, query_port, rcon_port, COALESCE(rcon_enabled, 1), process_id
+                         FROM servers WHERE id != ?1 AND status IN ('running', 'online', 'starting', 'restarting')"
+                    ) {
+                        if let Ok(mut rows) = stmt.query([server_id]) {
+                            while let Ok(Some(row)) = rows.next() {
+                                if let Ok(gp) = row.get::<_, u16>(0) { if gp > 0 { protected_ports.push(gp); } }
+                                if let Ok(qp) = row.get::<_, u16>(1) { if qp > 0 { protected_ports.push(qp); } }
+                                let rcon_en = row.get::<_, i32>(3).unwrap_or(1) != 0;
+                                if rcon_en {
+                                    if let Ok(rp) = row.get::<_, u16>(2) { if rp > 0 { protected_ports.push(rp); } }
+                                }
+                                if let Ok(Some(pid)) = row.get::<_, Option<i64>>(4) {
+                                    if pid > 0 { protected_pids.push(pid as u32); }
+                                }
+                            }
+                        }
+                    }
+                    if let Ok(mut stmt) = conn.prepare(
+                        "SELECT port, query_port, rcon_port, process_id
+                         FROM ase_servers WHERE id != ?1 AND status IN ('running', 'online', 'starting', 'restarting')"
+                    ) {
+                        if let Ok(mut rows) = stmt.query([server_id.abs()]) {
+                            while let Ok(Some(row)) = rows.next() {
+                                if let Ok(gp) = row.get::<_, u16>(0) { if gp > 0 { protected_ports.push(gp); } }
+                                if let Ok(qp) = row.get::<_, u16>(1) { if qp > 0 { protected_ports.push(qp); } }
+                                if let Ok(rp) = row.get::<_, u16>(2) { if rp > 0 { protected_ports.push(rp); } }
+                                if let Ok(Some(pid)) = row.get::<_, Option<i64>>(3) {
+                                    if pid > 0 { protected_pids.push(pid as u32); }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let safe_ports: Vec<u16> = ports
+            .iter()
+            .copied()
+            .filter(|p| *p > 0 && !protected_ports.contains(p))
+            .collect();
+        if safe_ports.is_empty() {
+            return;
+        }
+        Self::kill_processes_on_ports_excluding(&safe_ports, &protected_pids);
+    }
+
+    pub fn kill_processes_on_ports_excluding(_ports: &[u16], exclude_pids: &[u32]) {
         #[cfg(target_os = "windows")]
         {
             let current_pid = std::process::id();
@@ -2718,7 +2867,10 @@ impl ProcessManager {
                             continue;
                         };
 
-                        if pid <= 4 || pid == current_pid {
+                        if pid <= 4 || pid == current_pid || exclude_pids.contains(&pid) {
+                            if exclude_pids.contains(&pid) {
+                                println!("  🛡️ [SAFETY] Skipping termination of PID {} on port {} (actively tracked by another server).", pid, port);
+                            }
                             continue;
                         }
 
@@ -2769,14 +2921,25 @@ impl ProcessManager {
             reasons.insert(server_id, reason.clone());
         }
 
-        // Notify Guardian watchdog that we are stopping intentionally
+        // Notify Guardian watchdog synchronously BEFORE killing so watchdog never mistakes shutdown for a crash
         if let Some(guardian) = self.app_handle.try_state::<crate::services::guardian::GuardianState>() {
-            let guardian_inner = guardian.0.clone();
-            tauri::async_runtime::spawn(async move {
-                let guard = guardian_inner.lock().await;
-                guard.mark_as_stopping(server_id).await;
-                guard.mark_as_stopping(-server_id).await;
-            });
+            let mut marked_sync = false;
+            if let Ok(guard) = guardian.0.try_lock() {
+                if let Ok(mut stopping) = guard.stopping_servers.try_lock() {
+                    stopping.insert(server_id);
+                    stopping.insert(-server_id);
+                    marked_sync = true;
+                    println!("🛡️ Guardian: Marked server {} as intentionally stopping (sync)", server_id);
+                }
+            }
+            if !marked_sync {
+                let guardian_inner = guardian.0.clone();
+                tauri::async_runtime::spawn(async move {
+                    let guard = guardian_inner.lock().await;
+                    guard.mark_as_stopping(server_id).await;
+                    guard.mark_as_stopping(-server_id).await;
+                });
+            }
         }
 
         // Retrieve server ports from DB to ensure thorough background process termination
@@ -2800,6 +2963,11 @@ impl ProcessManager {
         }
 
         let mut processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
+        let other_tracked_pids: Vec<u32> = processes
+            .iter()
+            .filter(|(&sid, _)| sid != server_id)
+            .map(|(_, p)| p.pid)
+            .collect();
 
         if let Some(server_proc) = processes.remove(&server_id) {
             let uptime = server_proc.started_at.elapsed().as_secs();
@@ -2838,8 +3006,8 @@ impl ProcessManager {
                 let _ = child.wait();
             }
 
-            // Kill any lingering background process on ports
-            Self::kill_processes_on_ports(&target_ports);
+            // Kill any lingering background process on ports (never touching other running servers)
+            Self::kill_processes_on_ports_for_server_with_pids(&self.app_handle, server_id, &target_ports, &other_tracked_pids);
 
             // Clear process_id and update status in DB
             if let Some(state) = self.app_handle.try_state::<crate::AppState>() {
@@ -2930,8 +3098,8 @@ impl ProcessManager {
                             }
                         }
 
-                        // Also kill any process listening on ports
-                        Self::kill_processes_on_ports(&target_ports);
+                        // Also kill any process listening on ports (never touching other running servers)
+                        Self::kill_processes_on_ports_for_server_with_pids(&self.app_handle, server_id, &target_ports, &other_tracked_pids);
 
                         // Update status in DB
                         let update_query = format!("UPDATE {} SET status = 'stopped', process_id = NULL WHERE id = ?1", table);

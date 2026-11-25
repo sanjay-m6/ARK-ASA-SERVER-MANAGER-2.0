@@ -684,8 +684,8 @@ export async function readConfig(serverId: number, configType: string): Promise<
     return await invoke('read_config', { serverId, configType });
 }
 
-export async function saveConfig(serverId: number, configType: string, content: string): Promise<void> {
-    return await invoke('save_config', { serverId, configType, content });
+export async function saveConfig(serverId: number, configType: string, content: string, overwrite: boolean = false): Promise<void> {
+    return await invoke('save_config', { serverId, configType, content, overwrite });
 }
 
 // ============================================================================

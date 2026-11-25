@@ -1249,17 +1249,53 @@ interface PendingChange {
     newValue: string;
 }
 
-/** Keys whose value differs from what is saved on disk (empty values are not written, so skipped) */
-export const computeConfigChanges = (current: IniMaps, saved: IniMaps): PendingChange[] => {
+export const computeConfigChanges = (
+    current: IniMaps,
+    saved: IniMaps,
+    options?: {
+        includeDeletions?: boolean;
+        rawGusChanged?: boolean;
+        rawGameChanged?: boolean;
+    }
+): PendingChange[] => {
+    const includeDeletions = options?.includeDeletions ?? false;
     const changes: PendingChange[] = [];
     for (const file of ['GameUserSettings', 'Game'] as IniFile[]) {
+        const fileStartLen = changes.length;
         for (const [section, values] of current[file]) {
             for (const [key, newValue] of values) {
-                if (newValue === undefined || newValue === null || newValue.trim() === '') continue;
+                const isEmpty = newValue === undefined || newValue === null || newValue.trim() === '';
                 const oldValue = saved[file].get(section)?.get(key);
+                if (isEmpty) {
+                    // Only report cleared values if the key previously held a non-empty value on disk during raw edits
+                    if (includeDeletions && oldValue !== undefined && oldValue.trim() !== '') {
+                        changes.push({ file, section, key, oldValue, newValue: '' });
+                    }
+                    continue;
+                }
                 if (oldValue !== undefined && sameIniValue(oldValue, newValue)) continue;
                 changes.push({ file, section, key, oldValue, newValue });
             }
+        }
+        if (includeDeletions) {
+            for (const [section, values] of saved[file]) {
+                for (const [key, oldValue] of values) {
+                    const currentSection = current[file].get(section);
+                    if (!currentSection || !currentSection.has(key)) {
+                        changes.push({ file, section, key, oldValue, newValue: '' });
+                    }
+                }
+            }
+        }
+        const rawChanged = file === 'GameUserSettings' ? options?.rawGusChanged : options?.rawGameChanged;
+        if (rawChanged && changes.length === fileStartLen) {
+            changes.push({
+                file,
+                section: 'Raw INI',
+                key: 'Formatting / Comments',
+                oldValue: undefined,
+                newValue: 'Modified raw text',
+            });
         }
     }
     return changes;
@@ -1326,7 +1362,9 @@ function SaveChangesDialog({ changes, onCancel, onConfirm }: { changes: PendingC
                                                     ? <span className="text-red-300/80 line-through">{oldText}</span>
                                                     : <span className="text-[var(--text-muted)] italic">{t('configEditor.saveDialog.new', 'new')}</span>}
                                                 <span className="text-[var(--text-muted)]">→</span>
-                                                <span className="text-emerald-300">{describeIniValue(c.newValue, entriesLabel)}</span>
+                                                {c.newValue === ''
+                                                    ? <span className="text-red-400 italic">{t('configEditor.saveDialog.removed', '(removed)')}</span>
+                                                    : <span className="text-emerald-300">{describeIniValue(c.newValue, entriesLabel)}</span>}
                                             </div>
                                         </div>
                                     );
@@ -2144,6 +2182,12 @@ export default function ConfigEditor() {
         GameUserSettings: CaseInsensitiveMap<CaseInsensitiveMap<string>>,
         Game: CaseInsensitiveMap<CaseInsensitiveMap<string>>
     }>({ GameUserSettings: new CaseInsensitiveMap(), Game: new CaseInsensitiveMap() });
+    const [savedRawText, setSavedRawText] = useState<{ gus: string; game: string }>({ gus: '', game: '' });
+
+    // Track whether each file was edited via the raw text editor or visual controls so switching
+    // between Raw <-> Visual/Levels/Stats tabs never drops pending edits or clobbers comments.
+    const rawModifiedRef = useRef<{ gus: boolean; game: boolean }>({ gus: false, game: false });
+    const visualModifiedRef = useRef<{ gus: boolean; game: boolean }>({ gus: false, game: false });
 
     // Initialize from navigation. Runs only when the navigation state changes — not on every
     // server list refresh, which used to override the server the user picked in the selector.
@@ -2183,7 +2227,10 @@ export default function ConfigEditor() {
                 Game: new CaseInsensitiveMap()
             });
             setRawText({ gus: '', game: '' });
+            setSavedRawText({ gus: '', game: '' });
             setSavedConfigs({ GameUserSettings: new CaseInsensitiveMap(), Game: new CaseInsensitiveMap() });
+            rawModifiedRef.current = { gus: false, game: false };
+            visualModifiedRef.current = { gus: false, game: false };
             try {
                 const [gusContent, gameContent] = await Promise.all([
                     readConfig(selectedServerId, 'GameUserSettings'),
@@ -2193,6 +2240,7 @@ export default function ConfigEditor() {
                 // Untouched copy of the files (before the migrations/back-fills below)
                 if (!cancelled) {
                     setSavedConfigs({ GameUserSettings: parseIniContent(gusContent), Game: parseIniContent(gameContent) });
+                    setSavedRawText({ gus: gusContent, game: gameContent });
                 }
                 const parsedGus = parseIniContent(gusContent);
                 const parsedGame = parseIniContent(gameContent);
@@ -2249,15 +2297,12 @@ export default function ConfigEditor() {
                     Game: parsedGame
                 });
 
-                // Raw editors need their text populated too (e.g. opened directly in raw mode
-                // or switched server while in raw mode); otherwise they show an empty file.
-                const mode = viewModeRef.current;
-                if (mode === 'gus' || mode === 'game') {
-                    setRawText({
-                        gus: generateIniContent(parsedGus),
-                        game: generateIniContent(parsedGame)
-                    });
-                }
+                // Preserve exact on-disk raw text so opening or switching to Raw INI tabs never
+                // loses comments, blank lines, or unedited formatting.
+                setRawText({
+                    gus: gusContent,
+                    game: gameContent
+                });
 
                 loadedServerIdRef.current = selectedServerId;
             } catch (err) {
@@ -2303,10 +2348,8 @@ export default function ConfigEditor() {
         setModifiedSettings(modified);
     };
 
-    // Switch between editor modes, keeping `configs` (all structured modes) and `rawText` (raw modes)
-    // in sync. Previously raw text was only regenerated when coming from 'visual', so going
-    // levels/stats → raw showed an empty file, and raw → visual then parsed that empty text and
-    // wiped every setting in the editor. Raw edits were also lost when leaving raw for levels/stats.
+    // Switch between editor modes, keeping `configs` (structured modes) and `rawText` (raw modes)
+    // in sync without discarding raw edits, deletions, comments, or formatting across tab switches.
     const switchViewMode = (target: typeof viewMode) => {
         if (viewMode === target) return;
         const leavingRaw = viewMode === 'gus' || viewMode === 'game';
@@ -2319,18 +2362,24 @@ export default function ConfigEditor() {
             };
             setConfigs(parsed);
             checkModifications(parsed);
-            // Optimization: Clear raw text from memory when leaving raw mode
-            setRawText({ gus: '', game: '' });
         } else if (!leavingRaw && enteringRaw) {
-            setRawText({
-                gus: generateIniContent(configs.GameUserSettings),
-                game: generateIniContent(configs.Game)
-            });
+            setRawText(prev => ({
+                gus: visualModifiedRef.current.gus ? generateIniContent(configs.GameUserSettings) : prev.gus,
+                game: visualModifiedRef.current.game ? generateIniContent(configs.Game) : prev.game
+            }));
+            visualModifiedRef.current = { gus: false, game: false };
         }
         setViewMode(target);
     };
 
     const handleUpdate = useCallback((source: 'GameUserSettings' | 'Game', section: string, key: string, val: string, defaultValue?: string) => {
+        if (source === 'GameUserSettings') {
+            visualModifiedRef.current.gus = true;
+            rawModifiedRef.current.gus = false;
+        } else {
+            visualModifiedRef.current.game = true;
+            rawModifiedRef.current.game = false;
+        }
         setConfigs(prev => {
             const fileMap = prev[source] || new CaseInsensitiveMap<CaseInsensitiveMap<string>>();
             const newFileMap = fileMap instanceof CaseInsensitiveMap
@@ -2390,24 +2439,16 @@ export default function ConfigEditor() {
 
     // Turn the editor state into the INI texts that would be written
     const buildSavePayload = () => {
+            const inRawMode = viewMode === 'gus' || viewMode === 'game';
+            const overwriteGus = inRawMode || (rawModifiedRef.current.gus && !visualModifiedRef.current.gus);
+            const overwriteGame = inRawMode || (rawModifiedRef.current.game && !visualModifiedRef.current.game);
+
             let gusString = rawText.gus;
             let gameString = rawText.game;
+            let parsedGus = overwriteGus ? parseIniContent(rawText.gus) : configs.GameUserSettings;
+            let parsedGame = overwriteGame ? parseIniContent(rawText.game) : configs.Game;
 
-            // Get parsed configs for extracting values
-            let parsedConfigs = configs;
-
-            // If in Raw Editor mode, use the text content. Otherwise (Visual, Stats, Levels, etc), use the parsed configs.
-            if (viewMode === 'gus' || viewMode === 'game') {
-                // Parse raw text to get current values to ensure we save what's in the text editor
-                parsedConfigs = {
-                    GameUserSettings: parseIniContent(rawText.gus),
-                    Game: parseIniContent(rawText.game)
-                };
-                gusString = rawText.gus;
-                gameString = rawText.game;
-            } else {
-                // For all other modes, generate INI from the current state maps
-                // Keep URL section in sync with ServerSettings so both sections reflect user port edits
+            if (!overwriteGus) {
                 const srv = configs.GameUserSettings.get('ServerSettings');
                 const url = configs.GameUserSettings.get('URL');
                 if (srv && url) {
@@ -2415,14 +2456,24 @@ export default function ConfigEditor() {
                     if (srv.has('QueryPort')) url.set('QueryPort', srv.get('QueryPort')!);
                 }
                 gusString = generateIniContent(configs.GameUserSettings);
-                gameString = generateIniContent(configs.Game);
+                parsedGus = configs.GameUserSettings;
             }
 
-            // Ensure Game.ini has the required section header even if empty
-            if (!gameString.includes('[/Script/ShooterGame.ShooterGameMode]')) {
-                gameString = '[/Script/ShooterGame.ShooterGameMode]\n' + gameString;
+            if (!overwriteGame) {
+                gameString = generateIniContent(configs.Game);
+                if (!gameString.includes('[/Script/ShooterGame.ShooterGameMode]')) {
+                    gameString = '[/Script/ShooterGame.ShooterGameMode]\n' + gameString;
+                }
+                parsedGame = configs.Game;
             }
-            return { parsedConfigs, gusString, gameString };
+
+            return {
+                parsedConfigs: { GameUserSettings: parsedGus, Game: parsedGame },
+                gusString,
+                gameString,
+                overwriteGus,
+                overwriteGame,
+            };
     };
 
     // Save is two-step: list what changed and ask for confirmation, then write
@@ -2437,7 +2488,11 @@ export default function ConfigEditor() {
             return;
         }
         const payload = buildSavePayload();
-        const changes = computeConfigChanges(payload.parsedConfigs, savedConfigs);
+        const changes = computeConfigChanges(payload.parsedConfigs, savedConfigs, {
+            includeDeletions: payload.overwriteGus || payload.overwriteGame,
+            rawGusChanged: payload.overwriteGus && payload.gusString !== savedRawText.gus,
+            rawGameChanged: payload.overwriteGame && payload.gameString !== savedRawText.game,
+        });
         if (changes.length === 0) {
             toast(t('configEditor.saveDialog.noChanges', 'No changes to save'), { icon: 'ℹ️' });
             return;
@@ -2445,7 +2500,7 @@ export default function ConfigEditor() {
         setPendingSave({ payload, changes });
     };
 
-    const performSave = async ({ parsedConfigs, gusString, gameString }: ReturnType<typeof buildSavePayload>, changes: PendingChange[]) => {
+    const performSave = async ({ parsedConfigs, gusString, gameString, overwriteGus, overwriteGame }: ReturnType<typeof buildSavePayload>, changes: PendingChange[]) => {
         if (!selectedServerId) return;
         setPendingSave(null);
         setIsLoading(true);
@@ -2454,11 +2509,11 @@ export default function ConfigEditor() {
             const gusChanged = changes.some(c => c.file === 'GameUserSettings');
             const gameChanged = changes.some(c => c.file === 'Game');
             await Promise.all([
-                gusChanged ? saveConfig(selectedServerId, 'GameUserSettings', gusString) : Promise.resolve(),
-                gameChanged ? saveConfig(selectedServerId, 'Game', gameString) : Promise.resolve(),
+                gusChanged ? saveConfig(selectedServerId, 'GameUserSettings', gusString, overwriteGus) : Promise.resolve(),
+                gameChanged ? saveConfig(selectedServerId, 'Game', gameString, overwriteGame) : Promise.resolve(),
             ]);
-            // What we just wrote is now the on-disk state (the backend merges, so keys missing here
-            // keep their previous saved value)
+
+            // Re-sync in-memory snapshots so subsequent saves & tab switches reflect what is now on disk
             setSavedConfigs(prev => {
                 const merge = (base: CaseInsensitiveMap<CaseInsensitiveMap<string>>, written: string) => {
                     const next = base.clone();
@@ -2469,8 +2524,33 @@ export default function ConfigEditor() {
                     }
                     return next;
                 };
-                return { GameUserSettings: merge(prev.GameUserSettings, gusString), Game: merge(prev.Game, gameString) };
+                return {
+                    GameUserSettings: gusChanged
+                        ? (overwriteGus ? parseIniContent(gusString) : merge(prev.GameUserSettings, gusString))
+                        : prev.GameUserSettings,
+                    Game: gameChanged
+                        ? (overwriteGame ? parseIniContent(gameString) : merge(prev.Game, gameString))
+                        : prev.Game,
+                };
             });
+            setConfigs(parsedConfigs);
+            checkModifications(parsedConfigs);
+            setSavedRawText(prev => ({
+                gus: gusChanged ? gusString : prev.gus,
+                game: gameChanged ? gameString : prev.game,
+            }));
+            setRawText(prev => ({
+                gus: gusChanged ? gusString : prev.gus,
+                game: gameChanged ? gameString : prev.game,
+            }));
+            if (gusChanged) {
+                rawModifiedRef.current.gus = false;
+                visualModifiedRef.current.gus = false;
+            }
+            if (gameChanged) {
+                rawModifiedRef.current.game = false;
+                visualModifiedRef.current.game = false;
+            }
 
             // Extract critical settings from the parsed configs and sync to database
             // This ensures settings are always saved even if INI parsing in backend fails
@@ -2699,14 +2779,14 @@ export default function ConfigEditor() {
             GameUserSettings: newConfigs.GameUserSettings,
             Game: newConfigs.Game
         });
+        visualModifiedRef.current = { gus: true, game: true };
+        rawModifiedRef.current = { gus: false, game: false };
 
-        // Update raw text if in raw mode
-        if (viewMode !== 'visual') {
-            setRawText({
-                gus: generateIniContent(newConfigs.GameUserSettings),
-                game: generateIniContent(newConfigs.Game)
-            });
-        }
+        // Keep raw text synchronized with applied preset
+        setRawText({
+            gus: generateIniContent(newConfigs.GameUserSettings),
+            game: generateIniContent(newConfigs.Game)
+        });
 
         setCurrentPreset(preset.id);
         toast.success(t('configEditor.toasts.presetApplied', { name: preset.name }));
@@ -3285,10 +3365,15 @@ export default function ConfigEditor() {
                         </div>
                         <CodeEditor
                             value={viewMode === 'gus' ? rawText.gus : rawText.game}
-                            onChange={(val) => setRawText(prev => ({
-                                ...prev,
-                                [viewMode as 'gus' | 'game']: val
-                            }))}
+                            onChange={(val) => {
+                                const fileKey = viewMode === 'gus' ? 'gus' : 'game';
+                                rawModifiedRef.current[fileKey] = true;
+                                visualModifiedRef.current[fileKey] = false;
+                                setRawText(prev => ({
+                                    ...prev,
+                                    [fileKey]: val
+                                }));
+                            }}
                             className="h-full shadow-2xl"
                         />
                     </div>

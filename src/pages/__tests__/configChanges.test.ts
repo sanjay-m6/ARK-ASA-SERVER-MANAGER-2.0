@@ -47,4 +47,22 @@ describe('computeConfigChanges', () => {
         const current = maps('[ServerSettings]\nHarvestAmountMultiplier=\nServerPVE=True\n', '[/Script/ShooterGame.ShooterGameMode]\nHarvestXPMultiplier=2\n');
         expect(computeConfigChanges(current, saved)).toEqual([]);
     });
+
+    it('detects deleted and emptied keys when raw includeDeletions is enabled', () => {
+        const current = maps('[ServerSettings]\nHarvestAmountMultiplier=\n', '[/Script/ShooterGame.ShooterGameMode]\nHarvestXPMultiplier=2\n');
+        expect(computeConfigChanges(current, saved, { includeDeletions: true })).toEqual([
+            { file: 'GameUserSettings', section: 'ServerSettings', key: 'HarvestAmountMultiplier', oldValue: '4.000000', newValue: '' },
+            { file: 'GameUserSettings', section: 'ServerSettings', key: 'ServerPVE', oldValue: 'True', newValue: '' },
+        ]);
+    });
+
+    it('reports raw formatting or comment edits even when key/value pairs match', () => {
+        const current = maps(
+            '[ServerSettings]\nHarvestAmountMultiplier=4\nServerPVE=True\n',
+            '[/Script/ShooterGame.ShooterGameMode]\nHarvestXPMultiplier=2\n',
+        );
+        expect(computeConfigChanges(current, saved, { includeDeletions: true, rawGusChanged: true })).toEqual([
+            { file: 'GameUserSettings', section: 'Raw INI', key: 'Formatting / Comments', oldValue: undefined, newValue: 'Modified raw text' },
+        ]);
+    });
 });

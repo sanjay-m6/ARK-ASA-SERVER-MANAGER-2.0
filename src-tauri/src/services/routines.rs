@@ -431,7 +431,7 @@ async fn run_step(app: &AppHandle, server_id: i64, step: &RoutineStep, cancel: &
             let updated = crate::services::ini_parser::IniParser::update_key(&current, section.trim(), key.trim(), value.trim());
             // save_config merges, syncs critical values to the DB and keeps a copy to re-apply if the
             // server is running (ARK overwrites GameUserSettings.ini on shutdown)
-            crate::commands::config::save_config(app.state::<AppState>(), server_id, file.clone(), updated).await
+            crate::commands::config::save_config(app.state::<AppState>(), server_id, file.clone(), updated, None).await
         }
     }
 }

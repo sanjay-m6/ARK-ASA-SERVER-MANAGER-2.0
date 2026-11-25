@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation, Trans } from 'react-i18next';
 import { useServerStore } from '../../stores/serverStore';
-import { updateServerSettings, optimizeMemory, setProcessPriority, toggleEcoMode, startServer, restartServer } from '../../utils/tauri';
+import { updateServerSettings, optimizeMemory, setProcessPriority, toggleEcoMode, startServer, restartServer, getInstalledMods, installMod, toggleMod } from '../../utils/tauri';
+import type { ModInfo } from '../../types';
 import { 
   Cpu, Save, Loader2, AlertTriangle, Zap, Activity, Eraser, BarChart2, Leaf, Copy, 
   Flame, Shield, Check, Terminal, Sparkles, Filter, CheckCircle2, RotateCcw, 
@@ -54,13 +55,23 @@ const COMMON_FLAGS: FlagDefinition[] = [
   { flag: '-AllowSharedConnections', label: 'Shared Connections', desc: 'Allows multiple client connections from shared network adapters.', category: 'network' },
   { flag: '-exclusivejoin', label: 'Exclusive Join Only', desc: 'Only permits players listed in the exclusive join whitelist.', category: 'network' },
 
-  // Seasonal Events
-  { flag: '-activeevent=WinterWonderland', label: 'Winter Wonderland', desc: 'Activates the Winter Wonderland holiday event.', category: 'events' },
-  { flag: '-activeevent=Easter', label: 'Eggcellent Adventure', desc: 'Activates the Easter holiday event.', category: 'events' },
-  { flag: '-activeevent=vday', label: 'Love Evolved', desc: 'Activates the Valentine\'s Day event.', category: 'events' },
-  { flag: '-activeevent=Summer', label: 'Summer Bash', desc: 'Activates the Summer Bash event.', category: 'events' },
-  { flag: '-activeevent=FearEvolved', label: 'Fear Evolved', desc: 'Activates the Halloween Fear Evolved event.', category: 'events' },
-  { flag: '-activeevent=Thanksgiving', label: 'Turkey Trial', desc: 'Activates the Thanksgiving event.', category: 'events' },
+  // Seasonal Events in ASA are CurseForge mods passed via -mods= (not legacy ASE -activeevent= flags)
+];
+
+interface EventModDefinition {
+  modId: string;
+  label: string;
+  desc: string;
+  legacyFlag: string;
+}
+
+const ASA_EVENT_MODS: EventModDefinition[] = [
+  { modId: '927090', label: 'Winter Wonderland', desc: 'Activates the official Winter Wonderland holiday event mod (CurseForge ID: 927090).', legacyFlag: '-activeevent=WinterWonderland' },
+  { modId: '877745', label: 'Eggcellent Adventure', desc: 'Activates the official Eggcellent Adventure Easter event mod (CurseForge ID: 877745).', legacyFlag: '-activeevent=Easter' },
+  { modId: '927084', label: 'Love Ascended', desc: 'Activates the official Love Ascended Valentine\'s Day event mod (CurseForge ID: 927084).', legacyFlag: '-activeevent=vday' },
+  { modId: '927091', label: 'Summer Bash', desc: 'Activates the official Summer Bash event mod (CurseForge ID: 927091).', legacyFlag: '-activeevent=Summer' },
+  { modId: '877752', label: 'Fear Ascended', desc: 'Activates the official Fear Ascended Halloween event mod (CurseForge ID: 877752).', legacyFlag: '-activeevent=FearEvolved' },
+  { modId: '927083', label: 'Turkey Trial', desc: 'Activates the official Turkey Trial Thanksgiving event mod (CurseForge ID: 927083).', legacyFlag: '-activeevent=Thanksgiving' },
 ];
 
 // i18n key slug for a launch flag (e.g. '-activeevent=Easter' -> 'activeevent_Easter')
@@ -82,8 +93,27 @@ export default function AdvancedPage() {
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
     const [highPriority, setHighPriority] = useState(false);
     const [ecoModeActive, setEcoModeActive] = useState(false);
+    const [installedMods, setInstalledMods] = useState<ModInfo[]>([]);
+    const [togglingEventId, setTogglingEventId] = useState<string | null>(null);
 
     const loadedServerIdRef = useRef<number | null>(null);
+
+    // Load installed mods for the selected server so ASA event mod toggles stay in sync
+    useEffect(() => {
+        if (!selectedServerId) {
+            setInstalledMods([]);
+            return;
+        }
+        let cancelled = false;
+        getInstalledMods(selectedServerId)
+            .then(mods => {
+                if (!cancelled) setInstalledMods(mods || []);
+            })
+            .catch(() => {
+                if (!cancelled) setInstalledMods([]);
+            });
+        return () => { cancelled = true; };
+    }, [selectedServerId]);
 
     // Initialize selectedServerId on mount or location state without overriding manual dropdown switches
     useEffect(() => {
@@ -265,6 +295,75 @@ export default function AdvancedPage() {
         toast.success(t('advanced.appliedPreset', { name, defaultValue: `Applied ${name} profile` }));
     };
 
+    const isEventModActive = (modId: string) => {
+        const installed = installedMods.find(m => m.id === modId);
+        if (installed && installed.enabled !== false) return true;
+        const modsMatch = customArgs.match(/(?:^|\s)-mods=([^\s]+)/i);
+        if (modsMatch) {
+            return modsMatch[1].split(',').map(s => s.trim()).includes(modId);
+        }
+        return false;
+    };
+
+    const toggleEventMod = async (eventDef: EventModDefinition) => {
+        if (!selectedServerId || togglingEventId) return;
+        setTogglingEventId(eventDef.modId);
+        try {
+            // Strip any legacy ASE -activeevent= flags from customArgs if present
+            const cleanedArgs = customArgs
+                .replace(/(?:^|\s)-activeevent=[^\s]+/gi, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            if (cleanedArgs !== customArgs.trim()) {
+                setCustomArgs(cleanedArgs);
+                setOriginalArgs(cleanedArgs);
+                await updateServerSettings({ serverId: selectedServerId, customArgs: cleanedArgs });
+            }
+
+            const existing = installedMods.find(m => m.id === eventDef.modId);
+            const currentlyEnabled = existing ? existing.enabled !== false : false;
+            const nextEnabled = !currentlyEnabled;
+
+            if (existing) {
+                await toggleMod(selectedServerId, eventDef.modId, nextEnabled);
+            } else {
+                await installMod(selectedServerId, {
+                    id: eventDef.modId,
+                    name: eventDef.label,
+                    author: 'Studio Wildcard',
+                    description: eventDef.desc,
+                    serverType: 'ASA',
+                    enabled: true,
+                });
+            }
+
+            const updatedMods = await getInstalledMods(selectedServerId);
+            setInstalledMods(updatedMods || []);
+            await refreshServers();
+            toast.success(
+                nextEnabled
+                    ? t('advanced.eventModEnabled', { name: eventDef.label, id: eventDef.modId, defaultValue: `${eventDef.label} event mod (${eventDef.modId}) enabled in -mods=` })
+                    : t('advanced.eventModDisabled', { name: eventDef.label, id: eventDef.modId, defaultValue: `${eventDef.label} event mod (${eventDef.modId}) disabled` })
+            );
+        } catch (err) {
+            console.error('Failed to toggle ASA event mod:', err);
+            toast.error(t('advanced.eventModFailed', { error: String(err), defaultValue: `Failed to toggle event mod: ${err}` }));
+        } finally {
+            setTogglingEventId(null);
+        }
+    };
+
+    const filteredEventMods = useMemo(() => {
+        if (selectedCategory !== 'all' && selectedCategory !== 'events') return [];
+        const q = searchQuery.toLowerCase();
+        return ASA_EVENT_MODS.filter(ev =>
+            !q ||
+            ev.label.toLowerCase().includes(q) ||
+            ev.modId.includes(q) ||
+            ev.desc.toLowerCase().includes(q)
+        );
+    }, [selectedCategory, searchQuery]);
+
     const currentServer = useMemo(() => {
         return servers.find(s => s.id === selectedServerId);
     }, [servers, selectedServerId]);
@@ -291,11 +390,15 @@ export default function AdvancedPage() {
         const rconPort = currentServer.ports?.rconPort || 32330;
         const maxPlayers = currentServer.config?.maxPlayers || 70;
         let base = `ArkAscendedServer.exe ${map}?listen?SessionName="${currentServer.name}"?Port=${port}?QueryPort=${queryPort}?RCONPort=${rconPort}?MaxPlayers=${maxPlayers}?RCONEnabled=True`;
+        const activeModIds = installedMods.filter(m => m.enabled !== false && /^\d+$/.test(m.id)).map(m => m.id);
+        if (activeModIds.length > 0 && !/(?:^|\s)-mods=/i.test(customArgs)) {
+            base += ` -mods=${activeModIds.join(',')}`;
+        }
         if (customArgs.trim()) {
             base += ` ${customArgs.trim()}`;
         }
         return base;
-    }, [currentServer, customArgs]);
+    }, [currentServer, customArgs, installedMods]);
 
     return (
         <div className="h-full flex flex-col glass-panel text-[var(--text-primary)] rounded-xl overflow-hidden border border-[var(--border)] shadow-2xl">
@@ -698,6 +801,52 @@ export default function AdvancedPage() {
 
                                     <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] pt-2 border-t border-[var(--border)] mt-1">
                                         <span className="uppercase tracking-wider font-semibold">{categoryLabel(f.category)}</span>
+                                        <span className={`font-bold uppercase tracking-wider ${active ? 'text-red-400' : 'text-[var(--text-muted)]'}`}>
+                                            {active ? t('advanced.enabled', 'Enabled') : t('advanced.disabled', 'Disabled')}
+                                        </span>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                        {filteredEventMods.map(ev => {
+                            const active = isEventModActive(ev.modId);
+                            const busy = togglingEventId === ev.modId;
+                            return (
+                                <button
+                                    key={ev.modId}
+                                    disabled={busy}
+                                    onClick={() => toggleEventMod(ev)}
+                                    className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-3 group relative overflow-hidden cursor-pointer shadow-sm disabled:opacity-60 ${
+                                        active
+                                            ? 'bg-red-500/10 border-red-500/40 shadow-sm'
+                                            : 'bg-[var(--surface)] hover:bg-[var(--surface-hover)] border-[var(--border)] hover:border-[var(--border-hover)]'
+                                    }`}
+                                >
+                                    {active && (
+                                        <div className="absolute top-0 right-0 w-16 h-16 bg-red-500/10 rounded-bl-full pointer-events-none" />
+                                    )}
+
+                                    <div>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <code className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${
+                                                active
+                                                    ? 'bg-red-500/20 text-red-400 border-red-500/40'
+                                                    : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] border-[var(--border)] group-hover:text-[var(--text-primary)]'
+                                            }`}>
+                                                -mods={ev.modId}
+                                            </code>
+                                            <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-colors ${
+                                                active ? 'bg-red-500 text-white' : 'bg-[var(--surface-hover)] text-[var(--text-muted)]'
+                                            }`}>
+                                                {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3 stroke-[3]" />}
+                                            </div>
+                                        </div>
+                                        <h4 className="text-xs font-bold text-[var(--text-primary)] mt-2">{ev.label}</h4>
+                                        <p className="text-[11px] text-[var(--text-secondary)] mt-1 leading-snug">{ev.desc}</p>
+                                    </div>
+
+                                    <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] pt-2 border-t border-[var(--border)] mt-1">
+                                        <span className="uppercase tracking-wider font-semibold">{categoryLabel('events')}</span>
                                         <span className={`font-bold uppercase tracking-wider ${active ? 'text-red-400' : 'text-[var(--text-muted)]'}`}>
                                             {active ? t('advanced.enabled', 'Enabled') : t('advanced.disabled', 'Disabled')}
                                         </span>

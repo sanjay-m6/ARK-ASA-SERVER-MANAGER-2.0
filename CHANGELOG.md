@@ -5,6 +5,25 @@ All notable changes to the ARK ASA Server Manager are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.35] — 2026-11-25
+
+### Fixed & Improved
+- **🧩 Fix Official CurseForge Event Mods Excluded from `-mods=` Launch String**:
+  - Removed hardcoded filtering that dropped official Studio Wildcard Turkey Trial event mod (`927083`) from `ActiveMods` and `-mods=`.
+  - Fixed misclassification of Love Ascended (`927084`) as a Svartalfheim map mod so official event mods are never stripped on official maps.
+- **🎉 Native ASA Event Mod Toggles (Replacing Legacy ASE `-activeevent=` Flags)**:
+  - Upgraded the Boot Launch Parameters Event toggles in `AdvancedPage` to install/toggle official Studio Wildcard CurseForge event mods (`927090` Winter Wonderland, `877745` Eggcellent Adventure, `927084` Love Ascended, `927091` Summer Bash, `877752` Fear Ascended, `927083` Turkey Trial) directly into `-mods=`.
+  - Automatically strips non-functional legacy ASE `-activeevent=...` flags when launching ASA servers.
+- **🛡️ Fix Cloned / Duplicated Servers Starting Multiple Instances & Crashing/Restarting on Shutdown**:
+  - Hardened server cloning (`clone_server` & `clone_ase_server`) to enforce unique `install_path` (database + disk checks), non-colliding Game/Query/RCON ports across ASA and ASE, synchronized `[ServerSettings]`/`[URL]`/`[SessionSettings]`, cloned mod lists, and sanitized launch args.
+  - Replaced substring path matching with boundary-safe directory checks and command-line port guards so sibling server folders never adopt or terminate each other's processes.
+  - Added port/PID exclusion guards on startup & shutdown cleanup (`kill_server_ports_safe`) and synchronized Guardian watchdog intentional-stop marks prior to termination to prevent shutdown-triggered crash/restart loops.
+- **📝 Fix Raw INI Editor (`GameUserSettings.ini` & `Game.ini`) Not Saving & Reverting Across Tabs**:
+  - Added raw overwrite persistence to `save_config` so deleting lines/keys, emptying values, and editing comments save cleanly instead of reporting *"No changes to save"* or restoring deleted keys via INI merge.
+  - Preserved raw text, comments, formatting, and pending edits across Raw ↔ Visual / Levels / Stats tab switches.
+
+---
+
 ## [4.6.34] — 2026-11-03
 
 ### Fixed & Improved

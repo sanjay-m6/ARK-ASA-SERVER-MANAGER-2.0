@@ -715,6 +715,8 @@ pub async fn clone_server(
         ip_address,
         server_type,
         battleye,
+        custom_args,
+        rcon_enabled,
     ) = {
         let db = state
             .db
@@ -726,7 +728,8 @@ pub async fn clone_server(
 
         conn.query_row(
             "SELECT name, install_path, map_name, session_name, game_port, query_port, rcon_port,
-             max_players, server_password, admin_password, ip_address, server_type, battleye FROM servers WHERE id = ?1",
+             max_players, server_password, admin_password, ip_address, server_type, battleye,
+             custom_args, COALESCE(rcon_enabled, 1) FROM servers WHERE id = ?1",
             [source_server_id],
             |row| {
                 Ok((
@@ -743,14 +746,19 @@ pub async fn clone_server(
                     row.get::<_, Option<String>>(10)?,
                     row.get::<_, String>(11).unwrap_or_else(|_| "ASA".to_string()),
                     row.get::<_, i32>(12).unwrap_or(1) != 0,
+                    row.get::<_, Option<String>>(13).unwrap_or(None),
+                    row.get::<_, i32>(14).unwrap_or(1) != 0,
                 ))
             },
         )
         .map_err(|e| format!("Source server not found: {}", e))?
     };
 
-    // Generate system auto-server name (server1, server2, server3...)
-    let new_name = {
+    let source_path = PathBuf::from(&install_path);
+    let parent_dir = source_path.parent().unwrap_or(&source_path);
+
+    // Generate unique server name, install path, and conflict-free ports across all servers
+    let (new_name, new_install_path, new_game_port, new_query_port, new_rcon_port) = {
         let db = state
             .db
             .lock()
@@ -759,29 +767,81 @@ pub async fn clone_server(
             .get_connection()
             .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
+        let mut existing_paths: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut used_ports: std::collections::HashSet<u16> = std::collections::HashSet::new();
+
+        if let Ok(mut stmt) = conn.prepare("SELECT install_path, game_port, query_port, rcon_port FROM servers") {
+            if let Ok(mut rows) = stmt.query([]) {
+                while let Ok(Some(row)) = rows.next() {
+                    if let Ok(p) = row.get::<_, String>(0) {
+                        existing_paths.insert(p.replace('\\', "/").trim_end_matches('/').to_lowercase());
+                    }
+                    if let Ok(gp) = row.get::<_, u16>(1) { if gp > 0 { used_ports.insert(gp); } }
+                    if let Ok(qp) = row.get::<_, u16>(2) { if qp > 0 { used_ports.insert(qp); } }
+                    if let Ok(rp) = row.get::<_, u16>(3) { if rp > 0 { used_ports.insert(rp); } }
+                }
+            }
+        }
+        if let Ok(mut stmt) = conn.prepare("SELECT install_path, port, query_port, rcon_port FROM ase_servers") {
+            if let Ok(mut rows) = stmt.query([]) {
+                while let Ok(Some(row)) = rows.next() {
+                    if let Ok(p) = row.get::<_, String>(0) {
+                        existing_paths.insert(p.replace('\\', "/").trim_end_matches('/').to_lowercase());
+                    }
+                    if let Ok(gp) = row.get::<_, u16>(1) { if gp > 0 { used_ports.insert(gp); } }
+                    if let Ok(qp) = row.get::<_, u16>(2) { if qp > 0 { used_ports.insert(qp); } }
+                    if let Ok(rp) = row.get::<_, u16>(3) { if rp > 0 { used_ports.insert(rp); } }
+                }
+            }
+        }
+
         let mut counter = 1u32;
-        loop {
+        let (chosen_name, chosen_path) = loop {
             let candidate = format!("server{}", counter);
-            let exists: bool = conn
+            let candidate_path = parent_dir.join(&candidate);
+            let norm_candidate = candidate_path.to_string_lossy().replace('\\', "/").trim_end_matches('/').to_lowercase();
+            let name_exists: bool = conn
                 .query_row(
-                    "SELECT EXISTS(SELECT 1 FROM servers WHERE name = ?1)",
+                    "SELECT EXISTS(SELECT 1 FROM servers WHERE LOWER(name) = LOWER(?1))",
                     [&candidate],
                     |row| row.get(0),
                 )
                 .unwrap_or(false);
-            if !exists {
-                break candidate;
+            if !name_exists && !existing_paths.contains(&norm_candidate) && !candidate_path.exists() {
+                break (candidate, candidate_path);
             }
             counter += 1;
-        }
-    };
-    let source_path = PathBuf::from(&install_path);
-    let new_install_path = source_path.parent().unwrap_or(&source_path).join(&new_name);
+        };
 
-    // Offset ports by 10 to avoid conflicts
-    let new_game_port = game_port + 10;
-    let new_query_port = query_port + 10;
-    let new_rcon_port = rcon_port + 10;
+        let pick_free_port = |base: u16, extra_used: &[u16]| -> u16 {
+            let mut p = base.saturating_add(10);
+            if p < 1024 { p = 7787; }
+            while used_ports.contains(&p) || extra_used.contains(&p) {
+                p = if p >= 65500 { 10000 } else { p + 10 };
+            }
+            p
+        };
+
+        let gp = pick_free_port(game_port, &[]);
+        let qp = pick_free_port(query_port, &[gp]);
+        let rp = pick_free_port(rcon_port, &[gp, qp]);
+
+        (chosen_name, chosen_path, gp, qp, rp)
+    };
+
+    // Strip explicit port override flags from cloned custom_args so the clone uses its new ports
+    let cloned_custom_args = custom_args.map(|args| {
+        let filtered: Vec<&str> = args
+            .split_whitespace()
+            .filter(|tok| {
+                let low = tok.to_lowercase();
+                !low.starts_with("-port=")
+                    && !low.starts_with("-queryport=")
+                    && !low.starts_with("-rconport=")
+            })
+            .collect();
+        filtered.join(" ")
+    }).filter(|s| !s.is_empty());
 
     // Create new install directory
     std::fs::create_dir_all(&new_install_path)
@@ -804,7 +864,7 @@ pub async fn clone_server(
         }
 
         // Ensure the cloned GameUserSettings.ini has the newly assigned offset ports and session name
-        // to prevent port collisions with the source server or reversion by INI sync
+        // across ServerSettings, URL, and SessionSettings to prevent port collisions or INI sync reversion
         let gus_dst = dest_config_dir.join("GameUserSettings.ini");
         if gus_dst.exists() {
             if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&gus_dst) {
@@ -812,7 +872,10 @@ pub async fn clone_server(
                 updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "RCONPort", &new_rcon_port.to_string());
                 updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "Port", &new_game_port.to_string());
                 updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "QueryPort", &new_query_port.to_string());
-                updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "SessionName", &format!("\"{}\"", new_name));
+                updated = crate::services::ini_parser::IniParser::update_key(&updated, "ServerSettings", "SessionName", &new_name);
+                updated = crate::services::ini_parser::IniParser::update_key(&updated, "URL", "Port", &new_game_port.to_string());
+                updated = crate::services::ini_parser::IniParser::update_key(&updated, "URL", "QueryPort", &new_query_port.to_string());
+                updated = crate::services::ini_parser::IniParser::update_key(&updated, "SessionSettings", "SessionName", &new_name);
                 let _ = crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_dst, &updated);
                 println!(
                     "  🔒 [Clone Guard] Automatically updated cloned GameUserSettings.ini with unique ports (RCON: {}, Game: {}, Query: {}) and SessionName ({})",
@@ -822,7 +885,7 @@ pub async fn clone_server(
         }
     }
 
-    // Insert new server into database
+    // Insert new server into database and clone mods list
     let new_id = {
         let db = state
             .db
@@ -834,8 +897,8 @@ pub async fn clone_server(
 
         conn.execute(
             "INSERT INTO servers (name, install_path, status, game_port, query_port, rcon_port,
-             max_players, admin_password, map_name, session_name, server_password, ip_address, server_type, battleye)
-             VALUES (?1, ?2, 'stopped', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+             max_players, admin_password, map_name, session_name, server_password, ip_address, server_type, battleye, custom_args, rcon_enabled)
+             VALUES (?1, ?2, 'stopped', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             rusqlite::params![
                 new_name,
                 new_install_path.to_string_lossy(),
@@ -850,16 +913,25 @@ pub async fn clone_server(
                 ip_address,
                 server_type.clone(),
                 if battleye { 1 } else { 0 },
+                cloned_custom_args,
+                if rcon_enabled { 1 } else { 0 },
             ],
         )
         .map_err(|e: rusqlite::Error| e.to_string())?;
 
-        conn.last_insert_rowid()
+        let cloned_id = conn.last_insert_rowid();
+        let _ = conn.execute(
+            "INSERT INTO mods (server_id, mod_id, name, version, author, description, workshop_url, thumbnail_url, server_type, enabled, load_order, last_updated)
+             SELECT ?1, mod_id, name, version, author, description, workshop_url, thumbnail_url, server_type, enabled, load_order, last_updated
+             FROM mods WHERE server_id = ?2",
+            rusqlite::params![cloned_id, source_server_id],
+        );
+        cloned_id
     };
 
     println!(
-        "  ✅ Cloned server {} -> {} (ID: {})",
-        source_server_id, new_name, new_id
+        "  ✅ Cloned server {} -> {} (ID: {}, path: {:?}, ports: {}/{}/{})",
+        source_server_id, new_name, new_id, new_install_path, new_game_port, new_query_port, new_rcon_port
     );
 
     Ok(Server {
@@ -882,10 +954,10 @@ pub async fn clone_server(
             session_name: new_name.clone(),
             motd: None,
             mods: vec![],
-            custom_args: None,
+            custom_args: cloned_custom_args,
         },
         rcon_config: RconConfig {
-            enabled: true,
+            enabled: rcon_enabled,
             password: admin_password,
         },
         ip_address,
@@ -1490,15 +1562,8 @@ async fn perform_server_startup_inner(
             }
 
             if let Some((p_name, my_port, _)) = port_in_use {
-                if port_wait_attempts < 5 {
-                    port_wait_attempts += 1;
-                    println!("  ⏳ [Startup] {} Port {} busy/closing. Waiting 1s (attempt {}/5)...", p_name, my_port, port_wait_attempts);
-                    crate::services::process_manager::ProcessManager::kill_processes_on_ports(&[my_port]);
-                    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
-                    continue;
-                }
-
-                // Determine if another RUNNING server in the manager actively owns this port
+                // Determine FIRST whether another RUNNING/STARTING server in the manager actively owns this port.
+                // Never kill processes belonging to another managed server instance!
                 let (owner_name, owner_id) = {
                     let db = state.db.lock().map_err(|e| e.to_string())?;
                     let conn = db.get_connection().map_err(|e| e.to_string())?;
@@ -1523,18 +1588,44 @@ async fn perform_server_startup_inner(
                             }
                         }
                     }
+                    if id == 0 {
+                        if let Ok(mut stmt) = conn.prepare("SELECT id, name, port, query_port, rcon_port FROM ase_servers WHERE status IN ('running', 'online', 'starting', 'restarting')") {
+                            if let Ok(mut rows) = stmt.query([]) {
+                                while let Ok(Some(row)) = rows.next() {
+                                    let other_id: i64 = row.get(0).unwrap_or(0);
+                                    let other_name_str: String = row.get(1).unwrap_or_default();
+                                    let other_gp: u16 = row.get(2).unwrap_or(0);
+                                    let other_qp: u16 = row.get(3).unwrap_or(0);
+                                    let other_rp: u16 = row.get(4).unwrap_or(0);
+                                    if other_gp == my_port || other_qp == my_port || other_rp == my_port {
+                                        name = other_name_str;
+                                        id = -other_id;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
                     (name, id)
                 };
 
-                if owner_id > 0 {
+                if owner_id != 0 {
                     return Err(format!(
-                        "{} Port {} is actively in use by running server '{}' (ID: {}). Stop the other server before starting.",
-                        p_name, my_port, owner_name, owner_id
+                        "{} Port {} is actively in use by running server '{}' (ID: {}). Change ports or stop the other server before starting.",
+                        p_name, my_port, owner_name, owner_id.abs()
                     ));
-                } else {
-                    println!("  ⚠️ [Startup] Port {} still reported busy after retries, proceeding with launch (Unreal Engine net driver will bind or log).", my_port);
-                    break;
                 }
+
+                if port_wait_attempts < 5 {
+                    port_wait_attempts += 1;
+                    println!("  ⏳ [Startup] {} Port {} busy/closing. Waiting 1s (attempt {}/5)...", p_name, my_port, port_wait_attempts);
+                    state.process_manager.kill_server_ports_safe(server_id, &[my_port]);
+                    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                    continue;
+                }
+
+                println!("  ⚠️ [Startup] Port {} still reported busy after retries, proceeding with launch (Unreal Engine net driver will bind or log).", my_port);
+                break;
             } else {
                 break;
             }
@@ -2324,8 +2415,8 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_din
         }
     }
 
-    // Kill lingering socket holders and wait for ports to be completely free
-    crate::services::process_manager::ProcessManager::kill_processes_on_ports(&target_ports);
+    // Kill lingering socket holders ONLY if not owned/tracked by another server
+    state.process_manager.kill_server_ports_safe(server_id, &target_ports);
     for &p in &target_ports {
         let mut wait_count = 0;
         let is_udp = target_ports.first() == Some(&p) || (target_ports.len() > 1 && target_ports.get(1) == Some(&p));
@@ -5440,7 +5531,7 @@ pub async fn diagnose_server_crash(
 
     let known_map_mods_ref = [
         ("893657", "Svartalfheim (Free)"),
-        ("927084", "Svartalfheim (Alt)"),
+        ("928623", "Svartalfheim"),
         ("962796", "Svartalfheim (Premium)"),
         ("945244", "Forglar (Free)"),
         ("952876", "Forglar (Premium)"),
@@ -5767,7 +5858,7 @@ pub async fn repair_and_recover_server(
                 let is_official = crate::services::config_generator::is_official_map(&map_name);
 
                 let standalone_map_mods = [
-                    "893657", "927084", "962796", "945244", "952876", "965379", "940428",
+                    "893657", "928623", "962796", "945244", "952876", "965379", "940428",
                     "939532", "935639", "935048", "932906", "1376189", "949666", "1016843", "944358", "965905"
                 ];
 

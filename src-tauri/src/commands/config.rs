@@ -208,6 +208,7 @@ pub async fn save_config(
     server_id: i64,
     config_type: String,
     content: String,
+    overwrite: Option<bool>,
 ) -> Result<(), String> {
     let (install_path, server_type) = get_server_info(&state, server_id)?;
     let user_folder = resolve_user_config_folder(&state, &server_type);
@@ -225,8 +226,14 @@ pub async fn save_config(
         content.clone()
     };
 
-    // Use merge strategy to preserve existing keys (like per-level stats)
-    let final_content = if file_path.exists() {
+    let overwrite_mode = overwrite.unwrap_or(false);
+
+    // Raw INI edits replace the file directly so key deletions, emptied values, and comments persist.
+    // Visual / partial saves merge with existing keys on disk so unmanaged sections are preserved.
+    let final_content = if overwrite_mode {
+        println!("  📝 Writing raw {} INI config directly (overwrite mode)...", config_type);
+        clean_content
+    } else if file_path.exists() {
         let existing_raw = IniParser::read_file_to_string(&file_path).unwrap_or_default();
         if !existing_raw.is_empty() {
             // Sanitize the existing file too — ARK may have corrupted it at runtime

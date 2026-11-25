@@ -111,24 +111,34 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Bug Fixes in v4.6.34
-            - **📁 Direct Server Folder Rename & Relocate Action (`INSTALLATIONSPFAD`)**:
-              - Added an intuitive **Change / Rename** action button and click-to-edit directly beside `INSTALLATIONSPFAD` in both Card and List views (for both ASA and ASE).
-              - Added a quick-launch button to open the installation directory directly in Windows Explorer.
-            - **⚡ Fast Instant Rename on Same Drive (Zero-Downtime Migration)**:
-              - Implemented atomic same-volume filesystem rename in the Rust backend (`move_server`), completing folder renames in milliseconds instead of slow 20-minute disk copies.
-              - Automatically falls back to resilient streaming copy if moving across different physical drives.
-            - **🔄 Smart Re-linking for Manually Renamed Folders**:
-              - If a server directory was already renamed or moved externally in Windows Explorer, the manager automatically detects the existing installation and re-links the SQLite database path cleanly without "source not found" errors.
-            - **🗂️ Interactive Move & Rename Modal (`MoveServerDialog`)**:
-              - Displays clear Current Folder Path and New Destination Path.
-              - Added an editable text field to customize the target folder name (e.g. changing `server1` to `TheIsland`) with real-time path preview.
-              - Integrated directory browser ("Browse Folder...") for effortless relocation.
-            - **🛡️ Bulk Migration Subfolder Isolation & Safety Safeguards**:
-              - Fixed bulk migration so each selected server instance is moved into its own isolated subfolder, preventing file collision across servers.
-              - Enforced clear user notifications requiring servers to be stopped before migration, avoiding file-lock corruption.
+            ### 🆕 New Features & Bug Fixes in v4.6.35
+            - **🧩 Fix Official CurseForge Event Mods Excluded from `-mods=` Launch String**:
+              - Removed hardcoded filtering that dropped official Studio Wildcard Turkey Trial event mod (`927083`) from `ActiveMods` and `-mods=`.
+              - Fixed misclassification of Love Ascended (`927084`) as a Svartalfheim map mod so official event mods are never stripped on official maps.
+            - **🎉 Native ASA Event Mod Toggles (Replacing Legacy ASE `-activeevent=` Flags)**:
+              - Upgraded the Boot Launch Parameters Event toggles in ASA to install/toggle official Studio Wildcard CurseForge event mods (`927090` Winter Wonderland, `877745` Eggcellent Adventure, `927084` Love Ascended, `927091` Summer Bash, `877752` Fear Ascended, `927083` Turkey Trial) directly in `-mods=`.
+              - Automatically strips non-functional legacy ASE `-activeevent=...` flags when launching ASA servers.
+            - **🛡️ Fix Cloned / Duplicated Servers Starting Multiple Instances & Crashing/Restarting on Shutdown**:
+              - Hardened server cloning (`clone_server` & `clone_ase_server`) to enforce unique `install_path` (database + disk checks), non-colliding Game/Query/RCON ports across ASA and ASE, synchronized `[ServerSettings]`/`[URL]`/`[SessionSettings]`, cloned mod lists, and sanitized launch args.
+              - Replaced substring path matching with boundary-safe directory checks and command-line port guards so sibling server folders never adopt or terminate each other's processes.
+              - Added port/PID exclusion guards on startup & shutdown cleanup and synchronized Guardian watchdog stopping marks before termination to eliminate shutdown-triggered crash/restart loops.
+            - **📝 Fix Raw INI Editor (`GameUserSettings.ini` & `Game.ini`) Not Saving & Reverting Across Tabs**:
+              - Added raw overwrite persistence so deleting lines/keys, emptying values, and editing comments save cleanly instead of reporting *"No changes to save"* or restoring deleted keys via INI merge.
+              - Preserved raw text, comments, formatting, and pending edits across Raw <-> Visual / Levels / Stats tab switches.
+            - **🌐 Community Localization**:
+              - Includes Khmer (`ភាសាខ្មែរ`) UI language support.
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.34 — Direct Server Folder Rename & Relocate (INSTALLATIONSPFAD), Instant Same-Drive Migration & Bulk Subfolder Isolation</summary>
+
+            - **📁 Direct Server Folder Rename & Relocate Action (`INSTALLATIONSPFAD`)**:
+              - Added an intuitive **Change / Rename** action button and click-to-edit directly beside `INSTALLATIONSPFAD` in both Card and List views (for both ASA and ASE), plus an Explorer quick-launch button.
+            - **⚡ Fast Instant Rename on Same Drive (Zero-Downtime Migration)**:
+              - Implemented atomic same-volume filesystem rename in the Rust backend (`move_server`), completing folder renames in milliseconds instead of slow 20-minute disk copies, with streaming copy fallback across drives.
+            - **🔄 Smart Re-linking for Manually Renamed Folders & 🗂️ Interactive Move & Rename Modal (`MoveServerDialog`)**:
+              - Auto-relinks externally renamed folders cleanly and adds an interactive destination folder editor, folder browser, isolated bulk migration subfolders, and running-server safety guards.
+            </details>
             <details>
             <summary>v4.6.33 — Fix SteamCMD Update Failure & Error App 2430930 (State 0x6 / 0x406), Guardian Clean Exit & MapName Alignment</summary>
 
